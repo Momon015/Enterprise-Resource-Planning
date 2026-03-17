@@ -72,8 +72,8 @@ function toggleCostInput(itemId) {
                 <th class="ps-4">Product</th>
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
-                <th>Total Cost</th>
-                <th>Unsold</th>
+                {% comment %} <th>Total Cost</th>
+                <th>Unsold</th> {% endcomment %}
                 <th>Unit Price</th>
                 <th>Line Total</th>
                 <th class="pe-4">Remove</th>
@@ -116,7 +116,7 @@ function toggleCostInput(itemId) {
                 <!-- UNIT COST -->
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
 
-                <!-- TOTAL COST (editable) -->
+                {% comment %} <!-- TOTAL COST (editable) -->
                 <td>
                   <form method="POST" action="{% url 'sale-edit-cost-price' item.id %}">
                     {% csrf_token %}
@@ -141,9 +141,9 @@ function toggleCostInput(itemId) {
                       </div>
                     </div>
                   </form>
-                </td>
+                </td> {% endcomment %}
 
-                <!-- UNSOLD QTY -->
+                {% comment %} <!-- UNSOLD QTY -->
                 <td>
                   <div class="qty-stepper">
                     <form method="POST" action="{% url 'sale-edit-unsold-quantity' item.id %}">
@@ -166,7 +166,7 @@ function toggleCostInput(itemId) {
                       <button type="submit" class="qty-btn">+</button>
                     </form>
                   </div>
-                </td>
+                </td> {% endcomment %}
 
                 <!-- UNIT PRICE -->
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>

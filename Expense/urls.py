@@ -23,6 +23,9 @@ urlpatterns = [
     
     # edit material's price from session
     path('', views.cart_discount_material, name='cart-discount-material'),
+    
+    # edit total price
+    path('edit/price/<int:material_id>/', views.edit_total_price, name='sale-edit-total-price'),
 
     # clear cart sessions
     path('view/cart/clear/', views.clear_cart, name='clear-cart'),

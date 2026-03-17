@@ -28,7 +28,7 @@ class SaleQuerySet(models.QuerySet):
 class Sale(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
     date = models.DateField(auto_now_add=True, db_index=True)
-    total_revenue = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
     reference = models.CharField(max_length=255, null=True, blank=True)
@@ -52,8 +52,8 @@ class Sale(TimeStampModel):
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
-    price_at_sale = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    price_at_sale = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=1.00)
     quantity = models.PositiveIntegerField(default=1)
     unsold_quantity = models.PositiveIntegerField(default=0)
     

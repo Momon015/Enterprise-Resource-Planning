@@ -195,7 +195,7 @@
           <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label">Net Profit</div>
             <div class="sd-total-amount">
-              ₱{{ net_profit|intcomma|floatformat:2 }}
+              ₱{{ net_profit|intcomma|floatformat:2|default:0 }}
             </div>
           </div>
 

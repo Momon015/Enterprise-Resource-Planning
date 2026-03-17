@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.text import slugify
 
 from core.models import TimeStampModel, SlugModel, Category, StatusModel
-from Inventory.models import Material
+from Supplier.models import Material
 
 from django.utils import timezone
 
@@ -32,7 +32,8 @@ class PurchaseQuerySet(models.QuerySet):
     
     
 class Purchase(TimeStampModel):
-    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
+    total_cost = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
     is_paid = models.BooleanField(default=False)
     line_count = models.PositiveIntegerField(default=0)
@@ -93,6 +94,7 @@ class PurchaseItem(TimeStampModel):
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='items')
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
     
     def __str__(self):
         return f"{self.material.name} - ({self.material.price} x {self.quantity}) - {self.discount} = {self.total_item_discount}"
@@ -103,7 +105,7 @@ class PurchaseItem(TimeStampModel):
     
     @property
     def total_price_per_item(self):
-        return self.material.price * self.quantity
+        return self.price * self.quantity
     
     @property
     def total_item_discount(self):
@@ -119,6 +121,7 @@ class EmployeeQuerySet(models.QuerySet):
         return self.aggregate(total_daily_rate=Sum('daily_rate'))['total_daily_rate'] or 0
     
 class Employee(TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employees')
     name = models.CharField(max_length=255, unique=True)
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     

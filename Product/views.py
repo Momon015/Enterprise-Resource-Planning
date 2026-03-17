@@ -23,13 +23,16 @@ from core.models import Category
 from Product.models import Product, ProductPreset, ProductPresetItem
 from Product.forms import ProductForm, ProductFilterForm
 
+from user.models import User
+
 from decimal import Decimal
 from django.db.models import Q, F
 # Create your views here.
 
+@login_required(login_url='login')
 def product_list(request):
     form = ProductFilterForm(request.GET or None)
-    products = Product.objects.all().order_by('created_at')
+    products = Product.objects.all().order_by('-created_at')
     
     """
     this allows to filter things without 
@@ -150,8 +153,8 @@ def restore_product_quantity(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     product.restore_product_quantity()
     product.save()
-    messages.success(request, f'The {product.name} has been restored successfully.')
-    return redirect('product-list')
+    messages.success(request, f'{product.name} has been restored successfully.')
+    return redirect(f"{reverse('product-list')}?{request.META.get('QUERY_STRING', '')}")
     
 
 @login_required(login_url='login')

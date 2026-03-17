@@ -190,7 +190,7 @@
               {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %}
             </span>
             <h6 class="mb-0 fw-semibold">
-              Product List
+              Product Catalog
             </h6>
           </div>
           <small class="text-muted d-none d-sm-inline">
@@ -206,8 +206,8 @@
                 <thead class="table-light small text-uppercase">
                   <tr>
                     <th class="ps-3 ps-lg-4">Name</th>
+                    <th>Unit</th>
                     <th>Category</th>
-                    <th>SKU</th>
                     <th class="text-end">Unit Cost</th>
                     <th class="text-end">Unit Price</th>
                     <th class="text-center">Stock</th>
@@ -224,6 +224,13 @@
                       <div class="fw-semibold">{{ product.name|capfirst }}</div>
                     </td>
 
+                    <!-- Unit Type -->
+                    <td>
+                      <span class="badge text-bg-secondary rounded-pill">
+                        {{ product.material.get_unit_display|default:"—"}}
+                      </span>
+                    </td>
+
                     <!-- CATEGORY -->
                     <td>
                       <span class="small text-muted">
@@ -231,12 +238,7 @@
                       </span>
                     </td>
 
-                    <!-- SKU -->
-                    <td>
-                      <span class="badge bg-light text-dark border">
-                        {{ product.slug }}
-                      </span>
-                    </td>
+
 
                     <!-- COST -->
                     <td class="text-end">
@@ -285,7 +287,7 @@
                     <td class="text-end pe-3 pe-lg-4">
                       <div class="btn-group btn-group-sm" role="group">
                         <!-- Add to sale -->
-                        <a href="{% url 'add-to-sale' product.id %}"
+                        <a href="{% url 'add-to-sale' product.id %}?{{ request.GET.urlencode }}"
                           class="btn btn-outline-secondary"
                           title="Add to sale"
                           data-bs-toggle="tooltip"
@@ -294,7 +296,7 @@
                         </a>
 
                         <!-- View product -->
-                        <a href="{% url 'product-detail' product.slug %}"
+                        <a href="{% url 'product-detail' product.slug %}?{{ request.GET.urlencode }}"
                           class="btn btn-outline-secondary"
                           title="View product details"
                           data-bs-toggle="tooltip"
@@ -302,14 +304,14 @@
                           <i class="bi bi-eye"></i>
                         </a>
 
-                        <!-- Restore quantity -->
-                        <a href="{% url 'product-restore-quantity' product.id %}"
+                        {% comment %} <!-- Restore quantity -->
+                        <a href="{% url 'product-restore-quantity' product.id %}?{{ request.GET.urlencode }}"
                           class="btn btn-outline-secondary"
                           title="Restore product quantity"
                           data-bs-toggle="tooltip"
                           data-bs-placement="top">
                           <i class="bi bi-arrow-clockwise"></i>
-                        </a>
+                        </a> {% endcomment %}
                       </div>
                     </td>
                   </tr>
@@ -393,7 +395,7 @@
             <i class="bi bi-cart-check"></i>
             <h6 class="mb-0 fw-semibold">Selling overview</h6>
           </div>
-          <small class="text-white-50 d-none d-sm-inline">For POS use</small>
+          <small class="text-white-50 d-none d-sm-inline">For ERP use</small>
         </div>
 
         <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
@@ -444,10 +446,10 @@
                 <i class="bi bi-list-ul me-1"></i>
                 View Presets
               </a>
-              <a href="{% url 'product-batch-restore-quantity' %}" class="btn btn-sm btn-outline-success">
+              {% comment %} <a href="{% url 'product-batch-restore-quantity' %}" class="btn btn-sm btn-outline-success">
                 <i class="bi bi-bootstrap-reboot me-1"></i>
                 Restore products
-              </a>
+              </a> {% endcomment %}
               <a href="{% url 'product-list' %}?stock=high" class="btn btn-sm btn-outline-success">
                 <i class="bi bi-box-seam me-1"></i>
                 View in-stock products

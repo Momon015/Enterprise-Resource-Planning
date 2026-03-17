@@ -1,0 +1,125 @@
+{% extends "main.html" %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-trash text-danger"></i>
+        Delete Preset
+      </h4>
+      <p class="sl-page-subtitle">This action is permanent and cannot be undone.</p>
+    </div>
+    <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to presets
+    </a>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: PRESET DETAILS -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon" style="background: rgba(192,57,43,0.1); color: var(--danger);">
+              <i class="bi bi-bookmark-fill"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{{ preset.name }}</div>
+              <div class="card-header-sub">ID: {{ preset.id }} · {{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="sd-section-label">Items in this preset</div>
+
+          {% if preset.preset_items.exists %}
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th class="sl-text-center">Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in preset.preset_items.all %}
+                <tr>
+                  <td>
+                    <div class="cell-primary">{{ item.material.name }}</div>
+                    <div class="cell-sub">#1</div>
+                  </td>
+                  <td class="sl-text-center">
+                    <span class="sl-badge sl-badge-light">× {{ item.quantity }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="sl-empty-row" style="text-align:center; padding: 2rem; color: #6c757d; font-style: italic;">
+              No items in this preset.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CONFIRM PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-exclamation-octagon-fill"></i> Confirm Delete
+          </span>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <!-- WARNING BLOCK -->
+          <div class="sd-note-box" style="background: var(--danger-light); border-color: #f0d0ce;">
+            <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color: var(--danger);"></i>
+            <div>
+              <div class="sd-note-title" style="color: var(--danger);">Permanent action</div>
+              <div class="sd-note-text">All items saved in this preset will be removed. This cannot be undone.</div>
+            </div>
+          </div>
+
+          <!-- PRESET NAME -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Preset to delete</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Name</span>
+              <span class="sd-info-value" style="color: var(--danger);">{{ preset.name }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total items</span>
+              <span class="sd-info-value">{{ preset.preset_items.count }}</span>
+            </div>
+          </div>
+
+          <!-- ACTIONS -->
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+              <button type="submit" class="btn btn-block"
+                style="background: var(--danger); color:#fff; border-color: var(--danger); font-weight:600;">
+                <i class="bi bi-trash3-fill"></i> Confirm Delete
+              </button>
+              <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-block">
+                <i class="bi bi-x-circle"></i> Cancel
+              </a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock content %}

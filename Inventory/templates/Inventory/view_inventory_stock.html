@@ -1,0 +1,247 @@
+{% extends 'main.html' %}
+{% load humanize %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-boxes"></i>
+        Inventory Stock
+      </h4>
+      <p class="sl-page-subtitle">Current stock levels across all materials.</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- ========== LEFT PANEL ========== -->
+    <div class="left-panel">
+
+      <!-- FILTER BAR -->
+      <div class="mb-2 mb-lg-3">
+        <form method="get" autocomplete="off">
+          <div class="d-flex flex-wrap gap-2 align-items-center w-100">
+
+            <!-- search -->
+            <div class="flex-grow-1">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white border-end-0">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input
+                  type="search"
+                  name="search"
+                  class="form-control border-start-0"
+                  placeholder="Search material name..."
+                  value="{{ request.GET.search|default_if_none:'' }}"
+                >
+              </div>
+            </div>
+
+            <!-- category dropdown -->
+            <div>
+              <select name="category" class="form-select form-select-sm">
+                <option value="">All categories</option>
+                {% for cat in categories %}
+                  <option value="{{ cat.id }}"
+                          {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                    {{ cat.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- filter / reset -->
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary rounded-3 px-3 btn-sm" type="submit">
+                <i class="bi bi-funnel me-1"></i>
+                Filter
+              </button>
+              <a href="." class="btn btn-light border rounded-3 px-3 btn-sm">
+                Reset
+              </a>
+            </div>
+
+          </div>
+        </form>
+      </div>
+
+      <div class="card table-card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="card-header-title">Stock Records</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
+          </div>
+          <span class="card-header-sub">Most recent first</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Material</th>
+                {% comment %} <th>Supplier</th> {% endcomment %}
+                <th>Category</th>
+                <th class="sl-text-center">Unit</th>
+                <th class="sl-text-center">Quantity</th>
+                <th class="sl-text-center">Status</th>
+                <th class="sl-text-end">Avg. Price</th>
+                <th class="sl-text-end">Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for stock in stocks %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ stock.created_at|date:"M d, Y" }}</div>
+                  <div div class="cell-sub">{{ stock.created_at|date:"h:i A" }}</div>
+                </td>
+                <td>
+                  <div class="cell-primary">{{ stock.material.name|capfirst }}</div>
+                  <div class="cell-sub">{{ stock.material.supplier.name|capfirst|default:"—" }}</div>
+                </td>
+                <td>
+                  <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"Uncategorized" }}</div>
+                </td>
+                {% comment %} <td>
+                  <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"—" }}</div>
+                </td> {% endcomment %}
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ stock.material.get_unit_display }}</span>
+                </td>
+                <td class="sl-text-center sl-fw-semibold">{{ stock.quantity|intcomma }}</td>
+                <td class="sl-text-center">
+                  {% if stock.quantity == 0 %}
+                    <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+                  {% elif stock.quantity <= 24 %}
+                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+                  {% else %}
+                    <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-end">₱{{ stock.price|floatformat:2|intcomma }}</td>
+                <td class="sl-text-end sl-fw-semibold sl-text-success">
+                  ₱{{ stock.total_value|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="8">No stock records found.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a>
+                {% else %}
+                  <span class="page-link">&laquo;</span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a>
+                {% else %}
+                  <span class="page-link">&raquo;</span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- ========== RIGHT PANEL ========== -->
+    <div class="right-panel">
+
+      <!-- STOCK SUMMARY -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-graph-up"></i> Stock Overview
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Total Inventory Value</div>
+            <div class="sd-total-amount">₱{{ grand_total_value|floatformat:2|intcomma }}</div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Availability</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total Materials</span>
+              <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">In Stock</span>
+              <span class="sd-info-value" style="color:var(--accent);">{{ in_stock|default:0 }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Low Stock</span>
+              <span class="sd-info-value" style="color:var(--warning);">{{ low_stock|default:0 }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Out of Stock</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
+            </div>
+          </div>
+
+          <p class="sl-summary-note">Stock is updated automatically when a purchase is recorded.</p>
+
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="card">
+        <div class="card-body">
+          <div class="sl-quick-title">Quick Actions</div>
+          <div class="btn-grid">
+            <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-receipt sl-me-1"></i> View Purchases
+            </a>
+            <a href="{% url 'material-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-box-seam sl-me-1"></i> View Materials
+            </a>
+          </div>
+          <hr class="sl-quick-divider">
+          <div class="sl-quick-label">Filter by status</div>
+          <div class="btn-grid">
+            <a href="{% url 'view-inventory-stock' %}?stock=high" class="btn btn-sm btn-block" style="background:var(--accent-light); color:var(--accent); border:1px solid #b7dfca;">
+              <i class="bi bi-box-seam sl-me-1"></i> In Stock
+            </a>
+            <a href="{% url 'view-inventory-stock' %}?stock=low" class="btn btn-sm btn-block" style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
+              <i class="bi bi-exclamation-triangle sl-me-1"></i> Low Stock
+            </a>
+            <a href="{% url 'view-inventory-stock' %}?stock=none" class="btn btn-sm btn-block" style="background:#fdf0ef; color:var(--danger); border:1px solid #f0d0ce;">
+              <i class="bi bi-slash-circle sl-me-1"></i> Out of Stock
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock content %}

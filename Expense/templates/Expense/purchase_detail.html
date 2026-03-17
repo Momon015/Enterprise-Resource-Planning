@@ -2,237 +2,194 @@
 {% load humanize %}
 {% block content %}
 
-<div class="container-fluid py-4">
+<div class="page-wrapper">
 
-  <!-- Page Header -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
     <div>
-      <h4 class="mb-1 fw-semibold d-flex align-items-center gap-2">
-        <i class="bi bi-receipt-cutoff text-primary"></i>
+      <h4 class="sl-page-title">
+        <i class="bi bi-receipt-cutoff"></i>
         Purchase Record #{{ purchase.id }}
       </h4>
-      <div class="text-muted small">
-        <span class="me-2">Purchases • Transaction History</span> |
-        <span class="ms-2">{{ purchase.created_at|date:"F d, Y · h:i A" }}</span>
-      </div>
-      <div class="text-muted small">
-        Supplier: <span class="fw-semibold">{{ purchase.supplier_name|default:"Public Market" }}</span>
-      </div>
+      <p class="sl-page-subtitle">
+        Purchases • Transaction History &nbsp;|&nbsp; {{ purchase.created_at|date:"F d, Y · h:i A" }}
+      </p>
+      <p class="sl-page-subtitle">
+        Supplier:
+        {% for item in purchase.materials.all %}
+          <strong>{{ item.material.supplier.name|default:"Public Market" }}{% if not forloop.last %}, {% endif %}</strong>
+        {% endfor %}
+      </p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'purchase-list' %}" class="btn btn-sm btn-light border rounded-3">
-        <i class="bi bi-arrow-left me-1"></i> Back to history
-      </a>
-    </div>
+    <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to history
+    </a>
   </div>
 
-  <div class="row g-4">
+  <div class="two-col-layout">
 
-    <!-- Left: Purchase line items -->
-    <div class="col-lg-8 col-xl-9">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-        <div class="card-header bg-white border-0 rounded-top-4 py-3 d-flex justify-content-between align-items-center px-3 px-lg-4">
-          <div class="d-flex align-items-center gap-3">
-            <div class="bg-primary bg-opacity-10 text-primary rounded-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-              <i class="bi bi-basket3 fs-5"></i>
+    <!-- LEFT: PURCHASE LINE ITEMS -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-basket3"></i>
             </div>
             <div>
-              <h5 class="mb-0 fw-semibold">Purchase #{{ purchase.id }}</h5>
-              <div class="small text-muted">
-                {{ purchase_items|length }} item{{ purchase_items|length|pluralize }}
-              </div>
+              <div class="card-header-title">Purchase #{{ purchase.id }}</div>
+              <div class="card-header-sub">{{ purchase_items|length }} item{{ purchase_items|length|pluralize }}</div>
             </div>
           </div>
-          <div class="text-end">
-            <div class="text-muted small">Total</div>
-            <div class="fs-5 fw-bold text-success">₱{{ purchase.total_cost|floatformat:2 }}</div>
+          <div class="sd-card-header-right">
+            <div class="label">Total</div>
+            <div class="amount" style="color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</div>
           </div>
         </div>
 
-        <div class="card-body p-4">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- Quick stats -->
-          <div class="row g-3 mb-3">
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Subtotal</div>
-                <div class="fw-semibold">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</div>
-              </div>
+          <!-- QUICK STATS -->
+          <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Subtotal</div>
+              <div class="sd-stat-value">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Total Discount</div>
-                <div class="fw-semibold text-danger">₱{{ purchase.total_discount|default:0|floatformat:2 }}</div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Total Discount</div>
+              <div class="sd-stat-value" style="color:var(--accent);">₱{{ purchase.total_discount|default:0|floatformat:2 }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Total Cost</div>
-                <div class="fw-semibold text-success">₱{{ purchase.total_cost|floatformat:2 }}</div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Total Cost</div>
+              <div class="sd-stat-value" style="color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Items</div>
-                <div class="fw-semibold">{{ purchase_items|length }} item{{ purchase_items|length|pluralize }}</div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Items</div>
+              <div class="sd-stat-value">{{ purchase_items|length }} item{{ purchase_items|length|pluralize }}</div>
             </div>
           </div>
 
-          <!-- Line items table -->
-          <div class="border-top pt-3 mt-3">
-            <h6 class="text-muted mb-2">Purchased Items</h6>
-            <div class="table-responsive">
-              <table class="table table-sm mb-0 align-middle table-hover">
-                <thead class="table-light small text-uppercase">
-                  <tr>
-                    <th class="ps-3">Item</th>
-                    <th class="text-center">Qty</th>
-                    <th class="text-end">Unit Cost</th>
-                    <th class="text-end">Discount</th>
-                    <th class="text-end pe-3">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for line in purchase_items %}
-                  <tr>
-                    <td class="ps-3">
-                      <div class="fw-semibold">
-                        {{ line.material.name|capfirst|default:"—" }}
-                      </div>
-                      {% if line.material.code %}
-                      <div class="small text-muted">
-                        Code: {{ line.material.code }}
-                      </div>
-                      {% endif %}
-                    </td>
-                    <td class="text-center">
-                      {{ line.quantity|intcomma }}
-                    </td>
-                    <td class="text-end">
-                      ₱{{ line.material.price|floatformat:2 }}
-                    </td>
-                    <td class="text-end text-danger">
-                      {% if line.discount %}
-                        − ₱{{ line.discount|floatformat:2 }}
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-                    <td class="text-end pe-3 fw-semibold text-success">
-                      ₱{{ line.total_price_per_item|floatformat:2 }}
-                    </td>
-                  </tr>
-                  {% empty %}
-                  <tr>
-                    <td colspan="5" class="text-center py-4 text-muted fst-italic">
-                      No items found for this purchase.
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
+          <!-- LINE ITEMS TABLE -->
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">Purchased Items</div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="sl-text-center">Qty</th>
+                  <th class="sl-text-end">Unit Cost</th>
+                  <th class="sl-text-end">Discount</th>
+                  <th class="sl-text-end">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for line in purchase_items %}
+                <tr>
+                  <td>
+                    <div class="cell-primary">{{ line.material.name|capfirst|default:"—" }}</div>
+                    {% if line.material.code %}
+                      <div class="cell-sub">Code: {{ line.material.code }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="sl-text-center">{{ line.quantity|intcomma }}</td>
+                  <td class="sl-text-end">₱{{ line.price|floatformat:2 }}</td>
+                  <td class="sl-text-end" style="color:var(--accent);">
+                    {% if line.discount %}− ₱{{ line.discount|floatformat:2 }}{% else %}₱0.00{% endif %}
+                  </td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                    ₱{{ line.total_price_per_item|floatformat:2 }}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr class="sl-empty-row">
+                  <td colspan="5">No items found for this purchase.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
 
         </div>
       </div>
     </div>
 
-    <!-- Right: Summary panel -->
-    <div class="col-lg-4 col-xl-3">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
+    <!-- RIGHT: SUMMARY PANEL -->
+    <div class="right-panel">
 
-        <div class="card-header bg-dark text-white rounded-top-4 px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-calculator"></i>
-            <h6 class="mb-0 fw-semibold">Purchase summary</h6>
-          </div>
-          <small class="text-white-50 d-none d-sm-inline">Quick view</small>
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-calculator"></i> Purchase Summary
+          </span>
+          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
         </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-          <!-- Totals breakdown -->
-          <div class="border rounded-3 px-2 py-2 bg-light">
-            <div class="text-muted text-uppercase small mb-2">Amount Breakdown</div>
-            <div class="d-flex justify-content-between small mb-1">
-              <span class="text-muted">Subtotal:</span>
-              <span class="fw-semibold">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</span>
+          <!-- AMOUNT BREAKDOWN -->
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Amount Breakdown</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label"><i class="bi bi-calculator sl-me-1"></i> Subtotal</span>
+              <span class="sd-info-value">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</span>
             </div>
-            {% if purchase.total_discount %}
-            <div class="d-flex justify-content-between small mb-1">
-              <span class="text-muted">Total Discount:</span>
-              <span class="fw-semibold text-danger">− ₱{{ purchase.total_discount|default:0|floatformat:2 }}</span>
+            <div class="sd-info-row">
+              <span class="sd-info-label"><i class="bi bi-percent sl-me-1" style="color:var(--accent);"></i> Total Discount</span>
+              <span class="sd-info-value" style="color:var(--accent);">
+                {% if purchase.total_discount %}− {% endif %}₱{{ purchase.total_discount|default:0|floatformat:2 }}
+              </span>
             </div>
-            {% else %}
-            <div class="d-flex justify-content-between small mb-1">
-              <span class="text-muted">Total Discount:</span>
-              <span class="fw-semibold text-danger">₱{{ purchase.total_discount|default:0|floatformat:2 }}</span>
-            </div>
-            {% endif %}
-            <hr class="my-1">
-            <div class="d-flex justify-content-between small">
-              <span class="fw-semibold">Total Cost:</span>
-              <span class="fs-5 fw-bold text-success">₱{{ purchase.total_cost|floatformat:2 }}</span>
+            <hr style="border-color:#e9ecef; margin:0.4rem 0;">
+            <div class="sd-info-row">
+              <span class="sd-info-label" style="font-weight:600;"><i class="bi bi-cash-stack sl-me-1" style="color:var(--danger);"></i> Total Cost</span>
+              <span class="sd-total-amount" style="font-size:1.25rem; color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</span>
             </div>
           </div>
 
-          <!-- Transaction info -->
-          <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-            <div class="text-muted text-uppercase small mb-1">Transaction Info</div>
-            <div class="d-flex justify-content-between small">
-              <span class="text-muted">Purchase ID:</span>
-              <span class="fw-semibold">#{{ purchase.id }}</span>
+          <!-- TRANSACTION INFO -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Transaction Info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Purchase ID</span>
+              <span class="sd-info-value">#{{ purchase.id }}</span>
             </div>
-            <div class="d-flex justify-content-between small">
-              <span class="text-muted">Supplier:</span>
-              <span class="fw-semibold">{{ purchase.supplier_name|default:"Public Market" }}</span>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Supplier</span>
+              <span class="sd-info-value">{{ purchase.supplier_name|default:"Public Market" }}</span>
             </div>
-            <div class="d-flex justify-content-between small">
-              <span class="text-muted">Date:</span>
-              <span class="fw-semibold">{{ purchase.created_at|date:"M d, Y" }}</span>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date</span>
+              <span class="sd-info-value">{{ purchase.created_at|date:"M d, Y" }}</span>
             </div>
-            <div class="d-flex justify-content-between small">
-              <span class="text-muted">Time:</span>
-              <span class="fw-semibold">{{ purchase.created_at|date:"h:i A" }}</span>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="border rounded-3 px-2 py-2">
-            <div class="text-muted text-uppercase small mb-2">Actions</div>
-            <div class="d-grid gap-2">
-              <a href="#" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-printer me-1"></i>
-                Print receipt
-              </a>
-              <a href="{% url 'purchase-list' %}" class="btn btn-sm btn-primary">
-                <i class="bi bi-arrow-left-circle me-1"></i>
-                Back to history
-              </a>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Time</span>
+              <span class="sd-info-value">{{ purchase.created_at|date:"h:i A" }}</span>
             </div>
           </div>
 
-          <!-- Note -->
-          <div class="alert alert-light border-0 mb-0">
-            <div class="d-flex">
-              <div class="me-2">
-                <i class="bi bi-lightning-charge text-warning"></i>
-              </div>
-              <div>
-                <div class="fw-semibold small">Note</div>
-                <div class="small text-muted">
-                  This record is read-only. Contact your administrator if corrections are needed.
-                </div>
-              </div>
+          {% comment %} <!-- ACTIONS -->
+          <div class="btn-grid">
+            <a href="#" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-printer"></i> Print receipt
+            </a>
+            <a href="{% url 'purchase-list' %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-arrow-left-circle"></i> Back to history
+            </a>
+          </div> {% endcomment %}
+
+          <!-- NOTE -->
+          <div class="sd-note-box">
+            <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title">Note</div>
+              <div class="sd-note-text">This record is read-only. Contact your administrator if corrections are needed.</div>
             </div>
           </div>
 
         </div>
       </div>
-    </div>
 
+    </div>
   </div>
 </div>
 

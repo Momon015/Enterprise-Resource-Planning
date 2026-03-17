@@ -60,7 +60,7 @@ def category_list(request):
 
     elif category_type == 'material':
         categories = categories.filter(category_type='material')
-        section = 'material'
+        section = 'supplier'
 
     pagination = Paginator(categories, 5)
     page = request.GET.get('page')

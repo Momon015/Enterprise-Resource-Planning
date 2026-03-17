@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-end">{{ sale.quantity_item }}</td>
                 <td class="sl-text-end">{{ sale.line_count }}</td>
-                <td class="sl-text-end sl-fw-semibold">₱{{ sale.total_revenue|intcomma }}</td>
+                <td class="sl-text-end sl-fw-semibold">₱{{ sale.total_revenue|intcomma|floatformat:2 }}</td>
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'sale-detail' sale.id %}" class="btn btn-sm btn-outline-secondary">View</a>

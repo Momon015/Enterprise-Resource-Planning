@@ -32,4 +32,4 @@ class PurchaseFilterForm(forms.Form):
 class EmployeeForm(ModelForm):
     class Meta:
         model = Employee
-        fields = '__all__'
+        fields = ['name', 'daily_rate']

@@ -20,9 +20,11 @@ from django.contrib.auth import update_session_auth_hash
 from Expense.models import PurchaseItem, Purchase, Employee
 from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm
 
-from Inventory.models import Material
-from Inventory.forms import MaterialForm
+from Supplier.models import Material
+from Supplier.forms import MaterialForm
 
+from Inventory.models import Stock
+from Product.models import Product
 from core.models import StatusModel
 
 from decimal import Decimal
@@ -170,7 +172,7 @@ def add_to_cart(request, id):
                 messages.success(request, f"{material.name}'s quantity has increased.")
 
             else:
-                messages.warning(request, f"Cannot add more {material.name}. Maximum available stock reached.")
+                messages.warning(request, f"{material.name} - quantity limit reached.")
                 
         else:
             # first time adding to the cart.
@@ -184,7 +186,7 @@ def add_to_cart(request, id):
             }
             messages.success(request, f"{material.name} added to purchase.")
     else:
-        messages.error(request, f"Cannot add {material.name} - Insufficient stock.")
+         messages.warning(request, f"{material.name} -  quantity limit reached.")
 
     """
     Query with parameters, this allows to add items in the
@@ -232,9 +234,10 @@ def view_cart(request):
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
         quantity = data.get('quantity', 1)
-        
-        # computations 
-        item_total = material.price * quantity
+        price = data.get('price')
+        # computations
+
+        item_total = Decimal(price) * quantity
         item_discount = item_total - discount
         total_discount += discount
         subtotal += item_total
@@ -245,7 +248,7 @@ def view_cart(request):
             'material': material.name,
             'quantity': quantity,
             'subtotal': subtotal,
-            'price': material.price,
+            'price': price,
             'item_total': item_total,
             'discount': discount,
             'item_discount': item_discount,
@@ -256,7 +259,7 @@ def view_cart(request):
     # LOGGING: View Cart 
     logger.debug(f" View Cart Sessions: {request.session.get('cart')}")
     
-    context = {'total_after_discount': total_after_discount, 'cart_items': cart_items, 'subtotal': subtotal, 'total_discount': total_discount}
+    context = {'total_after_discount': total_after_discount, 'cart_items': cart_items, 'subtotal': subtotal, 'total_discount': total_discount, 'section': 'supplier'}
     return render(request, 'Expense/view_cart.html', context)
 
 @login_required(login_url='login')
@@ -272,17 +275,19 @@ def view_cart_summary(request):
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
         quantity = data['quantity']
+        price = data.get('price')
         
-        # computations 
-        item_total = material.price * quantity
+        # computations
+        item_total = Decimal(price) * quantity
         item_discount = item_total - discount
         total_discount += discount
         subtotal += item_total
         
         cart_items.append({
+            'id': material.id,
             'name': material.name,
             'slug': material_slug,
-            'price': material.price,
+            'price': price,
             'item_total': item_total,
             'quantity': quantity,
             'discount': discount,
@@ -311,28 +316,97 @@ def confirm_purchase_summary(request):
     try: 
         with transaction.atomic():
             status, created = StatusModel.objects.get_or_create(name='paid') # cash payment directly so automatically paid
-            purchase = Purchase.objects.create(total_cost=0, status=status)
+            purchase = Purchase.objects.create(total_cost=0, status=status, user=request.user)
 
             for material_id, data in cart.items():
                 material = get_object_or_404(Material, id=material_id)
                 str_discount = data.get('discount', 0)
                 discount = Decimal(str_discount)
                 quantity = data['quantity']
-                
-                # computations 
-                item_total = material.price * quantity
+                price = data.get('price')
+                print('price', price)
+                # computations
+                item_total = Decimal(price) * quantity
+
                 total_discount += discount
                 subtotal += item_total
                 
                 if material.quantity < quantity:
-                    messages.warning(request, f"{material.name} is only {material.quantity}pc left.")
+                    messages.warning(request, f"{material.name} - quantity limit reached.")
                 
                 PurchaseItem.objects.create(
                     purchase=purchase,
                     material=material,
                     discount=discount,
                     quantity=quantity,
+                    price=price,
                 )
+                
+                """
+                1st purchase
+                coke 5 qty
+                formula = PHP 5.00 * 5 qty - 5.00(discount) = PHP 20.00
+                
+                previous quantity = 5 qty
+                previous price = PHP 20.00
+                
+                2nd purchase
+                coke 20 qty
+                formula = PHP 5.00 * 20 qty = PHP 100.00 - 5.00(discount) = PHP 95.00
+                
+                total_quantity = 20(previous quantity) + 5 qty = 25 qty
+                
+                new stock price = PHP 20(previous price) + PHP 95 = PHP 115 / 25 qty = PHP 4.60
+                
+                3rd purchase 
+                coke 15 qty
+                formula PHP 5.00 * 15 qty = PHP 75.00
+                
+                total_quantity = 25.00(previous quantity) + 15 qty = 40 qty
+                
+                new_stock_price 115.00(previous price) + PHP 75.00 = PHP 180.00 / 40 qty = PHP 4.50
+                """
+                
+                actual_unit_cost = (Decimal(price) * quantity) - discount
+                print('actual_unit_cost', actual_unit_cost)
+                stock, created = Stock.objects.get_or_create(
+                    user=request.user,
+                    material=material,
+                    defaults={
+                        'quantity': quantity,
+                        'price': actual_unit_cost / quantity
+                    }         
+                )
+            
+                if not created:
+                    old_price = stock.price
+                    old_quantity = stock.quantity
+                    total_quantity = old_quantity + quantity
+                    stock.quantity = total_quantity
+                    stock.price = ((old_price * old_quantity) + actual_unit_cost) / total_quantity
+                    stock.save()
+                
+
+                product, created = Product.objects.get_or_create(
+                    user=request.user,
+                    material=material,
+                    name=material.name,
+                    defaults={
+                        'cost_price': actual_unit_cost / quantity,
+                        'selling_price': 0.00,
+                        'prepared_quantity': quantity
+                    }
+                )
+                
+                if not created:
+                    previous_qty = product.prepared_quantity
+                    previous_price = product.cost_price
+                    total_quantity = previous_qty + quantity
+                    
+                    product.prepared_quantity = total_quantity
+                    product.cost_price = ((previous_price * previous_qty) + actual_unit_cost) / total_quantity
+                    product.save()
+
                 
     except ValidationError:
         messages.error(request, f"Cannot complete the purchase - Insufficient stock.")
@@ -359,14 +433,14 @@ def confirm_purchase_summary(request):
 
 @login_required(login_url='login')
 def view_purchase_summary(request, purchase_id):
-    purchase = get_object_or_404(Purchase, id=purchase_id)
+    purchase = get_object_or_404(Purchase, id=purchase_id, user=request.user)
     purchase_items = purchase.materials.select_related('material')
     
     total_discount = 0
     subtotal = 0
     cart_items = []
     for item in purchase_items:
-        item_total = item.material.price * item.quantity
+        item_total = item.price * item.quantity
         quantity = item.quantity
         
         # handling discount items
@@ -378,7 +452,7 @@ def view_purchase_summary(request, purchase_id):
         
         cart_items.append({
             'name': item.material.name,
-            'price': item.material.price,
+            'price': item.price,
             'quantity': quantity,
             'item_total': item_total,
             'discount': discount,
@@ -404,6 +478,28 @@ def cart_remove_materials(request, id):
     return redirect('view-cart')
 
 @login_required(login_url='login')
+def edit_total_price(request, material_id):
+    cart = request.session.get('cart', {})
+    material = get_object_or_404(Material, id=material_id)
+    material_key = str(material.id)
+    
+    if cart:
+        data = cart[material_key]
+        quantity = data.get('quantity', 0)
+        price = data.get('price')
+        raw_price = request.POST.get('new_total_price') 
+        new_total_price = Decimal(raw_price) / quantity if raw_price else None
+        
+        if new_total_price and new_total_price != Decimal(price):
+            cart[material_key]['price'] = str(new_total_price)
+            messages.success(request, f"The unit cost has been updated.")
+            
+    request.session['cart'] = cart
+    request.session.modified = True
+    
+    return redirect('view-cart')
+
+@login_required(login_url='login')
 def cart_edit_material(request, id):
     cart = request.session.get('cart', {})
     material = get_object_or_404(Material, id=id)
@@ -423,7 +519,7 @@ def cart_edit_material(request, id):
             messages.success(request, f"{material.name}'s quantity has been updated.")
             request.session.modified = True
         else:
-            messages.error(request, f"Cannot add {material.name} - Insufficient stock.")
+             messages.warning(request, f"{material.name}: quantity limit reached.")
     
     return redirect('view-cart')
 
@@ -450,6 +546,7 @@ def employee_create(request):
         form = EmployeeForm(request.POST)
         if form.is_valid():
             obj = form.save(commit=False)
+            obj.user = request.user
             obj.save()
             
             messages.success(request, f"{obj.name}'s details has successfully created.")
@@ -488,6 +585,7 @@ def employee_update(request, employee_id):
         
         if form.is_valid():
             obj = form.save(commit=False)
+            obj.user = request.user
             obj.save()
             messages.success(request, f"{obj.name}'s details has been updated.")
             return redirect('employee-detail', employee.id)
@@ -505,7 +603,7 @@ def employee_delete(request, employee_id):
 
     if request.method == 'POST':
         employee.delete()
-        messages.success(request, f"{employee.name} - has been deleted from the employee system.")
+        messages.success(request, f"{employee.name} - has been deleted from employee record.")
         return redirect('employee-list')
     context = {'employee': employee, 'section': 'employee'}
     return render(request, 'Expense/employee_delete.html', context)

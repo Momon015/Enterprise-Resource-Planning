@@ -133,6 +133,7 @@ INSTALLED_APPS = [
     'DailySummary.apps.DailysummaryConfig',
     'Dashboard.apps.DashboardConfig',
     'Inventory.apps.InventoryConfig',
+    'Supplier.apps.SupplierConfig',
     
     'user.apps.UserConfig',
     'core.apps.CoreConfig',

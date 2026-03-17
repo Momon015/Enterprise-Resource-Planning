@@ -1,0 +1,164 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-bag"></i>
+        Material Detail
+      </h4>
+      <p class="sl-page-subtitle">SKU: {{ material.slug }}</p>
+    </div>
+    <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to materials
+    </a>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: MAIN MATERIAL INFO -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-bag"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{{ material.name|capfirst }}</div>
+              <div class="card-header-sub">
+                Category:
+                {% if material.category %}
+                  {{ material.category.name }}
+                {% else %}
+                  Uncategorized
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="sd-card-header-right">
+            <div class="label">Price</div>
+            <div class="amount">₱{{ material.price|floatformat:2 }}</div>
+          </div>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <!-- QUICK STATS -->
+          <div class="sd-stats-row">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Price</div>
+              <div class="sd-stat-value">₱{{ material.price|floatformat:2 }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Unit</div>
+              <div class="sd-stat-value">{{ material.get_unit_display }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Category</div>
+              <div class="sd-stat-value">{{ material.category.name|default:"Uncategorized" }}</div>
+            </div>
+          </div>
+
+          <!-- DESCRIPTION -->
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">Description</div>
+          {% if material.description %}
+            <div class="sd-summary-block">
+              {{ material.description|linebreaksbr }}
+            </div>
+          {% else %}
+            <p class="sl-summary-note">No description provided for this material.</p>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SNAPSHOT + ACTIONS -->
+    <div class="right-panel">
+
+      <!-- MATERIAL SNAPSHOT -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-info-circle"></i> Material Snapshot
+          </span>
+          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <!-- PRICE INFO -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label"><i class="bi bi-cash-stack sl-me-1"></i> Price Info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Price per unit</span>
+              <span class="sd-info-value">₱{{ material.price|floatformat:2 }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Unit</span>
+              <span class="sl-badge sl-badge-light">{{ material.get_unit_display }}</span>
+            </div>
+          </div>
+
+          <!-- CATEGORY -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label"><i class="bi bi-tags sl-me-1"></i> Category</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Type</span>
+              <span class="sl-badge sl-badge-light">{{ material.category.name|default:"Uncategorized" }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="card">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          <div class="sl-quick-title">Actions</div>
+          <div class="btn-grid">
+            <a href="{% url 'add-cart' material.id %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-basket"></i> Add to Cart
+            </a>
+            <a href="{% url 'material-update' material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-pencil-square"></i> Edit Material
+            </a>
+            <a href="{% url 'material-delete' material.slug %}" class="btn btn-sm btn-block"
+               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+              <i class="bi bi-trash"></i> Delete Material
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

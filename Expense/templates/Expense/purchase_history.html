@@ -1,21 +1,16 @@
 {% extends "main.html" %}
 {% load humanize %}
-
 {% block content %}
 
-<!-- ========== FLASH MESSAGES ========== -->
+<!-- FLASH MESSAGES -->
 {% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -25,190 +20,103 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
-  // Toast removal
-  const toasts = document.querySelectorAll(".toast-message");
-  toasts.forEach(toast => setTimeout(() => toast.remove(), 3200));
-
-  // Advanced filter panel behavior
   const filterDetails = document.querySelector("details");
   if (filterDetails) {
     const filterForm = filterDetails.querySelector("#filterForm");
-    
     const params = new URLSearchParams(window.location.search);
-    if (
-      params.get("select_month") ||
-      params.get("start_date") ||
-      params.get("end_date") ||
-      params.get("search") ||
-      params.get("period")
-    ) {
+    if (params.get("select_month") || params.get("start_date") || params.get("end_date") || params.get("search") || params.get("period")) {
       filterDetails.setAttribute("open", "");
     }
-
     filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
     const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e=>e.stopPropagation());
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
   }
 
-  /* ================================
-     ONE FILTER AT A TIME (FIX)
-  =================================*/
   const monthInput = document.querySelector('input[name="select_month"]');
   const startDateInput = document.querySelector('input[name="start_date"]');
   const endDateInput = document.querySelector('input[name="end_date"]');
 
-  // Month clears date range
   if (monthInput) {
     monthInput.addEventListener("change", function () {
       if (startDateInput) startDateInput.value = "";
       if (endDateInput) endDateInput.value = "";
     });
   }
-
-  // Date range clears month
   [startDateInput, endDateInput].forEach(el => {
     if (!el) return;
     el.addEventListener("change", function () {
       if (monthInput) monthInput.value = "";
     });
   });
-
 });
 </script>
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
+<div class="page-wrapper">
 
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-</style>
-
-<div class="container-fluid py-3 py-lg-4">
-
-<!-- ===== PAGE HEADER ===== -->
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-  <div class="mb-2 mb-lg-0">
-    <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-      <i class="bi bi-receipt-cutoff text-primary"></i>
-      Purchase Transactions
-    </h4>
-    <small class="text-muted">
-      Supplier purchase receipts recorded into inventory levels.
-    </small>
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-receipt-cutoff"></i>
+        Purchase Transactions
+      </h4>
+      <p class="sl-page-subtitle">Supplier purchase receipts recorded into inventory levels.</p>
+    </div>
   </div>
-</div>
 
+  <div class="two-col-layout">
 
-
-  <div class="row g-3 g-lg-4">
-
-    <!-- ========== LEFT PANEL: FILTERS + TABLE ========== -->
-    <div class="col-lg-8 col-xl-9 left-panel">
+    <!-- LEFT: FILTERS + TABLE -->
+    <div class="left-panel">
 
       <!-- ADVANCED FILTER DRAWER -->
-      <details class="card border-0 shadow-sm rounded-4"
+      <details class="filter-card"
                {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
-        <summary class="card-header bg-white small fw-semibold d-flex align-items-center gap-2">
+        <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
           {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}
-            <span class="badge text-bg-primary ms-1">Active</span>
+            <span class="filter-badge">Active</span>
           {% endif %}
         </summary>
 
-        <div class="card-body">
-          <form method="get" id="filterForm" class="row g-2 align-items-end" autocomplete="off">
+        <div class="filter-body">
+          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
 
-            <!-- SEARCH BAR ABOVE DATES -->
-            <div class="col-12">
-              <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                <input type="search" name="search" class="form-control border-start-0" placeholder="Search for ID, total cost, quantity... " value="{{ request.GET.search|default:'' }}">
+            <div class="form-group filter-search-row">
+              <div class="input-group">
+                <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                <input type="search" name="search" class="form-control"
+                       placeholder="Search for ID, total cost, quantity..."
+                       value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
 
-            <div class="col-md-3">
-              <label class="form-label small text-muted">Period (month)</label>
-              <input type="month" name="select_month" class="form-control form-control-sm" value="{{ request.GET.select_month|default:'' }}">
+            <div class="form-group">
+              <label class="form-label">Period (month)</label>
+              <input type="month" name="select_month" class="form-control"
+                     value="{{ request.GET.select_month|default:'' }}">
             </div>
 
-            <div class="col-md-3">
-              <label class="form-label small text-muted">From date</label>
-              <input type="date" name="start_date" class="form-control form-control-sm" value="{{ request.GET.start_date|default:'' }}">
+            <div class="form-group">
+              <label class="form-label">From date</label>
+              <input type="date" name="start_date" class="form-control"
+                     value="{{ request.GET.start_date|default:'' }}">
             </div>
 
-            <div class="col-md-3">
-              <label class="form-label small text-muted">To date</label>
-              <input type="date" name="end_date" class="form-control form-control-sm" value="{{ request.GET.end_date|default:'' }}">
+            <div class="form-group">
+              <label class="form-label">To date</label>
+              <input type="date" name="end_date" class="form-control"
+                     value="{{ request.GET.end_date|default:'' }}">
             </div>
 
-            <div class="col-md-3 d-flex gap-2">
-              <button class="btn btn-outline-primary btn-sm flex-fill" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button>
-              <a href="{% url 'purchase-list' %}" class="btn btn-light border btn-sm flex-fill">Reset</a>
+            <div class="filter-actions">
+              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'purchase-list' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
 
           </form>
@@ -216,94 +124,83 @@ document.addEventListener("DOMContentLoaded", function () {
       </details>
 
       <!-- TRANSACTION TABLE -->
-      <div class="card border-0 shadow-sm rounded-4 table-card mt-3">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-          <div>
-            <span class="fw-semibold">Transactions</span>
-            <span class="badge text-bg-light text-muted">{{ page_obj.paginator.count }} records</span>
+      <div class="card table-card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="card-header-title">Transactions</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} records</span>
           </div>
-          <small class="text-muted d-none d-sm-inline">Most recent first</small>
+          <span class="card-header-sub">Most recent first</span>
         </div>
 
-        <div class="table-responsive flex-grow-1">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light small text-uppercase">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
               <tr>
                 <th>Date</th>
                 <th>Reference</th>
-                <th>Supplier</th>
-                <th class="text-end">Qty</th>
-                <th class="text-end">Lines</th>
-                <th class="text-end">Total</th>
-                <th class="text-center">Actions</th>
+                <th class="sl-text-center">Qty</th>
+                <th class="sl-text-center">Lines</th>
+                <th class="sl-text-end">Total</th>
+                <th class="sl-text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for purchase in page_obj %}
               <tr>
                 <td>
-                  <div class="fw-semibold">{{ purchase.created_at|date:"M d, Y" }}</div>
-                  <div class="small text-muted">{{ purchase.created_at|date:"h:i A" }}</div>
+                  <div class="cell-primary">{{ purchase.created_at|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{ purchase.created_at|date:"h:i A" }}</div>
                 </td>
                 <td>
-                  <div class="fw-semibold">{{ purchase.reference|default:"—" }}</div>
-                  <div class="small text-muted">ID: {{ purchase.id }}</div>
+                  <div class="cell-primary">{{ purchase.reference|default:"—" }}</div>
+                  <div class="cell-sub">ID: {{ purchase.id }}</div>
                 </td>
-                <td>{{ purchase.supplier_name|default:"Public Market" }}</td>
-                <td class="text-end">{{ purchase.total_quantity_items }}</td>
-                <td class="text-end">{{ purchase.line_count }}</td>
-                <td class="text-end fw-semibold">₱{{ purchase.total_cost|intcomma|floatformat:2 }}</td>
-                <td class="text-center">
-                  <div class="btn-group btn-group-sm">
-                    <a href="{% url 'purchase-detail' purchase.id %}" class="btn btn-outline-secondary">View</a>
-                    <button type="button" class="btn btn-outline-secondary"><i class="bi bi-printer"></i></button>
+                <td class="sl-text-center">{{ purchase.total_quantity_items }}</td>
+                <td class="sl-text-center">{{ purchase.line_count }}</td>
+                <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                  ₱{{ purchase.total_cost|floatformat:2|intcomma }}
+                </td>
+                <td class="sl-text-center">
+                  <div class="btn-group">
+                    <a href="{% url 'purchase-detail' purchase.id %}?{{request.GET.urlencode}}" class="btn btn-outline-secondary btn-sm">View</a>
                   </div>
                 </td>
               </tr>
               {% empty %}
-              <tr>
-                <td colspan="7" class="text-center py-4 text-muted">No purchase transactions found.</td>
+              <tr class="sl-empty-row">
+                <td colspan="6">No purchase transactions found.</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
 
-       <!-- PAGINATION -->
+        <!-- PAGINATION -->
         {% if page_obj %}
-        <div class="d-flex justify-content-center py-3 pagination-wrapper">
+        <div class="pagination-wrapper">
           <nav>
-            <ul class="pagination pagination-sm mb-0">
+            <ul class="pagination">
               {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
-
-                <!-- PREVIOUS -->
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link"
-                      href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&laquo;</a>
-                  {% else %}
-                    <span class="page-link">&laquo;</span>
-                  {% endif %}
-                </li>
-
-                <!-- PAGE NUMBERS -->
-                {% for p in page_obj.paginator.page_range %}
-                  <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                    <a class="page-link"
-                      href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ p }}</a>
-                  </li>
-                {% endfor %}
-
-                <!-- NEXT -->
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link"
-                      href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&raquo;</a>
-                  {% else %}
-                    <span class="page-link">&raquo;</span>
-                  {% endif %}
-                </li>
-
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&laquo;</a>
+                {% else %}
+                  <span class="page-link">&laquo;</span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&raquo;</a>
+                {% else %}
+                  <span class="page-link">&raquo;</span>
+                {% endif %}
+              </li>
               {% endwith %}
             </ul>
           </nav>
@@ -313,38 +210,69 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
     </div>
 
-    <!-- ========== RIGHT PANEL: SUMMARY / ACTIONS ========== -->
-    <div class="col-lg-4 col-xl-3 d-flex flex-column gap-3">
+    <!-- RIGHT: SUMMARY + ACTIONS -->
+    <div class="right-panel">
 
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-          <span class="fw-semibold"><i class="bi bi-graph-up-arrow me-1"></i>Period summary</span>
+      <!-- PERIOD SUMMARY -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-graph-up-arrow"></i> Period Summary
+          </span>
         </div>
-        <div class="card-body small d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between"><span class="text-muted">Total purchased </span><span class="fw-semibold">{{ total_count|default:"0" }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Total cost</span><span class="fw-semibold text-success">₱{{ total_cost|floatformat:2|intcomma|default:"0.00"}}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Average per purchase</span><span class="fw-semibold">₱{{ average_cost|floatformat:2|intcomma|default:"0.00" }}</span></div>
-          <hr class="my-2">
-          <div class="small text-muted">Use quick ranges or advanced filters on the left to change this summary.</div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Overview</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total purchased</span>
+              <span class="sd-info-value">{{ total_count|default:"0" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Average per purchase</span>
+              <span class="sd-info-value">₱{{ average_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+          </div>
+          <p class="sl-summary-note">Use quick ranges or advanced filters on the left to change this summary.</p>
         </div>
       </div>
 
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body small">
-          <div class="fw-semibold mb-2">Quick actions</div>
-          <div class="d-grid gap-2 mb-2">
-            <a href="{% url 'view-cart' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-circle me-1"></i>New purchase</a>
-            <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-list-ul me-1"></i>View presets</a>
+      <!-- QUICK ACTIONS -->
+      <div class="card">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          <div class="sl-quick-title">Quick Actions</div>
+          <div class="btn-grid">
+            <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> New purchase
+            </a>
+            <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-list-ul"></i> View presets
+            </a>
           </div>
-          <hr class="my-2">
-          <div class="small text-muted mb-1">Quick ranges</div>
-          <div class="d-grid gap-1">
-            <a href="{% url 'purchase-list' %}?period=last_week" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history me-1"></i>Last 7 days</a>
-            <a href="{% url 'purchase-list' %}?period=last_year" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar-minus me-1"></i>Last year</a>
-            <a href="{% url 'purchase-list' %}?period=today" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar-day me-1"></i>Today</a>
-            <a href="{% url 'purchase-list' %}?period=week" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar-week me-1"></i>This week</a>
-            <a href="{% url 'purchase-list' %}?period=month" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar-month me-1"></i>This month</a>
-            <a href="{% url 'purchase-list' %}?period=year" class="btn btn-sm btn-outline-secondary"><i class="bi bi-calendar3 me-1"></i>This year</a>
+          <hr class="sl-quick-divider">
+          <div class="sl-quick-label">Quick ranges</div>
+          <div class="btn-grid">
+            <a href="{% url 'purchase-list' %}?period=last_week" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-clock-history"></i> Last 7 days
+            </a>
+            <a href="{% url 'purchase-list' %}?period=last_year" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-calendar-minus"></i> Last year
+            </a>
+            <a href="{% url 'purchase-list' %}?period=today" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-calendar-day"></i> Today
+            </a>
+            <a href="{% url 'purchase-list' %}?period=week" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-calendar-week"></i> This week
+            </a>
+            <a href="{% url 'purchase-list' %}?period=month" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
+            <a href="{% url 'purchase-list' %}?period=year" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-calendar3"></i> This year
+            </a>
           </div>
         </div>
       </div>

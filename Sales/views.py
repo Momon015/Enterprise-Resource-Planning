@@ -95,7 +95,7 @@ def sale_list(request):
         if search:
             sales = sales.filter(
                 Q(id__iexact=search) |
-                Q(total_cost__iexact=search) |
+                Q(total_revenue__iexact=search) |
                 Q(sale_items__quantity__iexact=search) |
                 Q(line_count__iexact=search)
 
@@ -180,7 +180,7 @@ def add_to_sales(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('product-list')
+    return redirect(f"{reverse('product-list')}?{request.META.get('QUERY_STRING', '')}")
 
 @login_required(login_url='login')
 def view_sale(request):
@@ -348,15 +348,16 @@ def confirm_view_summary(request):
                     employee=employee,
                     daily_rate=employee.daily_rate,
                 )
+                
+            # net profit 
+            sale_obj.total_revenue = max(total_revenue, 0)
+            sale_obj.line_count = line_count
+            sale_obj.save()
 
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
         return redirect('view-sale')  # exits early if error occurs
     
-    # net profit 
-    sale_obj.total_revenue = max(total_revenue, 0)
-    sale_obj.line_count = line_count
-    sale_obj.save()
     
     for key in ('total_salary_cost', 'line_count'):
         request.session.pop(key, 0)
@@ -426,7 +427,11 @@ def add_daily_rate_to_sale(request):
         if employee_ids:
             total_salary_cost = employee.aggregate(daily_rate=Sum('daily_rate'))['daily_rate'] or 0
             
-        messages.success(request, "Shift employees have been updated.")
+        if total_salary_cost:
+            messages.success(request, f"{employee.count()} staff added to shift. ₱{total_salary_cost} labor cost will be logged to expenses.")
+        else:
+            messages.success(request, "Shift cleared. No labor cost will be recorded.")
+            
         request.session['total_salary_cost'] = str(total_salary_cost)
         request.session['selected_employee_ids'] = employee_ids
         request.session.modified = True

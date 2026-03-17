@@ -1,0 +1,173 @@
+{% extends "main.html" %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-pencil-square"></i>
+        Edit Preset
+      </h4>
+      <p class="sl-page-subtitle">Adjust quantities and discounts for this preset.</p>
+    </div>
+    <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to presets
+    </a>
+  </div>
+
+  <form method="POST" action="{% url 'material-edit-preset' preset.id %}">
+    {% csrf_token %}
+
+    <div class="two-col-layout">
+
+      <!-- LEFT: ITEMS TABLE -->
+      <div class="left-panel">
+        <div class="card">
+          <div class="card-header">
+            <div class="sd-card-header-left">
+              <div class="sd-header-icon">
+                <i class="bi bi-list-ul"></i>
+              </div>
+              <div>
+                <div class="card-header-title">Items in this preset</div>
+                <div class="card-header-sub">Adjust quantities and discounts</div>
+              </div>
+            </div>
+            <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th class="sl-text-center">Quantity</th>
+                  <th class="sl-text-end">Discount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in items %}
+                <tr>
+                  <!-- ITEM -->
+                  <td>
+                    <div class="cell-primary">{{ item.material.name }}</div>
+                    <div class="cell-sub">#{{ item.material.id }}</div>
+                  </td>
+
+                  <!-- QUANTITY -->
+                  <td class="sl-text-center">
+                    <div class="qty-stepper">
+                      <button type="button" class="qty-btn qty-ctrl"
+                              data-target="quantity_{{ item.id }}" data-step="-1">−</button>
+                      <input type="number"
+                             class="qty-input"
+                             name="quantity_{{ item.id }}"
+                             value="{{ item.quantity }}"
+                             min="1" readonly>
+                      <button type="button" class="qty-btn qty-ctrl"
+                              data-target="quantity_{{ item.id }}" data-step="1">+</button>
+                    </div>
+                  </td>
+
+                  <!-- DISCOUNT -->
+                  <td class="sl-text-end">
+                    <div class="qty-stepper" style="justify-content:flex-end;">
+                      <button type="button" class="qty-btn qty-ctrl"
+                              data-target="discount_{{ item.id }}" data-step="-1">−</button>
+                      <input type="number"
+                             class="qty-input"
+                             name="discount_{{ item.id }}"
+                             value="{{ item.discount|floatformat:0 }}"
+                             min="0" step="1" readonly>
+                      <button type="button" class="qty-btn qty-ctrl"
+                              data-target="discount_{{ item.id }}" data-step="1">+</button>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr class="sl-empty-row">
+                  <td colspan="3">No saved materials found for this preset.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: PRESET INFO + ACTIONS -->
+      <div class="right-panel">
+
+        <!-- PRESET INFO -->
+        <div class="card">
+          <div class="card-header dark">
+            <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+              <i class="bi bi-bookmark-fill"></i> Preset Info
+            </span>
+          </div>
+          <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+            <div class="sd-summary-block">
+              <div class="sd-summary-block-label">Preset details</div>
+              <div class="sd-info-row">
+                <span class="sd-info-label">Preset ID</span>
+                <span class="sl-badge sl-badge-light">{{ preset.id }}</span>
+              </div>
+              <div class="sd-info-row">
+                <span class="sd-info-label">Total items</span>
+                <span class="sd-info-value">{{ items|length }}</span>
+              </div>
+            </div>
+
+            <!-- PRESET NAME INPUT -->
+            <div>
+              <label class="mf-form-label">Preset name</label>
+              <input type="text"
+                     class="form-control"
+                     name="preset_{{ preset.id }}"
+                     value="{{ preset.name }}"
+                     placeholder="e.g. Weekly delivery bundle">
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="card">
+          <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+            <button type="submit" class="btn btn-primary btn-block">
+              <i class="bi bi-check-circle"></i> Save changes
+            </button>
+            <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-block">
+              <i class="bi bi-x-circle"></i> Cancel
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </form>
+
+</div>
+
+<!-- STEPPER LOGIC -->
+<script>
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.qty-ctrl');
+  if (!btn) return;
+
+  const inputName = btn.dataset.target;
+  const step = parseInt(btn.dataset.step);
+  const input = document.querySelector(`input[name="${inputName}"]`);
+  const min = parseInt(input.min) || 0;
+  let current = parseInt(input.value) || min;
+  current += step;
+  if (current < min) current = min;
+  input.value = current;
+});
+</script>
+
+{% endblock content %}

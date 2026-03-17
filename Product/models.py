@@ -2,17 +2,19 @@ from django.db import models
 from django.utils.text import slugify
 from core.models import Category, SlugModel, TimeStampModel
 from user.models import User
-
+from Supplier.models import Material
 # Create your models here.
 
 class Product(SlugModel, TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=0)
     prepared_quantity = models.PositiveIntegerField()
     default_quantity = models.PositiveIntegerField(default=0) # preset
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=6)
     
     class Meta:
         ordering = ['name']

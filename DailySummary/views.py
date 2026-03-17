@@ -53,6 +53,7 @@ import logging
 
 # Create your views here.
 
+@login_required(login_url='login')
 def view_summary(request):
     sales = Sale.objects.all()
     purchases = Purchase.objects.all()

@@ -1,14 +1,13 @@
 from django.forms import ModelForm
 from django import forms
 
-from Inventory.models import Stock
 from Supplier.models import Material
 
 from core.models import Category
 
 # Create your forms here.
 
-class StockFilterForm(forms.Form):
+class MaterialFilterForm(forms.Form):
     search = forms.CharField(required=False)
     category = forms.ModelChoiceField(queryset=Category.objects.none(), required=False)
         
@@ -18,15 +17,16 @@ class StockFilterForm(forms.Form):
         qs = Category.objects.filter(category_type='material')
         self.fields['category'].queryset = qs
         
-class StockForm(ModelForm):
+class MaterialForm(ModelForm):
     class Meta:
         model = Material
-        fields = ['category']
-
+        fields = ['name', 'price', 'category', 'quantity', 'unit', 'supplier']
+        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.fields['category'].empty_label = None
+        self.fields['supplier'].empty_label = None
         self.fields['category'].queryset = Category.objects.filter(category_type='material')
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         

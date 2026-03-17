@@ -50,23 +50,16 @@
         </li>
 
         <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
-            <i class="bi bi-cash-coin"></i>
-            <span>Sales</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
-            <i class="bi bi-receipt"></i>
-            <span>Purchases</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
           <a class="pos-nav__link {% if section == 'expense' %}is-active{% endif %}" href="#">
             <i class="bi bi-wallet2"></i>
             <span>Expenses</span>
+          </a>
+        </li>
+
+        <li class="nav-item pos-nav__item">
+          <a class="pos-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
+            <i class="bi bi-cash-coin"></i>
+            <span>Sales</span>
           </a>
         </li>
 
@@ -78,20 +71,25 @@
         </li>
 
         <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'material-list' %}">
-            <i class="bi bi-box"></i>
-            <span>Inventory</span>
+          <a class="pos-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
+            <i class="bi bi-receipt"></i>
+            <span>Purchases</span>
           </a>
         </li>
 
         <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'material' %}is-active{% endif %}" href="{% url 'material-list' %}">
+          <a class="pos-nav__link {% if section == 'supplier' %}is-active{% endif %}" href="{% url 'material-list' %}">
             <i class="bi bi-building"></i>
             <span>Supplier</span>
           </a>
         </li>
 
-
+        <li class="nav-item pos-nav__item">
+          <a class="pos-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' %}">
+            <i class="bi bi-box"></i>
+            <span>Inventory</span>
+          </a>
+        </li>
 
         <li class="nav-item pos-nav__item">
           <a class="pos-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' %}">
