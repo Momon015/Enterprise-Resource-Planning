@@ -25,17 +25,16 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const toasts = document.querySelectorAll(".toast-message");
-  toasts.forEach(toast => setTimeout(() => toast.remove(), 3200));
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
   const filterDetails = document.querySelector("details");
   if (filterDetails) {
     const filterForm = filterDetails.querySelector("#filterForm");
     const params = new URLSearchParams(window.location.search);
-    if (params.get("select_month") || params.get("start_date") || params.get("end_date") || params.get("search") || params.get("period")) {
+    if (params.get("search") || params.get("start_date") || params.get("end_date") || params.get("select_month")) {
       filterDetails.setAttribute("open", "");
     }
-    filterForm.addEventListener("click", function (e) { e.stopPropagation(); });
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
     const resetBtn = filterForm.querySelector("a.btn-light");
     if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
   }

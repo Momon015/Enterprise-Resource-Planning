@@ -36,4 +36,9 @@ urlpatterns = [
     path('view/<str:employee_id>/employee-detail/', views.employee_detail, name='employee-detail'),
     path('update/<str:employee_id>/employee-detail/', views.employee_update, name='employee-update'),
     path('delete/<str:employee_id>/employee-detail/', views.employee_delete, name='employee-delete'),
+    
+    path('view/waste-list/', views.waste_list, name='expense-waste-list'),
+    path('create/product/waste/', views.waste_product_create, name='product-waste-create'),
+    path('create/material/waste/', views.waste_material_create, name='material-waste-create'),
+    
 ]

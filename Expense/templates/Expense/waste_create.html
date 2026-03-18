@@ -1,0 +1,171 @@
+{% extends "main.html" %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+
+function stepNumber(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseInt(input.value || 1, 10);
+  value = isNaN(value) ? 1 : value + delta;
+  if (value < 1) value = 1;
+  input.value = value;
+}
+</script>
+
+<style>
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; appearance: none; }
+</style>
+
+
+
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-trash2"></i>
+          Record Stock Waste
+      </h4>
+      <p class="sl-page-subtitle">
+        Log wasted stock as an expense.
+      </p>
+    </div>
+    {% comment %} <a href="{% url 'expense-waste-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to waste list
+    </a> {% endcomment %}
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: FORM -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div>
+              <div class="card-header-title">
+                Stock Waste
+              </div>
+              <div class="card-header-sub">
+                  Record a stock wastes as an expense.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <form method="POST" autocomplete="off" novalidate>
+            {% csrf_token %}
+            <div class="mf-fields-grid">
+                {% for field in form %}
+                <div class="mf-field-group">
+                    <label for="{{ field.id_for_label }}" class="mf-form-label">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="mf-required">*</span>{% endif %}
+                    </label>
+                    {% if field.html_name == 'quantity' %}
+                    <div class="mf-stepper">
+                        <button class="qty-btn" type="button"
+                                onclick="stepNumber('{{ field.id_for_label }}', -1)">−</button>
+                        <input type="number"
+                            name="{{ field.html_name }}"
+                            id="{{ field.id_for_label }}"
+                            class="form-control"
+                            min="1" step="1"
+                            value="{{ field.value|default_if_none:1 }}">
+                        <button class="qty-btn" type="button"
+                                onclick="stepNumber('{{ field.id_for_label }}', 1)">+</button>
+                    </div>
+                    {% else %}
+                    {{ field }}
+                    {% endif %}
+                    {% if field.errors %}<div class="mf-error">{{ field.errors|striptags }}</div>{% endif %}
+                </div>
+                {% endfor %}
+                </div>
+            <div class="mf-form-actions">
+              <a href="{% url 'expense-waste-list' %}" class="btn btn-light">Cancel</a>
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-check-circle sl-me-1"></i> Confirm
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: GUIDE PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-info-circle"></i> Waste Guide
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+
+          <div class="sd-summary-block">
+            <div class="mf-guide-title">Stock Waste</div>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-check-circle-fill"></i> Use for inventory stocks that were spoiled or discarded.</li>
+              <li><i class="bi bi-check-circle-fill"></i> Stock levels will be adjusted accordingly.</li>
+              <li><i class="bi bi-check-circle-fill"></i> Both inventory and product quantity will be deducted.</li>
+            </ul>
+          </div>
+
+          <div class="mf-tip-box">
+            <i class="bi bi-lightbulb"></i>
+            <div>
+              <div class="mf-tip-title">Tip</div>
+              <div class="mf-tip-text">Record waste as soon as it happens to keep your expense reports accurate.</div>
+            </div>
+          </div>
+
+          {% comment %} 
+          RESTAURANT PHASE — product waste link
+          <div class="sd-summary-block">
+            <div class="mf-guide-title">Other options</div>
+            <div class="btn-grid" style="margin-top:0.5rem;">
+              <a href="{% url 'product-waste-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-box-seam"></i> Log Product Waste
+              </a>
+            </div>
+          </div>
+          {% endcomment %}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
