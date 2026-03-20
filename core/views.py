@@ -103,7 +103,7 @@ def category_update(request, category_id):
     else:
         form = CategoryForm(instance=category)
     
-    context = {'form': form}
+    context = {'form': form, 'category': category}
     return render(request, 'core/category_update.html', context)
 
 @login_required(login_url='login')

@@ -1,6 +1,28 @@
 {% extends "main.html" %}
 {% block content %}
 
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
 <div class="mf-page-wrapper">
   <div class="mf-layout">
 
@@ -12,11 +34,11 @@
             <i class="bi bi-pencil-square"></i>
           </div>
           <div>
-            <p class="card-header-title">Edit Category</p>
-            <p class="card-header-sub">Update this category's name and type.</p>
+            <p class="card-header-title">Update Supplier</p>
+            <p class="card-header-sub">Edit supplier details.</p>
           </div>
         </div>
-        <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">
+        <a href="{% url 'supplier-list' %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to list
         </a>
       </div>
@@ -24,6 +46,7 @@
       <div class="card-body">
         <form method="POST" autocomplete="off" novalidate>
           {% csrf_token %}
+
           <div class="mf-fields-grid">
 
             {# Name #}
@@ -36,24 +59,15 @@
               {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
             </div>
 
-            {# Category Type #}
-            <div class="mf-field-group">
-              <label for="{{ form.category_type.id_for_label }}" class="mf-form-label">
-                {{ form.category_type.label }}
-                {% if form.category_type.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.category_type }}
-              {% if form.category_type.errors %}<div class="mf-error">{{ form.category_type.errors|striptags }}</div>{% endif %}
-            </div>
-
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'category-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'supplier-list' %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
           </div>
+
         </form>
       </div>
     </div>
@@ -62,29 +76,33 @@
     <div class="card">
       <div class="card-header dark">
         <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-          <i class="bi bi-info-circle"></i> Current Values
+          <i class="bi bi-info-circle"></i> Supplier Snapshot
         </span>
       </div>
       <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
         <div class="sd-summary-block">
-          <div class="mf-guide-title">Category Snapshot</div>
+          <div class="mf-guide-title">Current Values</div>
           <div class="sd-info-row">
             <span class="sd-info-label">Name</span>
-            <span class="sd-info-value">{{ category.name|capfirst }}</span>
+            <span class="sd-info-value">{{ supplier.name|capfirst }}</span>
           </div>
           <div class="sd-info-row">
-            <span class="sd-info-label">Type</span>
-            <span class="sl-badge sl-badge-light">{{ category.category_type|capfirst }}</span>
+            <span class="sd-info-label">Materials</span>
+            <span class="sd-info-value">{{ supplier.materials.count }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Date Added</span>
+            <span class="sd-info-value">{{ supplier.created_at|date:"M d, Y" }}</span>
           </div>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Actions</div>
           <div class="btn-grid">
-            <a href="{% url 'category-delete' category.id %}" class="btn btn-sm btn-block"
+            <a href="{% url 'supplier-delete' supplier.id %}" class="btn btn-sm btn-block"
                style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
-              <i class="bi bi-trash sl-me-1"></i> Delete Category
+              <i class="bi bi-trash sl-me-1"></i> Delete Supplier
             </a>
           </div>
         </div>

@@ -238,11 +238,15 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> Add material
             </a>
+            <div class="btn-grid">
+            <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-building-add"></i> View Supplier
+            </a>
             {% comment %} <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-list-ul"></i> View Presets
             </a> {% endcomment %}
             <a href="{% url 'category-list' %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi-kanban"></i> Material's category
+              <i class="bi-kanban" ></i> Material's category
             </a>
             {% if cart_items %}
             <a href="{% url 'clear-cart' %}" class="btn btn-sm btn-block"

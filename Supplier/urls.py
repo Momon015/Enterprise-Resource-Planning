@@ -21,5 +21,11 @@ urlpatterns = [
     # adding preset to cart
     path('view/<int:preset_id>/apply-preset/', views.adding_preset_to_cart, name='material-add-preset-to-cart'),
     
+    # supplier 
+    path('supplier-list/', views.supplier_list, name='supplier-list'),
+    path('supplier/create/', views.supplier_create, name='supplier-create'),
+    # path('supplier/view/<int:supplier_id>/', views.supplier_detail, name='supplier-detail')
+    path('supplier/update/<int:supplier_id>/', views.supplier_update, name='supplier-update'),
+    path('supplier/delete/<int:supplier_id>/', views.supplier_delete, name='supplier-delete'),
 
 ]

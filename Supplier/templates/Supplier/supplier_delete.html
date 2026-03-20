@@ -8,12 +8,12 @@
     <div>
       <h4 class="sl-page-title" style="color:var(--danger);">
         <i class="bi bi-trash"></i>
-        Delete Category
+        Delete Supplier
       </h4>
-      <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ category.name }}</strong>.</p>
+      <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ supplier.name }}</strong>.</p>
     </div>
-    <a href="{% url 'category-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to categories
+    <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to suppliers
     </a>
   </div>
 
@@ -25,27 +25,31 @@
         <div class="card-header">
           <div class="sd-card-header-left">
             <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-tag-fill"></i>
+              <i class="bi bi-building"></i>
             </div>
             <div>
-              <div class="card-header-title">{{ category.name|capfirst }}</div>
-              <div class="card-header-sub">Category to be deleted</div>
+              <div class="card-header-title">{{ supplier.name|capfirst }}</div>
+              <div class="card-header-sub">{{ supplier.materials.count }} material{{ supplier.materials.count|pluralize }} linked</div>
             </div>
           </div>
-          <span class="sl-badge sl-badge-light">ID: {{ category.id }}</span>
+          <span class="sl-badge sl-badge-light">ID: {{ supplier.id }}</span>
         </div>
 
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Category info</div>
+            <div class="sd-summary-block-label">Supplier info</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Name</span>
-              <span class="sd-info-value">{{ category.name|capfirst }}</span>
+              <span class="sd-info-value">{{ supplier.name|capfirst }}</span>
             </div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Type</span>
-              <span class="sl-badge sl-badge-light">{{ category.category_type|capfirst }}</span>
+              <span class="sd-info-label">Materials linked</span>
+              <span class="sd-info-value">{{ supplier.materials.count }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date added</span>
+              <span class="sd-info-value">{{ supplier.created_at|date:"M d, Y" }}</span>
             </div>
           </div>
 
@@ -53,14 +57,14 @@
             <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
             <div>
               <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">Any materials linked to <strong>{{ category.name }}</strong> will lose their category assignment.</div>
+              <div class="sd-note-text">Materials linked to this supplier will lose their supplier reference. This cannot be undone.</div>
             </div>
           </div>
 
           <form method="POST">
             {% csrf_token %}
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
-              <a href="{% url 'category-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn"
                 style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash"></i> Confirm Delete
@@ -72,7 +76,7 @@
       </div>
     </div>
 
-    <!-- RIGHT: WARNING -->
+    <!-- RIGHT: WARNING PANEL -->
     <div class="right-panel">
       <div class="card">
         <div class="card-header" style="background:#c0392b;">
@@ -87,12 +91,13 @@
               <i class="bi bi-exclamation-triangle sl-me-1"></i> Warning
             </div>
             <p style="font-size:0.82rem; color:#6c757d; margin:0;">
-              Deleting <strong>{{ category.name }}</strong> is permanent. Materials using this category will become uncategorized.
+              Deleting <strong>{{ supplier.name }}</strong> will permanently remove it. 
+              Any materials linked to this supplier will lose their supplier reference.
             </p>
           </div>
 
           <div class="btn-grid">
-            <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'supplier-update' supplier.id %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div>
@@ -104,4 +109,4 @@
   </div>
 </div>
 
-{% endblock content %}
+{% endblock %}

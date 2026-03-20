@@ -36,7 +36,7 @@ class Sale(TimeStampModel):
     objects = SaleQuerySet.as_manager()
     
     def __str__(self):
-        return f"Date: {self.date} - {self.total_cost}"
+        return f"Date: {self.date} - {self.total_revenue}"
     
     def quantity_item(self):
         return sum(item.quantity for item in self.sale_items.all())

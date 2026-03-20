@@ -153,8 +153,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 {% comment %} RESTAURANT PHASE — type column
                 <th>Type</th>
                 {% endcomment %}
-                <th class="sl-text-center">Quantity</th>
-                <th class="sl-text-end">Unit Price</th>
                 <th class="sl-text-end">Total Waste</th>
               </tr>
             </thead>
@@ -163,45 +161,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 <tr>
                   <td>
                     <div class="cell-primary">{{ waste.date|date:"M d, Y" }}</div>
-                    <div class="cell-sub">{{ waste.created_at|date:"h:i A" }}</div>
+                    <div class="cell-sub">{{ waste.date|date:"l" }}</div>
                   </td>
                   <td>
-                    {% comment %} RESTAURANT PHASE — product waste
-                    {% if waste.product %}
-                      <div class="cell-primary">{{ waste.product.name|capfirst }}</div>
-                    {% elif waste.material %}
-                    {% endcomment %}
-                      <div class="cell-primary">{{ waste.material.name|capfirst }}</div>
-                      <div class="cell-sub">{{ waste.material.supplier.name|default:"—" }}</div>
-                    {% comment %} {% else %}
-                      <div class="cell-primary">—</div>
-                    {% endif %}
-                    {% endcomment %}
+                    {% for item in waste.waste_items.all %}
+                      <div class="cell-primary">{{ item.material.name|capfirst }}</div>
+                      <div class="cell-sub">{{ item.material.supplier.name|default:"—" }}</div>
+                    {% endfor %}
                   </td>
-                  {% comment %} RESTAURANT PHASE — type badge
-                  <td>
-                    {% if waste.product %}
-                      <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
-                    {% elif waste.material %}
-                      <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">Material</span>
-                    {% endif %}
-                  </td>
-                  {% endcomment %}
-                  <td class="sl-text-center sl-fw-semibold">{{ waste.quantity|intcomma }}</td>
-                  <td class="sl-text-end">₱{{ waste.price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                    {% comment %} RESTAURANT PHASE — product waste cost
-                    {% if waste.product %}
-                      ₱{{ waste.total_product_cost|floatformat:2|intcomma }}
-                    {% elif waste.material %}
-                    {% endcomment %}
-                      ₱{{ waste.total_material_cost|floatformat:2|intcomma }}
-                    {% comment %} {% endif %} {% endcomment %}
+
+                  <td class="sl-text-end">
+                    {% comment %} total cost per waste header {% endcomment %}
+                    ₱{{waste.waste_cost|floatformat:2|intcomma }}
                   </td>
                 </tr>
                 {% empty %}
                 <tr class="sl-empty-row">
-                  <td colspan="5">No waste records found.</td>
+                  <td colspan="4">No waste records found.</td>
                 </tr>
                 {% endfor %}
               </tbody>

@@ -21,26 +21,24 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const toasts = document.querySelectorAll(".toast-message");
-  toasts.forEach(toast => setTimeout(() => toast.remove(), 3200));
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
   const filterDetails = document.querySelector("details");
   if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
     const params = new URLSearchParams(window.location.search);
-    if (params.get("select_month") || params.get("start_date") || params.get("end_date") || params.get("search") || params.get("period")) {
+    if (params.get("search") || params.get("start_date") || params.get("end_date") || params.get("select_month")) {
       filterDetails.setAttribute("open", "");
     }
-    const filterForm = filterDetails.querySelector("#filterForm");
-    if (filterForm) {
-      filterForm.addEventListener("click", function (e) { e.stopPropagation(); });
-      const resetBtn = filterForm.querySelector("a.btn-light");
-      if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
   }
 
   const monthInput = document.querySelector('input[name="select_month"]');
   const startDateInput = document.querySelector('input[name="start_date"]');
   const endDateInput = document.querySelector('input[name="end_date"]');
+
   if (monthInput) {
     monthInput.addEventListener("change", function () {
       if (startDateInput) startDateInput.value = "";
@@ -154,8 +152,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   <span class="ss-amount">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span>
                 </td>
                 <td class="sl-text-end">
-                  {% if summary.total_unsold_cost %}
-                    <span class="ss-amount ss-cost">₱{{ summary.total_unsold_cost|floatformat:2|intcomma }}</span>
+                  {% if summary.total_waste_cost %}
+                    <span class="ss-amount ss-cost">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
@@ -246,7 +244,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
           <div class="sl-summary-row">
             <span class="sl-summary-label">Total Waste Cost</span>
-            <span class="sl-summary-value ss-red">₱{{ grand_total_unsold_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            <span class="sl-summary-value ss-red">₱{{ grand_total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</span>
           </div>
           <div class="sl-summary-row">
             <span class="sl-summary-label">Total Material Cost</span>

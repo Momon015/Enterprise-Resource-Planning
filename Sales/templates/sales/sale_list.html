@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ sale.created_at|date:"M d, Y" }}</div>
-                  <div class="cell-sub">{{ sale.created_at|date:"h:i A" }}</div>
+                  <div class="cell-sub">{{ sale.created_at|date:"l" }}</div>
                 </td>
                 <td>
                   <div class="cell-primary">{{ sale.reference|default:"—" }}</div>

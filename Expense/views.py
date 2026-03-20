@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Expense.models import PurchaseItem, Purchase, Employee, WasteItem
+from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem
 from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm, ProductWasteForm, MaterialWasteForm, WasteItemFilterForm
 
 from Supplier.models import Material
@@ -36,7 +36,7 @@ from django.views.decorators.http import require_POST
 
 from django.core.paginator import Paginator
 
-from django.db.models import Q
+from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
 from django.db.models import Sum, Avg
@@ -519,7 +519,7 @@ def cart_edit_material(request, id):
             messages.success(request, f"{material.name}'s quantity has been updated.")
             request.session.modified = True
         else:
-             messages.warning(request, f"{material.name}: quantity limit reached.")
+             messages.warning(request, f"{material.name} - quantity limit reached.")
     
     return redirect('view-cart')
 
@@ -610,11 +610,8 @@ def employee_delete(request, employee_id):
 
 @login_required(login_url='login')
 def waste_list(request):
-    wastes = WasteItem.objects.all().order_by('-date')
-
+    wastes = Waste.objects.all().order_by('-date')
     total_waste_cost = wastes.total_waste_cost()
-    total_product_waste = wastes.total_product_waste()
-    total_material_waste = wastes.total_material_waste()
     
     form = WasteItemFilterForm(request.GET or None)
     period = request.GET.get('period')
@@ -628,9 +625,9 @@ def waste_list(request):
         
         if search:
             wastes = wastes.filter(
-                Q(material__name__iexact=search) |
-                Q(price__iexact=search) |
-                Q(quantity__iexact=search)
+                Q(waste_items__material__name__iexact=search) |
+                Q(total_cost__iexact=search) |
+                Q(waste_items__quantity__iexact=search)
             )
         
         if select_month:
@@ -657,14 +654,12 @@ def waste_list(request):
             wastes = wastes.filter(date__day=now.day, date__year=now.year)
         
         total_waste_cost = wastes.total_waste_cost()
-        total_product_waste = wastes.total_product_waste()
-        total_material_waste = wastes.total_material_waste()
 
     pagination = Paginator(wastes, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'wastes': page_obj, 'page_obj': page_obj, 'section': 'waste', 'total_waste_cost': total_waste_cost, 'total_product_waste': total_product_waste, 'total_material_waste': total_material_waste}
+    context = {'page_obj': page_obj, 'section': 'waste', 'total_waste_cost': total_waste_cost}
     return render(request, 'Expense/waste_list.html', context)
 
 @login_required(login_url='login')
@@ -689,31 +684,45 @@ def waste_product_create(request):
 @login_required(login_url='login')
 def waste_material_create(request):
     page = 'waste_material'
+    
     if request.method == 'POST':
         form = MaterialWasteForm(request.POST)
 
         if form.is_valid():
             item = form.save(commit=False)
             item.user = request.user
-            item.save()
             
+            stock = Stock.objects.get(user=request.user, material=item.material)
             # deduct from the stock
-            try:
-                stock = Stock.objects.get(user=request.user, material=item.material)
+            if stock.quantity >= item.quantity:
                 stock.quantity -= item.quantity
                 stock.save()
-            except Stock.DoesNotExist:
-                pass
-
+            else:
+                messages.warning(request, f"{stock.material.name} - {stock.quantity} left.")
+                return redirect('view-inventory-stock')
+        
             # deduct as well for the product
-            try:
-                product = Product.objects.get(user=request.user, material=item.material)
-                product.prepared_quantity -= item.quantity
-                product.save()
-            except Product.DoesNotExist:
-                pass
+            product = Product.objects.get(user=request.user, material=item.material)
+            product.prepared_quantity -= item.quantity
+            product.save()
+
+            waste = Waste.objects.create(
+                user=request.user,
+                total_cost=0
+            )
+            waste_cost = stock.price * item.quantity
+            waste.total_cost = waste_cost
+            waste.save()
             
-                
+            waste_item = WasteItem.objects.create(
+                waste=waste,
+                material=item.material,
+                price=stock.price,
+                quantity=item.quantity
+            )
+
+            waste_item.save()
+
             messages.success(request, f"{item.material.name} has been recorded as waste.")
             return redirect('expense-waste-list')         
     else:

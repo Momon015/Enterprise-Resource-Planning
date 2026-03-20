@@ -12,13 +12,39 @@ class Supplier(TimeStampModel, SlugModel):
 
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
 class Material(TimeStampModel, SlugModel):
-    UNIT_CHOICES = (
-        ('kg', 'Kilogram'),
-        ('pc', 'Piece'),
+    # RETAIL — sellable units (sold as-is to customer)
+    RETAIL_UNIT_CHOICES = (
+        ('pc', 'Piece'),        # single item
+        ('pack', 'Pack'),       # small bundle
+        ('box', 'Box'),         # larger container
+        ('bottle', 'Bottle'),
+        ('can', 'Can'),
+        ('bag', 'Bag'),
+        ('tray', 'Tray'),
+        ('dozen', 'Dozen'),     # 12 pcs
+        ('bundle', 'Bundle'),   # variable pcs
+        ('carton', 'Carton'),   # bulk box
+        ('sachet', 'Sachet'),   # small pouch
         ('liter', 'Liter'),
-        ('gram', 'Gram')
+    )
+    
+    # RESTAURANT — raw ingredients by weight/volume
+    RESTAURANT_UNIT_CHOICES = (
+        ('kg', 'Kilogram'),
+        ('g', 'Gram'),
+        ('liter', 'Liter'),
+        ('ml', 'Milliliter'),
+        ('pc', 'Piece'),        # eggs, onions, etc.
+        ('tbsp', 'Tablespoon'),
+        ('tsp', 'Teaspoon'),
+        ('cup', 'Cup'),
     )
     name = models.CharField(max_length=100)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='materials')
@@ -26,8 +52,8 @@ class Material(TimeStampModel, SlugModel):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='materials')
     price = models.DecimalField(decimal_places=2, max_digits=10)
     quantity = models.PositiveIntegerField(default=1)
-    unit = models.CharField(max_length=100, choices=UNIT_CHOICES, default='pc')
-
+    unit = models.CharField(max_length=100, choices=RETAIL_UNIT_CHOICES, default='pc')
+    piece_per_unit = models.PositiveBigIntegerField(default=1)
     
     def __str__(self):
         return self.name

@@ -1,4 +1,5 @@
 {% extends "main.html" %}
+{% load humanize %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -17,199 +18,201 @@
 </div>
 {% endif %}
 
-<style>
-.toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; display: flex; flex-direction: column; gap: 0.5rem; }
-.toast-message { min-width: 240px; max-width: 360px; padding: 0.75rem 1rem; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 500; box-shadow: 0 6px 20px rgba(0,0,0,0.12); opacity: 0; transform: translateY(-10px); animation: toast-in 0.35s ease forwards, toast-out 0.35s ease forwards 2.8s; }
-.toast-success { background: #e9f8ef; color: #0f5132; border-left: 4px solid #198754; }
-.toast-error, .toast-danger { background: #fdecec; color: #842029; border-left: 4px solid #dc3545; }
-.toast-warning { background: #fff4e5; color: #664d03; border-left: 4px solid #ffc107; }
-.toast-info { background: #e7f1ff; color: #084298; border-left: 4px solid #0d6efd; }
-@keyframes toast-in { to { opacity: 1; transform: translateY(0); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(-10px); } }
-table th, table td { vertical-align: middle; }
-</style>
-
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => {
-    setTimeout(() => t.remove(), 3200);
-  });
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
 </script>
 
-<div class="container-fluid py-3 py-lg-4">
+<div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <div class="sl-page-header">
     <div>
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-tags text-primary"></i>
+      <h4 class="sl-page-title">
+        <i class="bi bi-tags"></i>
         Categories
       </h4>
-      <small class="text-muted">Manage category names and types for your materials and products.</small>
+      <p class="sl-page-subtitle">Manage category names and types for your materials.</p>
     </div>
-    <a href="{% url 'category-create' %}" class="btn btn-sm btn-primary">
-      <i class="bi bi-plus-circle me-1"></i>New Category
+    <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle"></i> New Category
     </a>
   </div>
 
-  <div class="row justify-content-center">
-    <div class="col-12 col-xl-10">
-      <div class="row g-3 g-lg-4">
+  <div class="two-col-layout">
 
-        <!-- LEFT: CATEGORY LIST -->
-        <div class="col-lg-8">
-          <div class="card border-0 shadow-sm rounded-4">
+    <!-- LEFT: TABLE -->
+    <div class="left-panel">
 
-            <div class="card-header bg-white border-bottom px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge text-bg-primary rounded-pill">{{ page_obj.paginator.count }}</span>
-                <h6 class="mb-0 fw-semibold">Category List</h6>
-              </div>
-              <!-- Active filter badge -->
-              {% if request.GET.category_type %}
-                <span class="badge text-bg-secondary">
-                  Filtered: {{ request.GET.category_type|capfirst }}
-                  <a href="{% url 'category-list' %}" class="text-white ms-1" title="Clear filter">×</a>
-                </span>
-              {% endif %}
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover align-middle mb-0">
-                <thead class="table-light small text-uppercase">
-                  <tr>
-                    <th class="ps-3 ps-lg-4">Name</th>
-                    <th>Type</th>
-                    <th class="text-end pe-3 pe-lg-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for category in categories %}
-                    <tr>
-                      <td class="ps-3 ps-lg-4 fw-semibold">{{ category.name }}</td>
-                      <td>
-                        {% if category.category_type == 'material' %}
-                          <span class="badge text-bg-secondary rounded-pill">Material</span>
-                        {% elif category.category_type == 'product' %}
-                          <span class="badge text-bg-primary rounded-pill">Product</span>
-                        {% else %}
-                          <span class="badge text-bg-light text-dark border rounded-pill">{{ category.category_type }}</span>
-                        {% endif %}
-                      </td>
-                      <td class="text-end pe-3 pe-lg-4">
-                        <div class="btn-group btn-group-sm">
-                          <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary" title="Edit">
-                            <i class="bi bi-pencil"></i>
-                          </a>
-                          <a href="{% url 'category-delete' category.id %}" class="btn btn-outline-danger" title="Delete">
-                            <i class="bi bi-trash"></i>
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  {% empty %}
-                    <tr>
-                      <td colspan="3" class="text-center py-4 text-muted">
-                        <h6 class="fw-semibold mb-1">No categories found</h6>
-                        <p class="small mb-3">Create your first category to organize materials and products.</p>
-                        <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm rounded-3 px-3">
-                          <i class="bi bi-plus-circle me-1"></i>Add Category
-                        </a>
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Pagination -->
-            {% if page_obj.paginator.num_pages > 1 %}
-            <div class="d-flex justify-content-center py-3">
-              <nav>
-                <ul class="pagination pagination-sm mb-0">
-                  <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.category_type %}&category_type={{ request.GET.category_type }}{% endif %}">&laquo;</a>
-                  </li>
-                  {% for page in page_obj.paginator.page_range %}
-                    <li class="page-item {% if page == page_obj.number %}active{% endif %}">
-                      <a class="page-link" href="?page={{ page }}{% if request.GET.category_type %}&category_type={{ request.GET.category_type }}{% endif %}">{{ page }}</a>
-                    </li>
-                  {% endfor %}
-                  <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.category_type %}&category_type={{ request.GET.category_type }}{% endif %}">&raquo;</a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-            {% endif %}
-
-          </div>
-        </div>
-
-        <!-- RIGHT: INFO PANEL -->
-        <div class="col-lg-4">
-          <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div class="card-header bg-dark text-white px-3 px-lg-4 py-2 py-lg-3">
-              <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-info-circle"></i>
-                <h6 class="mb-0 fw-semibold">About Categories</h6>
-              </div>
-            </div>
-            <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-              <!-- Name tip -->
-              <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-                <div class="text-muted text-uppercase small mb-1">
-                  <i class="bi bi-tag me-1"></i>Name
-                </div>
-                <div class="text-muted">
-                  Use a short, clear name like <strong>Vegetables</strong>, <strong>Beverages</strong>, or <strong>Packaging</strong>.
-                </div>
-              </div>
-
-              <!-- Type tip -->
-              <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-                <div class="text-muted text-uppercase small mb-1">
-                  <i class="bi bi-grid me-1"></i>Category Type
-                </div>
-                <div class="text-muted mb-2">Determines where the category appears:</div>
-                <div class="d-flex flex-column gap-1">
-                  <div class="d-flex align-items-center gap-2">
-                    <span class="badge text-bg-secondary rounded-pill">Material</span>
-                    <span class="text-muted">market purchases & ingredients</span>
-                  </div>
-                  <div class="d-flex align-items-center gap-2">
-                    <span class="badge text-bg-primary rounded-pill">Product</span>
-                    <span class="text-muted">items you sell to customers</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Filter tip -->
-              <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-                <div class="text-muted text-uppercase small mb-1">
-                  <i class="bi bi-funnel me-1"></i>Quick Filter
-                </div>
-                <div class="text-muted mb-2">Filter by type directly from other pages:</div>
-                <div class="d-flex gap-2">
-                  <a href="{% url 'category-list' %}?category_type=material" class="btn btn-sm btn-outline-secondary rounded-pill">
-                    <i class="bi bi-shop me-1"></i>Material
-                  </a>
-                  <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-outline-primary rounded-pill">
-                    <i class="bi bi-basket me-1"></i>Product
-                  </a>
-                </div>
-              </div>
-
+      <!-- FILTER BAR -->
+      <form method="get" autocomplete="off">
+        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+          <div class="flex-grow-1">
+            <div class="input-group">
+              <span class="input-group-icon"><i class="bi bi-search"></i></span>
+              <input type="search" name="search" class="form-control"
+                     placeholder="Search category name..."
+                     value="{{ request.GET.search|default:'' }}">
             </div>
           </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">
+              <i class="bi bi-funnel"></i> Filter
+            </button>
+            <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">Reset</a>
+          </div>
         </div>
+      </form>
+
+      <div class="card table-card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="card-header-title">Category List</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} categor{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
+          </div>
+          {% if request.GET.category_type %}
+            <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
+              Filtered: {{ request.GET.category_type|capfirst }}
+              <a href="{% url 'category-list' %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
+            </span>
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="sl-text-center">Type</th>
+                <th class="sl-text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for category in categories %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ category.name|capfirst }}</div>
+                </td>
+                <td class="sl-text-center">
+                  {% if category.category_type == 'material' %}
+                    <span class="sl-badge sl-badge-light">Material</span>
+                  {% elif category.category_type == 'product' %}
+                    <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-end">
+                  <div class="btn-group">
+                    <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm" title="Edit">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="{% url 'category-delete' category.id %}" class="btn btn-outline-secondary btn-sm" title="Delete"
+                       style="color:var(--danger); border-color:#f0d0ce;">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="3">
+                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No categories found</h6>
+                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Create your first category to organize materials.</p>
+                  <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Category
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              {% with q=request.GET.search cat=request.GET.category_type %}
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">&laquo;</a>
+                {% else %}
+                  <span class="page-link">&laquo;</span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">&raquo;</a>
+                {% else %}
+                  <span class="page-link">&raquo;</span>
+                {% endif %}
+              </li>
+              {% endwith %}
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
 
       </div>
     </div>
-  </div>
 
+    <!-- RIGHT: INFO PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-info-circle"></i> About Categories
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block">
+            <div class="mf-guide-title">Name</div>
+            <p style="font-size:0.82rem; color:#6c757d; margin:0;">
+              Use a short, clear name like <strong>Beverages</strong>, <strong>Snacks</strong>, or <strong>Packaging</strong>.
+            </p>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="mf-guide-title">Category Type</div>
+            <p style="font-size:0.82rem; color:#6c757d; margin-bottom:0.5rem;">Determines where the category appears:</p>
+            <div class="sd-info-row">
+              <span class="sl-badge sl-badge-light">Material</span>
+              <span style="font-size:0.78rem; color:#6c757d;">market purchases & stock</span>
+            </div>
+            {% comment %} RESTAURANT PHASE — product category
+            <div class="sd-info-row">
+              <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+              <span style="font-size:0.78rem; color:#6c757d;">items you sell to customers</span>
+            </div>
+            {% endcomment %}
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="mf-guide-title">Quick Filter</div>
+            <div class="btn-grid">
+              <a href="{% url 'category-list' %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-shop"></i> Material Categories
+              </a>
+              {% comment %} RESTAURANT PHASE — product filter
+              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-block" style="background:#e7f1ff; color:#084298; border:1px solid #b6d4fe;">
+                <i class="bi bi-basket"></i> Product Categories
+              </a>
+              {% endcomment %}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 {% endblock content %}

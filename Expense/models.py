@@ -129,22 +129,35 @@ class Employee(TimeStampModel):
     
     objects = EmployeeQuerySet.as_manager()
 
-
-class WasteItemQuerySet(models.QuerySet):
+class WasteQuerySet(models.QuerySet):
     def total_waste_cost(self):
-        return self.aggregate(total_waste_cost=Sum(F('price') * F('quantity')))['total_waste_cost'] or 0
+        return self.aggregate(total_waste_cost=Sum('total_cost'))['total_waste_cost'] or 0
+
+class Waste(TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wastes')
+    date = models.DateField(auto_now_add=True, db_index=True)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=6)
     
+    objects = WasteQuerySet.as_manager()
+    
+    def __str__(self):
+        return f"Waste - {self.date}"
+    
+    @property
+    def waste_cost(self):
+        return sum(item.price * item.quantity for item in self.waste_items.all())
+        
+class WasteItemQuerySet(models.QuerySet):
     def total_product_waste(self):
         return self.filter(product__isnull=False).aggregate(total_product_waste=Sum(F('price') * F('quantity')))['total_product_waste'] or 0
 
     def total_material_waste(self):
         return self.filter(material__isnull=False).aggregate(total_material_waste=Sum(F('price') * F('quantity')))['total_material_waste'] or 0
-
-class WasteItem(TimeStampModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='waste_items')
+    
+class WasteItem(models.Model):
+    waste = models.ForeignKey(Waste, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
-    date = models.DateField(auto_now_add=True, db_index=True)
     price = models.DecimalField(max_digits=10, decimal_places=6)
     quantity = models.PositiveBigIntegerField(default=0)
     
@@ -154,13 +167,13 @@ class WasteItem(TimeStampModel):
         item = self.material or self.product
         return f"{item.name} - {self.quantity}"
     
-    def save(self, *args, **kwargs):
-        if self.product and not self.material:
-            self.price = self.product.cost_price
-        elif self.material and not self.product:
-            self.price = self.material.price    
-
-        super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     # if self.product and not self.material:
+    #     #     self.price = self.product.cost_price
+    #     # elif self.material and not self.product:
+    #     #     self.price = self.material.price
+        
+    #     super().save(*args, **kwargs)
         
     @property
     def total_product_cost(self):

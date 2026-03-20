@@ -9,14 +9,14 @@
       <div class="card-header">
         <div class="sd-card-header-left">
           <div class="sd-header-icon">
-            <i class="bi bi-tag-fill"></i>
+            <i class="bi bi-building-add"></i>
           </div>
           <div>
-            <p class="card-header-title">New Category</p>
-            <p class="card-header-sub">Create a category to organize your materials.</p>
+            <p class="card-header-title">New Supplier</p>
+            <p class="card-header-sub">Add a supplier for purchase tracking.</p>
           </div>
         </div>
-        <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">
+        <a href="{% url 'supplier-list' %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to list
         </a>
       </div>
@@ -24,6 +24,7 @@
       <div class="card-body">
         <form method="POST" autocomplete="off" novalidate>
           {% csrf_token %}
+
           <div class="mf-fields-grid">
 
             {# Name #}
@@ -33,36 +34,28 @@
                 {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.name }}
+              {% if form.name.help_text %}<div class="mf-help">{{ form.name.help_text }}</div>{% endif %}
               {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Category Type #}
-            <div class="mf-field-group">
-              <label for="{{ form.category_type.id_for_label }}" class="mf-form-label">
-                {{ form.category_type.label }}
-                {% if form.category_type.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.category_type }}
-              {% if form.category_type.errors %}<div class="mf-error">{{ form.category_type.errors|striptags }}</div>{% endif %}
             </div>
 
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'category-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'supplier-list' %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save Category
+              <i class="bi bi-check-circle sl-me-1"></i> Save
             </button>
           </div>
+
         </form>
       </div>
     </div>
 
-    <!-- RIGHT: GUIDE -->
+    <!-- RIGHT: GUIDE PANEL -->
     <div class="card">
       <div class="card-header dark">
         <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-          <i class="bi bi-info-circle"></i> Category Guide
+          <i class="bi bi-info-circle"></i> Supplier Guide
         </span>
       </div>
       <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
@@ -70,18 +63,16 @@
         <div class="sd-summary-block">
           <div class="mf-guide-title">Checklist</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill"></i> Use a short, clear name like <strong>Beverages</strong> or <strong>Snacks</strong>.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Avoid duplicates — check the list before adding.</li>
+            <li><i class="bi bi-check-circle-fill"></i> Use the supplier's actual business name.</li>
+            <li><i class="bi bi-check-circle-fill"></i> Each supplier should be unique — avoid duplicates.</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
-          <div class="mf-guide-title">Category Type</div>
+          <div class="mf-guide-title">How it works</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Material</strong> — for market purchases and stock items.</li>
-            {% comment %} RESTAURANT PHASE — product category type
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Product</strong> — for items you sell to customers.</li>
-            {% endcomment %}
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Suppliers are linked to materials you purchase.</li>
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Purchase history is tracked per supplier.</li>
           </ul>
         </div>
 
@@ -89,7 +80,7 @@
           <i class="bi bi-lightbulb"></i>
           <div>
             <div class="mf-tip-title">Tip</div>
-            <div class="mf-tip-text">Group similar items together — e.g. "Beverages" for all drinks, "Cleaning" for supplies.</div>
+            <div class="mf-tip-text">You can add suppliers like "Public Market", "Grocery Store", or specific vendor names for better tracking.</div>
           </div>
         </div>
 
@@ -99,4 +90,15 @@
   </div>
 </div>
 
-{% endblock content %}
+<script>
+function stepNumber(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseInt(input.value || 0, 10);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 1) value = 1;
+  input.value = value;
+}
+</script>
+
+{% endblock %}

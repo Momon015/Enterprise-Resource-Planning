@@ -52,10 +52,9 @@
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th class="sl-text-center">Sold Qty</th>
-                  <th class="sl-text-center">Waste Qty</th>
+                  <th class="sl-text-center">Quantity</th>
                   <th class="sl-text-center">Unit Cost</th>
-                  <th class="sl-text-center">Unit Price</th>
+                  <th class="sl-text-end">Unit Price</th>
                   <th class="sl-text-end">Revenue</th>
                 </tr>
               </thead>
@@ -67,14 +66,8 @@
                     <div class="cell-sub">#{{ item.product.id|default:"—" }}</div>
                   </td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-center">
-                    {% if item.unsold_quantity %}
-                      <span style="color: var(--danger);">{{ item.unsold_quantity|intcomma }}</span>
-                    {% else %}
-                      <span class="cell-sub">0</span>
-                    {% endif %}
                   <td class="sl-text-center">₱{{ item.cost_price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-center">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-end">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
                    <td class="sl-text-end sl-fw-semibold">
                     ₱{{ item.net_sale_value|floatformat:2|intcomma }}
                   </td>
@@ -147,7 +140,7 @@
                 <tr>
                   <th>Material</th>
                   <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-end">Material Cost</th>
+                  <th class="sl-text-center">Unit Cost</th>
                   <th class="sl-text-end">Discount</th>
                   <th class="sl-text-end">Total</th>
                 </tr>
@@ -157,15 +150,65 @@
                 <tr>
                   <td>
                     <div class="cell-primary">{{ item.material.name|capfirst|default:"—" }}</div>
+                    <div class="cell-sub">#{{ item.material.id|default:"—" }}</div>
                   </td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold">₱{{ item.material.price|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-center sl-fw-semibold">₱{{ item.material.price|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.discount|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}
                 <tr class="sl-empty-row">
                   <td colspan="3">No purchases recorded for this day.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- WASTES -->
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
+              <i class="bi bi-trash2"></i>
+            </div>
+            <div>
+              <p class="card-header-title">Stock Waste</p>
+              <p class="card-header-sub">{{ waste_items|length }} waste record{{ waste_items|length|pluralize }} this day</p>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th class="sl-text-center">Quantity</th>
+                  <th class="sl-text-center">Unit Cost</th>
+                  <th class="sl-text-end">Waste Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in waste_items %}
+                <tr>
+                  <td>
+                    <div class="cell-primary">{{ item.material.name|capfirst|default:"—" }}</div>
+                    <div class="cell-sub">{{ item.material.supplier.name|default:"—" }}</div>
+                  </td>
+                  <td class="sl-text-center sl-fw-semibold">{{ item.quantity|intcomma }}</td>
+                  <td class="sl-text-center sl-fw-semibold">₱{{ item.price|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                    ₱{{ item.total_material_cost|floatformat:2|intcomma }}
+                  </td>
+                </tr>
+
+                
+                {% empty %}
+                <tr class="sl-empty-row">
+                  <td colspan="4">No waste recorded for this day.</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -186,9 +229,9 @@
             <i class="bi bi-graph-up-arrow"></i>
             <span style="font-weight:600; font-size:0.9rem;">Day Summary</span>
           </div>
-          {% if sales %}
+          {% comment %} {% if sales %}
           <span style="font-size:0.75rem; color:rgba(255,255,255,0.5);">{{ sales.first.date|date:"M d, Y" }}</span>
-          {% endif %}
+          {% endif %} {% endcomment %}
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
@@ -208,6 +251,10 @@
             <div class="sd-info-row">
               <span class="sd-info-label">Total Purchases</span>
               <span class="sd-info-value">{{ purchases|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Waste Records</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ waste_items|length }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Staff on shift</span>

@@ -37,7 +37,7 @@ class EmployeeForm(ModelForm):
 class MaterialWasteForm(ModelForm):
     class Meta:
         model = WasteItem
-        exclude = ['price', 'user', 'product']
+        exclude = ['price', 'product', 'waste']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,7 +51,7 @@ class MaterialWasteForm(ModelForm):
 class ProductWasteForm(ModelForm):
     class Meta:
         model = WasteItem
-        exclude = ['price', 'user', 'material']
+        exclude = ['price', 'material']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

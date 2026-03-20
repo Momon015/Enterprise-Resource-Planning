@@ -305,7 +305,7 @@ def confirm_view_summary(request):
     
     try:
         with transaction.atomic():
-            sale_obj = Sale.objects.create(user=request.user, total_revenue=0)
+            sale_obj = Sale.objects.create(user=request.user, total_revenue=0, total_salary_cost=0)
 
             employee_ids = request.session.get('selected_employee_ids', [])
             print('employee_ids', employee_ids)
@@ -342,7 +342,6 @@ def confirm_view_summary(request):
                 product.save()
                 
             for employee in employees:
-            
                 SaleEmployee.objects.create(
                     sale=sale_obj,
                     employee=employee,
@@ -351,6 +350,7 @@ def confirm_view_summary(request):
                 
             # net profit 
             sale_obj.total_revenue = max(total_revenue, 0)
+            sale_obj.total_salary_cost = total_salary_cost
             sale_obj.line_count = line_count
             sale_obj.save()
 

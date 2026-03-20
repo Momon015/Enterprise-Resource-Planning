@@ -438,14 +438,15 @@
                 <i class="bi bi-plus-circle me-1"></i>
                 Add product
               </a>
-              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-outline-info">
-                <i class="bi-kanban"></i>
-                Product's category
-              </a>
               <a href="{% url 'product-preset-list' %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-list-ul me-1"></i>
                 View Presets
               </a>
+              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-outline-info">
+                <i class="bi-kanban"></i>
+                Product's category
+              </a>
+              
               {% comment %} <a href="{% url 'product-batch-restore-quantity' %}" class="btn btn-sm btn-outline-success">
                 <i class="bi bi-bootstrap-reboot me-1"></i>
                 Restore products

@@ -17,8 +17,8 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Supplier.models import Material, MaterialPreset, MaterialPresetItem
-from Supplier.forms import MaterialForm, MaterialFilterForm
+from Supplier.models import Material, MaterialPreset, MaterialPresetItem, Supplier
+from Supplier.forms import MaterialForm, MaterialFilterForm, SupplierForm, SupplierFilterForm
 
 from django.db.models import Q
 
@@ -69,7 +69,7 @@ def material_list(request):
         search = form.cleaned_data.get('search')
         category = request.GET.get('category')
         
-        unit_map = {label.lower(): key for key, label in Material.UNIT_CHOICES}
+        unit_map = {label.lower(): key for key, label in Material.RETAIL_UNIT_CHOICES}
         matched_unit = unit_map.get(search.lower())
         
         if search:
@@ -107,6 +107,9 @@ def material_create(request):
         
         if form.is_valid():
             material = form.save(commit=False)
+            if Material.objects.filter(user=request.user, name__iexact=material.name).exists():
+                messages.warning(request, f"{material.name.title()} already exists.")
+                return redirect('material-list')
             material.user = request.user
             material.name = material.name.title()
             material.save()
@@ -311,3 +314,85 @@ def delete_preset(request, preset_id):
     
     context = {'preset': preset, 'section': 'supplier'}
     return render(request, 'Supplier/delete_preset.html', context)
+
+@login_required(login_url='login')
+def supplier_list(request):
+    suppliers = Supplier.objects.all().order_by('name')
+    form = SupplierFilterForm(request.GET or None)
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        
+        if search:
+            suppliers = suppliers.filte(name__icontains=search)
+        
+        
+    pagination = Paginator(suppliers, 6)
+    page = request.GET.get('page')
+    page_obj = pagination.get_page(page)
+    
+    context = {'page_obj': page_obj, 'section': 'supplier'}
+    return render(request, 'Supplier/supplier_list.html', context)
+
+
+@login_required(login_url='login')
+def supplier_create(request):
+    if request.method == 'POST':
+        form = SupplierForm(request.POST)
+        
+        
+        if form.is_valid():
+            supplier = form.save(commit=False)
+            supplier.user = request.user
+            supplier.name = supplier.name.title()
+            supplier.save()
+            messages.success(request, f"{supplier.name} successfully created.")
+            return redirect('supplier-list')
+    else:
+        form = SupplierForm()
+        
+    context = {'form': form, 'section': 'supplier'}
+    return render(request, 'Supplier/supplier_create.html', context)
+
+# @login_required(login_url='login')
+# def supplier_detail(request, supplier_id):
+#     supplier = get_object_or_404(Supplier, id=supplier_id)
+    
+#     context = {'supplier': supplier, 'section': 'Supplier'}
+#     return render(request, 'Supplier/supplier_detail.html', context)
+
+@login_required(login_url='login')
+def supplier_update(request, supplier_id):
+    supplier = get_object_or_404(Supplier, id=supplier_id)
+    
+    if request.method == 'POST':
+        form = SupplierForm(request.POST, instance=supplier)
+        
+        if form.is_valid():
+            supplier = form.save(commit=False)
+            supplier.name = supplier.name.title()
+            supplier.user = supplier.user
+            supplier.save()
+            
+            messages.success(request, f"{supplier.name} successfully updated.")
+            return redirect(f"{reverse('supplier-list')}?{request.META.get('QUERY_STRING', '')}")
+        else:
+            print(form.errors)
+        
+    else:
+        form = SupplierForm(instance=supplier)
+        
+    context = {'form': form, 'supplier': supplier, 'section': 'supplier'}
+    return render(request, 'Supplier/supplier_update.html', context)
+
+@login_required(login_url='login')
+def supplier_delete(request, supplier_id):
+    supplier = get_object_or_404(Supplier, id=supplier_id)
+    
+    if request.method == 'POST':
+        supplier.delete()
+        messages.success(request, f"{supplier.name} successfully deleted.")
+        return redirect('supplier-list')
+    
+    context = {'supplier': supplier, 'section': 'supplier'}
+    return render(request, 'Supplier/supplier_delete.html', context)
