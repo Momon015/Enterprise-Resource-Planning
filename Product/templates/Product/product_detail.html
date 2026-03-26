@@ -1,4 +1,5 @@
 {% extends 'main.html' %}
+{% load humanize %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -6,14 +7,10 @@
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -21,287 +18,156 @@
 </div>
 {% endif %}
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
+<div class="page-wrapper">
 
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-</style>
-
-<div class="container-fluid py-4">
-
-  <!-- Page Header -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
     <div>
-      <h4 class="mb-1 fw-semibold d-flex align-items-center gap-2">
-        <i class="bi bi-box-seam text-primary"></i>
+      <h4 class="sl-page-title">
+        <i class="bi bi-box-seam"></i>
         Product Detail
       </h4>
-      <div class="text-muted small">
-        <span class="me-2">Inventory • Sales Management</span> |
-        <span class="ms-2">SKU: {{ product.slug }}</span>
-      </div>
+      <p class="sl-page-subtitle">
+        Inventory • Sales Management | SKU: {{ product.slug }}
+      </p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'product-update' product.slug %}" class="btn btn-sm btn-outline-primary rounded-3">
-        <i class="bi bi-pencil-square me-1"></i> Edit
-      </a>
-      <a href="{% url 'product-delete' product.slug %}" class="btn btn-sm btn-outline-danger rounded-3">
-        <i class="bi bi-trash me-1"></i> Delete
-      </a>
-      <a href="{% url 'product-list' %}" class="btn btn-sm btn-light border rounded-3">
-        <i class="bi bi-arrow-left me-1"></i> Back to products
-      </a>
-    </div>
+    <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to products
+    </a>
   </div>
 
-  <div class="row g-4">
+  <div class="two-col-layout">
 
-    <!-- Left: Main product info -->
-    <div class="col-lg-8 col-xl-9">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-        <div class="card-header bg-white border-0 rounded-top-4 py-3 d-flex justify-content-between align-items-center px-3 px-lg-4">
-          <div class="d-flex align-items-center gap-3">
-            <div class="bg-primary bg-opacity-10 text-primary rounded-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-              <i class="bi bi-box-seam fs-5"></i>
+    <!-- LEFT: MAIN PRODUCT INFO -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-box-seam"></i>
             </div>
             <div>
-              <h5 class="mb-0 fw-semibold">{{ product.name|capfirst }}</h5>
-              <div class="small text-muted">
+              <div class="card-header-title">{{ product.name|capfirst }}</div>
+              <div class="card-header-sub">
                 Category:
-                {% if product.category %}
-                  <span class="badge bg-light text-secondary border">{{ product.category.name }}</span>
-                {% else %}
-                  <span class="text-muted">Uncategorized</span>
-                {% endif %}
+                {% if product.category %}{{ product.category.name }}
+                {% else %}Uncategorized{% endif %}
               </div>
             </div>
           </div>
-          <div class="text-end">
-            <div class="text-muted small">Current Price</div>
-            <div class="fs-5 fw-bold text-primary">₱{{ product.selling_price|floatformat:2 }}</div>
+          <div class="sd-card-header-right">
+            <div class="label">Current Price</div>
+            <div class="amount">₱{{ product.selling_price|floatformat:2 }}</div>
           </div>
         </div>
 
-        <div class="card-body p-4">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- Quick stats row -->
-          <div class="row g-3 mb-3">
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Selling Price</div>
-                <div class="fw-semibold">₱{{ product.selling_price|floatformat:2 }}</div>
-              </div>
+          <!-- QUICK STATS -->
+          <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Selling Price</div>
+              <div class="sd-stat-value">₱{{ product.selling_price|floatformat:2 }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Cost</div>
-                <div class="fw-semibold">₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Cost</div>
+              <div class="sd-stat-value">₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Stock on Hand</div>
-                <div class="fw-semibold">{{ product.prepared_quantity }}</div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Stock on Hand</div>
+              <div class="sd-stat-value">{{ product.prepared_quantity }}</div>
             </div>
-            <div class="col-md-3">
-              <div class="border rounded-3 p-3 bg-light">
-                <div class="text-muted small mb-1">Default Quantity</div>
-                <div class="fw-semibold d-flex align-items-center gap-1">
-                  {{ product.default_quantity }}
-                  <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" style="font-size: 0.65rem;">restore target</span>
-                </div>
-              </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Unit</div>
+              <div class="sd-stat-value">{{ product.material.get_unit_display|default:"N/A" }}</div>
             </div>
           </div>
 
-          <!-- Description -->
-          <div class="border-top pt-3 mt-3">
-            {% if product.description %}
-              <h6 class="text-muted mb-2">Description</h6>
-              <div class="p-3 border rounded-3 bg-light">
-                {{ product.description|linebreaksbr }}
-              </div>
-            {% else %}
-              <div class="text-muted fst-italic small">
-                No description provided for this product.
-              </div>
-            {% endif %}
-          </div>
+          <!-- DESCRIPTION -->
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">Description</div>
+          {% if product.description %}
+            <div class="sd-summary-block">{{ product.description|linebreaksbr }}</div>
+          {% else %}
+            <p class="sl-summary-note">No description provided for this product.</p>
+          {% endif %}
 
         </div>
       </div>
     </div>
 
-    <!-- Right: POS-style context panel -->
-    <div class="col-lg-4 col-xl-3">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
+    <!-- RIGHT: SNAPSHOT PANEL -->
+    <div class="right-panel">
 
-        <div class="card-header bg-dark text-white rounded-top-4 px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-speedometer2"></i>
-            <h6 class="mb-0 fw-semibold">Product snapshot</h6>
-          </div>
-          <small class="text-white-50 d-none d-sm-inline">Quick view</small>
+      <!-- PRODUCT SNAPSHOT -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-speedometer2"></i> Product Snapshot
+          </span>
+          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
         </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-          <!-- Stock level + status -->
-          <div class="border rounded-3 px-2 py-2 bg-light">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="text-muted text-uppercase small">Stock level</span>
+          <!-- STOCK LEVEL -->
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Stock Level</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Stock on hand</span>
+              <span class="sd-info-value">{{ product.prepared_quantity }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Status</span>
               {% if product.prepared_quantity <= 0 %}
-                <span class="badge bg-danger-subtle text-danger rounded-pill px-3">Out of stock</span>
-              {% elif product.prepared_quantity < 10 %}
-                <span class="badge bg-warning-subtle text-warning rounded-pill px-3">Low stock</span>
+                <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+              {% elif product.prepared_quantity <= 49 %}
+                <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
               {% else %}
-                <span class="badge bg-success-subtle text-success rounded-pill px-3">In stock</span>
+                <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
               {% endif %}
             </div>
-            <div class="fs-5 fw-semibold
-              {% if product.prepared_quantity <= 0 %}text-danger
-              {% elif product.prepared_quantity < 10 %}text-warning
-              {% else %}text-success{% endif %}">
-              {{ product.prepared_quantity }} units
+          </div>
+
+          <!-- VALUE OVERVIEW -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Value Overview</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Stock value (cost)</span>
+              <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
             </div>
-            <!-- Default quantity progress bar -->
-            <div class="mt-2">
-              <div class="d-flex justify-content-between small text-muted mb-1">
-                <span>vs. default ({{ product.default_quantity }})</span>
-                <span>
-                  {% if product.default_quantity > 0 %}
-                    {{ product.prepared_quantity }}/{{ product.default_quantity }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </span>
-              </div>
-              <div class="progress" style="height: 6px;">
-                <div class="progress-bar
-                  {% if product.prepared_quantity <= 0 %}bg-danger
-                  {% elif product.prepared_quantity < 10 %}bg-warning
-                  {% else %}bg-success{% endif %}"
-                  role="progressbar"
-                  style="width: {% if product.default_quantity > 0 %}{% widthratio product.prepared_quantity product.default_quantity 100 %}{% else %}0{% endif %}%">
-                </div>
-              </div>
-            </div>
-            <div class="small text-muted mt-1">
-              Use this when deciding reorder timing and stock adjustments.
+            <div class="sd-info-row">
+              <span class="sd-info-label">Potential revenue</span>
+              <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
             </div>
           </div>
 
-          <!-- Value and revenue overview -->
-          <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-            <div class="text-muted text-uppercase small mb-1">Value overview</div>
-            <div class="d-flex justify-content-between small">
-              <span>Stock value (cost):</span>
-              <span>₱{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
-            </div>
-            <div class="d-flex justify-content-between small">
-              <span>Potential revenue:</span>
-              <span>₱{{ product.prepared_quantity }} × ₱{{ product.selling_price|default:"0.00"|floatformat:2 }}</span>
-            </div>
-            <div class="small text-muted mt-1">
-              Handy for checking how much value sits in this item on the shelf.
-            </div>
-          </div>
+          {% comment %} <!-- ACTIONS -->
+          <div class="btn-grid">
+            <a href="{% url 'add-to-sale' product.id %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-cart-plus"></i> Add to Sale
+            </a>
+            <a href="{% url 'product-update' product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-pencil-square"></i> Edit Product
+            </a>
+            <a href="{% url 'product-delete' product.slug %}" class="btn btn-sm btn-block"
+               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+              <i class="bi bi-trash"></i> Delete Product
+            </a>
+          </div> {% endcomment %}
 
-          <!-- Status legend / hints -->
-          <div class="border rounded-3 px-2 py-2">
-            <div class="text-muted text-uppercase small mb-1">How to use this info</div>
-            <ul class="small text-muted mb-0 ps-3">
-              <li>Low stock suggests reviewing reorder settings.</li>
-              <li>Large stock value may indicate overstocking.</li>
-              <li>Check cost vs. price before running promotions.</li>
-              <li>Restore stock resets quantity to <strong>{{ product.default_quantity }}</strong>.</li>
-            </ul>
-          </div>
-
-          <!-- POS-style tip -->
-          <div class="alert alert-light border-0 mb-0">
-            <div class="d-flex">
-              <div class="me-2">
-                <i class="bi bi-lightning-charge text-warning"></i>
-              </div>
-              <div>
-                <div class="fw-semibold small">Next actions</div>
-                <div class="small text-muted">
-                  If this product drives key sales, keep it in the "In stock" range and review pricing whenever supplier costs change.
-                </div>
-              </div>
+          <!-- NOTE -->
+          <div class="sd-note-box">
+            <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title">Next actions</div>
+              <div class="sd-note-text">Keep stock in range and review pricing whenever supplier costs change.</div>
             </div>
           </div>
 
         </div>
       </div>
-    </div>
 
+    </div>
   </div>
 </div>
 

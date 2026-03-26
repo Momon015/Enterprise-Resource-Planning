@@ -1,5 +1,4 @@
 {% extends "main.html" %}
-
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -7,14 +6,10 @@
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -22,243 +17,239 @@
 </div>
 {% endif %}
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-input[type=number] {
-    -moz-appearance: textfield;
-}
-
-/* Discount column width */
-.discount-col {
-  width: 80px;
-  text-align: center;
-}
-
-/* Footer under the order-lines table */
-.border-top .btn {
-  margin-bottom: 0;
-}
-</style>
-
-
-<div class="container-fluid py-3 py-lg-4">
+<div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <div class="mb-2 mb-lg-0">
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-box-seam text-primary"></i>
-        Preset bundles
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-bookmark-fill"></i>
+        Preset Bundles
       </h4>
-      <small class="text-muted">
-        Saved product items you can quickly add to a sale.
-      </small>
+      <p class="sl-page-subtitle">
+        Saved product groups you can quickly add to a sale.
+      </p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'view-cart' %}" class="btn btn-success btn-sm">
-        <i class="bi bi-receipt me-1"></i>
-        View Sales Record
+
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <a href="{% url 'view-sale' %}?{{ request.GET.urlencode }}"
+         class="btn btn-sm"
+         style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
+        <i class="bi bi-receipt"></i> View Sales Record
+      </a>
+
+      <a href="{% url 'product-list' %}?{{ request.GET.urlencode }}"
+         class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
   </div>
 
-  <!-- PRESETS TABLE -->
-  <div class="card border-0 shadow-sm rounded-4">
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover table-sm align-middle mb-0">
-          <thead class="table-light small text-uppercase">
-            <tr>
-              <th>Preset name</th>
-              <th class="text-center">Items</th>
-              <th class="text-center">Created</th>
-              <th class="text-end">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for preset in page_obj %}
-            <tr>
-              <!-- Preset Name -->
-              <td>
-                <div class="fw-semibold">{{ preset.name }}</div>
-                <div class="small text-muted">ID: {{ preset.id }}</div>
-              </td>
+  <div class="two-col-layout">
 
-              <!-- Total Items -->
-              <td class="text-center">
-                {{ preset.product_preset_items.count }}
-              </td>
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <div class="card table-card">
 
-              <!-- Created Date -->
-              <td class="text-center">
-                {{ preset.created_at|date:"M d, Y" }}
-              </td>
+        <!-- HEADER -->
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-bookmark"></i>
+            </div>
+            <div>
+              <div class="card-header-title">All Presets</div>
+              <div class="card-header-sub">
+                Click a preset to view or add to sale.
+              </div>
+            </div>
+          </div>
 
-              <!-- Actions -->
-              <td class="text-end">
-                <div class="btn-group btn-group-sm">
-                  <!-- Add to current cart -->
-                  <a href="{% url 'product-preset-add-to-sale' preset.id %}"
-                     class="btn btn-outline-secondary"
-                     title="Add to current purchase">
-                    <i class="bi bi-plus"></i>
+          <span class="sl-badge sl-badge-light">
+            {{ page_obj.paginator.count }} preset{{ page_obj.paginator.count|pluralize }}
+          </span>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Preset Name</th>
+                <th class="sl-text-center">Items</th>
+                <th class="sl-text-center">Created</th>
+                <th class="sl-text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for preset in page_obj %}
+              <tr>
+
+                <!-- NAME -->
+                <td>
+                  <div class="cell-primary">{{ preset.name }}</div>
+                  <div class="cell-sub">ID: #{{ preset.id }}</div>
+                </td>
+
+                <!-- ITEM COUNT -->
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">
+                    {{ preset.product_preset_items.count }}
+                  </span>
+                </td>
+
+                <!-- CREATED -->
+                <td class="sl-text-center sl-text-muted">
+                  {{ preset.created_at|date:"M d, Y" }}
+                </td>
+
+                <!-- ACTIONS -->
+                <td class="sl-text-end">
+                  <div class="table-actions">
+
+                    <!-- ADD -->
+                    <a href="{% url 'product-preset-add-to-sale' preset.id %}?next={{request.path}}"
+                       class="action-btn"
+                       title="Add to sale">
+                      <i class="bi bi-plus-lg"></i>
+                    </a>
+
+                    <!-- VIEW -->
+                    <a href="{% url 'product-preset-detail' preset.id %}"
+                       class="action-btn"
+                       title="View details">
+                      <i class="bi bi-eye"></i>
+                    </a>
+
+                    <!-- EDIT -->
+                    <a href="{% url 'product-edit-preset' preset.id %}"
+                       class="action-btn"
+                       title="Edit preset">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+
+                    <!-- DELETE -->
+                    <a href="{% url 'product-delete-preset' preset.id %}"
+                       class="action-btn action-btn--danger"
+                       title="Delete preset"
+                       onclick="return confirm('Delete this preset?')">
+                      <i class="bi bi-trash"></i>
+                    </a>
+
+                  </div>
+                </td>
+
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="4">
+                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">
+                    No presets found
+                  </h6>
+                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">
+                    Create one from your current sale.
+                  </p>
+                  <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Item
                   </a>
-                  <!-- View preset detail -->
-                  <a href="{% url 'product-preset-detail' preset.id %}"
-                     class="btn btn-outline-secondary"
-                     title="View details">
-                    <i class="bi bi-eye"></i>
-                  </a>
-                  <!-- Edit preset items/name -->
-                  <a href="{% url 'product-edit-preset' preset.id %}"
-                     class="btn btn-outline-secondary"
-                     title="Edit preset">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <!-- Delete preset items/name -->
-                  <a href="{% url 'product-delete-preset' preset.id %}"
-                     class="btn btn-outline-secondary"
-                     title="Delete preset">
-                    <i class="bi bi-trash "></i>
-                  </a>
-                </div>
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="4" class="text-center py-4 text-muted">
-                No presets found. Create one from your current purchase.
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-      {% if page_obj %}
-        <div class="d-flex justify-content-center py-3">
-          <nav aria-label="Preset pagination">
-            <ul class="pagination pagination-sm mb-0">
+        <!-- PAGINATION -->
+        {% if page_obj %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
 
-              {# Previous arrow #}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link"
-                    href="?page={{ page_obj.previous_page_number }}"
-                    aria-label="Previous page">
-                    &laquo;
-                  </a>
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a>
                 {% else %}
-                  <span class="page-link" aria-disabled="true" aria-label="Previous page">
-                    &laquo;
-                  </span>
+                  <span class="page-link">&laquo;</span>
                 {% endif %}
               </li>
 
-              {# Page numbers #}
               {% for p in page_obj.paginator.page_range %}
-                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                  <a class="page-link"
-                    href="?page={{ p }}">
-                    {{ p }}
-                  </a>
-                </li>
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
               {% endfor %}
 
-              {# Next arrow #}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link"
-                    href="?page={{ page_obj.next_page_number }}"
-                    aria-label="Next page">
-                    &raquo;
-                  </a>
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a>
                 {% else %}
-                  <span class="page-link" aria-disabled="true" aria-label="Next page">
-                    &raquo;
-                  </span>
+                  <span class="page-link">&raquo;</span>
                 {% endif %}
               </li>
 
             </ul>
           </nav>
         </div>
-      {% endif %}
+        {% endif %}
 
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-bookmark-fill"></i> Preset Overview
+          </span>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Total Presets</div>
+            <div class="sd-total-amount">
+              {{ page_obj.paginator.count }}
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">How presets work</div>
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">Save time</span>
+              <span class="sd-info-value" style="font-size:0.78rem;">
+                Reuse common sales bundles
+              </span>
+            </div>
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">One click</span>
+              <span class="sd-info-value" style="font-size:0.78rem;">
+                Add all products instantly
+              </span>
+            </div>
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">Flexible</span>
+              <span class="sd-info-value" style="font-size:0.78rem;">
+                Adjust quantity
+              </span>
+            </div>
+          </div>
+
+          <p class="sl-summary-note">
+            Presets are created from the sales screen after adding products.
+          </p>
+
+        </div>
+      </div>
 
     </div>
-  </div>
 
+  </div>
 </div>
+
 {% endblock content %}

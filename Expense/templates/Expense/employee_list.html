@@ -1,20 +1,15 @@
 {% extends "main.html" %}
-
+{% load humanize %}
 {% block content %}
 
-<!-- ========== FLASH MESSAGES ========== -->
 {% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -22,185 +17,164 @@
 </div>
 {% endif %}
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
 
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+<div class="page-wrapper">
 
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-</style>
-
-
-<div class="container-fluid py-3 py-lg-4">
-
-  <!-- HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
     <div>
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-people-fill text-primary"></i>
+      <h4 class="sl-page-title">
+        <i class="bi bi-people-fill"></i>
         Employees
       </h4>
-      <small class="text-muted">
-        Staff who can use the POS and serve customers.
-        {% if employees %}
-          · Total: {{ employees|length }}
-        {% endif %}
-      </small>
-    </div>
-    <div class="d-flex flex-wrap gap-2">
-      {% if employees %}
-      <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-person-plus-fill me-1"></i>
-        Add employee
-      </a>
-      {% endif %}
-    </div>
-  </div>
-
-  {% if employees %}
-  <div class="card border-0 shadow-sm rounded-4">
-    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center px-3 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <span class="badge text-bg-dark rounded-pill">{{ employees|length }}</span>
-        <h6 class="mb-0 fw-semibold">Employee list</h6>
-      </div>
-      <form method="get" class="d-flex gap-2 align-items-center">
-        <input type="text"
-               name="search"
-               value="{{ request.GET.search }}"
-               class="form-control form-control-sm"
-               placeholder="Search name or role">
-        <button type="submit" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-search"></i>
-        </button>
-      </form>
-    </div>
-
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-          <thead class="table-light small text-uppercase">
-            <tr>
-              <th class="ps-3">Name</th>
-              <th class="text-center">Daily Salary Rate</th>
-              <th class="text-center pe-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for employee in employees %}
-            <tr>
-              <!-- Name -->
-              <td class="ps-3">
-                <div class="fw-semibold">{{ employee.name }}</div>
-                <div class="small text-muted">ID: {{ employee.id }}</div>
-              </td>
-
-
-              <!-- Salary Rate -->
-              <td class="text-center small text-muted">
-                <div class="fw-semibold">₱{{ employee.daily_rate|floatformat:2 }}</div>
-              </td>
-
-              <!-- Actions -->
-              <td class="text-center pe-3">
-                <div class="btn-group btn-group-sm" role="group">
-                  <a href="{% url 'employee-detail' employee.id %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-eye"></i>
-                  </a>
-                  <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-primary">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <a href="{% url 'employee-delete' employee.id %}" class="btn btn-outline-danger">
-                    <i class="bi bi-trash3 me-1"></i>
-                  </a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-  {% else %}
-  <!-- EMPTY STATE -->
-  <div class="d-flex flex-column align-items-center justify-content-center py-5">
-    <div class="card shadow-sm text-center p-4" style="max-width: 420px;">
-      <div class="mb-3"><i class="bi bi-people fs-1 text-primary"></i></div>
-      <h4 class="fw-bold text-primary mb-2">No employees yet</h4>
-      <p class="text-muted mb-3">
-        Add your staff so they can log in to the POS and record sales.
+      <p class="sl-page-subtitle">
+        Staff who can be assigned to sales transactions.
+        {% if employees %} · Total: {{ employees|length }}{% endif %}
       </p>
-      <a href="{% url 'employee-create' %}" class="btn btn-primary w-100">
-        <i class="bi bi-person-plus-fill me-2"></i>
-        Add first employee
-      </a>
     </div>
+    <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-person-plus-fill"></i> Add Employee
+    </a>
   </div>
-  {% endif %}
 
+  <div class="two-col-layout">
+
+    <!-- LEFT: TABLE -->
+    <div class="left-panel">
+
+      <!-- FILTER BAR -->
+      <form method="get" autocomplete="off">
+        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+          <div class="flex-grow-1">
+            <div class="input-group">
+              <span class="input-group-icon"><i class="bi bi-search"></i></span>
+              <input type="search" name="search" class="form-control"
+                     placeholder="Search employee name..."
+                     value="{{ request.GET.search|default:'' }}">
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">
+              <i class="bi bi-funnel"></i> Filter
+            </button>
+            <a href="{% url 'employee-list' %}" class="btn btn-light btn-sm">Reset</a>
+          </div>
+        </div>
+      </form>
+
+      {% if employees %}
+      <div class="card table-card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="card-header-title">Employee List</span>
+            <span class="sl-badge sl-badge-light">{{ employees|length }} employee{{ employees|length|pluralize }}</span>
+          </div>
+          <span class="card-header-sub">Daily rate and status</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="sl-text-center">Daily Rate</th>
+                <th class="sl-text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for employee in employees %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ employee.name|capfirst }}</div>
+                  <div class="cell-sub">#{{ employee.id }}</div>
+                </td>
+                <td class="sl-text-center sl-fw-semibold" style="color:var(--accent);">
+                  ₱{{ employee.daily_rate|floatformat:2|intcomma }}
+                </td>
+                <td class="sl-text-end">
+                  <div class="btn-group">
+                    <a href="{% url 'employee-detail' employee.id %}" class="btn btn-outline-secondary btn-sm" title="View record">
+                      <i class="bi bi-card-text"></i>
+                    </a>
+                    <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-secondary btn-sm" title="Edit">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="{% url 'employee-delete' employee.id %}" class="btn btn-outline-secondary btn-sm" title="Delete"
+                       style="color:var(--danger); border-color:#f0d0ce;">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="3">No employees found.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% else %}
+      <div class="card table-card">
+        <div class="card-body" style="text-align:center; padding:3rem 1rem;">
+          <i class="bi bi-people" style="font-size:2.5rem; color:var(--muted);"></i>
+          <h6 class="sl-fw-semibold sl-text-muted" style="margin:0.75rem 0 0.25rem;">No employees yet</h6>
+          <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Add your staff so they can be assigned to sales transactions.</p>
+          <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-person-plus-fill"></i> Add first employee
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- RIGHT: SUMMARY PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-people"></i> Staff Overview
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Summary</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total employees</span>
+              <span class="sd-info-value">{{ employees|length }}</span>
+            </div>
+          </div>
+
+          {% comment %} <div class="sd-summary-block">
+            <div class="mf-guide-title">Quick Actions</div>
+            <div class="btn-grid">
+              <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-person-plus-fill"></i> Add Employee
+              </a>
+            </div>
+          </div> {% endcomment %}
+
+          <div class="mf-tip-box">
+            <i class="bi bi-info-circle"></i>
+            <div>
+              <div class="mf-tip-title">Note</div>
+              <div class="mf-tip-text">Employees can be assigned to sales transactions for payroll tracking.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
 {% endblock %}

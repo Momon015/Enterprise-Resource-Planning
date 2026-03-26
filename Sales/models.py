@@ -50,24 +50,31 @@ class Sale(TimeStampModel):
         super().save(*args, **kwargs)
         
 class SaleItem(models.Model):
+    name = models.CharField(max_length=255, null=True, blank=True)
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, related_name='sale_items', null=True, blank=True)
     price_at_sale = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=1.00)
     quantity = models.PositiveIntegerField(default=1)
     unsold_quantity = models.PositiveIntegerField(default=0)
     
     def __str__(self):
-        return f"{self.product.name} x {self.quantity}"
-    
+        if self.name:
+            return f"{self.name} x {self.quantity}"
+        return '-'
     def save(self, *args, **kwargs):
         if not self.price_at_sale:
             self.price_at_sale = self.product.selling_price
+            
+        if self.product:
+            self.name = self.product.name 
+        
+        
         return super().save(*args, **kwargs)
         
-    def clean(self):
-        if self.prepared_quantity > self.quantity:
-            raise ValidationError('Quantity should not exceed to prepared quantity.')
+    # def clean(self):
+    #     if self.product.prepared_quantity > self.quantity:
+    #         raise ValidationError('Quantity should not exceed to prepared quantity.')
     
     @property
     def total_cost_per_item(self):
@@ -87,10 +94,18 @@ class SaleItem(models.Model):
     
     
 class SaleEmployee(TimeStampModel):
+    name = models.CharField(max_length=255, null=True, blank=True)
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_employees', null=True, blank=True)
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='sale_employees', null=True, blank=True)
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='sale_employees', null=True, blank=True)
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
     
     def __str__(self):
-        return f"Sale Record ID: #{self.sale.id} - {self.employee.name}"
-        
+        if self.name:
+            return f"Sale Record ID: #{self.sale.id} - {self.employee.name}"
+        return 'No employee info'
+
+    def save(self, *args, **kwargs):
+        if self.employee:
+            self.name = self.employee.name
+
+        super().save(*args, **kwargs)

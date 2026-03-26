@@ -32,7 +32,7 @@ from django.db.models import Q, F
 @login_required(login_url='login')
 def product_list(request):
     form = ProductFilterForm(request.GET or None)
-    products = Product.objects.all().order_by('-created_at')
+    products = Product.objects.all().order_by('name')
     
     """
     this allows to filter things without 
@@ -123,7 +123,7 @@ def product_update(request, product_slug):
             product.name = product.name.title()
             product.save()
             messages.success(request, f"{product.name} has been updated.")
-            return redirect('product-detail', product.slug)
+            return redirect('product-list')
     else:
         form = ProductForm(instance=product)
         
@@ -135,6 +135,11 @@ def product_delete(request, product_slug):
     product = get_object_or_404(Product, slug=product_slug)
     
     if request.method == 'POST':
+        
+        if product.material:
+            messages.warning(request, f"This product is linked to inventory. Delete the stock record instead.")
+            return redirect('product-list')
+
         product.delete()
         messages.success(request, f"{product.name} has been deleted.")
         return redirect('product-list')
@@ -211,7 +216,7 @@ def detail_product_preset(request, preset_id):
         selling_price = item.product.selling_price
         cost_price = Decimal(item.cost_price)
         total_cost_per_line = cost_price * quantity
-        line_total = (selling_price * quantity) - total_cost_per_line
+        line_total = (selling_price * quantity)
 
         items.append({
             'id': item.product.id,
@@ -251,7 +256,7 @@ def edit_product_preset(request, preset_id):
                 item.save()
                 messages.success(request, f"The quantity has been updated.")
             
-        return redirect('product-preset-detail', preset.id)
+        return redirect('product-preset-list')
     
     context = {'preset': preset, 'preset_items': preset_items, 'section': 'product'}
     return render(request, 'Product/edit_product_preset.html', context)
@@ -262,7 +267,7 @@ def delete_product_preset(request, preset_id):
     
     if request.method == 'POST':
         preset.delete()
-        messages.success(request, f"{preset.name} has been deleted from the system.")
+        messages.success(request, f"{preset.name} has been deleted.")
         return redirect('product-preset-list')
     
     context = {'preset': preset, 'section': 'product'}
@@ -274,20 +279,19 @@ def product_add_preset_to_sale(request, preset_id):
     preset = get_object_or_404(ProductPreset, id=preset_id, is_active=True)
     preset_items = preset.product_preset_items.select_related('product')
     
-    
     for item in preset_items:
         product = item.product
         quantity = item.quantity
         
-        print(quantity)
-        
         product_key = str(product.id)
         existing_qty = sale.get(product_key, {}).get('quantity', 0) + quantity
-        print(existing_qty)
-        
+
         if product_key in sale:
-            if product.prepared_quantity > existing_qty:
-                sale[product_key]['quantity'] += existing_qty
+            if product.prepared_quantity >= existing_qty:
+                sale[product_key]['quantity'] = existing_qty
+                messages.success(request, f"{product.name}'s quantity has increased.")
+            else:
+                messages.warning(request, f"{product.name} - quantity limit reached.")
         else:
             sale[product_key] = {
                 'id': item.product.id,
@@ -296,8 +300,10 @@ def product_add_preset_to_sale(request, preset_id):
                 'cost_price': str(item.cost_price),
                 'unsold_quantity': 0,
             }
+            messages.success(request, f"{preset.name} has been added to sale.")
             
     request.session['sale'] = sale
     request.session.modified = True
             
-    return redirect('view-sale')
+    url = request.GET.get('next', 'product-preset-list')
+    return redirect(url)

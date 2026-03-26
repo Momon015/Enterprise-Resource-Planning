@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
           <div>
-            <select name="category" class="form-control" style="width:auto;">
+            <select name="category" class="form-select form-select-sm" style="width:auto;">
               <option value="">All categories</option>
               {% for cat in categories %}
                 <option value="{{ cat.id }}"
@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Material</th>
+                <th>Items</th>
                 <th class="sl-text-center">Supplier</th>
                 <th class="sl-text-center">Category</th>
                 <th class="sl-text-center">Unit</th>
@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     </a>
                     <a href="{% url 'material-detail' material.slug %}?{{ request.GET.urlencode }}"
                        class="btn btn-outline-secondary btn-sm" title="View details">
-                      <i class="bi bi-eye"></i>
+                      <i class="bi bi-card-text"></i>
                     </a>
                     <a href="{% url 'material-update' material.slug %}"
                       class="btn btn-outline-secondary btn-sm" title="Edit material">
@@ -144,10 +144,10 @@ document.addEventListener("DOMContentLoaded", function () {
               {% empty %}
               <tr class="sl-empty-row">
                 <td colspan="7">
-                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No materials found</h6>
-                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Adjust your search or filters, or add a new material.</p>
+                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No items found</h6>
+                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Adjust your search or filters, or add a new item.</p>
                   <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
-                    Add your first material
+                    Add your first item
                   </a>
                 </td>
               </tr>
@@ -236,17 +236,25 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- ACTIONS -->
           <div class="btn-grid">
             <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle"></i> Add material
+              <i class="bi bi-plus-circle"></i> Add item
             </a>
+            <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-bookmark"></i> Presets
+            </a>
+            
             <div class="btn-grid">
-            <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-building-add"></i> View Supplier
-            </a>
-            {% comment %} <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-list-ul"></i> View Presets
-            </a> {% endcomment %}
-            <a href="{% url 'category-list' %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi-kanban" ></i> Material's category
+              {% if suppliers %}
+                <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                  <i class="bi bi-building-add"></i> View Supplier
+                </a>
+              {% else %}
+              <a href="{% url 'supplier-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                  <i class="bi bi-plus-circle"></i> Add Supplier
+                </a>
+              {% endif %}
+
+            <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi-kanban" ></i> Item's category
             </a>
             {% if cart_items %}
             <a href="{% url 'clear-cart' %}" class="btn btn-sm btn-block"

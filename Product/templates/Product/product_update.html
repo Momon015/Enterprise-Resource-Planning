@@ -1,5 +1,5 @@
-{% extends 'main.html' %}
-{% load static %}
+{% extends "main.html" %}
+{% load humanize %}
 {% block content %}
 
 <script>
@@ -8,7 +8,6 @@ function changeValue(fieldId, delta, isInteger = false) {
   let value = parseFloat(input.value) || 0;
   value += delta;
   if (value < 0) value = 0;
-
   if (isInteger) {
     input.value = Math.round(value);
   } else {
@@ -17,323 +16,207 @@ function changeValue(fieldId, delta, isInteger = false) {
 }
 </script>
 
-<style>
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type=number] {
-  -moz-appearance: textfield;
-  text-align: center;
-}
-.btn-stepper {
-  width: 45px;
-}
+<div class="mf-page-wrapper">
+  <div class="mf-layout">
 
-.section-title {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: .05rem;
-  color: #6c757d;
-  font-weight: 600;
-}
-</style>
-
-<div class="container-fluid py-3 py-lg-4">
-
-  <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-    <div class="mb-2 mb-lg-0">
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-pencil-square text-primary"></i>
-        Update Product
-      </h4>
-      <small class="text-muted">
-        Edit product details, stock levels, and pricing. Changes apply immediately across POS and reports.
-      </small>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <a href="{% url 'product-list' %}"
-         class="btn btn-light border btn-sm rounded-3">
-        <i class="bi bi-arrow-left me-1"></i>
-        Back to products
-      </a>
-      {% if object %}
-        <div class="text-end small text-muted d-none d-md-block">
-          <div>SKU: {{ object.sku }}</div>
-          <div>Last updated: {{ object.updated_at|date:"M d, Y H:i" }}</div>
-        </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="row g-3 g-lg-4">
-
-    <!-- LEFT: MAIN FORM CARD -->
-    <div class="col-lg-8 col-xl-9">
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-bottom px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge text-bg-primary rounded-pill">Edit</span>
-            <h6 class="mb-0 fw-semibold">Product information</h6>
+    <!-- LEFT: UPDATE FORM -->
+    <div class="card" style="height:fit-content;">
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-pencil-square"></i>
           </div>
-          <small class="text-muted d-none d-sm-inline">
-            Required fields are marked with <span class="text-danger">*</span>
-          </small>
+          <div>
+            <p class="card-header-title">Update Product</p>
+            <p class="card-header-sub">Edit product details, pricing and stock levels.</p>
+          </div>
         </div>
+        <a href="{% url 'product-list' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to products
+        </a>
+      </div>
 
-        <div class="card-body px-3 px-lg-4 py-3">
-          <form method="POST" class="row g-3" autocomplete="off">
-            {% csrf_token %}
+      <div class="card-body">
+        <form method="POST" autocomplete="off" novalidate>
+          {% csrf_token %}
 
-            <!-- Row 1: Name + Category -->
-            <div class="col-md-7">
-              <label for="{{ form.name.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
+          <div class="mf-fields-grid">
+
+            {# Name + Category #}
+            <div class="mf-field-group">
+              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
                 {{ form.name.label }}
-                {% if form.name.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.name }}
-              {% if form.name.errors %}
-                <div class="text-danger mt-1 small">{{ form.name.errors|striptags }}</div>
-              {% endif %}
+              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
             </div>
 
-            <div class="col-md-5">
-              <label for="{{ form.category.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
+            <div class="mf-field-group">
+              <label for="{{ form.category.id_for_label }}" class="mf-form-label">
                 {{ form.category.label }}
-                {% if form.category.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.category }}
-              {% if form.category.errors %}
-                <div class="text-danger mt-1 small">{{ form.category.errors|striptags }}</div>
-              {% endif %}
+              {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- Row 2: Description (full width) -->
-            <div class="col-12">
-              <label for="{{ form.description.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
+            {# Description — full width #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="{{ form.description.id_for_label }}" class="mf-form-label">
                 {{ form.description.label }}
-                {% if form.description.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.description.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.description }}
-              {% if form.description.help_text %}
-                <div class="form-text small">{{ form.description.help_text }}</div>
-              {% endif %}
-              {% if form.description.errors %}
-                <div class="text-danger mt-1 small">{{ form.description.errors|striptags }}</div>
-              {% endif %}
+              {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- Row 3: Prepared Quantity + Default Quantity -->
-            <div class="col-12">
-              <div class="mb-2 section-title d-flex align-items-center gap-2">
-                <i class="bi bi-box-seam"></i> Inventory
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="{{ form.prepared_quantity.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
-                    {{ form.prepared_quantity.label }}
-                    {% if form.prepared_quantity.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group">
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1, true)">−</button>
-                    {{ form.prepared_quantity }}
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1, true)">+</button>
-                  </div>
-                  {% if form.prepared_quantity.errors %}
-                    <div class="text-danger mt-1 small">{{ form.prepared_quantity.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                  <label for="{{ form.default_quantity.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
-                    {{ form.default_quantity.label }}
-                    {% if form.default_quantity.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group">
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.default_quantity.id_for_label }}', -1, true)">−</button>
-                    {{ form.default_quantity }}
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.default_quantity.id_for_label }}', 1, true)">+</button>
-                  </div>
-                  <div class="form-text small text-muted">Used when restoring stock to default.</div>
-                  {% if form.default_quantity.errors %}
-                    <div class="text-danger mt-1 small">{{ form.default_quantity.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-              </div>
+            {# Pricing section label — full width #}
+            <div style="grid-column: 1 / -1;" class="sd-section-label">
+              <i class="bi bi-cash-coin sl-me-1"></i> Pricing
             </div>
 
-            <!-- Row 4: Cost Price + Selling Price -->
-            <div class="col-12">
-              <div class="mb-2 section-title d-flex align-items-center gap-2">
-                <i class="bi bi-cash-coin"></i> Pricing
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="{{ form.cost_price.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
-                    {{ form.cost_price.label }}
-                    {% if form.cost_price.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text">₱</span>
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.cost_price.id_for_label }}', -1, false)">−</button>
-                    {{ form.cost_price }}
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.cost_price.id_for_label }}', 1, false)">+</button>
-                  </div>
-                  {% if form.cost_price.errors %}
-                    <div class="text-danger mt-1 small">{{ form.cost_price.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                  <label for="{{ form.selling_price.id_for_label }}" class="form-label fw-medium small text-uppercase text-muted">
-                    {{ form.selling_price.label }}
-                    {% if form.selling_price.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text">₱</span>
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.selling_price.id_for_label }}', -1, false)">−</button>
-                    {{ form.selling_price }}
-                    <button type="button" class="btn btn-outline-secondary btn-stepper"
-                            onclick="changeValue('{{ form.selling_price.id_for_label }}', 1, false)">+</button>
-                  </div>
-                  {% if form.selling_price.errors %}
-                    <div class="text-danger mt-1 small">{{ form.selling_price.errors|striptags }}</div>
-                  {% endif %}
+            {# Cost Price #}
+            <div class="mf-field-group">
+              <label for="{{ form.cost_price.id_for_label }}" class="mf-form-label">
+                {{ form.cost_price.label }}
+                {% if form.cost_price.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.cost_price.id_for_label }}', -1, false)">−</button>
+                  {{ form.cost_price }}
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.cost_price.id_for_label }}', 1, false)">+</button>
                 </div>
               </div>
-
-              {% if object %}
-                <div class="border rounded-3 p-2 bg-light mt-3 small">
-                  <div class="d-flex justify-content-between">
-                    <span class="text-muted">Gross value in stock:</span>
-                    <span>₱{{ object.prepared_quantity }} × ₱{{ object.cost_price|default:"0" }}</span>
-                  </div>
-                  <div class="d-flex justify-content-between">
-                    <span class="text-muted">Potential revenue:</span>
-                    <span>₱{{ object.prepared_quantity }} × ₱{{ object.selling_price|default:"0" }}</span>
-                  </div>
-                </div>
-              {% endif %}
+              {% if form.cost_price.errors %}<div class="mf-error">{{ form.cost_price.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- Actions -->
-            <div class="col-12 d-flex justify-content-between align-items-center pt-3 border-top mt-2">
-              <span class="text-muted small">
-                Ensure quantities and prices are correct before saving changes.
-              </span>
-              <div class="d-flex gap-2">
-                <a href="{% url 'product-detail' product.slug %}"
-                   class="btn btn-outline-secondary px-3 py-2 rounded-3">
-                  Cancel
-                </a>
-                {% if object %}
-                  <a href="{% url 'product-detail' object.pk %}"
-                     class="btn btn-outline-primary px-3 py-2 rounded-3">
-                    View detail
-                  </a>
-                {% endif %}
-                <button type="submit"
-                        class="btn btn-primary px-4 py-2 rounded-3">
-                  Update
-                </button>
+            {# Selling Price #}
+            <div class="mf-field-group">
+              <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+                {{ form.selling_price.label }}
+                {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', -1, false)">−</button>
+                  {{ form.selling_price }}
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', 1, false)">+</button>
+                </div>
               </div>
+              {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
             </div>
 
-          </form>
-        </div>
+            {# Inventory section label — full width #}
+            <div style="grid-column: 1 / -1;" class="sd-section-label">
+              <i class="bi bi-box-seam sl-me-1"></i> Inventory
+            </div>
+
+            {# Prepared Quantity #}
+            <div class="mf-field-group">
+              <label for="{{ form.prepared_quantity.id_for_label }}" class="mf-form-label">
+                {{ form.prepared_quantity.label }}
+                {% if form.prepared_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1, true)">−</button>
+                {{ form.prepared_quantity }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1, true)">+</button>
+              </div>
+              {% if form.prepared_quantity.errors %}<div class="mf-error">{{ form.prepared_quantity.errors|striptags }}</div>{% endif %}
+            </div>
+
+            {% comment %} RETAIL PHASE — default_quantity auto managed
+            <div class="mf-field-group">
+              <label for="{{ form.default_quantity.id_for_label }}" class="mf-form-label">
+                {{ form.default_quantity.label }}
+                {% if form.default_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', -1, true)">−</button>
+                {{ form.default_quantity }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', 1, true)">+</button>
+              </div>
+              <div class="mf-help">Used when restoring stock to default.</div>
+              {% if form.default_quantity.errors %}<div class="mf-error">{{ form.default_quantity.errors|striptags }}</div>{% endif %}
+            </div>
+            {% endcomment %}
+
+          </div>
+
+          <div class="mf-form-actions">
+            <a href="{% url 'product-list' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+            </button>
+          </div>
+
+        </form>
       </div>
     </div>
 
-    <!-- RIGHT: POS-STYLE CONTEXT PANEL -->
-    <div class="col-lg-4 col-xl-3">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
+    <!-- RIGHT: SNAPSHOT PANEL -->
+    <div class="card">
+      <div class="card-header dark">
+        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <i class="bi bi-speedometer2"></i> Product Snapshot
+        </span>
+        <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Live impact</span>
+      </div>
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="card-header bg-dark text-white px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-speedometer2"></i>
-            <h6 class="mb-0 fw-semibold">Product</h6>
+        {% if product %}
+        <div class="sd-summary-block highlight">
+          <div class="sd-summary-block-label">Current Stock</div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Stock on hand</span>
+            <span class="sd-info-value">{{ product.prepared_quantity }}</span>
           </div>
-          <small class="text-white-50 d-none d-sm-inline">Live impact</small>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Status</span>
+            {% if product.prepared_quantity <= 0 %}
+              <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+            {% elif product.prepared_quantity <= 49 %}
+              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+            {% else %}
+              <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
+            {% endif %}
+          </div>
         </div>
 
-        <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-          {% if object %}
-          <!-- Stock snapshot -->
-          <div class="border rounded-3 px-2 py-2 bg-light">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="text-muted text-uppercase small">Current stock</span>
-              {% if object.prepared_quantity <= 0 %}
-                <span class="badge bg-danger-subtle text-danger rounded-pill px-3">Out of stock</span>
-              {% elif object.prepared_quantity <= 5 %}
-                <span class="badge bg-warning-subtle text-warning rounded-pill px-3">Low stock</span>
-              {% else %}
-                <span class="badge bg-success-subtle text-success rounded-pill px-3">In stock</span>
-              {% endif %}
-            </div>
-            <div class="fs-5 fw-semibold
-              {% if object.prepared_quantity <= 0 %}text-danger
-              {% elif object.prepared_quantity <= 5 %}text-warning
-              {% else %}text-success{% endif %}">
-              {{ object.prepared_quantity }}
-            </div>
-            <div class="small text-muted">
-              Default quantity: <strong>{{ object.default_quantity }}</strong>
-            </div>
+        <div class="sd-summary-block">
+          <div class="sd-summary-block-label">Value Overview</div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Stock value</span>
+            <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
           </div>
-
-          <!-- Value and revenue -->
-          <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-            <div class="text-muted text-uppercase small mb-1">Value overview</div>
-            <div class="d-flex justify-content-between small">
-              <span>Stock value (cost):</span>
-              <span>₱{{ object.prepared_quantity }} × ₱{{ object.cost_price|default:"0.00" }}</span>
-            </div>
-            <div class="d-flex justify-content-between small">
-              <span>Potential revenue:</span>
-              <span>₱{{ object.prepared_quantity }} × ₱{{ object.selling_price|default:"0.00" }}</span>
-            </div>
-            <div class="small text-muted mt-1">
-              Changing cost or price will affect margins and reports for this item.
-            </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Potential revenue</span>
+            <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
           </div>
-          {% endif %}
-
-          <!-- Status legend -->
-          <div class="border rounded-3 px-2 py-2">
-            <div class="text-muted text-uppercase small mb-1">How changes behave</div>
-            <ul class="small text-muted mb-0 ps-3">
-              <li>Stock changes do not alter sales history.</li>
-              <li>New prices apply to future sales only.</li>
-              <li>Keep cost updated for accurate profit reporting.</li>
-            </ul>
-          </div>
-
-          <!-- POS-style tip -->
-          <div class="alert alert-light border-0 mb-0">
-            <div class="d-flex">
-              <div class="me-2">
-                <i class="bi bi-lightning-charge text-warning"></i>
-              </div>
-              <div>
-                <div class="fw-semibold small">Before you save</div>
-                <div class="small text-muted">
-                  Double-check stock, cost, and selling price, especially after stock counts or supplier price changes.
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
+        {% endif %}
+
+        <div class="sd-summary-block">
+          <div class="mf-guide-title">How changes behave</div>
+          <ul class="mf-guide-list">
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Stock changes do not alter sales history.</li>
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> New prices apply to future sales only.</li>
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Keep cost updated for accurate profit reporting.</li>
+          </ul>
+        </div>
+
+        <div class="sd-note-box">
+          <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
+          <div>
+            <div class="sd-note-title">Before you save</div>
+            <div class="sd-note-text">Double-check stock, cost, and selling price especially after supplier price changes.</div>
+          </div>
+        </div>
+
       </div>
     </div>
 

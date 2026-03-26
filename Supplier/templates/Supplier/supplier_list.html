@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date Added</th>
                 <th class="sl-text-center">Name</th>
-                <th class="sl-text-center">Materials</th>
+                <th class="sl-text-center">Item</th>
                 <th class="sl-text-end">Actions</th>
               </tr>
             </thead>
@@ -172,10 +172,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sl-quick-title">Shortcuts</div>
           <div class="btn-grid">
             <a href="{% url 'supplier-create' %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-building-add"></i> Add Supplier
+              <i class="bi bi-plus-circle"></i> Add Supplier
             </a>
             <a href="{% url 'material-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-box-seam"></i> View Material
+              <i class="bi bi-box-seam"></i> View Items
             </a>
           </div>
           <hr class="sl-quick-divider">

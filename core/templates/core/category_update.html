@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->
     <div class="card">
@@ -75,7 +75,13 @@
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label">Type</span>
-            <span class="sl-badge sl-badge-light">{{ category.category_type|capfirst }}</span>
+            {% if category.category_type == 'item' %}
+              <span class="sl-badge sl-badge-light">Item</span>
+            {% elif category.category_type == 'product' %}
+              <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+            {% elif category.category_type == 'expense' %}
+              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+            {% endif %}
           </div>
         </div>
 

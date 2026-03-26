@@ -17,12 +17,14 @@ class SlugModel(models.Model):
 
 class Category(SlugModel):
     CATEGORY_TYPE_CHOICES = (
-        ('material', 'Material'),
+        ('item', 'Item'),
         ('product', 'Product'),
+        ('expense', 'Expense'),
+        ('material', 'Material')
     )
     
     name = models.CharField(max_length=100)
-    category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='material') # which app
+    category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='item') # which app
     
     def __str__(self):
         return f"Category: {self.category_type} - {self.name}"

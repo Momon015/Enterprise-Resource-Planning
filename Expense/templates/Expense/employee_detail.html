@@ -1,174 +1,67 @@
 {% extends "main.html" %}
-
 {% load humanize %}
 {% block content %}
 
-<!-- ========== FLASH MESSAGES ========== -->
-{% if messages %}
-<div class="toast-container" aria-live="polite" aria-atomic="true">
-  {% for message in messages %}
-    <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      {% endif %}
-      {{ message }}
-    </div>
-  {% endfor %}
-</div>
-{% endif %}
+<div class="page-wrapper">
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-</style>
-
-
-<div class="container-fluid py-3 py-lg-4">
-
-  <!-- HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
     <div>
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-person-badge-fill text-primary"></i>
+      <h4 class="sl-page-title">
+        <i class="bi bi-person-badge-fill"></i>
         Employee Record
       </h4>
-      <small class="text-muted">
-        Employee details · Daily rate and status for POS.
-      </small>
+      <p class="sl-page-subtitle">Employee details · Daily rate and payroll info.</p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>
-        Back to employees
-      </a>
-    </div>
+    <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to employees
+    </a>
   </div>
 
-  <div class="row g-3 g-lg-4">
+  <div class="two-col-layout">
 
-    <!-- LEFT: MAIN CARD -->
-    <div class="col-lg-7">
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-bottom">
-          <h6 class="mb-0 fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-clipboard-check text-primary"></i>
-            Basic information
-          </h6>
+    <!-- LEFT: MAIN INFO -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{{ employee.name|capfirst }}</div>
+              <div class="card-header-sub">ID: {{ employee.id }}</div>
+            </div>
+          </div>
+          <div class="sd-card-header-right">
+            <div class="label">Daily Rate</div>
+            <div class="amount" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2 }}</div>
+          </div>
         </div>
-        <div class="card-body">
 
-          <!-- Name -->
-          <div class="mb-3">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Name</div>
-            <div class="fs-5 fw-semibold">{{ employee.name }}</div>
-          </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- Daily rate -->
-          <div class="mb-3">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Daily rate</div>
-            <div class="fs-5 fw-bold text-success">
-              ₱{{ employee.daily_rate|floatformat:2 }}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Employee Info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Full Name</span>
+              <span class="sd-info-value">{{ employee.name|capfirst }}</span>
             </div>
-            <div class="small text-muted">
-              Used for computing pay based on days worked.
+            <div class="sd-info-row">
+              <span class="sd-info-label">Daily Rate</span>
+              <span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2|intcomma }}</span>
             </div>
-          </div>
-
-          <!-- Status (optional if you have is_active) -->
-          {% if employee.is_active is not None %}
-          <div class="mb-3">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Status</div>
-            {% if employee.is_active %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle">
-                <i class="bi bi-check-circle me-1"></i> Active
-              </span>
-            {% else %}
-              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                <i class="bi bi-pause-circle me-1"></i> Inactive
-              </span>
-            {% endif %}
-          </div>
-          {% endif %}
-
-          <!-- Meta (created / updated if present) -->
-          <hr>
-          <div class="small text-muted">
             {% if employee.created_at %}
-              Added: {{ employee.created_at|date:"M d, Y H:i" }}<br>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date Added</span>
+              <span class="sd-info-value">{{ employee.created_at|date:"M d, Y" }}</span>
+            </div>
             {% endif %}
             {% if employee.updated_at %}
-              Last updated: {{ employee.updated_at|date:"M d, Y H:i" }}
+            <div class="sd-info-row">
+              <span class="sd-info-label">Last Updated</span>
+              <span class="sd-info-value">{{ employee.updated_at|date:"M d, Y" }}</span>
+            </div>
             {% endif %}
           </div>
 
@@ -176,53 +69,60 @@
       </div>
     </div>
 
-    <!-- RIGHT: POS SUMMARY / QUICK ACTIONS -->
-    <div class="col-lg-5">
-      <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-cash-stack"></i>
-            <h6 class="mb-0 fw-semibold">Pay summary</h6>
-          </div>
-        </div>
-        <div class="card-body small">
-          <div class="d-flex justify-content-between mb-2">
-            <span class="text-muted">Daily rate</span>
-            <span class="fw-semibold">₱{{ employee.daily_rate|floatformat:2 }}</span>
-          </div>
-          <!-- Example: placeholder for future integration -->
-          <div class="d-flex justify-content-between mb-2">
-            <span class="text-muted">Example days worked</span>
-            <span class="fw-semibold">× 30 days</span>
-          </div>
-          <hr class="my-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">Monthly pay</span>
-            <span class="fs-6 fw-bold text-success">
-              ₱{{ monthly_rate|intcomma }}
-            </span>
-          </div>
-        </div>
-      </div>
+    <!-- RIGHT: PAY SUMMARY -->
+    <div class="right-panel">
 
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body small">
-          <div class="fw-semibold mb-2">Quick actions</div>
-          <div class="d-grid gap-2">
-            <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-pencil-square me-1"></i>
-              Edit details
-            </a>
-            <a href="{% url 'employee-delete' employee.id %}" class="btn btn-outline-danger btn-sm">
-              <i class="bi bi-trash3 me-1"></i>
-              Remove employee
-            </a>
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-cash-stack"></i> Pay Summary
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Estimated Pay</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Daily Rate</span>
+              <span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">× 30 days</span>
+              <span class="sd-info-value">estimate</span>
+            </div>
+            <hr style="border-color:#e9ecef; margin:0.4rem 0;">
+            <div class="sd-info-row">
+              <span class="sd-info-label" style="font-weight:600;">Monthly Pay</span>
+              <span class="sd-total-amount" style="color:var(--accent);">₱{{ monthly_rate|intcomma }}</span>
+            </div>
           </div>
+
+          {% comment %} <div class="sd-summary-block">
+            <div class="mf-guide-title">Quick Actions</div>
+            <div class="btn-grid">
+              <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-pencil-square"></i> Edit Details
+              </a>
+              <a href="{% url 'employee-delete' employee.id %}" class="btn btn-sm btn-block"
+                 style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+                <i class="bi bi-trash"></i> Delete Employee
+              </a>
+            </div>
+          </div> {% endcomment %}
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle sd-note-icon"></i>
+            <div>
+              <div class="sd-note-title">Note</div>
+              <div class="sd-note-text">Monthly pay is an estimate based on 30 days. Actual pay depends on days worked.</div>
+            </div>
+          </div>
+
         </div>
       </div>
 
     </div>
-
   </div>
 </div>
+
 {% endblock %}

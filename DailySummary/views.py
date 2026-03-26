@@ -225,14 +225,14 @@ def view_summary(request):
 @login_required(login_url='login')
 def view_summary_detail(request, date):
     sales = Sale.objects.filter(date=date)
-    sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product')
-    sale_employees = SaleEmployee.objects.filter(sale__in=sales).select_related('employee')
+    sale_items  = SaleItem.objects.filter(sale__in=sales)
+    sale_employees = SaleEmployee.objects.filter(sale__in=sales)
     
     purchases = Purchase.objects.filter(purchase_date=date)
-    purchase_items = PurchaseItem.objects.filter(purchase__in=purchases).select_related('material')
+    purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
     
     wastes = Waste.objects.filter(date=date)
-    waste_items = WasteItem.objects.filter(material__isnull=False, waste__in=wastes).select_related('material')
+    waste_items = WasteItem.objects.filter(waste__in=wastes)
 
     net_profit = 0
     total_salary_cost = 0
@@ -268,7 +268,11 @@ def view_summary_detail(request, date):
         'purchase_items': purchase_items,
         'wastes': wastes,
         'waste_items': waste_items,
-        'net_profit': net_profit, 
+        'net_profit': net_profit,
+        'total_salary_cost': total_salary_cost,
+        'total_material_cost': total_material_cost,
+        'total_waste_cost': total_waste_cost,
+        'total_revenue': total_revenue,
         'section': 'summary'
         }
     

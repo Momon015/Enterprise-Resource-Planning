@@ -1,5 +1,4 @@
 {% extends "main.html" %}
-
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -7,14 +6,10 @@
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -22,252 +17,175 @@
 </div>
 {% endif %}
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-input[type=number] {
-    -moz-appearance: textfield;
-}
-
-/* Discount column width */
-.discount-col {
-  width: 80px;
-  text-align: center;
-}
-
-/* Footer under the order-lines table */
-.border-top .btn {
-  margin-bottom: 0;
-}
-</style>
-
-<div class="container-fluid py-3 py-lg-4">
+<div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <div class="mb-2 mb-lg-0">
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-box-seam text-primary"></i>
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-bookmark-fill"></i>
         Preset Detail
       </h4>
-      <small class="text-muted">
-        Saved items and quantities you can drop into any purchase.
-      </small>
+      <p class="sl-page-subtitle">Saved product items and quantities for quick sales.</p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'product-edit-preset' preset.id %}" class="btn btn-sm btn-primary">
-        <i class="bi bi-pencil-square me-1"></i>
-        Edit preset
-      </a>
-      <a href="{% url 'product-delete-preset' preset.id %}" class="btn btn-sm btn-danger">
-        <i class="bi bi-trash me-1"></i>
-        Delete preset
-      </a>
-      <a href="{% url 'product-preset-list' %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left-circle me-1"></i>
-        Back to presets
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to presets
       </a>
     </div>
   </div>
 
-  <!-- TOP ROW: SUMMARY + QUICK ACTION -->
-  <div class="row g-3 g-lg-4 mb-3">
-    <!-- Summary card -->
-    <div class="col-lg-8">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-        <div class="card-body d-flex flex-wrap align-items-center gap-4 py-3">
-          <div>
-            <label class="small text-muted mb-0">Preset name</label>
-            <div class="fw-semibold fs-5">{{ preset.name }}</div>
-          </div>
-          <div>
-            <label class="small text-muted mb-0">Preset ID</label>
-            <div class="fw-semibold">{{ preset.id }}</div>
-          </div>
-          <div>
-            {% if item_count > 1 %}
-            <label class="small text-muted mb-0">Total items</label>
-            <div class="fw-semibold">{{ item_count}}</div>
-          </div>
-            {% else %}
-            <label class="small text-muted mb-0">Total item</label>
-            <div class="fw-semibold">{{ item_count}}</div>
-          </div>
-            {% endif %}
-          <div>
-            <label class="small text-muted mb-0">Created</label>
-            <div class="fw-semibold">{{ preset.created_at|date:"M d, Y" }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="two-col-layout">
 
-    <!-- POS-style quick action -->
-    <div class="col-lg-4">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-        <div class="card-body small d-flex flex-column justify-content-between">
-          <div class="mb-2">
-            <div class="fw-semibold mb-1">Use this preset</div>
-            <div class="text-muted">
-              Add all product items from this bundle into the active sale.
+    <!-- LEFT: ITEMS TABLE -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-bookmark"></i>
+            </div>
+            <div>
+              <div class="card-header-title">Product in this preset</div>
+              <div class="card-header-sub">Selling price and revenue are based on current product values.</div>
             </div>
           </div>
-          <div class="d-grid gap-2 mt-2">
-            <a href="{% url 'product-preset-add-to-sale' preset.id %}" class="btn btn-success btn-sm">
-              <i class="bi bi-cart-plus me-1"></i>
-              Add to current sale
-            </a>
-            <a href="{% url 'view-sale' %}" class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-receipt me-1"></i>
-              Go to sale screen
-            </a>
-          </div>
+          <span class="sl-badge sl-badge-light">
+            {{ items|length }} item{{ items|length|pluralize }}
+          </span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="sl-text-center">Quantity</th>
+                {% comment %} <th class="sl-text-center">Unit Cost</th> {% endcomment %}
+                {% comment %} <th class="sl-text-center">Total Cost</th> {% endcomment %}
+                <th class="sl-text-center">Unit Price</th>
+                <th class="sl-text-end">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <!-- ITEM -->
+                <td>
+                  <div class="cell-primary">{{ item.name }}</div>
+                  <div class="cell-sub">#{{ item.id }}</div>
+                </td>
+
+                <!-- QUANTITY -->
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
+                </td>
+
+                {% comment %} <!-- UNIT COST -->
+                <td class="sl-text-center">
+                  <span class="sl-fw-semibold">₱{{ item.cost_price|floatformat:2 }}</span>
+                </td> {% endcomment %}
+
+                {% comment %} <!-- TOTAL COST -->
+                <td class="sl-text-center">
+                  <span class="sl-fw-semibold">₱{{ item.total_cost_per_line|floatformat:2 }}</span>
+                </td> {% endcomment %}
+
+                <!-- UNIT PRICE -->
+                <td class="sl-text-center">
+                  <span class="sl-fw-semibold">₱{{ item.selling_price|floatformat:2 }}</span>
+                </td>
+
+                <!-- REVENUE -->
+                <td class="sl-text-end sl-fw-semibold">
+                  ₱{{ item.line_total|floatformat:2 }}
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="5">No product found in this preset.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ITEMS TABLE -->
-  <div class="card border-0 shadow-sm rounded-4">
-    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
-      <span class="fw-semibold small">Product Items in this preset</span>
-      <small class="text-muted d-none d-sm-inline">
-        Prices are current for product unit cost, quantity and total.
-      </small>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle mb-0">
-          <thead class="table-light small text-uppercase">
-            <tr>
-              <th>Item</th>
-              <th class="text-center">Quantity</th>
-              <th class="text-center">Unit Cost</th>
-              <th class="text-center">Total Cost</th>
-              <th class="text-center">Unit Price</th>
-              <th class="text-end">Line total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in items %}
-            <tr>
-              <!-- ITEM NAME -->
-              <td>
-                <div class="fw-semibold">{{ item.name }}</div>
-                <div class="small text-muted">
-                  Product ID: {{ item.id }}
-                </div>
-              </td>
+    <!-- RIGHT: PRESET INFO + ACTIONS -->
+    <div class="right-panel">
 
-              <!-- QUANTITY -->
-              <td class="text-center">
-                <span class="fw-semibold">{{ item.quantity }}</span>
-              </td>
+      <!-- PRESET INFO -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-bookmark-fill"></i> Preset Info
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Details</div>
 
-              <!-- UNIT COST -->
-              <td class="text-center">
-                <span class="fw-semibold">₱{{ item.cost_price|floatformat:2 }}</span>
-              </td>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Name</span>
+              <span class="sd-info-value">{{ preset.name }}</span>
+            </div>
 
-              <!-- TOTAL COST -->
-              <td class="text-center">
-                <span class="fw-semibold">₱{{ item.total_cost_per_line|floatformat:2 }}</span>
-              </td>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Preset ID</span>
+              <span class="sd-info-value">{{ preset.id }}</span>
+            </div>
 
-              <!-- UNIT PRICE/ SELLING PRICE -->
-              <td class="text-center">
-                <span class="fw-semibold">₱{{ item.selling_price|floatformat:2 }}</span>
-              </td>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total items</span>
+              <span class="sd-info-value">{{ items|length }}</span>
+            </div>
 
-              <!-- LINE TOTAL (approx; adjust in view if you need exact calc) -->
-              <td class="text-end">
-                <span class="fw-semibold">
-                  ₱{{item.line_total|floatformat:2}}
-                </span>
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="5" class="text-center py-4 text-muted">
-                No product found in this preset.
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Created</span>
+              <span class="sd-info-value">{{ preset.created_at|date:"M d, Y" }}</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-lightning-fill"></i> Quick Actions
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          <p class="sl-text-muted" style="font-size:0.82rem; margin:0;">
+            Add all product items from this bundle into the active sale.
+          </p>
+
+          <a href="{% url 'product-preset-add-to-sale' preset.id %}?next={{request.path}}" class="btn btn-block"
+             style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
+            <i class="bi bi-cart-plus"></i> Add to current sale
+          </a>
+
+          <a href="{% url 'view-sale' %}" class="btn btn-outline-secondary btn-block">
+            <i class="bi bi-receipt"></i> Go to sale screen
+          </a>
+
+          {% comment %}
+          <hr style="border-color: #f0f0f0; margin: 0.25rem 0;">
+          <a href="{% url 'product-edit-preset' preset.id %}" class="btn btn-outline-secondary btn-block">
+            <i class="bi bi-pencil-square"></i> Edit preset
+          </a>
+          <a href="{% url 'product-delete-preset' preset.id %}" class="btn btn-block"
+             style="background:var(--danger-light); color:var(--danger); border-color:#f0d0ce; font-weight:600;">
+            <i class="bi bi-trash3"></i> Delete preset
+          </a>
+          {% endcomment %}
+
+        </div>
+      </div>
+
     </div>
   </div>
-
 </div>
+
 {% endblock content %}

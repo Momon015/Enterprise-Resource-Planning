@@ -1,165 +1,111 @@
-{% extends 'main.html' %}
+{% extends "main.html" %}
 {% block content %}
 
-<div class="container-fluid py-4">
-  <div class="row g-4 justify-content-center">
+<div class="page-wrapper">
 
-    <!-- LEFT: CONFIRMATION CARD -->
-    <div class="col-lg-7 col-xl-6">
-      <div class="card shadow-sm border-0 rounded-4">
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title" style="color:var(--danger);">
+        <i class="bi bi-trash"></i>
+        Delete Product
+      </h4>
+      <p class="sl-page-subtitle">You are about to permanently remove <strong>{% if object %}{{ object }}{% else %}{{ product }}{% endif %}</strong>.</p>
+    </div>
+    <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to products
+    </a>
+  </div>
 
-        <!-- Top bar / context -->
-        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center px-4 pt-3">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-light text-danger border">
-              Critical action
-            </span>
-            <span class="text-muted small">
-              Inventory · Product removal
-            </span>
+  <div class="two-col-layout">
+
+    <!-- LEFT: DETAILS -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
+              <i class="bi bi-box-seam"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{% if object %}{{ object|capfirst }}{% else %}{{ product.name|capfirst }}{% endif %}</div>
+              <div class="card-header-sub">Product to be deleted</div>
+            </div>
           </div>
-          <a href="{% url 'product-list' %}" class="btn btn-sm btn-light border rounded-3">
-            <i class="bi bi-arrow-left me-1"></i>
-            Back to products
-          </a>
+          <span class="sl-badge sl-badge-light">ID: {{ product.id }}</span>
         </div>
 
-        <div class="card-body px-4 pb-4 pt-0">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- Icon + Title -->
-          <div class="text-center mb-3 mt-2">
-            <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-danger-subtle"
-                 style="width: 4rem; height: 4rem;">
-              <i class="bi bi-trash3-fill text-danger" style="font-size: 1.9rem;"></i>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Product info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Name</span>
+              <span class="sd-info-value">{{ product.name|capfirst }}</span>
             </div>
-            <h3 class="mt-3 fw-bold text-danger">Delete this product from inventory?</h3>
-            <p class="text-muted mb-0 small">
-              This action is permanent and will remove the item from product listings and stock tracking.
-            </p>
-          </div>
-
-          <!-- Details block -->
-          <div class="bg-light p-3 rounded-3 border mb-3">
-            <div class="d-flex flex-column flex-sm-row justify-content-between gap-2">
-              <div>
-                <span class="text-muted small d-block">Item to delete</span>
-                <span class="fw-semibold fs-5">
-                  {% if object %}{{ object|capfirst }}{% else %}{{ product|capfirst }}{% endif %}
-                </span>
-                {% if product.category %}
-                  <div class="small text-muted">
-                    Category:
-                    <span class="badge bg-white border text-secondary">{{ product.category.name }}</span>
-                  </div>
-                {% endif %}
-              </div>
-              <div class="text-sm-end">
-                <span class="text-muted small d-block">Current stock</span>
-                <span class="fw-semibold">
-                  {{ product.prepared_quantity }} units
-                </span>
-                <div class="small text-muted">
-                  Remaining stock will no longer be tracked after deletion.
-                </div>
-              </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Category</span>
+              <span class="sd-info-value">{{ product.category.name|default:"Uncategorized" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Stock on hand</span>
+              <span class="sd-info-value">{{ product.prepared_quantity }} units</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Selling price</span>
+              <span class="sd-info-value">₱{{ product.selling_price|floatformat:2 }}</span>
             </div>
           </div>
 
-          <!-- Warning message -->
-          <div class="alert alert-warning rounded-3 mb-0 small">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            Deleting this product prevents it from being used in future sales, stock adjustments, or reports. Consider making it inactive instead if you want to keep history.
-          </div>
-        </div>
-
-                <!-- Action bar -->
-        <div class="card-footer bg-white border-0 px-4 pb-4">
-          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
-            <div class="text-muted small">
-              This action cannot be undone. Double-check that you selected the correct product.
+          <div class="sd-note-box" style="background:var(--danger-light); border-color:#f0d0ce;">
+            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
+              <div class="sd-note-text">Product will be removed from listings and stock tracking. Past sales remain in history.</div>
             </div>
-
-            <form method="POST" class="d-inline">
-              {% csrf_token %}
-              <div class="d-flex justify-content-end gap-2 border-top pt-3 mt-3 mt-sm-0 border-top-sm-0">
-                <a href="{% url 'product-detail' product.slug %}"
-                   class="btn btn-outline-secondary btn-sm px-3">
-                  <i class="bi bi-x-circle me-1"></i>
-                  Cancel
-                </a>
-                <button type="submit"
-                        class="btn btn-danger btn-sm px-3">
-                  <i class="bi bi-trash me-1"></i>
-                  Confirm Delete
-                </button>
-              </div>
-            </form>
           </div>
+
+          <form method="POST">
+            {% csrf_token %}
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
+              <a href="{% url 'product-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn"
+                style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
+                <i class="bi bi-trash"></i> Confirm Delete
+              </button>
+            </div>
+          </form>
+
         </div>
-
-
       </div>
     </div>
 
-    <!-- RIGHT: POS-STYLE RISK / CONTEXT PANEL -->
-    <div class="col-lg-5 col-xl-4">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-
-        <div class="card-header bg-dark text-white rounded-top-4 px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-shield-exclamation"></i>
-            <h6 class="mb-0 fw-semibold">Before you delete</h6>
-          </div>
-          <small class="text-white-50 d-none d-sm-inline">Risk check</small>
+    <!-- RIGHT: WARNING PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header" style="background:#c0392b;">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem; color:#fff;">
+            <i class="bi bi-shield-exclamation"></i> Before you delete
+          </span>
         </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-          <!-- Impact summary -->
-          <div class="border rounded-3 px-2 py-2 bg-light">
-            <div class="text-muted text-uppercase small mb-1">What this affects</div>
-            <ul class="small text-muted mb-0 ps-3">
-              <li>Product will disappear from POS and product list.</li>
-              <li>Stock for this item stops being tracked.</li>
-              <li>Past sales remain in history but cannot use this item again.</li>
-            </ul>
-          </div>
-
-          <!-- Safer alternative hint -->
-          <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-            <div class="text-muted text-uppercase small mb-1">Consider alternatives</div>
-            <p class="small text-muted mb-1">
-              If you only want to stop selling this item but keep history, consider an “inactive” or “archived” status instead of deleting it (if available in your setup).
+          <div class="sd-summary-block" style="background:var(--danger-light); border-color:#f0d0ce;">
+            <div class="sd-summary-block-label" style="color:var(--danger);">
+              <i class="bi bi-exclamation-triangle sl-me-1"></i> Warning
+            </div>
+            <p style="font-size:0.82rem; color:#6c757d; margin:0;">
+              Deleting <strong>{{ product.name }}</strong> is permanent. Stock tracking for this item will stop.
             </p>
           </div>
 
-          <!-- Quick checklist -->
-          <div class="border rounded-3 px-2 py-2">
-            <div class="text-muted text-uppercase small mb-1">Quick checklist</div>
-            <ul class="small text-muted mb-0 ps-3">
-              <li>Is this the correct product and variant?</li>
-              <li>Do you still need this in reports or analytics?</li>
-              <li>Have you communicated this removal to staff if necessary?</li>
-            </ul>
-          </div>
-
-          <!-- POS-style tip -->
-          <div class="alert alert-light border-0 mb-0">
-            <div class="d-flex">
-              <div class="me-2">
-                <i class="bi bi-lightning-charge text-warning"></i>
-              </div>
-              <div>
-                <div class="fw-semibold small">Best practice</div>
-                <div class="small text-muted">
-                  Reserve deletion for mistakes or test data. For normal lifecycle changes, prefer deactivating products so historical reports stay accurate.
-                </div>
-              </div>
-            </div>
+          <div class="btn-grid">
+            <a href="{% url 'product-update' product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-pencil-square"></i> Edit Instead
+            </a>
           </div>
 
         </div>
-
       </div>
     </div>
 

@@ -45,7 +45,13 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Type</span>
-              <span class="sl-badge sl-badge-light">{{ category.category_type|capfirst }}</span>
+              {% if category.category_type == 'item' %}
+                <span class="sl-badge sl-badge-light">Item</span>
+              {% elif category.category_type == 'product' %}
+                <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+              {% elif category.category_type == 'expense' %}
+                <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+              {% endif %}
             </div>
           </div>
 
@@ -53,7 +59,7 @@
             <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
             <div>
               <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">Any materials linked to <strong>{{ category.name }}</strong> will lose their category assignment.</div>
+              <div class="sd-note-text">Any items linked to <strong>{{ category.name }}</strong> will lose their category assignment.</div>
             </div>
           </div>
 
@@ -87,7 +93,7 @@
               <i class="bi bi-exclamation-triangle sl-me-1"></i> Warning
             </div>
             <p style="font-size:0.82rem; color:#6c757d; margin:0;">
-              Deleting <strong>{{ category.name }}</strong> is permanent. Materials using this category will become uncategorized.
+              Deleting <strong>{{ category.name }}</strong> is permanent. Items using this category will become uncategorized.
             </p>
           </div>
 

@@ -297,7 +297,7 @@ function toggleCostInput(itemId) {
           <form method="POST" action="{% url 'product-add-to-preset' %}">
             {% csrf_token %}
             <input type="text" name="product_name" autocomplete="off"
-                   class="preset-input" placeholder="e.g. Monday Menu">
+                   class="preset-input" placeholder="e.g. Service Fees">
             <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
               <input type="checkbox" value="checkbox" name="product_checkbox" style="accent-color:var(--accent);">
               Save for future use

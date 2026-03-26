@@ -14,7 +14,7 @@ class MaterialFilterForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        qs = Category.objects.filter(category_type='material')
+        qs = Category.objects.filter(category_type='item')
         self.fields['category'].queryset = qs
         
 class MaterialForm(ModelForm):
@@ -27,7 +27,7 @@ class MaterialForm(ModelForm):
         
         self.fields['category'].empty_label = None
         self.fields['supplier'].empty_label = None
-        self.fields['category'].queryset = Category.objects.filter(category_type='material')
+        self.fields['category'].queryset = Category.objects.filter(category_type='item')
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         self.fields['piece_per_unit'].label = 'Pieces per Unit'
         

@@ -2,7 +2,7 @@ from django.forms import ModelForm
 from django import forms
 
 from Expense.models import Purchase, PurchaseItem, Employee, WasteItem
-
+from Inventory.models import Material
 # Create your forms here.
 
 class PurchaseForm(ModelForm):
@@ -37,9 +37,10 @@ class EmployeeForm(ModelForm):
 class MaterialWasteForm(ModelForm):
     class Meta:
         model = WasteItem
-        exclude = ['price', 'product', 'waste']
-    
+        exclude = ['price', 'product', 'waste', 'name', 'supplier']
+        
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
         for field in self.fields.values():
@@ -47,11 +48,12 @@ class MaterialWasteForm(ModelForm):
             
         self.fields['material'].empty_label = None
         self.fields['material'].label = 'Item'
+        self.fields['material'].queryset = Material.objects.filter(stocks__user=user).distinct()
             
 class ProductWasteForm(ModelForm):
     class Meta:
         model = WasteItem
-        exclude = ['price', 'material']
+        exclude = ['price', 'material', 'name', 'waste', 'supplier']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

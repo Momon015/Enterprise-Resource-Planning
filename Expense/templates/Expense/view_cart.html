@@ -384,7 +384,7 @@ function toggleCostInput(id) {
             <a href="{% url 'clear-cart' %}"
                class="btn btn-outline-danger btn-sm">
               <i class="bi bi-trash3 me-1"></i>
-              Clear material items
+              Clear purchase items
             </a>
             <a href="{% url 'view-checkout-summary' %}"
                class="btn btn-success btn-lg">
@@ -461,13 +461,13 @@ function toggleCostInput(id) {
   <div class="d-flex flex-column align-items-center justify-content-center py-5">
     <div class="card shadow-sm text-center p-4" style="max-width: 400px;">
       <div class="mb-3"><i class="bi bi-receipt fs-1 text-primary"></i></div>
-      <h4 class="fw-bold text-primary mb-2">No material item on this purchase yet</h4>
+      <h4 class="fw-bold text-primary mb-2">No item on this purchase yet</h4>
       <p class="text-muted mb-3">
-        Add material to start building the purchase record.
+        Add item to start building the purchase record.
       </p>
       <a href="{% url 'material-list' %}" class="btn btn-primary btn-lg w-100">
         <i class="bi bi-plus-circle me-2"></i>
-        Add material
+        Add item
       </a>
     </div>
   </div>

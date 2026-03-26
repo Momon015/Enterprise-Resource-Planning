@@ -26,6 +26,8 @@ from Product.forms import ProductForm
 from Expense.models import Employee
 from Expense.forms import EmployeeForm
 
+from Inventory.models import Stock
+
 from core.models import StatusModel
 
 from decimal import Decimal
@@ -109,8 +111,6 @@ def sale_list(request):
                 sales = sales.filter(date__year=iso_year, date__week=iso_week-1)
         
         period_map = {
-            'last_year': {'date__year': last_year},
-            'year': {'date__year': year},
             'month': {'date__month': month, 'date__year': year},
             'today': {'date__day': today},
             'week': {'date__week': iso_week, 'date__year': iso_year}
@@ -326,7 +326,14 @@ def confirm_view_summary(request):
                 
                 line_total = product.selling_price * quantity
                 total_revenue += line_total
-
+                
+                try:
+                    stock = Stock.objects.get(user=request.user, material=product.material)
+                    stock.quantity -= quantity
+                    stock.save()
+                except:
+                    pass
+                
                 SaleItem.objects.create(
                     sale=sale_obj,
                     product=product,

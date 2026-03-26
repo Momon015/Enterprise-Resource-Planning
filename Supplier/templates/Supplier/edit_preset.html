@@ -12,9 +12,9 @@
       </h4>
       <p class="sl-page-subtitle">Adjust quantities and discounts for this preset.</p>
     </div>
-    <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-sm">
+    {% comment %} <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to presets
-    </a>
+    </a> {% endcomment %}
   </div>
 
   <form method="POST" action="{% url 'material-edit-preset' preset.id %}">
@@ -28,7 +28,7 @@
           <div class="card-header">
             <div class="sd-card-header-left">
               <div class="sd-header-icon">
-                <i class="bi bi-list-ul"></i>
+                <i class="bi bi-bookmark-fill"></i>
               </div>
               <div>
                 <div class="card-header-title">Items in this preset</div>
@@ -104,7 +104,7 @@
         <div class="card">
           <div class="card-header dark">
             <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-              <i class="bi bi-bookmark-fill"></i> Preset Info
+              <i class="bi bi-bookmark"></i> Preset Info
             </span>
           </div>
           <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
@@ -116,14 +116,14 @@
                 <span class="sl-badge sl-badge-light">{{ preset.id }}</span>
               </div>
               <div class="sd-info-row">
-                <span class="sd-info-label">Total items</span>
+                <span class="sd-info-label">Total Items</span>
                 <span class="sd-info-value">{{ items|length }}</span>
               </div>
             </div>
 
             <!-- PRESET NAME INPUT -->
             <div>
-              <label class="mf-form-label">Preset name</label>
+              <label class="mf-form-label">Preset Name</label>
               <input type="text"
                      class="form-control"
                      name="preset_{{ preset.id }}"
@@ -140,8 +140,8 @@
             <button type="submit" class="btn btn-primary btn-block">
               <i class="bi bi-check-circle"></i> Save changes
             </button>
-            <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-block">
-              <i class="bi bi-x-circle"></i> Cancel
+            <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-block">
+              Cancel
             </a>
           </div>
         </div>

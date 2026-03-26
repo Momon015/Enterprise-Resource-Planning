@@ -116,11 +116,9 @@ def purchase_history(request):
         else:
             # for mapping period
             period_map = {
-                "last_year": {'purchase_date__year': last_year},
                 "today": {'purchase_date__day': today},
                 "week": {"purchase_date__year": year, "purchase_date__week": iso_week},
                 "month": {"purchase_date__month": month, "purchase_date__year": year},
-                "year": {"purchase_date__year": year},
             }
             filter_kwargs = period_map.get(period)
             if filter_kwargs:
@@ -368,7 +366,13 @@ def confirm_purchase_summary(request):
                 """
                 
                 actual_unit_cost = (Decimal(price) * quantity) - discount
-                print('actual_unit_cost', actual_unit_cost)
+                
+                MULTI_UNIT_TYPES = ('pack', 'box', 'tray', 'dozen', 'bundle', 'carton', 'sachet')
+                
+                if material.unit in MULTI_UNIT_TYPES:
+                    actual_unit_cost = Decimal(price * quantity) - discount
+                    quantity = quantity * material.piece_per_unit
+                    
                 stock, created = Stock.objects.get_or_create(
                     user=request.user,
                     material=material,
@@ -377,7 +381,7 @@ def confirm_purchase_summary(request):
                         'price': actual_unit_cost / quantity
                     }         
                 )
-            
+                
                 if not created:
                     old_price = stock.price
                     old_quantity = stock.quantity
@@ -610,6 +614,7 @@ def employee_delete(request, employee_id):
 
 @login_required(login_url='login')
 def waste_list(request):
+    stocks = Stock.objects.all()
     wastes = Waste.objects.all().order_by('-date')
     total_waste_cost = wastes.total_waste_cost()
     
@@ -659,7 +664,7 @@ def waste_list(request):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'page_obj': page_obj, 'section': 'waste', 'total_waste_cost': total_waste_cost}
+    context = {'page_obj': page_obj, 'total_waste_cost': total_waste_cost, 'stocks': stocks, 'section': 'waste'}
     return render(request, 'Expense/waste_list.html', context)
 
 @login_required(login_url='login')
@@ -686,13 +691,18 @@ def waste_material_create(request):
     page = 'waste_material'
     
     if request.method == 'POST':
-        form = MaterialWasteForm(request.POST)
+        form = MaterialWasteForm(request.POST, user=request.user)
 
         if form.is_valid():
             item = form.save(commit=False)
             item.user = request.user
             
             stock = Stock.objects.get(user=request.user, material=item.material)
+            
+            if item.quantity == 0:
+                messages.warning(request, f"Quantity must be greater than 0.")
+                return redirect('view-inventory-stock')
+            
             # deduct from the stock
             if stock.quantity >= item.quantity:
                 stock.quantity -= item.quantity
@@ -726,7 +736,7 @@ def waste_material_create(request):
             messages.success(request, f"{item.material.name} has been recorded as waste.")
             return redirect('expense-waste-list')         
     else:
-        form = MaterialWasteForm()
+        form = MaterialWasteForm(user=request.user)
 
     context = {'form': form, 'page': page, 'section': 'waste'}
     return render(request, 'Expense/waste_create.html', context)

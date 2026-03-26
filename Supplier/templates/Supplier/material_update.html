@@ -16,9 +16,9 @@
             <p class="card-header-sub">Update material details and pricing.</p>
           </div>
         </div>
-        <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">
+        {% comment %} <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to materials
-        </a>
+        </a> {% endcomment %}
       </div>
 
       <div class="card-body">
@@ -121,7 +121,7 @@
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'material-detail' material.slug %}?next={{request.path}}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'material-list' %}?next={{request.path}}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
@@ -180,7 +180,7 @@
           <div class="mf-guide-title">Actions</div>
           <div class="btn-grid">
             <a href="{% url 'material-detail' material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-eye sl-me-1"></i> View Detail
+              <i class="bi bi-card-text"></i> View Detail
             </a>
             <a href="{% url 'material-delete' material.slug %}" class="btn btn-sm btn-block" style="background:#fdf0ef; color:var(--danger); border:1px solid #f0d0ce;">
               <i class="bi bi-trash sl-me-1"></i> Delete Material

@@ -55,7 +55,7 @@ def material_list(request):
             })
             
     form = MaterialFilterForm(request.GET or None)
-    materials = Material.objects.all().order_by('-created_at')
+    materials = Material.objects.all().order_by('name')
 
     
     """
@@ -89,13 +89,17 @@ def material_list(request):
     page_obj = paginator.get_page(page_number)
            
 
+    suppliers = Supplier.objects.all()
+    
     context = {
         'page_obj': materials, 
         'categories': categories, 
         'page_obj': page_obj, 
         'cart_items': cart_items,
         'total': total,
-        'section': 'supplier',  
+        'suppliers': suppliers,
+        'section': 'supplier',
+          
         }
     
     return render(request, 'Supplier/material_list.html', context)
@@ -107,9 +111,10 @@ def material_create(request):
         
         if form.is_valid():
             material = form.save(commit=False)
-            if Material.objects.filter(user=request.user, name__iexact=material.name).exists():
-                messages.warning(request, f"{material.name.title()} already exists.")
+            if Material.objects.filter(user=request.user, name__iexact=material.name, unit=material.unit).exists():
+                messages.warning(request, f"{material.name.title()} - {material.get_unit_display()} already exists.")
                 return redirect('material-list')
+            
             material.user = request.user
             material.name = material.name.title()
             material.save()
@@ -243,7 +248,7 @@ def adding_preset_to_cart(request, preset_id):
     
 @login_required(login_url='login')
 def preset_list(request):
-    presets = MaterialPreset.objects.all().order_by('-created_at')
+    presets = MaterialPreset.objects.all().order_by('name')
     
     paginator = Paginator(presets, 5)
     page_number = request.GET.get('page')
@@ -324,7 +329,7 @@ def supplier_list(request):
         search = form.cleaned_data.get('search')
         
         if search:
-            suppliers = suppliers.filte(name__icontains=search)
+            suppliers = suppliers.filter(name__icontains=search)
         
         
     pagination = Paginator(suppliers, 6)

@@ -2,282 +2,212 @@
 {% block content %}
 
 <script>
-function changeValue(fieldId, delta) {
+function changeValue(fieldId, delta, isInteger = false) {
   const input = document.getElementById(fieldId);
-  let value = parseInt(input.value) || 0;
+  let value = parseFloat(input.value) || 0;
   value += delta;
   if (value < 0) value = 0;
-  input.value = value;
+  if (isInteger) {
+    input.value = Math.round(value);
+  } else {
+    input.value = value.toFixed(2);
+  }
 }
 </script>
 
-<style>
-/* Remove default number spinners */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type=number] {
-  -moz-appearance: textfield;
-}
+<div class="mf-page-wrapper">
+  <div class="mf-layout">
 
-.card-pos {
-  border-radius: 1rem;
-}
-
-.form-section-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #6c757d;
-  margin-bottom: .25rem;
-}
-
-.helper-text {
-  font-size: 0.8rem;
-  color: #6c757d;
-}
-
-input[readonly] {
-  background-color: #f8f9fa;
-}
-</style>
-
-<div class="container-fluid py-3 py-lg-4">
-
-  <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-    <div class="mb-2 mb-lg-0">
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-box-seam text-primary"></i>
-        Add Product
-      </h4>
-      <small class="text-muted">
-        Create a new item for your sales and inventory catalog.
-      </small>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <a href="{% url 'product-list' %}"
-         class="btn btn-light border btn-sm rounded-3">
-        <i class="bi bi-arrow-left me-1"></i>
-        Back to products
-      </a>
-      <span class="badge bg-light text-secondary border rounded-pill">
-        Inventory module
-      </span>
-    </div>
-  </div>
-
-  <div class="row g-3 g-lg-4">
-
-    <!-- LEFT: MAIN FORM CARD -->
-    <div class="col-lg-8 col-xl-9">
-      <div class="card border-0 shadow-sm rounded-4 card-pos">
-        <div class="card-header bg-white border-bottom px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge text-bg-primary rounded-pill">New</span>
-            <h6 class="mb-0 fw-semibold">Product details</h6>
+    <!-- LEFT: FORM -->
+    <div class="card">
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-box-seam"></i>
           </div>
-          <small class="text-muted d-none d-sm-inline">
-            Required fields are marked with <span class="text-danger">*</span>
-          </small>
+          <div>
+            <p class="card-header-title">New Product</p>
+            <p class="card-header-sub">Create a new item for your sales and inventory catalog.</p>
+          </div>
         </div>
+        <a href="{% url 'product-list' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to products
+        </a>
+      </div>
 
-        <div class="card-body px-3 px-lg-4 py-3">
-          <form method="POST" class="row g-3">
-            {% csrf_token %}
+      <div class="card-body">
+        <form method="POST" autocomplete="off" novalidate>
+          {% csrf_token %}
 
-            <!-- Row 1: Name + Category -->
-            <div class="col-md-7">
-              <label for="{{ form.name.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
+          <div class="mf-fields-grid">
+
+            {# Name + Category #}
+            <div class="mf-field-group">
+              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
                 {{ form.name.label }}
-                {% if form.name.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.name }}
-              {% if form.name.help_text %}
-                <div class="helper-text mt-1">{{ form.name.help_text }}</div>
-              {% endif %}
-              {% if form.name.errors %}
-                <div class="text-danger mt-1 small">{{ form.name.errors|striptags }}</div>
-              {% endif %}
+              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
             </div>
 
-            <div class="col-md-5">
-              <label for="{{ form.category.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
+            <div class="mf-field-group">
+              <label for="{{ form.category.id_for_label }}" class="mf-form-label">
                 {{ form.category.label }}
-                {% if form.category.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.category }}
-              {% if form.category.help_text %}
-                <div class="helper-text mt-1">{{ form.category.help_text }}</div>
-              {% endif %}
-              {% if form.category.errors %}
-                <div class="text-danger mt-1 small">{{ form.category.errors|striptags }}</div>
-              {% endif %}
+              {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
+            
 
-            <!-- Row 2: Description full width -->
-            <div class="col-12">
-              <label for="{{ form.description.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
+            {# Description — full width #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="{{ form.description.id_for_label }}" class="mf-form-label">
                 {{ form.description.label }}
-                {% if form.description.field.required %}<span class="text-danger">*</span>{% endif %}
+                {% if form.description.field.required %}<span class="mf-required">*</span>{% endif %}
               </label>
               {{ form.description }}
-              {% if form.description.help_text %}
-                <div class="helper-text mt-1">{{ form.description.help_text }}</div>
-              {% endif %}
-              {% if form.description.errors %}
-                <div class="text-danger mt-1 small">{{ form.description.errors|striptags }}</div>
-              {% endif %}
+              {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- Row 3: Inventory section -->
-            <div class="col-12">
-              <div class="form-section-title d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-box-seam"></i> Inventory
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="{{ form.prepared_quantity.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
-                    {{ form.prepared_quantity.label }}
-                    {% if form.prepared_quantity.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group input-group-sm">
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1)">−</button>
-                    {{ form.prepared_quantity }}
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1)">+</button>
-                  </div>
-                  {% if form.prepared_quantity.errors %}
-                    <div class="text-danger mt-1 small">{{ form.prepared_quantity.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                  <label for="{{ form.default_quantity.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
-                    {{ form.default_quantity.label }}
-                    {% if form.default_quantity.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group input-group-sm">
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.default_quantity.id_for_label }}', -1)">−</button>
-                    {{ form.default_quantity }}
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.default_quantity.id_for_label }}', 1)">+</button>
-                  </div>
-                  <div class="helper-text mt-1">Used when restoring stock to default.</div>
-                  {% if form.default_quantity.errors %}
-                    <div class="text-danger mt-1 small">{{ form.default_quantity.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-              </div>
+            {# Pricing section label — full width #}
+            <div style="grid-column: 1 / -1;" class="sd-section-label">
+              <i class="bi bi-cash-coin sl-me-1"></i> Pricing
             </div>
 
-            <!-- Row 4: Pricing section -->
-            <div class="col-12">
-              <div class="form-section-title d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-cash-coin"></i> Pricing
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="{{ form.cost_price.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
-                    {{ form.cost_price.label }}
-                    {% if form.cost_price.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group input-group-sm">
-                    <span class="input-group-text">₱</span>
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.cost_price.id_for_label }}', -1)">−</button>
-                    {{ form.cost_price }}
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.cost_price.id_for_label }}', 1)">+</button>
-                  </div>
-                  {% if form.cost_price.errors %}
-                    <div class="text-danger mt-1 small">{{ form.cost_price.errors|striptags }}</div>
-                  {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                  <label for="{{ form.selling_price.id_for_label }}" class="form-label small fw-semibold text-muted text-uppercase">
-                    {{ form.selling_price.label }}
-                    {% if form.selling_price.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-                  <div class="input-group input-group-sm">
-                    <span class="input-group-text">₱</span>
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.selling_price.id_for_label }}', -1)">−</button>
-                    {{ form.selling_price }}
-                    <button type="button" class="btn btn-outline-secondary"
-                            onclick="changeValue('{{ form.selling_price.id_for_label }}', 1)">+</button>
-                  </div>
-                  {% if form.selling_price.errors %}
-                    <div class="text-danger mt-1 small">{{ form.selling_price.errors|striptags }}</div>
-                  {% endif %}
+            {# Cost Price #}
+            <div class="mf-field-group">
+              <label for="{{ form.cost_price.id_for_label }}" class="mf-form-label">
+                {{ form.cost_price.label }}
+                {% if form.cost_price.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.cost_price.id_for_label }}', -1, false)">−</button>
+                  {{ form.cost_price }}
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.cost_price.id_for_label }}', 1, false)">+</button>
                 </div>
               </div>
+              {% if form.cost_price.errors %}<div class="mf-error">{{ form.cost_price.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- Actions -->
-            <div class="col-12 d-flex justify-content-between align-items-center pt-3 border-top mt-2">
-              <div class="text-muted small">
-                Saved products will be available in POS, orders, and stock reports.
+            {# Selling Price #}
+            <div class="mf-field-group">
+              <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+                {{ form.selling_price.label }}
+                {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', -1, false)">−</button>
+                  {{ form.selling_price }}
+                  <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', 1, false)">+</button>
+                </div>
               </div>
-              <div class="d-flex gap-2">
-                <a href="{% url 'product-list' %}"
-                   class="btn btn-outline-secondary btn-sm px-3 rounded-3">
-                  Cancel
-                </a>
-                <button type="submit"
-                        class="btn btn-primary btn-sm px-4 rounded-3">
-                  <i class="bi bi-save me-1"></i>
-                  Save product
-                </button>
-              </div>
+              {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
             </div>
-          </form>
-        </div>
+
+            {# Inventory section label — full width #}
+            <div style="grid-column: 1 / -1;" class="sd-section-label">
+              <i class="bi bi-box-seam sl-me-1"></i> Inventory
+            </div>
+
+            {# Prepared Quantity #}
+            <div class="mf-field-group">
+              <label for="{{ form.prepared_quantity.id_for_label }}" class="mf-form-label">
+                {{ form.prepared_quantity.label }}
+                {% if form.prepared_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1, true)">−</button>
+                {{ form.prepared_quantity }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1, true)">+</button>
+              </div>
+              {% if form.prepared_quantity.errors %}<div class="mf-error">{{ form.prepared_quantity.errors|striptags }}</div>{% endif %}
+            </div>
+
+            {% comment %} RETAIL PHASE — default_quantity auto managed
+            <div class="mf-field-group">
+              <label for="{{ form.default_quantity.id_for_label }}" class="mf-form-label">
+                {{ form.default_quantity.label }}
+                {% if form.default_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+              </label>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', -1, true)">−</button>
+                {{ form.default_quantity }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', 1, true)">+</button>
+              </div>
+              <div class="mf-help">Used when restoring stock to default.</div>
+              {% if form.default_quantity.errors %}<div class="mf-error">{{ form.default_quantity.errors|striptags }}</div>{% endif %}
+            </div>
+            {% endcomment %}
+
+          </div>
+
+          <div class="mf-form-actions">
+            <a href="{% url 'product-list' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle sl-me-1"></i> Save Product
+            </button>
+          </div>
+
+        </form>
       </div>
     </div>
 
-    <!-- RIGHT: POS-STYLE CONTEXT PANEL -->
-    <div class="col-lg-4 col-xl-3">
-      <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-header bg-dark text-white px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-speedometer2"></i>
-            <h6 class="mb-0 fw-semibold">Stock guidance</h6>
-          </div>
-          <small class="text-white-50 d-none d-sm-inline">Setup help</small>
-        </div>
-        <div class="card-body px-3 px-lg-4 py-3 small">
-          <div class="form-section-title">Reorder & stock</div>
-          <p class="helper-text mb-2">
-            Use realistic quantities and reorder levels to keep stock balanced and avoid stockouts.
-          </p>
-          <ul class="helper-text ps-3 mb-0">
-            <li>Set a reorder level below your usual quantity on hand.</li>
-            <li>Use cost and selling price consistently for margin reports.</li>
-            <li><strong>Default quantity</strong> is used to restore stock when needed.</li>
+    <!-- RIGHT: GUIDE PANEL -->
+    <div class="card">
+      <div class="card-header dark">
+        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <i class="bi bi-info-circle"></i> Product Setup Guide
+        </span>
+      </div>
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+
+        <div class="sd-summary-block">
+          <div class="mf-guide-title">Checklist</div>
+          <ul class="mf-guide-list">
+            <li><i class="bi bi-check-circle-fill"></i> Use clear, searchable product names.</li>
+            <li><i class="bi bi-check-circle-fill"></i> Set cost price accurately for profit tracking.</li>
+            <li><i class="bi bi-check-circle-fill"></i> Set selling price before adding to a sale.</li>
           </ul>
         </div>
-      </div>
 
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body px-3 px-lg-4 py-3 small">
-          <div class="form-section-title">Catalog tips</div>
-          <p class="helper-text mb-2">
-            Group similar products under the same category and use clear, searchable names.
-          </p>
-          <p class="helper-text mb-0">
-            Include variants or sizes in the name if they affect pricing or stock tracking.
-          </p>
+        <div class="sd-summary-block">
+          <div class="mf-guide-title">Pricing Tips</div>
+          <ul class="mf-guide-list">
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Cost price is auto-updated from purchases.</li>
+            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Selling price must be set manually by the owner.</li>
+          </ul>
         </div>
+
+        <div class="mf-tip-box">
+          <i class="bi bi-lightbulb"></i>
+          <div>
+            <div class="mf-tip-title">Tip</div>
+            <div class="mf-tip-text">Include variants in the name (e.g. "Coke 1L", "Coke 500ml") for easier tracking.</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
   </div>
 </div>
+
+<script>
+// override stepNumber min to 0 for prepared_quantity
+function stepNumber(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseInt(input.value || 0, 10);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 0) value = 0;
+  input.value = value;
+}
+</script>
 
 {% endblock content %}

@@ -40,7 +40,7 @@ import calendar
 from django.db.models import Sum, Avg
 
 from core.models import Category
-from core.forms import CategoryForm
+from core.forms import CategoryForm, CategoryFilterForm
 
 # logging
 import logging
@@ -51,6 +51,14 @@ import logging
 def category_list(request):
     categories = Category.objects.all()
     section = None
+    
+    form = CategoryFilterForm(request.GET or None)
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        
+        if search:
+            categories = categories.filter(name__icontains=search)
 
     category_type = request.GET.get('category_type')
     
@@ -58,9 +66,13 @@ def category_list(request):
         categories = categories.filter(category_type='product')
         section = 'product'
 
-    elif category_type == 'material':
-        categories = categories.filter(category_type='material')
+    elif category_type == 'item':
+        categories = categories.filter(category_type='item')
         section = 'supplier'
+    
+    elif 'category_type' == 'expense':
+        categories = categories.filter(category_type='expense')
+        section = 'expense'
 
     pagination = Paginator(categories, 5)
     page = request.GET.get('page')

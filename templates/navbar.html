@@ -1,490 +1,180 @@
-<nav class="pos-navbar sticky-top navbar navbar-expand-lg">
-  <div class="container-fluid pos-navbar__inner">
+<!-- MOBILE OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- Brand -->
-    <a class="pos-brand navbar-brand" href="#">
-      <div class="pos-brand__icon">
-        <i class="bi bi-graph-up-arrow"></i>
+<!-- MOBILE TOGGLE -->
+<button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle"
+        style="display:none; position:fixed; top:1rem; left:1rem; z-index:1001; background:#0f1117; color:#fff; border:none; padding:0.4rem 0.6rem; border-radius:6px;">
+  <i class="bi bi-list fs-5"></i>
+</button>
+
+<nav class="sidebar" id="sidebar">
+
+  <!-- BRAND -->
+  <a class="sidebar-brand" href="">
+    <div class="sidebar-brand__icon">
+      <i class="bi bi-graph-up-arrow"></i>
+    </div>
+    <div>
+      <div class="sidebar-brand__name">
+        Swift <span class="sidebar-brand__badge">ERP</span>
       </div>
-      <div class="pos-brand__text">
-      <div class="pos-brand__name">
-        Swift <span class="pos-brand__badge">ERP</span>
-      </div>
-        <span class="pos-brand__underline">Enterprise Resource Planning</span>
-</div>
+      <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
+    </div>
+  </a>
+
+  <!-- MAIN MODULES -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Main</div>
+    <ul class="sidebar-nav">
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="#">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}">
+          <i class="bi bi-calendar-check"></i>
+          <span>Summary</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'expenses' %}is-active{% endif %}" href="#">
+          <i class="bi bi-wallet2"></i>
+          <span>Expenses</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- TRANSACTIONS -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Transactions</div>
+    <ul class="sidebar-nav">
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'sales' %}is-active{% endif %}" href="{% url 'sale-list' %}">
+          <i class="bi bi-cash-coin"></i>
+          <span>Sales</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'purchases' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
+          <i class="bi bi-receipt"></i>
+          <span>Purchases</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' %}">
+          <i class="bi bi-recycle"></i>
+          <span>Waste & Loss</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- CATALOG -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Catalog</div>
+    <ul class="sidebar-nav">
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'products' %}is-active{% endif %}" href="{% url 'product-list' %}">
+          <i class="bi bi-basket"></i>
+          <span>Products</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'suppliers' %}is-active{% endif %}" href="{% url 'material-list' %}">
+          <i class="bi bi-building"></i>
+          <span>Suppliers</span>
+        </a>
+      </li>
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' %}">
+          <i class="bi bi-box"></i>
+          <span>Inventory</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- HR -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">HR</div>
+    <ul class="sidebar-nav">
+      <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'employees' %}is-active{% endif %}" href="{% url 'employee-list' %}">
+          <i class="bi bi-people"></i>
+          <span>Employees</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="sidebar-footer">
+    <a href="{% url 'view-sale' %}" class="sidebar-new-sale">
+      <i class="bi bi-plus-lg"></i>
+      <span>New Sale</span>
     </a>
 
-    <!-- Mobile toggler -->
-    <div class="d-flex d-lg-none align-items-center gap-2">
-      <a href="{% url 'view-sale' %}" class="pos-btn-newsale">
-        <i class="bi bi-plus-lg"></i>
-      </a>
-      <button class="pos-toggler navbar-toggler" type="button"
-              data-bs-toggle="collapse"
-              data-bs-target="#posNav"
-              aria-controls="posNav"
-              aria-expanded="false"
-              aria-label="Toggle navigation">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-    </div>
+    <div class="sidebar-account" id="accountToggle">
+      <div class="sidebar-account__avatar">
+        {% if user.is_authenticated %}
+          {{ user.username|first|upper }}
+        {% else %}
+          <i class="bi bi-person"></i>
+        {% endif %}
+      </div>
+      <span class="sidebar-account__name">
+        {% if user.is_authenticated %}{{ user.username }}{% else %}Account{% endif %}
+      </span>
+      <i class="bi bi-chevron-up" style="font-size:0.65rem; color:rgba(255,255,255,0.3);"></i>
 
-    <!-- Nav Links -->
-    <div class="collapse navbar-collapse" id="posNav">
-      <ul class="pos-nav navbar-nav ms-auto align-items-lg-center">
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="#">
-            <i class="bi bi-speedometer2"></i>
-            <span>Dashboard</span>
+      <div class="sidebar-dropdown" id="accountDropdown">
+        {% if user.is_authenticated %}
+          <a class="sidebar-dropdown__item" href="{% url 'user-profile' request.user.slug %}">
+            <i class="bi bi-person-circle"></i> Profile
           </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}">
-            <i class="bi bi-calendar-check"></i>
-            <span>Summary</span>
+          <a class="sidebar-dropdown__item" href="#">
+            <i class="bi bi-gear"></i> Settings
           </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'expense' %}is-active{% endif %}" href="#">
-            <i class="bi bi-wallet2"></i>
-            <span>Expenses</span>
+          <div class="sidebar-dropdown__divider"></div>
+          <a class="sidebar-dropdown__item sidebar-dropdown__item--danger" href="{% url 'logout' %}">
+            <i class="bi bi-box-arrow-right"></i> Logout
           </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
-            <i class="bi bi-cash-coin"></i>
-            <span>Sales</span>
+        {% else %}
+          <a class="sidebar-dropdown__item" href="{% url 'login' %}">
+            <i class="bi bi-box-arrow-in-right"></i> Login
           </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'product' %}is-active{% endif %}" href="{% url 'product-list' %}">
-            <i class="bi bi-basket"></i>
-            <span>Products</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
-            <i class="bi bi-receipt"></i>
-            <span>Purchases</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'supplier' %}is-active{% endif %}" href="{% url 'material-list' %}">
-            <i class="bi bi-building"></i>
-            <span>Supplier</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' %}">
-            <i class="bi bi-box"></i>
-            <span>Inventory</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' %}">
-            <i class="bi bi-people"></i>
-            <span>Waste Management</span>
-          </a>
-        </li>
-
-        <li class="nav-item pos-nav__item">
-          <a class="pos-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' %}">
-            <i class="bi bi-people"></i>
-            <span>Employees</span>
-          </a>
-        </li>
-
-        <!-- Divider -->
-        <li class="nav-item pos-nav__divider d-none d-lg-flex"></li>
-
-        <!-- New Sale CTA -->
-        <li class="nav-item pos-nav__item d-none d-lg-flex align-items-center">
-          <a href="{% url 'view-sale' %}" class="pos-btn-newsale">
-            <i class="bi bi-plus-lg"></i>
-            <span>New Sale</span>
-          </a>
-        </li>
-
-        <!-- Account Dropdown -->
-        <li class="nav-item pos-nav__item dropdown">
-          <a class="pos-account" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <div class="pos-account__avatar">
-              {% if user.is_authenticated %}
-                {{ user.username|first|upper }}
-              {% else %}
-                <i class="bi bi-person"></i>
-              {% endif %}
-            </div>
-            <span class="pos-account__name d-none d-sm-inline">
-              {% if user.is_authenticated %}{{ user.username }}{% else %}Account{% endif %}
-            </span>
-            <i class="bi bi-chevron-down pos-account__caret d-none d-sm-inline"></i>
-          </a>
-          <ul class="pos-dropdown dropdown-menu dropdown-menu-end">
-            {% if user.is_authenticated %}
-              <li>
-                <a class="pos-dropdown__item" href="{% url 'user-profile' request.user.slug %}">
-                  <i class="bi bi-person-circle me-2"></i>Profile
-                </a>
-              </li>
-              <li>
-                <a class="pos-dropdown__item" href="#">
-                  <i class="bi bi-gear me-2"></i>Settings
-                </a>
-              </li>
-              <li><hr class="pos-dropdown__divider"></li>
-              <li>
-                <a class="pos-dropdown__item pos-dropdown__item--danger" href="{% url 'logout' %}">
-                  <i class="bi bi-box-arrow-right me-2"></i>Logout
-                </a>
-              </li>
-            {% else %}
-              <li>
-                <a class="pos-dropdown__item" href="{% url 'login' %}">
-                  <i class="bi bi-box-arrow-in-right me-2"></i>Login
-                </a>
-              </li>
-            {% endif %}
-          </ul>
-        </li>
-
-      </ul>
+        {% endif %}
+      </div>
     </div>
 
   </div>
+
 </nav>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap');
+<script>
+// Account dropdown
+document.getElementById('accountToggle').addEventListener('click', function(e) {
+  e.stopPropagation();
+  this.classList.toggle('open');
+});
+document.addEventListener('click', function() {
+  document.getElementById('accountToggle').classList.remove('open');
+});
 
-:root {
-  --pos-bg:         #1b1c2d;
-  --pos-border:     rgba(255,255,255,0.12);
-  --pos-accent:     #00d4ff;
-  --pos-accent-bg:  rgba(0,212,255,0.18);
-  --pos-text:       #d3d6f0;
-  --pos-text-dim:   rgba(255,255,255,0.5);
-  --pos-hover-bg:   rgba(0,212,255,0.08);
-  --pos-radius:     8px;
-  --pos-shadow:     0 1px 3px rgba(26,86,219,0.1), 0 1px 2px rgba(26,86,219,0.07);
-}
+// Mobile sidebar
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
 
-/* ── NAVBAR SHELL ─────────────────────────────────────────── */
-.pos-navbar {
-  background: radial-gradient(circle at top left, #353857 0, #1b1c2d 40%, #111320 100%) !important;
-  border-bottom: 1px solid var(--pos-border);
-  box-shadow: var(--pos-shadow);
-  font-family: 'DM Sans', sans-serif;
-  min-height: 58px;
-}
-
-.pos-navbar__inner {
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-}
-
-/* ── BRAND ────────────────────────────────────────────────── */
-.pos-brand {
-  display: flex !important;
-  align-items: center;
-  gap: 0.6rem;
-  text-decoration: none;
-  padding: 0 !important;
-  margin-right: 2rem;
-}
-
-.pos-brand__icon {
-  width: 32px;
-  height: 32px;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(0,212,255,0.3);
-  border-radius: var(--pos-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #00d4ff;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
-
-.pos-brand__text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1;
-}
-
-.pos-brand__name {
-  font-family: 'DM Mono', monospace;
-  font-weight: 500;
-  font-size: 1rem;
-  color: #fff;
-  color: #fff;
-  letter-spacing: -0.01em;
-}
-
-.pos-brand__sub {
-  font-size: 0.62rem;
-  color: var(--pos-text-dim);
-  letter-spacing: 0.04em;
-  margin-top: 2px;
-  text-transform: uppercase;
-}
-
-/* ── NAV LIST ─────────────────────────────────────────────── */
-.pos-nav {
-  gap: 0.05rem;
-}
-
-.pos-nav__item {
-  display: flex;
-  align-items: center;
-}
-
-.pos-nav__link {
-  display: flex !important;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.38rem 0.65rem !important;
-  border-radius: var(--pos-radius);
-  color: var(--pos-text) !important;
-  text-decoration: none;
-  font-size: 0.83rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  position: relative;
-}
-
-.pos-nav__link i {
-  font-size: 0.85rem;
-  color: var(--pos-text-dim);
-  transition: color 0.15s ease;
-}
-
-.pos-nav__link:hover {
-  color: var(--pos-accent) !important;
-  background: var(--pos-accent-bg);
-}
-
-.pos-nav__link:hover i {
-  color: #00d4ff;
-}
-
-.pos-nav__link.is-active {
-  color: var(--pos-accent) !important;
-  background: var(--pos-accent-bg);
-  font-weight: 600;
-}
-
-.pos-nav__link.is-active i {
-  color: #00d4ff;
-}
-
-/* Active underline dot */
-.pos-nav__link.is-active::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background: var(--pos-accent);
-  border-radius: 50%;
-}
-
-/* ── DIVIDER ──────────────────────────────────────────────── */
-.pos-nav__divider {
-  width: 1px;
-  height: 18px;
-  background: var(--pos-border);
-  margin: 0 0.6rem;
-}
-
-/* ── NEW SALE BUTTON ──────────────────────────────────────── */
-.pos-btn-newsale {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.38rem 0.9rem;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(0,212,255,0.4);
-  color: #00d4ff !important;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border-radius: var(--pos-radius);
-  text-decoration: none !important;
-  letter-spacing: 0.01em;
-  box-shadow: 0 0 8px rgba(0,212,255,0.15);
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.pos-btn-newsale:hover {
-  background: rgba(0,212,255,0.12);
-  border-color: rgba(0,212,255,0.7);
-  box-shadow: 0 0 14px rgba(0,212,255,0.3);
-  transform: translateY(-1px);
-  color: #00d4ff !important;
-}
-
-/* ── ACCOUNT ──────────────────────────────────────────────── */
-.pos-account {
-  display: flex !important;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.6rem !important;
-  border-radius: var(--pos-radius);
-  text-decoration: none;
-  color: var(--pos-text) !important;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-}
-
-.pos-account:hover {
-  background: var(--pos-hover-bg);
-  border-color: var(--pos-border);
-  color: #fff !important;
-}
-
-.pos-account__avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--pos-accent-bg);
-  border: 1.5px solid #00d4ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'DM Mono', monospace;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: #00d4ff;
-  flex-shrink: 0;
-}
-
-.pos-account__name {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--pos-text);
-}
-
-.pos-account__caret {
-  font-size: 0.62rem;
-  color: var(--pos-text-dim);
-}
-
-/* ── DROPDOWN ─────────────────────────────────────────────── */
-.pos-dropdown {
-  background: #252844 !important;
-  border: 1px solid var(--pos-border) !important;
-  border-radius: var(--pos-radius) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
-  min-width: 180px;
-  padding: 0.35rem 0;
-  margin-top: 0.4rem !important;
-}
-
-.pos-dropdown__item {
-  display: flex !important;
-  align-items: center;
-  padding: 0.45rem 1rem !important;
-  font-size: 0.83rem;
-  font-weight: 500;
-  color: var(--pos-text) !important;
-  text-decoration: none;
-  transition: all 0.12s ease;
-}
-
-.pos-dropdown__item:hover {
-  background: #32355b !important;
-  color: #fff !important;
-}
-
-.pos-dropdown__item--danger {
-  color: #e02424 !important;
-}
-
-.pos-dropdown__item--danger:hover {
-  background: #fdf2f2 !important;
-  color: #e02424 !important;
-}
-
-.pos-dropdown__divider {
-  border-color: var(--pos-border) !important;
-  margin: 0.3rem 0;
-}
-
-/* ── MOBILE TOGGLER ───────────────────────────────────────── */
-.pos-toggler {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: none !important;
-  border: 1px solid var(--pos-border) !important;
-  border-radius: var(--pos-radius);
-  padding: 0.4rem 0.5rem;
-  cursor: pointer;
-}
-
-.pos-toggler span {
-  display: block;
-  width: 18px;
-  height: 1.5px;
-  background: var(--pos-text);
-  border-radius: 2px;
-  transition: all 0.2s ease;
-}
-
-/* ── MOBILE ───────────────────────────────────────────────── */
-@media (max-width: 991.98px) {
-  .pos-nav {
-    flex-direction: column;
-    align-items: flex-start !important;
-    width: 100%;
-    gap: 0.1rem;
-    padding: 0.5rem 0;
-  }
-
-  .pos-nav__item {
-    width: 100%;
-  }
-
-  .pos-nav__link {
-    width: 100%;
-    padding: 0.55rem 0.75rem !important;
-    font-size: 0.88rem;
-  }
-
-  .pos-nav__link.is-active::after {
-    display: none;
-  }
-
-  .pos-btn-newsale {
-    width: 100%;
-    justify-content: center;
-    margin: 0.25rem 0;
-    padding: 0.55rem !important;
-  }
-
-  .pos-account {
-    width: 100%;
-    padding: 0.55rem 0.75rem !important;
-  }
-
-  .pos-brand {
-    margin-right: auto;
-  }
-}
-</style>
+toggle.addEventListener('click', function() {
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+});
+overlay.addEventListener('click', function() {
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+});
+</script>

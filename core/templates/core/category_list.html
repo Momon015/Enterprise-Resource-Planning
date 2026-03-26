@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="sl-page-subtitle">Manage category names and types for your materials.</p>
     </div>
     <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
-      <i class="bi bi-plus-circle"></i> New Category
+      <i class="bi bi-plus-circle"></i> Add Category
     </a>
   </div>
 
@@ -95,10 +95,12 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ category.name|capfirst }}</div>
                 </td>
                 <td class="sl-text-center">
-                  {% if category.category_type == 'material' %}
-                    <span class="sl-badge sl-badge-light">Material</span>
+                  {% if category.category_type == 'item' %}
+                    <span class="sl-badge sl-badge-light">Item</span>
                   {% elif category.category_type == 'product' %}
                     <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+                  {% elif category.category_type == 'expense' %}
+                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
                   {% endif %}
                 </td>
                 <td class="sl-text-end">
@@ -173,38 +175,34 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="mf-guide-title">Name</div>
-            <p style="font-size:0.82rem; color:#6c757d; margin:0;">
-              Use a short, clear name like <strong>Beverages</strong>, <strong>Snacks</strong>, or <strong>Packaging</strong>.
-            </p>
-          </div>
-
-          <div class="sd-summary-block">
             <div class="mf-guide-title">Category Type</div>
             <p style="font-size:0.82rem; color:#6c757d; margin-bottom:0.5rem;">Determines where the category appears:</p>
             <div class="sd-info-row">
-              <span class="sl-badge sl-badge-light">Material</span>
+              <span class="sl-badge sl-badge-light">Item</span>
               <span style="font-size:0.78rem; color:#6c757d;">market purchases & stock</span>
             </div>
-            {% comment %} RESTAURANT PHASE — product category
             <div class="sd-info-row">
               <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
               <span style="font-size:0.78rem; color:#6c757d;">items you sell to customers</span>
             </div>
-            {% endcomment %}
+            <div class="sd-info-row">
+              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+              <span style="font-size:0.78rem; color:#6c757d;">misc expenses like VAT, permits</span>
+            </div>
           </div>
 
           <div class="sd-summary-block">
             <div class="mf-guide-title">Quick Filter</div>
             <div class="btn-grid">
-              <a href="{% url 'category-list' %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-shop"></i> Material Categories
+              <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-shop"></i> Item Categories
               </a>
-              {% comment %} RESTAURANT PHASE — product filter
               <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-block" style="background:#e7f1ff; color:#084298; border:1px solid #b6d4fe;">
                 <i class="bi bi-basket"></i> Product Categories
               </a>
-              {% endcomment %}
+              <a href="{% url 'category-list' %}?category_type=expense" class="btn btn-sm btn-block" style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
+                <i class="bi bi-receipt"></i> Expense Categories
+              </a>
             </div>
           </div>
 

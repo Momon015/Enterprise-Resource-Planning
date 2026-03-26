@@ -6,14 +6,10 @@
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -21,468 +17,272 @@
 </div>
 {% endif %}
 
-<style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-</style>
-
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const toasts = document.querySelectorAll(".toast-message");
-
-    toasts.forEach(toast => {
-      setTimeout(() => {
-        toast.remove();
-      }, 3200); // must match animation timing
-    });
-  });
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
 </script>
 
-<div class="container-fluid py-3 py-lg-4">
+<div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-    <div class="mb-2 mb-lg-0">
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-clipboard-data text-primary"></i>
+  <div class="sl-page-header">
+    <div>
+      <h4 class="sl-page-title">
+        <i class="bi bi-clipboard-data"></i>
         Products
       </h4>
-      <small class="text-muted">
-        Products available for sale and used in POS transactions.
-        {% if page_obj %}
-          · Total items: {{ page_obj.paginator.count }}
-        {% endif %}
-      </small>
+      <p class="sl-page-subtitle">
+        Products available for sale and used in transactions.
+        {% if page_obj %} · Total items: {{ page_obj.paginator.count }}{% endif %}
+      </p>
     </div>
-      <!-- NEW: Create Purchase Record button -->
-    <div class="mb-2 mb-lg-0">
-      <a href="{% url 'view-sale' %}" class="btn btn-success btn-sm">
-        <i class="bi bi-file-text me-1"></i>
-          View Sales Record
-      </a>
-    </div>
+    <a href="{% url 'view-sale' %}" class="btn btn-sm"
+       style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
+      <i class="bi bi-file-text"></i> View Sales Record
+    </a>
   </div>
 
-  <div class="row g-3 g-lg-4">
+  <div class="two-col-layout">
 
     <!-- LEFT: FILTER BAR + PRODUCT TABLE -->
-    <div class="col-lg-8 col-xl-9">
+    <div class="left-panel">
 
-      <!-- OUTSIDE TOOLBAR (ABOVE WHITE GRID) -->
-      <div class="mb-2 mb-lg-3">
-        <form method="get" autocomplete="off">
-          <div class="d-flex flex-wrap gap-2 align-items-center w-100">
-
-            <!-- search -->
-            <div class="flex-grow-1">
-              <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white border-end-0">
-                  <i class="bi bi-search"></i>
-                </span>
-                <input
-                  type="search"
-                  name="search"
-                  class="form-control border-start-0"
-                  placeholder="Search by name, category, or SKU..."
-                  value="{{ request.GET.search|default_if_none:'' }}"
-                >
-              </div>
+      <!-- FILTER BAR -->
+      <form method="get" autocomplete="off">
+        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+          <div class="flex-grow-1">
+            <div class="input-group">
+              <span class="input-group-icon"><i class="bi bi-search"></i></span>
+              <input type="search" name="search" class="form-control"
+                     placeholder="Search by name, category, or SKU..."
+                     value="{{ request.GET.search|default_if_none:'' }}">
             </div>
-
-            <!-- category dropdown -->
-            <div>
-              <select name="category" class="form-select form-select-sm">
-                <option value="">All categories</option>
-                {% for cat in categories %}
-                  <option value="{{ cat.id }}"
-                          {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
-                    {{ cat.name }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <!-- filter / reset -->
-            <div class="d-flex gap-2">
-              <button class="btn btn-outline-secondary rounded-3 px-3 btn-sm" type="submit">
-                <i class="bi bi-funnel me-1"></i>
-                Filter
-              </button>
-              <a href="." class="btn btn-light border rounded-3 px-3 btn-sm">
-                Reset
-              </a>
-            </div>
-
           </div>
-        </form>
-      </div>
 
-      <!-- WHITE GRID CARD -->
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-bottom px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge text-bg-primary rounded-pill">
-              {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %}
+          <div> 
+            <select name="category" class="form-select form-select-sm" style="width:auto;">
+              <option value="">All categories</option>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}"
+                        {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                  {{ cat.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div> 
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">
+              <i class="bi bi-funnel"></i> Filter
+            </button>
+            <a href="." class="btn btn-light btn-sm">Reset</a>
+          </div>
+        </div>
+      </form>
+
+      <!-- TABLE CARD -->
+      <div class="card table-card">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="card-header-title">Product Catalog</span>
+            <span class="sl-badge sl-badge-light">
+              {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %} items
             </span>
-            <h6 class="mb-0 fw-semibold">
-              Product Catalog
-            </h6>
           </div>
-          <small class="text-muted d-none d-sm-inline">
-            Prices, stock level, and status for each product.
-          </small>
+          <span class="card-header-sub">Prices, stock level, and status for each product.</span>
         </div>
 
-        <div class="card-body p-0">
-
+        <div class="table-responsive">
           {% if page_obj and page_obj.object_list %}
-            <div class="table-responsive">
-              <table class="table align-middle mb-0 table-hover">
-                <thead class="table-light small text-uppercase">
-                  <tr>
-                    <th class="ps-3 ps-lg-4">Name</th>
-                    <th>Unit</th>
-                    <th>Category</th>
-                    <th class="text-end">Unit Cost</th>
-                    <th class="text-end">Unit Price</th>
-                    <th class="text-center">Stock</th>
-                    <th class="text-center">Status</th>
-                    <th>Date added</th>
-                    <th class="text-end pe-3 pe-lg-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for product in page_obj %}
-                  <tr>
-                    <!-- NAME -->
-                    <td class="ps-3 ps-lg-4">
-                      <div class="fw-semibold">{{ product.name|capfirst }}</div>
-                    </td>
-
-                    <!-- Unit Type -->
-                    <td>
-                      <span class="badge text-bg-secondary rounded-pill">
-                        {{ product.material.get_unit_display|default:"—"}}
-                      </span>
-                    </td>
-
-                    <!-- CATEGORY -->
-                    <td>
-                      <span class="small text-muted">
-                        {{ product.category.name|default:"—" }}
-                      </span>
-                    </td>
-
-
-
-                    <!-- COST -->
-                    <td class="text-end">
-                      {% if product.cost_price %}
-                        ₱{{ product.cost_price|floatformat:2 }}
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-
-                    <!-- PRICE -->
-                    <td class="text-end">
-                      ₱{{ product.selling_price|floatformat:2 }}
-                    </td>
-
-                    <!-- STOCK -->
-                    <td class="text-center fw-semibold">
-                      {{ product.prepared_quantity }}
-                    </td>
-
-                    <!-- STATUS -->
-                    <td class="text-center">
-                      {% if product.prepared_quantity <= 0 %}
-                        <span class="badge bg-danger-subtle text-danger rounded-pill px-3">
-                          Out of stock
-                        </span>
-                      {% elif product.prepared_quantity <= 49 %}
-                        <span class="badge bg-warning-subtle text-warning rounded-pill px-3">
-                          Low stock
-                        </span>
-                      {% else %}
-                        <span class="badge bg-success-subtle text-success rounded-pill px-3">
-                          In stock
-                        </span>
-                      {% endif %}
-                    </td>
-
-                    <!-- DATE -->
-                    <td>
-                      <span class="small text-muted">
-                        {{ product.created_at|date:"M d, Y" }}
-                      </span>
-                    </td>
-
-                    <!-- ACTIONS -->
-                    <td class="text-end pe-3 pe-lg-4">
-                      <div class="btn-group btn-group-sm" role="group">
-                        <!-- Add to sale -->
-                        <a href="{% url 'add-to-sale' product.id %}?{{ request.GET.urlencode }}"
-                          class="btn btn-outline-secondary"
-                          title="Add to sale"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top">
-                          <i class="bi bi-plus"></i>
-                        </a>
-
-                        <!-- View product -->
-                        <a href="{% url 'product-detail' product.slug %}?{{ request.GET.urlencode }}"
-                          class="btn btn-outline-secondary"
-                          title="View product details"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top">
-                          <i class="bi bi-eye"></i>
-                        </a>
-
-                        {% comment %} <!-- Restore quantity -->
-                        <a href="{% url 'product-restore-quantity' product.id %}?{{ request.GET.urlencode }}"
-                          class="btn btn-outline-secondary"
-                          title="Restore product quantity"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top">
-                          <i class="bi bi-arrow-clockwise"></i>
-                        </a> {% endcomment %}
-                      </div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                {% comment %} <th class="sl-text-center">Unit</th> {% endcomment %}
+                <th class='s1-text-center'>Category</th>
+                <th class="sl-text-center">Unit Cost</th>
+                <th class="sl-text-center">Unit Price</th>
+                <th class="sl-text-center">Stock</th>
+                <th class="sl-text-center">Status</th>
+                <th class='s1-text-end'>Date Added</th>
+                <th class="sl-text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in page_obj %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ product.name|capfirst }}</div>
+                </td>
+                {% comment %} <td class="sl-text-center"> - RETAIL PHASE — unit hidden to avoid confusion
+                  <span class="sl-badge sl-badge-light">{{ product.material.get_unit_display|default:"N/A" }}</span>
+                </td> {% endcomment %}
+                <td>
+                  <span class="sl-text-center" style="font-size:0.82rem;">{{ product.category.name|default:"Uncategorized" }}</span>
+                </td>
+                <td class="sl-text-center">
+                  {% if product.cost_price %}₱{{ product.cost_price|floatformat:2 }}{% else %}₱0.00{% endif %}
+                </td>
+                <td class="sl-text-center">₱{{ product.selling_price|floatformat:2 }}</td>
+                <td class="sl-text-center sl-fw-semibold">{{ product.prepared_quantity }}</td>
+                <td class="sl-text-center">
+                  {% if product.prepared_quantity <= 0 %}
+                    <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+                  {% elif product.prepared_quantity <= 49 %}
+                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+                  {% else %}
+                    <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="sl-text-end" style="font-size:0.82rem;">{{ product.created_at|date:"M d, Y" }}</span>
+                </td>
+                <td class="sl-text-end">
+                  <div class="btn-group">
+                    <!-- Add to sale -->
+                    <a href="{% url 'add-to-sale' product.id %}?{{ request.GET.urlencode }}"
+                       class="btn btn-outline-secondary btn-sm" title="Add to sale">
+                      <i class="bi bi-cart-plus"></i>
+                    </a>
+                    <!-- View detail -->
+                    <a href="{% url 'product-detail' product.slug %}?{{ request.GET.urlencode }}"
+                       class="btn btn-outline-secondary btn-sm" title="View record">
+                      <i class="bi bi-card-text"></i>
+                    </a>
+                    <!-- Edit -->
+                    <a href="{% url 'product-update' product.slug %}?{{ request.GET.urlencode }}"
+                       class="btn btn-outline-secondary btn-sm" title="Edit product">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <!-- Delete -->
+                    <a href="{% url 'product-delete' product.slug %}?{{ request.GET.urlencode }}"
+                       class="btn btn-outline-secondary btn-sm" title="Delete product"
+                       style="color:var(--danger); border-color:#f0d0ce;">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
           {% else %}
-            <div class="text-center py-5">
-              <h6 class="fw-semibold text-muted mb-1">No products found</h6>
-              <p class="text-muted small mb-3">
-                Adjust your search or filters, or add a new product.
-              </p>
-              <a href="{% url 'product-create' %}"
-                 class="btn btn-primary btn-sm rounded-3 px-3">
-                Add your first product
-              </a>
-            </div>
+          <div class="sl-empty-row" style="text-align:center; padding:3rem 1rem;">
+            <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No products found</h6>
+            <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Adjust your search or filters, or add a new product.</p>
+            <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm">Add your first product</a>
+          </div>
           {% endif %}
-
         </div>
 
-        <!-- Pagination inside card footer -->
+        <!-- PAGINATION -->
         {% if page_obj %}
-        <div class="card-footer bg-white border-0 pt-2 pb-3">
-          <div class="d-flex justify-content-center pagination-wrapper">
-            <nav>
-              <ul class="pagination pagination-sm mb-0">
-                {% with q=request.GET.search cat=request.GET.category %}
-
-                  <!-- PREVIOUS -->
-                  <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                    {% if page_obj.has_previous %}
-                      <a class="page-link"
-                        href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
-                        &laquo;
-                      </a>
-                    {% else %}
-                      <span class="page-link">&laquo;</span>
-                    {% endif %}
-                  </li>
-
-                  <!-- PAGE NUMBERS -->
-                  {% for page in page_obj.paginator.page_range %}
-                    <li class="page-item {% if page == page_obj.number %}active{% endif %}">
-                      <a class="page-link"
-                        href="?page={{ page }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
-                        {{ page }}
-                      </a>
-                    </li>
-                  {% endfor %}
-
-                  <!-- NEXT -->
-                  <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                    {% if page_obj.has_next %}
-                      <a class="page-link"
-                        href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
-                        &raquo;
-                      </a>
-                    {% else %}
-                      <span class="page-link">&raquo;</span>
-                    {% endif %}
-                  </li>
-
-                {% endwith %}
-              </ul>
-            </nav>
-          </div>
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              {% with q=request.GET.search cat=request.GET.category %}
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">&laquo;</a>
+                {% else %}
+                  <span class="page-link">&laquo;</span>
+                {% endif %}
+              </li>
+              {% for page in page_obj.paginator.page_range %}
+              <li class="page-item {% if page == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ page }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">{{ page }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">&raquo;</a>
+                {% else %}
+                  <span class="page-link">&raquo;</span>
+                {% endif %}
+              </li>
+              {% endwith %}
+            </ul>
+          </nav>
         </div>
         {% endif %}
 
       </div>
     </div>
 
-    <!-- RIGHT: POS-STYLE SALES CONTEXT PANEL -->
-    <div class="col-lg-4 col-xl-3">
-      <div class="card border-0 shadow-sm rounded-4 h-100">
-
-        <div class="card-header bg-dark text-white px-3 px-lg-4 py-2 py-lg-3 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-cart-check"></i>
-            <h6 class="mb-0 fw-semibold">Selling overview</h6>
-          </div>
-          <small class="text-white-50 d-none d-sm-inline">For ERP use</small>
+    <!-- RIGHT: SELLING OVERVIEW PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+            <i class="bi bi-cart-check"></i> Selling Overview
+          </span>
+          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">For ERP use</span>
         </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="card-body px-3 px-lg-4 py-3 small d-flex flex-column gap-3">
-
-          <!-- Product availability -->
-          <div class="border rounded-3 px-2 py-2 bg-light">
-            <div class="text-muted text-uppercase small mb-1">Availability</div>
-            <div class="d-flex justify-content-between">
-              <span class="small text-muted">Sellable items</span>
-              <span class="fw-semibold text-success">
+          <!-- AVAILABILITY -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Availability</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Sellable items</span>
+              <span class="sd-info-value" style="color:var(--accent);">
                 {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %}
               </span>
             </div>
-            <div class="d-flex justify-content-between">
-              <span class="small text-muted">Needs attention (out of stock)</span>
-              <span class="fw-semibold text-danger">
-                {{ out_of_stock|default:0 }}
-              </span>
-            </div>
-            <div class="small text-muted mt-1">
-              Keep these numbers healthy so cashiers always see items ready to sell.
+            <div class="sd-info-row">
+              <span class="sd-info-label">Out of stock</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
             </div>
           </div>
 
-          <!-- "Work queues" for staff -->
-          <div class="border rounded-3 px-2 py-2 bg-body-tertiary">
-            <div class="text-muted text-uppercase small mb-1">What to review today</div>
-            <ul class="small text-muted mb-0 ps-3">
-              <li>Check low-stock items and reorder if needed.</li>
-              <li>Verify prices on new or recently changed items.</li>
-              <li>Archive or hide items you no longer sell.</li>
+          <!-- WHAT TO REVIEW -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">What to review today</div>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Check low-stock items and reorder if needed.</li>
+              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Verify prices on new or recently changed items.</li>
+              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Remove items you no longer sell.</li>
             </ul>
           </div>
 
-          <!-- Quick POS-centric actions -->
-          <div class="border rounded-3 px-2 py-2">
-            <div class="text-muted text-uppercase small mb-2">Shortcuts</div>
-            <div class="d-grid gap-2">
-              <a href="{% url 'product-create' %}" class="btn btn-sm btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>
-                Add product
+          <!-- SHORTCUTS -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Shortcuts</div>
+            <div class="btn-grid">
+              <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> Add product
               </a>
-              <a href="{% url 'product-preset-list' %}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-list-ul me-1"></i>
-                View Presets
+              <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-bookmark"></i> Presets
               </a>
-              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-outline-info">
-                <i class="bi-kanban"></i>
-                Product's category
+              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi-kanban"></i> Product's category
+              </a> 
+              <a href="{% url 'product-list' %}?stock=high" class="btn btn-sm btn-block"
+                 style="background:var(--accent-light); color:var(--accent); border:1px solid #b7dfca;">
+                <i class="bi bi-box-seam"></i> In-stock products
               </a>
-              
-              {% comment %} <a href="{% url 'product-batch-restore-quantity' %}" class="btn btn-sm btn-outline-success">
-                <i class="bi bi-bootstrap-reboot me-1"></i>
-                Restore products
-              </a> {% endcomment %}
-              <a href="{% url 'product-list' %}?stock=high" class="btn btn-sm btn-outline-success">
-                <i class="bi bi-box-seam me-1"></i>
-                View in-stock products
+              <a href="{% url 'product-list' %}?stock=low" class="btn btn-sm btn-block"
+                 style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
+                <i class="bi bi-exclamation-triangle"></i> Low stock items
               </a>
-              <a href="{% url 'product-list' %}?stock=low" class="btn btn-sm btn-outline-warning">
-                <i class="bi bi-exclamation-triangle me-1"></i>
-                Review low stock items
-              </a>
-              <a href="{% url 'product-list' %}?stock=none" class="btn btn-sm btn-outline-danger">
-                <i class="bi bi-slash-circle me-1"></i>
-                Clean up out-of-stock
+              <a href="{% url 'product-list' %}?stock=none" class="btn btn-sm btn-block"
+                 style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+                <i class="bi bi-slash-circle"></i> Out-of-stock
               </a>
             </div>
           </div>
 
-          <!-- POS-style selling tip -->
-          <div class="alert alert-light border-0 mb-0">
-            <div class="d-flex">
-              <div class="me-2">
-                <i class="bi bi-megaphone text-primary"></i>
-              </div>
-              <div>
-                <div class="fw-semibold small">Merchandising tip</div>
-                <div class="small text-muted">
-                  Highlight best sellers and bundles in your POS categories so cashiers can find and suggest them quickly during checkout.
-                </div>
-              </div>
+          <!-- TIP -->
+          <div class="mf-tip-box">
+            <i class="bi bi-megaphone"></i>
+            <div>
+              <div class="mf-tip-title">Merchandising tip</div>
+              <div class="mf-tip-text">Highlight best sellers so cashiers can find and suggest them quickly during checkout.</div>
             </div>
           </div>
 
         </div>
-
       </div>
     </div>
 

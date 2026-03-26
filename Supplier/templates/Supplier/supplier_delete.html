@@ -12,9 +12,9 @@
       </h4>
       <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ supplier.name }}</strong>.</p>
     </div>
-    <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm">
+    {% comment %} <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to suppliers
-    </a>
+    </a> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -96,11 +96,11 @@
             </p>
           </div>
 
-          <div class="btn-grid">
+          {% comment %} <div class="btn-grid">
             <a href="{% url 'supplier-update' supplier.id %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
-          </div>
+          </div> {% endcomment %}
 
         </div>
       </div>

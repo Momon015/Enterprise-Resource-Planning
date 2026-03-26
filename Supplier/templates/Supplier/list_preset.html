@@ -34,7 +34,7 @@
         <i class="bi bi-clipboard-check"></i> View Purchase Record
       </a>
       <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to materials
+        <i class="bi bi-arrow-left"></i> Back to supplier
       </a>
     </div>
   </div>
@@ -47,7 +47,7 @@
         <div class="card-header">
           <div class="sd-card-header-left">
             <div class="sd-header-icon">
-              <i class="bi bi-bookmark-fill"></i>
+              <i class="bi bi-bookmark"></i>
             </div>
             <div>
               <div class="card-header-title">All Presets</div>
@@ -73,7 +73,7 @@
                 <!-- NAME -->
                 <td>
                   <div class="cell-primary">{{ preset.name }}</div>
-                  <div class="cell-sub">#{{ preset.id }}</div>
+                  <div class="cell-sub">ID: #{{ preset.id }}</div>
                 </td>
 
                 <!-- ITEMS COUNT -->
@@ -88,22 +88,32 @@
 
                 <!-- ACTIONS -->
                 <td class="sl-text-end">
-                  <div class="btn-group">
+                  <div class="table-actions">
+                    <!-- ADD TO CART -->
                     <a href="{% url 'material-add-preset-to-cart' preset.id %}?next={{request.path}}"
-                       class="btn btn-outline-secondary btn-sm" title="Add to current purchase">
-                      <i class="bi bi-plus"></i>
+                      class="action-btn"
+                      title="Add to purchase">
+                      <i class="bi bi-plus-lg"></i>
                     </a>
+
+                    <!-- VIEW -->
                     <a href="{% url 'material-preset-detail' preset.id %}"
-                       class="btn btn-outline-secondary btn-sm" title="View details">
+                      class="action-btn"
+                      title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
+
+                    <!-- EDIT -->
                     <a href="{% url 'material-edit-preset' preset.id %}"
-                       class="btn btn-outline-secondary btn-sm" title="Edit preset">
-                      <i class="bi bi-pencil-square"></i>
+                      class="action-btn"
+                      title="Edit preset">
+                      <i class="bi bi-pencil"></i>
                     </a>
+
+                    <!-- DELETE -->
                     <a href="{% url 'material-delete-preset' preset.id %}"
-                       class="btn btn-outline-secondary btn-sm" title="Delete preset"
-                       style="color:var(--danger); border-color:#f0d0ce;">
+                      class="action-btn action-btn--danger"
+                      title="Delete preset" onclick="return confirm('Delete this preset?')">
                       <i class="bi bi-trash"></i>
                     </a>
                   </div>
@@ -115,7 +125,7 @@
                   <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No presets found</h6>
                   <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Create one from your current purchase.</p>
                   <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> Add Materials
+                    <i class="bi bi-plus-circle"></i> Add Item
                   </a>
                 </td>
               </tr>

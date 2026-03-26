@@ -79,8 +79,8 @@
                 {% for line in sale_items %}
                 <tr>
                   <td>
-                    <div class="cell-primary">{{ line.product.name|capfirst|default:"—" }}</div>
-                    <div class="cell-sub">SKU: {{ line.product.slug|default:"—" }}</div>
+                    <div class="cell-primary">{{ line.name|capfirst|default:"—" }}</div>
+                    <div class="cell-sub">#{{ line.id|default:"—" }}</div>
                   </td>
                   <td class="sl-text-center">{{ line.quantity|intcomma }}</td>
                   <td class="sl-text-end">₱{{ line.product.selling_price|floatformat:2 }}</td>

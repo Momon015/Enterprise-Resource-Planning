@@ -41,6 +41,7 @@ class Purchase(TimeStampModel):
     line_count = models.PositiveIntegerField(default=0)
     purchase_date = models.DateField(auto_now_add=True, null=True, db_index=True) # remove NULL when you reset the DB
     reference = models.CharField(max_length=255, null=True, blank=True)
+    
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
     
@@ -92,15 +93,28 @@ class Purchase(TimeStampModel):
         return [item.quantity for item in self.materials.all()]
 
 class PurchaseItem(TimeStampModel):
-    purchase = models.ForeignKey(Purchase, on_delete=models.SET_NULL, related_name='materials', null=True)
-    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='items')
+    name = models.CharField(max_length=255, null=True, blank=True)
+    purchase = models.ForeignKey(Purchase, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
+    material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='items', null=True, blank=True)
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
+    supplier = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
-        return f"{self.material.name} - ({self.material.price} x {self.quantity}) - {self.discount} = {self.total_item_discount}"
-
+        if self.name:
+            return f"{self.name} - ({self.material.price} x {self.quantity}) - {self.discount} = {self.total_item_discount}"
+        return 'No info'
+    
+    def save(self, *args, **kwargs):
+        if self.material:
+            self.name = self.material.name
+        
+        if self.material and self.material.supplier:
+            self.supplier = self.material.supplier.name
+            
+        super().save(*args, **kwargs)
+    
     @property
     def material_price(self):
         return self.material.price
@@ -117,6 +131,8 @@ class PurchaseItem(TimeStampModel):
     #     if self.discount:
     #         return self.total_price_per_item - self.discount
     #     return self.total_price_per_item
+    
+    
 
 class EmployeeQuerySet(models.QuerySet):
     def total_daily_rate(self):
@@ -155,25 +171,37 @@ class WasteItemQuerySet(models.QuerySet):
         return self.filter(material__isnull=False).aggregate(total_material_waste=Sum(F('price') * F('quantity')))['total_material_waste'] or 0
     
 class WasteItem(models.Model):
-    waste = models.ForeignKey(Waste, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
-    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='waste_items', null=True, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    waste = models.ForeignKey(Waste, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
+    material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=6)
     quantity = models.PositiveBigIntegerField(default=0)
-    
+    supplier = models.CharField(max_length=255, null=True, blank=True)
     objects = WasteItemQuerySet.as_manager()
     
     def __str__(self):
         item = self.material or self.product
-        return f"{item.name} - {self.quantity}"
+        if not self.name:
+            return 'No info provided'
+        return f"{self.name} - {self.quantity}"
     
-    # def save(self, *args, **kwargs):
-    #     # if self.product and not self.material:
-    #     #     self.price = self.product.cost_price
-    #     # elif self.material and not self.product:
-    #     #     self.price = self.material.price
+    def save(self, *args, **kwargs):
+        # if self.product and not self.material:
+        #     self.price = self.product.cost_price
+        # elif self.material and not self.product:
+        #     self.price = self.material.price
         
-    #     super().save(*args, **kwargs)
+        if self.product:
+            self.name = self.product.name
+        
+        if self.material:
+            self.name = self.material.name
+            
+        if self.material and self.material.supplier:
+            self.supplier = self.material.supplier.name
+        
+        super().save(*args, **kwargs)
         
     @property
     def total_product_cost(self):
@@ -182,3 +210,5 @@ class WasteItem(models.Model):
     @property
     def total_material_cost(self):
         return self.price * self.quantity
+    
+    

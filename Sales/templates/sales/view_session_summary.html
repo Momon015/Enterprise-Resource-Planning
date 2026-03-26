@@ -57,7 +57,7 @@
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
                 <th>Total Cost</th>
-                <th>Unsold Qty</th>
+                {% comment %} <th>Unsold Qty</th> {% endcomment %}
                 <th>Unit Price</th>
                 <th class="pe-4">Line Total</th>
               </tr>
@@ -71,7 +71,7 @@
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
                 <td><span class="mono">₱{{ item.total_cost_price_per_line|floatformat:2 }}</span></td>
-                <td><span class="mono">{{ item.unsold_quantity }}</span></td>
+                {% comment %} <td><span class="mono">{{ item.unsold_quantity }}</span></td> {% endcomment %}
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
                 <td class="pe-4">
                   <span class="mono" style="font-weight: 700; color: var(--accent);">₱{{ item.line_total|floatformat:2 }}</span>

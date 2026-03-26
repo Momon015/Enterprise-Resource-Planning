@@ -71,7 +71,7 @@
           <form method="POST">
             {% csrf_token %}
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
-              <a href="{% url 'material-detail' material.slug %}" class="btn btn-outline-secondary">
+              <a href="{% url 'material-list' %}" class="btn btn-outline-secondary">
                 Cancel
               </a>
               <button type="submit" class="btn"

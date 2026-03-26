@@ -30,12 +30,12 @@ document.addEventListener("DOMContentLoaded", function () {
     <div>
       <h4 class="sl-page-title">
         <i class="bi bi-bag"></i>
-        Material Detail
+        Item Detail
       </h4>
-      <p class="sl-page-subtitle">SKU: {{ material.slug }}</p>
+      <p class="sl-page-subtitle">SKU: {{material.name}}-{{ material.get_unit_display }}</p>
     </div>
     <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to materials
+      <i class="bi bi-arrow-left"></i> Back to supplier
     </a>
   </div>
 
@@ -139,7 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
 
       <!-- ACTIONS -->
-      <div class="card">
+      {% comment %} <div class="card">
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
           <div class="sl-quick-title">Actions</div>
           <div class="btn-grid">
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
           </div>
         </div>
-      </div>
+      </div> {% endcomment %}
 
     </div>
   </div>

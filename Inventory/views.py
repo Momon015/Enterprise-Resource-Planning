@@ -35,7 +35,7 @@ from django.db.models import F
 
 @login_required(login_url='login')
 def view_inventory_stock(request):
-    stocks = Stock.objects.all().order_by('-created_at')
+    stocks = Stock.objects.all().order_by('-name')
     grand_total_value = 0
     
     for stock in stocks:
@@ -49,7 +49,7 @@ def view_inventory_stock(request):
         category = form.cleaned_data.get('category')
         
         if search:
-            unit_map = {label.lower(): key for key, label in Material.UNIT_CHOICES}
+            unit_map = {label.lower(): key for key, label in Material.RETAIL_UNIT_CHOICES}
             matched_unit = unit_map.get(search.lower())
             stocks = stocks.filter(
                 Q(material__name__icontains=search) |
@@ -77,3 +77,17 @@ def view_inventory_stock(request):
 
     context = {'stocks': page_obj.object_list, 'page_obj': page_obj, 'section': 'inventory', 'grand_total_value': grand_total_value, 'categories': categories}
     return render(request, 'Inventory/view_inventory_stock.html', context)
+
+@login_required(login_url='login')
+def inventory_stock_delete(request, stock_id):
+    stock = get_object_or_404(Stock, id=stock_id)
+
+    if request.method == 'POST':
+        if stock.material:
+            Product.objects.filter(user=request.user, material=stock.material).delete()
+            stock.delete()
+            messages.success(request, f"{stock.name} - both stock and product has been deleted.")
+        return redirect('view-inventory-stock')
+    
+    context = {'stock': stock, 'section': 'inventory'}
+    return render(request, 'Inventory/inventory_stock_delete.html', context)

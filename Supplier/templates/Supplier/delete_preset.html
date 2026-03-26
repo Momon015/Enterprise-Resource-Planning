@@ -10,7 +10,7 @@
         <i class="bi bi-trash text-danger"></i>
         Delete Preset
       </h4>
-      <p class="sl-page-subtitle">This action is permanent and cannot be undone.</p>
+      <p class="sl-page-subtitle">Review the items below before confirming deletion.</p>
     </div>
     <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to presets
@@ -29,7 +29,9 @@
             </div>
             <div>
               <div class="card-header-title">{{ preset.name }}</div>
-              <div class="card-header-sub">ID: {{ preset.id }} · {{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}</div>
+              <div class="card-header-sub">
+                Preset ID: #{{ preset.id }}
+              </div>
             </div>
           </div>
         </div>
@@ -41,8 +43,9 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Material</th>
-                  <th class="sl-text-center">Quantity</th>
+                  <th>Item</th>
+                  <th class="sl-text-end">Quantity</th>
+                  <th class="sl-text-end">Discount</th>
                 </tr>
               </thead>
               <tbody>
@@ -50,10 +53,19 @@
                 <tr>
                   <td>
                     <div class="cell-primary">{{ item.material.name }}</div>
-                    <div class="cell-sub">#1</div>
+                    <div class="cell-sub">#{{ item.material.id }}</div>
                   </td>
-                  <td class="sl-text-center">
-                    <span class="sl-badge sl-badge-light">× {{ item.quantity }}</span>
+                  <td class="sl-text-end">
+                    <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
+                  </td>
+                  <td class="sl-text-end">
+                    {% if item.discount %}
+                      <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">
+                        ₱{{ item.discount|floatformat:2 }}
+                      </span>
+                    {% else %}
+                      <span class="sl-text-muted">₱0</span>
+                    {% endif %}
                   </td>
                 </tr>
                 {% endfor %}
@@ -71,33 +83,42 @@
     <!-- RIGHT: CONFIRM PANEL -->
     <div class="right-panel">
       <div class="card">
+
         <div class="card-header dark">
           <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-exclamation-octagon-fill"></i> Confirm Delete
+            <i class="bi bi-exclamation-triangle-fill"></i> Delete Confirmation
           </span>
         </div>
 
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- WARNING BLOCK -->
+          <!-- WARNING -->
           <div class="sd-note-box" style="background: var(--danger-light); border-color: #f0d0ce;">
             <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color: var(--danger);"></i>
             <div>
-              <div class="sd-note-title" style="color: var(--danger);">Permanent action</div>
-              <div class="sd-note-text">All items saved in this preset will be removed. This cannot be undone.</div>
+              <div class="sd-note-title" style="color: var(--danger);">
+                This action cannot be undone
+              </div>
+              <div class="sd-note-text">
+                All items in this preset will be permanently removed.
+              </div>
             </div>
           </div>
 
-          <!-- PRESET NAME -->
+          <!-- PRESET SUMMARY -->
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Preset to delete</div>
+            <div class="sd-summary-block-label">Preset</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Name</span>
-              <span class="sd-info-value" style="color: var(--danger);">{{ preset.name }}</span>
+              <span class="sd-info-value" style="color: var(--danger);">
+                {{ preset.name }}
+              </span>
             </div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Total items</span>
-              <span class="sd-info-value">{{ preset.preset_items.count }}</span>
+              <span class="sd-info-label">Items</span>
+              <span class="sd-info-value">
+                {{ preset.preset_items.count }}
+              </span>
             </div>
           </div>
 
@@ -105,13 +126,17 @@
           <form method="post">
             {% csrf_token %}
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
-              <button type="submit" class="btn btn-block"
+              
+              <button type="submit"
+                class="btn btn-block"
                 style="background: var(--danger); color:#fff; border-color: var(--danger); font-weight:600;">
-                <i class="bi bi-trash3-fill"></i> Confirm Delete
+                <i class="bi bi-trash3-fill"></i> Delete preset
               </button>
-              <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-block">
-                <i class="bi bi-x-circle"></i> Cancel
+
+              <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-block">
+                Cancel
               </a>
+
             </div>
           </form>
 
@@ -119,7 +144,7 @@
       </div>
     </div>
 
-  </div>
+  </div>  
 </div>
 
 {% endblock content %}

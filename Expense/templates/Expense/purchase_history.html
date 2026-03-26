@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center">Qty</th>
                 <th class="sl-text-center">Lines</th>
                 <th class="sl-text-end">Total</th>
-                <th class="sl-text-center">Actions</th>
+                <th class="sl-text-center">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -255,14 +255,11 @@ document.addEventListener("DOMContentLoaded", function () {
           <hr class="sl-quick-divider">
           <div class="sl-quick-label">Quick ranges</div>
           <div class="btn-grid">
-            <a href="{% url 'purchase-list' %}?period=last_week" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-clock-history"></i> Last 7 days
-            </a>
-            <a href="{% url 'purchase-list' %}?period=last_year" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-calendar-minus"></i> Last year
-            </a>
             <a href="{% url 'purchase-list' %}?period=today" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-calendar-day"></i> Today
+            </a>
+            <a href="{% url 'purchase-list' %}?period=last_week" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-clock-history"></i> Last 7 days
             </a>
             <a href="{% url 'purchase-list' %}?period=week" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-calendar-week"></i> This week
@@ -270,9 +267,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'purchase-list' %}?period=month" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-calendar-month"></i> This month
             </a>
-            <a href="{% url 'purchase-list' %}?period=year" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-calendar3"></i> This year
-            </a>
+
           </div>
         </div>
       </div>

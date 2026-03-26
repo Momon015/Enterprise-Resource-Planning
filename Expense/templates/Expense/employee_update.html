@@ -1,160 +1,125 @@
 {% extends "main.html" %}
-
 {% block content %}
 
-<style>
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type=number] {
-  -moz-appearance: textfield;
-}
+<div class="mf-page-wrapper">
+  <div class="mf-layout">
 
-/* Chrome, Edge, Safari */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* Firefox */
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
-/* Generic */
-input[type=number] {
-  appearance: textfield;
-}
-</style>
-
-<div class="container-fluid py-3 py-lg-4">
-
-  <!-- HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <div>
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        <i class="bi bi-person-gear text-primary"></i>
-        Edit employee
-      </h4>
-      <small class="text-muted">
-        Update details for {{ employee.name }}.
-      </small>
-    </div>
-    <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i>
-      Back to employees
-    </a>
-  </div>
-
-  <div class="row justify-content-center">
-    <div class="col-lg-6 col-xl-5">
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-bottom">
-          <h6 class="mb-0 fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-clipboard-check text-primary"></i>
-            Employee information
-          </h6>
+    <!-- LEFT: FORM -->
+    <div class="card">
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-person-gear"></i>
+          </div>
+          <div>
+            <p class="card-header-title">Edit Employee</p>
+            <p class="card-header-sub">Update details for {{ employee.name }}.</p>
+          </div>
         </div>
+        {% comment %} <a href="{% url 'employee-list' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to list
+        </a> {% endcomment %}
+      </div>
 
-        <div class="card-body">
-          <form method="POST" novalidate autocomplete='off'>
-            {% csrf_token %}
+      <div class="card-body">
+        <form method="POST" novalidate autocomplete="off">
+          {% csrf_token %}
 
-            <!-- Name -->
-            <div class="mb-3">
-              <label for="id_name" class="form-label fw-semibold small text-uppercase text-muted">
-                Name
+          <div class="mf-fields-grid">
+
+            {# Name #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="id_name" class="mf-form-label">
+                Name <span class="mf-required">*</span>
               </label>
-              <input type="text"
-                     name="name"
-                     class="form-control form-control-sm {% if form.name.errors %}is-invalid{% endif %}"
-                     id="id_name"
+              <input type="text" name="name" id="id_name"
+                     class="form-control {% if form.name.errors %}is-invalid{% endif %}"
                      value="{{ form.name.value|default_if_none:'' }}"
                      placeholder="e.g. Juan Dela Cruz">
-              {% if form.name.errors %}
-              <div class="invalid-feedback">
-                {{ form.name.errors.0 }}
-              </div>
-              {% endif %}
+              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors.0 }}</div>{% endif %}
             </div>
 
-            <!-- Daily rate with + / − controls, no spinners -->
-            <div class="mb-3">
-              <label for="id_daily_rate" class="form-label fw-semibold small text-uppercase text-muted">
-                Daily rate (₱)
+            {# Daily Rate #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="id_daily_rate" class="mf-form-label">
+                Daily Rate <span class="mf-required">*</span>
               </label>
-
-              <div class="d-flex align-items-center gap-1">
-                <!-- − button -->
-                <button type="button"
-                        class="btn btn-outline-secondary btn-sm"
-                        style="width:32px;"
-                        onclick="
-                          (function(){
-                            const input = document.getElementById('id_daily_rate');
-                            let value = parseFloat(input.value || 0);
-                            value = isNaN(value) ? 0 : value;
-                            value = Math.max(0, value - 50);
-                            input.value = value.toFixed(2);
-                          })();
-                        ">
-                  −
-                </button>
-
-                <!-- Input with currency prefix -->
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text">₱</span>
-                  <input type="number"
-                         step="0.01"
-                         min="0"
-                         name="daily_rate"
-                         class="form-control form-control-sm {% if form.daily_rate.errors %}is-invalid{% endif %}"
-                         id="id_daily_rate"
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeRate(-50)">−</button>
+                  <input type="number" step="0.01" min="0" name="daily_rate" id="id_daily_rate"
+                         class="form-control {% if form.daily_rate.errors %}is-invalid{% endif %}"
                          value="{{ form.daily_rate.value|default_if_none:'' }}"
                          placeholder="e.g. 600.00">
+                  <button class="qty-btn" type="button" onclick="changeRate(50)">+</button>
                 </div>
-
-                <!-- + button -->
-                <button type="button"
-                        class="btn btn-outline-secondary btn-sm"
-                        style="width:32px;"
-                        onclick="
-                          (function(){
-                            const input = document.getElementById('id_daily_rate');
-                            let value = parseFloat(input.value || 0);
-                            value = isNaN(value) ? 0 : value;
-                            value = value + 50;
-                            input.value = value.toFixed(2);
-                          })();
-                        ">
-                  +
-                </button>
               </div>
-
-              <div class="form-text">
-                Used when computing payroll based on days worked.
-              </div>
+              <div style="font-size:0.78rem; color:var(--muted); margin-top:0.3rem;">Used for computing pay based on days worked.</div>
+              {% if form.daily_rate.errors %}<div class="mf-error">{{ form.daily_rate.errors.0 }}</div>{% endif %}
             </div>
 
-            <!-- Actions -->
-            <div class="d-flex justify-content-between align-items-center mt-4">
-              <a href="{% url 'employee-detail' employee.id %}" class="btn btn-outline-secondary btn-sm">
-                Cancel
-              </a>
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check2-circle me-1"></i>
-                Save changes
-              </button>
-            </div>
+          </div>
 
-          </form>
-        </div>
+          <div class="mf-form-actions">
+            <a href="{% url 'employee-list' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-  </div>
 
+    <!-- RIGHT: SNAPSHOT -->
+    <div class="card">
+      <div class="card-header dark">
+        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <i class="bi bi-person-badge"></i> Employee Snapshot
+        </span>
+      </div>
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+        <div class="sd-summary-block highlight">
+          <div class="sd-summary-block-label">Current Values</div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Name</span>
+            <span class="sd-info-value">{{ employee.name|capfirst }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Daily Rate</span>
+            <span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2 }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Date Added</span>
+            <span class="sd-info-value">{{ employee.created_at|date:"M d, Y" }}</span>
+          </div>
+        </div>
+
+        {% comment %} <div class="sd-summary-block">
+          <div class="mf-guide-title">Actions</div>
+          <div class="btn-grid">
+            <a href="{% url 'employee-delete' employee.id %}" class="btn btn-sm btn-block"
+               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+              <i class="bi bi-trash sl-me-1"></i> Delete Employee
+            </a>
+          </div>
+        </div> {% endcomment %}
+
+      </div>
+    </div>
+
+  </div>
 </div>
+
+<script>
+function changeRate(delta) {
+  const input = document.getElementById('id_daily_rate');
+  let value = parseFloat(input.value || 0);
+  value = isNaN(value) ? 0 : value;
+  value = Math.max(0, value + delta);
+  input.value = value.toFixed(2);
+}
+</script>
+
 {% endblock %}
