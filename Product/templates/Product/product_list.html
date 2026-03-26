@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="sl-page-header">
     <div>
       <h4 class="sl-page-title">
-        <i class="bi bi-clipboard-data"></i>
+        <i class="bi bi-box-seam"></i>
         Products
       </h4>
       <p class="sl-page-subtitle">
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
     <a href="{% url 'view-sale' %}" class="btn btn-sm"
        style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
-      <i class="bi bi-file-text"></i> View Sales Record
+      <i class="bi bi-receipt"></i> View Sales Record
     </a>
   </div>
 
@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- FILTER BAR -->
       <form method="get" autocomplete="off">
-        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+        <div class="d-flex flex-wrap gap-2 align-items-center w-100 mb-2">
           <div class="flex-grow-1">
             <div class="input-group">
               <span class="input-group-icon"><i class="bi bi-search"></i></span>
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endfor %}
             </select>
           </div> 
-          <div style="display:flex; gap:0.5rem;">
+          <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm" type="submit">
               <i class="bi bi-funnel"></i> Filter
             </button>
@@ -82,8 +82,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- TABLE CARD -->
       <div class="card table-card">
-        <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-2">
             <span class="card-header-title">Product Catalog</span>
             <span class="sl-badge sl-badge-light">
               {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %} items
@@ -98,13 +98,12 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Name</th>
-                {% comment %} <th class="sl-text-center">Unit</th> {% endcomment %}
-                <th class='s1-text-center'>Category</th>
-                <th class="sl-text-center">Unit Cost</th>
-                <th class="sl-text-center">Unit Price</th>
+                <th class="s1-text-center">Category</th>
+                <th class="sl-text-center">Cost</th>
+                <th class="sl-text-center">Price</th>
                 <th class="sl-text-center">Stock</th>
                 <th class="sl-text-center">Status</th>
-                <th class='s1-text-end'>Date Added</th>
+                <th class="s1-text-end">Date Added</th>
                 <th class="sl-text-end">Actions</th>
               </tr>
             </thead>
@@ -114,9 +113,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td>
                   <div class="cell-primary">{{ product.name|capfirst }}</div>
                 </td>
-                {% comment %} <td class="sl-text-center"> - RETAIL PHASE — unit hidden to avoid confusion
-                  <span class="sl-badge sl-badge-light">{{ product.material.get_unit_display|default:"N/A" }}</span>
-                </td> {% endcomment %}
                 <td>
                   <span class="sl-text-center" style="font-size:0.82rem;">{{ product.category.name|default:"Uncategorized" }}</span>
                 </td>
@@ -134,31 +130,30 @@ document.addEventListener("DOMContentLoaded", function () {
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
                   {% endif %}
                 </td>
-                <td>
-                  <span class="sl-text-end" style="font-size:0.82rem;">{{ product.created_at|date:"M d, Y" }}</span>
-                </td>
+                <td class="s1-text-end" style="font-size:0.82rem;">{{ product.created_at|date:"M d, Y" }}</td>
+
                 <td class="sl-text-end">
                   <div class="btn-group">
                     <!-- Add to sale -->
                     <a href="{% url 'add-to-sale' product.id %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="Add to sale">
-                      <i class="bi bi-cart-plus"></i>
+                      class="btn btn-outline-secondary btn-sm" title="Add to sale">
+                      <i class="bi bi-bag-check"></i>
                     </a>
                     <!-- View detail -->
                     <a href="{% url 'product-detail' product.slug %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="View record">
-                      <i class="bi bi-card-text"></i>
+                      class="btn btn-outline-secondary btn-sm" title="View record">
+                      <i class="bi bi-eye"></i>
                     </a>
                     <!-- Edit -->
                     <a href="{% url 'product-update' product.slug %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="Edit product">
-                      <i class="bi bi-pencil-square"></i>
+                      class="btn btn-outline-secondary btn-sm" title="Edit product">
+                      <i class="bi bi-pencil"></i>
                     </a>
                     <!-- Delete -->
                     <a href="{% url 'product-delete' product.slug %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="Delete product"
-                       style="color:var(--danger); border-color:#f0d0ce;">
-                      <i class="bi bi-trash"></i>
+                      class="btn btn-outline-secondary btn-sm" title="Delete product"
+                      style="color:var(--danger); border-color:#f0d0ce;">
+                      <i class="bi bi-trash3-fill"></i>
                     </a>
                   </div>
                 </td>
@@ -167,8 +162,8 @@ document.addEventListener("DOMContentLoaded", function () {
             </tbody>
           </table>
           {% else %}
-          <div class="sl-empty-row" style="text-align:center; padding:3rem 1rem;">
-            <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No products found</h6>
+          <div class="sl-empty-row text-center py-5">
+            <h6 class="sl-fw-semibold sl-text-muted mb-1">No products found</h6>
             <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Adjust your search or filters, or add a new product.</p>
             <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm">Add your first product</a>
           </div>
@@ -212,26 +207,26 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- RIGHT: SELLING OVERVIEW PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <div class="card-header dark d-flex justify-content-between align-items-center">
+          <span class="d-flex align-items-center gap-2 fw-semibold fs-6">
             <i class="bi bi-cart-check"></i> Selling Overview
           </span>
-          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">For ERP use</span>
+          <span class="text-muted" style="font-size:0.78rem;">ERP Dashboard</span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body d-flex flex-column gap-3">
 
           <!-- AVAILABILITY -->
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Availability</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Sellable items</span>
-              <span class="sd-info-value" style="color:var(--accent);">
+              <span class="sd-info-value text-accent">
                 {% if page_obj %}{{ page_obj.paginator.count|default:"0" }}{% else %}0{% endif %}
               </span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Out of stock</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
+              <span class="sd-info-value text-danger">{{ out_of_stock|default:0 }}</span>
             </div>
           </div>
 
@@ -239,9 +234,9 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">What to review today</div>
             <ul class="mf-guide-list">
-              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Check low-stock items and reorder if needed.</li>
-              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Verify prices on new or recently changed items.</li>
-              <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Remove items you no longer sell.</li>
+              <li><i class="bi bi-info-circle text-primary"></i> Check low-stock items and reorder if needed.</li>
+              <li><i class="bi bi-info-circle text-primary"></i> Verify prices on new or recently changed items.</li>
+              <li><i class="bi bi-info-circle text-primary"></i> Remove items you no longer sell.</li>
             </ul>
           </div>
 
@@ -256,18 +251,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 <i class="bi bi-bookmark"></i> Presets
               </a>
               <a href="{% url 'category-list' %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi-kanban"></i> Product's category
+                <i class="bi bi-tags"></i> Product Categories
               </a> 
-              <a href="{% url 'product-list' %}?stock=high" class="btn btn-sm btn-block"
-                 style="background:var(--accent-light); color:var(--accent); border:1px solid #b7dfca;">
+              <a href="{% url 'product-list' %}?stock=high" class="btn btn-sm btn-block btn-accent-light">
                 <i class="bi bi-box-seam"></i> In-stock products
               </a>
-              <a href="{% url 'product-list' %}?stock=low" class="btn btn-sm btn-block"
-                 style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
+              <a href="{% url 'product-list' %}?stock=low" class="btn btn-sm btn-block btn-warning-light">
                 <i class="bi bi-exclamation-triangle"></i> Low stock items
               </a>
-              <a href="{% url 'product-list' %}?stock=none" class="btn btn-sm btn-block"
-                 style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+              <a href="{% url 'product-list' %}?stock=none" class="btn btn-sm btn-block btn-danger-light">
                 <i class="bi bi-slash-circle"></i> Out-of-stock
               </a>
             </div>

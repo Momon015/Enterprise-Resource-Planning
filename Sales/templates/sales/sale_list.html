@@ -76,9 +76,9 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- ========== LEFT PANEL ========== -->
     <div class="left-panel">
 
-      <!-- ADVANCED FILTER DRAWER -->
+      <!-- ADVANCED FILTER -->
       <details class="filter-card"
-               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
+        {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
@@ -94,15 +94,15 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="input-group">
                 <span class="input-group-icon"><i class="bi bi-search"></i></span>
                 <input type="search" name="search" class="form-control"
-                       placeholder="Search for ID, cost price, and quantity"
+                       placeholder="Search by reference or ID"
                        value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label">Period (month)</label>
-              <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:'' }}">
+              <input type="month" placeholder='January 2026' name="select_month" class="form-control"
+                     value="{{ request.GET.select_month|default:current_year }}">
             </div>
 
             <div class="form-group">
@@ -128,12 +128,14 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </details>
 
-      <!-- TRANSACTION TABLE -->
+      <!-- TABLE -->
       <div class="card table-card">
         <div class="card-header">
           <div style="display:flex; align-items:center; gap:0.5rem;">
             <span class="card-header-title">Transactions</span>
-            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} records</span>
+            <span class="sl-badge sl-badge-light">
+              {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
+            </span>
           </div>
           <span class="card-header-sub">Most recent first</span>
         </div>
@@ -144,9 +146,9 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 <th>Reference</th>
-                <th class="sl-text-end">Total Qty</th>
-                <th class="sl-text-end">Lines</th>
-                <th class="sl-text-end">Total</th>
+                <th class="sl-text-end">Qty</th>
+                <th class="sl-text-end">Items</th>
+                <th class="sl-text-end">Revenue</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
@@ -157,17 +159,31 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ sale.created_at|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ sale.created_at|date:"l" }}</div>
                 </td>
+
                 <td>
                   <div class="cell-primary">{{ sale.reference|default:"—" }}</div>
-                  <div class="cell-primary">ID: {{ sale.id }}</div>
+                  <div class="cell-sub">#{{ sale.id }}</div>
                 </td>
-                <td class="sl-text-end">{{ sale.quantity_item }}</td>
-                <td class="sl-text-end">{{ sale.line_count }}</td>
-                <td class="sl-text-end sl-fw-semibold">₱{{ sale.total_revenue|intcomma|floatformat:2 }}</td>
+
+                <td class="sl-text-end">
+                  <span class="sl-badge sl-badge-light">{{ sale.quantity_item }}</span>
+                </td>
+
+                <td class="sl-text-end">
+                  <span class="sl-badge sl-badge-light">{{ sale.line_count }}</span>
+                </td>
+
+                <td class="sl-text-end sl-fw-semibold">
+                  ₱{{ sale.total_revenue|intcomma|floatformat:2 }}
+                </td>
+
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'sale-detail' sale.id %}" class="btn btn-sm btn-outline-secondary">View</a>
-                    {% comment %} <button type="button" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i></button> {% endcomment %}
+                    <a href="{% url 'sale-detail' sale.id %}"
+                      class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center"
+                      title='View Detail'>
+                      <i class="bi bi-eye"></i>
+                    </a>
                   </div>
                 </td>
               </tr>
@@ -187,27 +203,36 @@ document.addEventListener("DOMContentLoaded", function () {
             <ul class="pagination">
               {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
 
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&laquo;</a>
-                  {% else %}
-                    <span class="page-link">&laquo;</span>
-                  {% endif %}
-                </li>
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link"
+                     href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     &laquo;
+                  </a>
+                {% else %}
+                  <span class="page-link">&laquo;</span>
+                {% endif %}
+              </li>
 
-                {% for s in page_obj.paginator.page_range %}
-                <li class="page-item {% if s == page_obj.number %}active{% endif %}">
-                  <a class="page-link" href="?page={{ s }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ s }}</a>
-                </li>
-                {% endfor %}
+              {% for s in page_obj.paginator.page_range %}
+              <li class="page-item {% if s == page_obj.number %}active{% endif %}">
+                <a class="page-link"
+                   href="?page={{ s }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                  {{ s }}
+                </a>
+              </li>
+              {% endfor %}
 
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&raquo;</a>
-                  {% else %}
-                    <span class="page-link">&raquo;</span>
-                  {% endif %}
-                </li>
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link"
+                     href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     &raquo;
+                  </a>
+                {% else %}
+                  <span class="page-link">&raquo;</span>
+                {% endif %}
+              </li>
 
               {% endwith %}
             </ul>
@@ -231,16 +256,25 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="sl-summary-label">Transactions</span>
             <span class="sl-summary-value">{{ total_sales_count|default:"0" }}</span>
           </div>
+
           <div class="sl-summary-row">
             <span class="sl-summary-label">Total Revenue</span>
-            <span class="sl-summary-value green">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</span>
+            <span class="sl-summary-value green">
+              ₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}
+            </span>
           </div>
+
           <div class="sl-summary-row">
-            <span class="sl-summary-label">Average per transaction</span>
-            <span class="sl-summary-value">₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}</span>
+            <span class="sl-summary-label">Avg. per sale</span>
+            <span class="sl-summary-value">
+              ₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}
+            </span>
           </div>
+
           <hr class="sl-summary-divider">
-          <p class="sl-summary-note">Use quick ranges or advanced filters on the left to change this summary.</p>
+          <p class="sl-summary-note">
+            Use filters on the left or quick ranges below to adjust this summary.
+          </p>
         </div>
       </div>
 
@@ -252,7 +286,9 @@ document.addEventListener("DOMContentLoaded", function () {
               <i class="bi bi-plus-circle me-1"></i>New sale
             </a>
           </div>
+
           <hr class="sl-quick-divider">
+
           <div class="sl-quick-label">Quick ranges</div>
           <div class="btn-grid">
             <a href="{% url 'sale-list' %}?period=today" class="btn btn-outline-secondary btn-sm">
@@ -267,7 +303,6 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'sale-list' %}?period=month" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-calendar-month me-1"></i>This month
             </a>
-
           </div>
         </div>
       </div>

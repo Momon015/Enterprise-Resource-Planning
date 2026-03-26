@@ -32,7 +32,7 @@
       </p>
     </div>
     <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to products
+      <i class="bi bi-arrow-left"></i> Go Back 
     </a>
   </div>
 
@@ -55,10 +55,10 @@
               </div>
             </div>
           </div>
-          <div class="sd-card-header-right">
+          {% comment %} <div class="sd-card-header-right">
             <div class="label">Current Price</div>
             <div class="amount">₱{{ product.selling_price|floatformat:2 }}</div>
-          </div>
+          </div> {% endcomment %}
         </div>
 
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
@@ -66,7 +66,7 @@
           <!-- QUICK STATS -->
           <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr);">
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Selling Price</div>
+              <div class="sd-stat-label">Price</div>
               <div class="sd-stat-value">₱{{ product.selling_price|floatformat:2 }}</div>
             </div>
             <div class="sd-stat-box">

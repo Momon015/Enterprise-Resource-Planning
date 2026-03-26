@@ -10,7 +10,7 @@ from core.models import Category
 class ProductForm(ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'description', 'cost_price', 'prepared_quantity', 'selling_price', 'category']
+        fields = ['name', 'description', 'prepared_quantity', 'selling_price', 'category']
     
         widgets = {
             'cost_price': forms.NumberInput(attrs={
@@ -36,14 +36,14 @@ class ProductForm(ModelForm):
 
         super().__init__(*args, **kwargs)
         
-        if not self.instance.cost_price:
-            self.initial['cost_price'] = '0.00'
+        # if not self.instance.cost_price:
+        #     self.initial['cost_price'] = '0.00'
         
         if not self.instance.selling_price:
             self.initial['selling_price'] = '0.00'
                 
-        if self.instance.cost_price:
-            self.initial['cost_price'] = f"{self.instance.cost_price:.2f}"
+        # if self.instance.cost_price:
+        #     self.initial['cost_price'] = f"{self.instance.cost_price:.2f}"
         
         if self.instance.selling_price:
             self.initial['selling_price'] = f"{self.instance.selling_price:.2f}"
@@ -56,7 +56,7 @@ class ProductForm(ModelForm):
         self.fields['category'].label_from_instance = category_label # or lambda obj: obj.name.title()
 
         self.fields['selling_price'].label = 'Unit Price'
-        self.fields['cost_price'].label = 'Unit Cost'
+            # self.fields['cost_price'].label = 'Unit Cost'
   
         self.fields['prepared_quantity'].label = 'Quantity'
         

@@ -12,9 +12,9 @@
       </h4>
       <p class="sl-page-subtitle">You are about to permanently remove <strong>{% if object %}{{ object }}{% else %}{{ product }}{% endif %}</strong>.</p>
     </div>
-    <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
+    {% comment %} <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to products
-    </a>
+    </a> {% endcomment %}
   </div>
 
   <div class="two-col-layout">

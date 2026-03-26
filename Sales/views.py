@@ -69,7 +69,9 @@ def sale_list(request):
     year = now.year
     iso_year, iso_week, iso_weekday = now.isocalendar()
     last_year = iso_year - 1
-    print(last_year)
+
+    current_year = f"{year}-01"
+
     period = request.GET.get('period')
     
     total_revenue = sales.total_revenue()
@@ -135,7 +137,9 @@ def sale_list(request):
         'total_revenue': total_revenue,
         'average_total_revenue': average_total_revenue,
         'total_sales_count': total_sales_count,
-        'section': 'sale'
+        'current_year': current_year, # this is for dynamic year for select month
+        'section': 'sale',
+        
     }
         
     return render(request, 'Sales/sale_list.html', context)
