@@ -46,6 +46,8 @@ from django.db.models import Sum, Avg
 
 from decimal import Decimal
 
+from core.utils.owner import get_owner, permission_required
+
 # logging
 import logging
 
@@ -59,6 +61,7 @@ def clear_sale(request):
     return redirect('view-sale')
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def sale_list(request):
     sales = Sale.objects.all().order_by('-date')
     form = SaleFilterForm(request.GET or None)
@@ -145,6 +148,7 @@ def sale_list(request):
     return render(request, 'Sales/sale_list.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def sale_detail(request, sale_id):
     sale = get_object_or_404(Sale, id=sale_id)
     sale_items = sale.sale_items.select_related('product')
@@ -158,16 +162,16 @@ def sale_detail(request, sale_id):
 @login_required(login_url='login')
 def add_to_sales(request, product_id):
     sale = request.session.get('sale', {})
-    print('SALE TYPE:', type(sale))  # ← add this
-    print('SALE VALUE:', sale) 
     product = get_object_or_404(Product, id=product_id)
     product_key = str(product.id)
 
     if product.prepared_quantity >= 1:
         if product_key in sale:
-            sale[product_key]['quantity'] += 1
-            messages.success(request, f"{product.name}'s quantity has increased.")
-            
+            if sale[product_key]['quantity'] < product.prepared_quantity:
+                sale[product_key]['quantity'] += 1
+                messages.success(request, f"{product.name}'s quantity has increased.")
+            else:
+                messages.warning(request, f"{product.name} - Insufficient stock.")
         else:
             sale[product_key] = {
                 'id': product.id,
@@ -306,10 +310,10 @@ def confirm_view_summary(request):
     net_profit = 0
     total_revenue = 0
     total_cost_price = 0
-    
+    owner = get_owner(request.user)
     try:
         with transaction.atomic():
-            sale_obj = Sale.objects.create(user=request.user, total_revenue=0, total_salary_cost=0)
+            sale_obj = Sale.objects.create(user=owner, total_revenue=0, total_salary_cost=0, created_by=request.user)
 
             employee_ids = request.session.get('selected_employee_ids', [])
             print('employee_ids', employee_ids)
@@ -332,7 +336,8 @@ def confirm_view_summary(request):
                 total_revenue += line_total
                 
                 try:
-                    stock = Stock.objects.get(user=request.user, material=product.material)
+                    owner = get_owner(request.user)
+                    stock = Stock.objects.get(user=owner, material=product.material, created_by=request.user)
                     stock.quantity -= quantity
                     stock.save()
                 except:

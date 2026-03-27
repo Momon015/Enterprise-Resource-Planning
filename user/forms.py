@@ -34,13 +34,17 @@ class RegisterForm(UserCreationForm):
     #     label='Confirm Password',
     #     widget=forms.PasswordInput,
     # )
-    
+    owner_username = forms.CharField(
+        max_length=150,
+        required=False,
+        help_text="Enter your owner's username if you are registering as staff."
+    )
 
-    
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']
-
+        fields = ['owner_username', 'username', 'email', 'password1', 'password2']
+        
+        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
@@ -67,10 +71,10 @@ class RegisterForm(UserCreationForm):
                 raise ValidationError(f"This email is already taken.")
         return email
     
-class UpdateUserForm(BaseUserForm):
+class UpdateUserForm(ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'birthday', 'role', 'phone_number']
+        fields = ['username', 'first_name', 'last_name', 'email', 'birthday', 'phone_number']
         
         widgets = {
             'birthday': forms.DateInput(
@@ -83,7 +87,7 @@ class UpdateUserForm(BaseUserForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.fields['role'].empty_label = None
+        # self.fields['role'].empty_label = None
         
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'

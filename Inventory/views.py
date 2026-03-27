@@ -31,6 +31,8 @@ from django.core.paginator import Paginator
 
 from django.db.models import F
 
+from core.utils.owner import get_owner, permission_required
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -79,6 +81,7 @@ def view_inventory_stock(request):
     return render(request, 'Inventory/view_inventory_stock.html', context)
 
 @login_required(login_url='login')
+@permission_required('delete')
 def inventory_stock_delete(request, stock_id):
     stock = get_object_or_404(Stock, id=stock_id)
 

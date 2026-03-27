@@ -16,6 +16,7 @@ class Product(SlugModel, TimeStampModel):
     default_quantity = models.PositiveIntegerField(default=0) # preset
     selling_price = models.DecimalField(max_digits=10, decimal_places=6)
     unit = models.CharField(max_length=255, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_products')
     
     class Meta:
         ordering = ['name']
@@ -43,6 +44,7 @@ class ProductPreset(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_presets')
     name = models.CharField(max_length=255, unique=True)
     is_active = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_product_presets', null=True, blank=True)
     
     def __str__(self):
         return f"{self.name}"

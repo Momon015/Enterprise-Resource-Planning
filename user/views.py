@@ -30,6 +30,9 @@ import pprint
 
 from django.db import transaction
 from django.contrib.auth.hashers import make_password
+
+from Expense.models import Employee
+
 # Create your views here.
 
 def register_form(request):
@@ -46,12 +49,25 @@ def register_form(request):
             username = form.cleaned_data['username'].lower()
             email = form.cleaned_data['email']
             raw_password = form.cleaned_data['password1']
-            
+            owner_username = form.cleaned_data.get('owner_username', '').lower().strip()
+            print(owner_username)
             user = User.objects.create(username=username, is_active=False)
             user.set_password(raw_password)
             user.email = email
-            user.save()
             
+            if owner_username:
+                try:
+                    owner = User.objects.get(username=owner_username, role='owner')
+                    user.role = 'staff'
+                    user.owner = owner
+                except User.DoesNotExist:
+                    user.delete()
+                    messages.error(request, f"Owner username not found. Please check and try again later.")
+                    return redirect('register-form')
+            else:
+                user.role = 'owner'
+            
+            user.save()
             # save user ID
             request.session['user_id'] = user.id
             
@@ -117,13 +133,24 @@ def verify_otp(request):
                 otp_obj.is_verified=True
                 otp_obj.save()
                 
+                if user.role == 'staff':
+                    Employee.objects.create(
+                        user=user.owner,
+                        staff_user=user,
+                        name=user.username,
+                        daily_rate=0,
+                    )
+                
                 # clear sessions
                 for key in ('user_id', 'otp_id'):
                     request.session.pop(key, None)
                 
                 login(request, user)
                 messages.success(request, f"Your account has been successfully created.")
-                return redirect('user-profile', slug=user.username)
+                if user.role == 'staff':
+                    return redirect('product-list')
+                else:
+                    return redirect('user-profile', slug=user.username)
             
             else:
                 messages.error(request, "Invalid OTP. Please try again.")
@@ -197,7 +224,10 @@ def user_login(request):
             user_obj.reset_attempts()
             user_obj.last_login = timezone.now()
             user_obj.save(update_fields=['last_login'])
-            return redirect('product-list')
+            if user.role == 'owner':
+                return redirect('material-list')
+            else:
+                return redirect('product-list')
         else:
             if user_obj and not user_obj.is_locked(): # checks if user exists and the user is not locked
                 user_obj.register_failed_login()

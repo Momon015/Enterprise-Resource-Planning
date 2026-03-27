@@ -28,7 +28,7 @@ from django.db.models import F
 
 from decimal import Decimal
 
-# Create your views here.
+from core.utils.owner import get_owner, permission_required
 
 @login_required(login_url='login')
 def material_list(request):
@@ -106,16 +106,18 @@ def material_list(request):
 
 @login_required(login_url='login')
 def material_create(request):
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = MaterialForm(request.POST)
         
         if form.is_valid():
             material = form.save(commit=False)
-            if Material.objects.filter(user=request.user, name__iexact=material.name, unit=material.unit).exists():
+            if Material.objects.filter(user=owner, name__iexact=material.name, unit=material.unit).exists():
                 messages.warning(request, f"{material.name.title()} - {material.get_unit_display()} already exists.")
                 return redirect('material-list')
             
-            material.user = request.user
+            material.user = owner
+            material.created_by = request.user
             material.name = material.name.title()
             material.save()
             messages.success(request, f"{material.name} successfully created.")
@@ -136,6 +138,7 @@ def material_detail(request, slug):
 @login_required(login_url='login')
 def material_update(request, slug):
     material = get_object_or_404(Material, slug=slug)
+    owner = get_owner(request.user)
     
     if request.method == 'POST':
         form = MaterialForm(request.POST, instance=material)
@@ -143,7 +146,8 @@ def material_update(request, slug):
         if form.is_valid():
             material = form.save(commit=False)
             material.name = material.name.title()
-            material.user = material.user
+            material.user = owner
+            material.created_by = request.user
             material.save()
             
             messages.success(request, f"{material.name} successfully updated.")
@@ -159,6 +163,7 @@ def material_update(request, slug):
     return render(request, 'Supplier/material_update.html', context)
 
 @login_required(login_url='login')
+@permission_required('delete')
 def material_delete(request, slug):
     material = get_object_or_404(Material, slug=slug)
     
@@ -174,10 +179,11 @@ def material_delete(request, slug):
 def save_items(request):
     cart = request.session.get('cart', {})
     checkbox = request.POST.get('checkbox')
-    name = request.POST.get('name')
+    name = request.POST.get('name').title()
     print('cart', cart)
+    owner = get_owner(request.user)
     if checkbox:
-        preset, _ = MaterialPreset.objects.get_or_create(user=request.user, is_active=True, name=name)
+        preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
         
         for material_id, data in cart.items():
             
@@ -191,7 +197,8 @@ def save_items(request):
                 defaults={'quantity': quantity, 'discount': discount}
                 
             )
-            return redirect('material-preset-list')
+            messages.success(request, f"{name} added to preset.")
+            return redirect('view-cart')
         request.session['preset_id'] = preset.id
         
     return redirect('view-cart')
@@ -272,6 +279,8 @@ def edit_preset(request, preset_id):
     qty_changed = False
     discount_changed = False
     
+    owner = get_owner(request.user)
+    
     if request.method == 'POST':
         for item in save_items:
             new_qty = int(request.POST.get(f'quantity_{item.id}'))
@@ -280,7 +289,8 @@ def edit_preset(request, preset_id):
             
             if new_name and new_name != preset.name:
                 preset.name = new_name
-                preset.user = request.user
+                preset.user = owner
+                preset.created_by = owner
                 preset.save()
                 messages.success(request, f"Preset Name has been updated. ")
                     
@@ -309,6 +319,7 @@ def edit_preset(request, preset_id):
     return render(request, 'Supplier/edit_preset.html', context)
 
 @login_required(login_url='login')  
+@permission_required('delete')
 def delete_preset(request, preset_id):
     preset = get_object_or_404(MaterialPreset, id=preset_id)
     
@@ -342,13 +353,14 @@ def supplier_list(request):
 
 @login_required(login_url='login')
 def supplier_create(request):
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = SupplierForm(request.POST)
         
-        
         if form.is_valid():
             supplier = form.save(commit=False)
-            supplier.user = request.user
+            supplier.user = owner
+            supplier.created_by = request.user
             supplier.name = supplier.name.title()
             supplier.save()
             messages.success(request, f"{supplier.name} successfully created.")
@@ -369,6 +381,7 @@ def supplier_create(request):
 @login_required(login_url='login')
 def supplier_update(request, supplier_id):
     supplier = get_object_or_404(Supplier, id=supplier_id)
+    owner = get_owner(request.user)
     
     if request.method == 'POST':
         form = SupplierForm(request.POST, instance=supplier)
@@ -376,7 +389,8 @@ def supplier_update(request, supplier_id):
         if form.is_valid():
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
-            supplier.user = supplier.user
+            supplier.user = owner
+            supplier.created_by = request.user
             supplier.save()
             
             messages.success(request, f"{supplier.name} successfully updated.")
@@ -390,7 +404,9 @@ def supplier_update(request, supplier_id):
     context = {'form': form, 'supplier': supplier, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_update.html', context)
 
+
 @login_required(login_url='login')
+@permission_required('delete')
 def supplier_delete(request, supplier_id):
     supplier = get_object_or_404(Supplier, id=supplier_id)
     

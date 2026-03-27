@@ -27,6 +27,8 @@ from user.models import User
 
 from decimal import Decimal
 from django.db.models import Q, F
+
+from core.utils.owner import get_owner, permission_required
 # Create your views here.
 
 @login_required(login_url='login')
@@ -86,11 +88,14 @@ def product_list(request):
 
 @login_required(login_url='login')
 def product_create(request):
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = ProductForm(request.POST)
-        
+
         if form.is_valid():
             product = form.save(commit=False)
+            product.user = owner
+            product.created_by = request.user
             product.description = product.description.title()
             product.name = product.name.title()
             product.save()
@@ -114,12 +119,14 @@ def product_detail(request, product_slug):
 @login_required(login_url='login')
 def product_update(request, product_slug):
     product = get_object_or_404(Product, slug=product_slug)
-  
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = ProductForm(request.POST, instance=product)
         
         if form.is_valid():
             product = form.save(commit=False)
+            product.user = owner
+            product.created_by = request.user
             product.name = product.name.title()
             product.save()
             messages.success(request, f"{product.name} has been updated.")
@@ -130,7 +137,9 @@ def product_update(request, product_slug):
     context = {'form': form, 'product': product}
     return render(request, 'Product/product_update.html', context)
 
+
 @login_required(login_url='login')
+@permission_required('delete')
 def product_delete(request, product_slug):
     product = get_object_or_404(Product, slug=product_slug)
     
@@ -165,12 +174,12 @@ def restore_product_quantity(request, product_id):
 @login_required(login_url='login')
 def add_product_to_preset(request):
     sale = request.session.get('sale', {})
-
+    owner = get_owner(request.user)
     if request.method == 'POST':
         product_checkbox = request.POST.get('product_checkbox')
         product_name = request.POST.get('product_name')
         if product_checkbox and product_name:
-            preset, _ = ProductPreset.objects.get_or_create(user=request.user, name=product_name, is_active=True)
+            preset, _ = ProductPreset.objects.get_or_create(user=owner, name=product_name, is_active=True, created_by=request.user)
             for product_id, data in sale.items():
                 product = get_object_or_404(Product, id=product_id)
                 quantity = data.get('quantity', 0)
@@ -262,6 +271,7 @@ def edit_product_preset(request, preset_id):
     return render(request, 'Product/edit_product_preset.html', context)
 
 @login_required(login_url='login')
+@permission_required('delete')
 def delete_product_preset(request, preset_id):
     preset = get_object_or_404(ProductPreset, id=preset_id)
     

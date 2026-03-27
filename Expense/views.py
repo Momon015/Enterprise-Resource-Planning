@@ -40,6 +40,9 @@ from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
 from django.db.models import Sum, Avg
+
+from core.utils.owner import get_owner, permission_required
+
 # logging
 import logging
 
@@ -47,6 +50,8 @@ import logging
 
 logger = logging.getLogger('Expense')
 
+@login_required(login_url='login')
+@permission_required('owner_only')
 def purchase_history(request):
     purchases = Purchase.objects.all().order_by('-created_at')
     
@@ -136,6 +141,7 @@ def purchase_history(request):
     return render(request, 'Expense/purchase_history.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def purchase_detail(request, purchase_id):
     purchase = get_object_or_404(Purchase, id=purchase_id)
     purchase_items = purchase.materials.select_related('material')
@@ -260,6 +266,7 @@ def view_cart(request):
     context = {'total_after_discount': total_after_discount, 'cart_items': cart_items, 'subtotal': subtotal, 'total_discount': total_discount, 'section': 'supplier'}
     return render(request, 'Expense/view_cart.html', context)
 
+
 @login_required(login_url='login')
 def view_cart_summary(request):
     cart = request.session.get('cart', {})
@@ -314,7 +321,8 @@ def confirm_purchase_summary(request):
     try: 
         with transaction.atomic():
             status, created = StatusModel.objects.get_or_create(name='paid') # cash payment directly so automatically paid
-            purchase = Purchase.objects.create(total_cost=0, status=status, user=request.user)
+            owner = get_owner(request.user)
+            purchase = Purchase.objects.create(total_cost=0, status=status, user=owner, created_by=request.user)
 
             for material_id, data in cart.items():
                 material = get_object_or_404(Material, id=material_id)
@@ -372,9 +380,11 @@ def confirm_purchase_summary(request):
                 if material.unit in MULTI_UNIT_TYPES:
                     actual_unit_cost = Decimal(price * quantity) - discount
                     quantity = quantity * material.piece_per_unit
-                    
+                
+                owner = get_owner(request.user)
                 stock, created = Stock.objects.get_or_create(
-                    user=request.user,
+                    user=owner,
+                    created_by=request.user,
                     material=material,
                     defaults={
                         'quantity': quantity,
@@ -392,7 +402,8 @@ def confirm_purchase_summary(request):
                 
 
                 product, created = Product.objects.get_or_create(
-                    user=request.user,
+                    user=owner,
+                    created_by=request.user,
                     material=material,
                     name=material.name,
                     defaults={
@@ -437,7 +448,8 @@ def confirm_purchase_summary(request):
 
 @login_required(login_url='login')
 def view_purchase_summary(request, purchase_id):
-    purchase = get_object_or_404(Purchase, id=purchase_id, user=request.user)
+    owner = get_owner(request.user)
+    purchase = get_object_or_404(Purchase, id=purchase_id, user=owner)
     purchase_items = purchase.materials.select_related('material')
     
     total_discount = 0
@@ -564,6 +576,7 @@ def employee_create(request):
     return render(request, 'Expense/employee_create.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def employee_list(request):
     employees = Employee.objects.all()
 
@@ -689,15 +702,16 @@ def waste_product_create(request):
 @login_required(login_url='login')
 def waste_material_create(request):
     page = 'waste_material'
+    owner = get_owner(request.user)
     
     if request.method == 'POST':
-        form = MaterialWasteForm(request.POST, user=request.user)
+        form = MaterialWasteForm(request.POST, user=owner)
 
         if form.is_valid():
             item = form.save(commit=False)
             item.user = request.user
             
-            stock = Stock.objects.get(user=request.user, material=item.material)
+            stock = Stock.objects.get(user=owner, material=item.material, created_by=request.user)
             
             if item.quantity == 0:
                 messages.warning(request, f"Quantity must be greater than 0.")
@@ -712,13 +726,14 @@ def waste_material_create(request):
                 return redirect('view-inventory-stock')
         
             # deduct as well for the product
-            product = Product.objects.get(user=request.user, material=item.material)
+            product = Product.objects.get(user=owner, material=item.material, created_by=request.user)
             product.prepared_quantity -= item.quantity
             product.save()
 
             waste = Waste.objects.create(
-                user=request.user,
-                total_cost=0
+                user=owner,
+                total_cost=0,
+                created_by=request.user,
             )
             waste_cost = stock.price * item.quantity
             waste.total_cost = waste_cost
@@ -736,7 +751,7 @@ def waste_material_create(request):
             messages.success(request, f"{item.material.name} has been recorded as waste.")
             return redirect('expense-waste-list')         
     else:
-        form = MaterialWasteForm(user=request.user)
+        form = MaterialWasteForm(user=owner)
 
     context = {'form': form, 'page': page, 'section': 'waste'}
     return render(request, 'Expense/waste_create.html', context)

@@ -30,18 +30,27 @@
         <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="#">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}">
+        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}?next={{request.path}}">
           <i class="bi bi-calendar-check"></i>
           <span>Summary</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'expenses' %}is-active{% endif %}" href="#">
           <i class="bi bi-wallet2"></i>
           <span>Expenses</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
     </ul>
@@ -55,12 +64,18 @@
         <a class="sidebar-nav__link {% if section == 'sales' %}is-active{% endif %}" href="{% url 'sale-list' %}">
           <i class="bi bi-cash-coin"></i>
           <span>Sales</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'purchases' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
           <i class="bi bi-receipt"></i>
           <span>Purchases</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
       <li class="sidebar-nav__item">
@@ -102,9 +117,12 @@
     <div class="sidebar-section-label">HR</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'employees' %}is-active{% endif %}" href="{% url 'employee-list' %}">
+        <a class="sidebar-nav__link {% if section == 'employees' %}is-active{% endif %}" href="{% url 'employee-list' %}?next={{request.path}}">
           <i class="bi bi-people"></i>
           <span>Employees</span>
+          {% if request.user.role == 'staff'%}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
     </ul>

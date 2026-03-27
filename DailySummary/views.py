@@ -49,12 +49,15 @@ from django.db.models import F
 from decimal import Decimal
 from operator import itemgetter
 
+from core.utils.owner import  get_owner, permission_required
+
 # logging
 import logging
 
 # Create your views here.
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def view_summary(request):
     sales = Sale.objects.all()
     purchases = Purchase.objects.all()
@@ -223,6 +226,7 @@ def view_summary(request):
     return render(request, 'DailySummary/view_summary.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def view_summary_detail(request, date):
     sales = Sale.objects.filter(date=date)
     sale_items  = SaleItem.objects.filter(sale__in=sales)

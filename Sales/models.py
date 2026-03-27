@@ -32,6 +32,7 @@ class Sale(TimeStampModel):
     total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
     reference = models.CharField(max_length=255, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
     
     objects = SaleQuerySet.as_manager()
     
@@ -57,7 +58,7 @@ class SaleItem(models.Model):
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=1.00)
     quantity = models.PositiveIntegerField(default=1)
     unsold_quantity = models.PositiveIntegerField(default=0)
-    
+
     def __str__(self):
         if self.name:
             return f"{self.name} x {self.quantity}"

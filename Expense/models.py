@@ -41,7 +41,7 @@ class Purchase(TimeStampModel):
     line_count = models.PositiveIntegerField(default=0)
     purchase_date = models.DateField(auto_now_add=True, null=True, db_index=True) # remove NULL when you reset the DB
     reference = models.CharField(max_length=255, null=True, blank=True)
-    
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
     
@@ -140,6 +140,7 @@ class EmployeeQuerySet(models.QuerySet):
     
 class Employee(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employees')
+    staff_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employee_profile', null=True, blank=True)
     name = models.CharField(max_length=255, unique=True)
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
@@ -153,6 +154,7 @@ class Waste(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wastes')
     date = models.DateField(auto_now_add=True, db_index=True)
     total_cost = models.DecimalField(max_digits=10, decimal_places=6)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_wastes')
     
     objects = WasteQuerySet.as_manager()
     

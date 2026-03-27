@@ -42,6 +42,7 @@ from django.db.models import Sum, Avg
 from core.models import Category
 from core.forms import CategoryForm, CategoryFilterForm
 
+from core.utils.owner import get_owner, permission_required
 # logging
 import logging
 
@@ -83,11 +84,14 @@ def category_list(request):
 
 @login_required(login_url='login')
 def category_create(request):
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         
         if form.is_valid():
             category = form.save(commit=False)
+            category.user = owner
+            category.created_by = request.user
             category.name = category.name.title()
             category.save()
             messages.success(request, f"{category.name} has successfully created.")
@@ -101,12 +105,14 @@ def category_create(request):
 @login_required(login_url='login')
 def category_update(request, category_id):
     category = get_object_or_404(Category, id=category_id)
-    
+    owner = get_owner(request.user)
     if request.method == 'POST':
         form = CategoryForm(request.POST, instance=category)
         
         if form.is_valid():
             obj = form.save(commit=False)
+            obj.user = owner
+            obj.created_by = request.user
             obj.name = obj.name.title()
             obj.save()
             messages.success(request, f"{category.name} has successfully updated.")
@@ -118,7 +124,9 @@ def category_update(request, category_id):
     context = {'form': form, 'category': category}
     return render(request, 'core/category_update.html', context)
 
+
 @login_required(login_url='login')
+@permission_required('delete')
 def category_delete(request, category_id):
     category = get_object_or_404(Category, id=category_id)
     

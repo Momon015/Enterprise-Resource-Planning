@@ -45,7 +45,8 @@ class User(AbstractUser, SlugModel):
     
     name = models.CharField(max_length=255)
     email = models.EmailField(null=True, blank=True)
-    role = models.CharField(max_length=100, choices=ROLE_CHOICES, null=True, blank=True)
+    role = models.CharField(max_length=100, choices=ROLE_CHOICES, null=True, blank=True, default='owner')
+    owner = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='staff_members')   
     birthday = models.DateField(null=True, blank=True)
     phone_number = models.CharField(max_length=11, null=True, blank=True, validators=[phone_validators])
     locked_until = models.DateTimeField(null=True, blank=True)

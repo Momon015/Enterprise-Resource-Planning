@@ -7,8 +7,9 @@ from user.models import User
 # # Create your models here.
 
 class Supplier(TimeStampModel, SlugModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='supplies')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='supplies', null=True, blank=True)
     name = models.CharField(max_length=255)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_supplies', null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -54,6 +55,7 @@ class Material(TimeStampModel, SlugModel):
     quantity = models.PositiveIntegerField(default=1)
     unit = models.CharField(max_length=100, choices=RETAIL_UNIT_CHOICES, default='pc')
     piece_per_unit = models.PositiveBigIntegerField(default=1)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_materials', null=True, blank=True)
     
     def __str__(self):
         return self.name
@@ -69,6 +71,7 @@ class MaterialPreset(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presets')
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_material_presets', null=True, blank=True)
     
     def __str__(self):
         return self.name
