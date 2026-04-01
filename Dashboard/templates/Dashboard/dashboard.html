@@ -1,0 +1,341 @@
+{% extends 'main.html' %}
+{% load humanize %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">DASHBOARD</div>
+      <h1 class="page-title">Today's Overview</h1>
+      <p class="page-subtitle">{{ today|date:"F d, Y" }} — {{ today|date:"l" }}</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> New Sale
+      </a>
+      <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-plus-circle"></i> New Purchase
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI STATS ROW -->
+  <div class="sd-stats-row" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
+    <div class="sd-stat-box">
+      <div class="sd-stat-label">Revenue</div>
+      <div class="sd-stat-value" style="color:var(--success);">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
+    </div>
+    <div class="sd-stat-box">
+      <div class="sd-stat-label">Material Cost</div>
+      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+    </div>
+    <div class="sd-stat-box">
+      <div class="sd-stat-label">Waste Cost</div>
+      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+    </div>
+    <div class="sd-stat-box">
+      <div class="sd-stat-label">Labor Cost</div>
+      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+    </div>
+    <div class="sd-stat-box">
+      <div class="sd-stat-label">Expense Cost</div>
+      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+    </div>
+    <div class="sd-stat-box" style="{% if net_profit >= 0 %}background:var(--success-light); border-color:var(--success-border);{% else %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
+      <div class="sd-stat-label">Net Profit</div>
+      <div class="sd-stat-value" style="{% if net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
+        ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- ========== LEFT PANEL ========== -->
+    <div class="left-panel">
+
+      <!-- 30-DAY REVENUE TREND -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Revenue Trend</span>
+            <span class="sl-badge sl-badge-light">Last 30 days</span>
+          </div>
+          <span class="card-header-sub">Daily revenue</span>
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+          <canvas id="trendChart" height="90"></canvas>
+        </div>
+      </div>
+
+      <!-- MONTHLY / WEEKLY COMPARISON -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Comparison</span>
+            <div style="display:flex; gap:0.4rem;">
+              <button class="btn btn-sm btn-primary" id="toggleMonthly" onclick="setCompareMode('monthly')">Monthly</button>
+              <button class="btn btn-sm btn-outline-secondary" id="toggleWeekly" onclick="setCompareMode('weekly')">Weekly</button>
+            </div>
+          </div>
+          <span class="card-header-sub" id="compareSubLabel">{{ last_month_label }} vs {{ this_month_label }}</span>
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+          <canvas id="compareChart" height="100"></canvas>
+        </div>
+        <div class="card-body" style="padding: 0 1rem 1rem; display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+          <div class="sd-summary-block" style="margin:0;">
+            <div class="sd-summary-block-label" id="prevLabel">{{ last_month_label }}</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Revenue</span>
+              <span class="sd-info-value" style="color:var(--success);" id="prevRevenue">—</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total Costs</span>
+              <span class="sd-info-value" style="color:var(--danger);" id="prevCost">—</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Net Profit</span>
+              <span class="sd-info-value" id="prevNet">—</span>
+            </div>
+          </div>
+          <div class="sd-summary-block" style="margin:0;">
+            <div class="sd-summary-block-label" id="currLabel">{{ this_month_label }}</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Revenue</span>
+              <span class="sd-info-value" style="color:var(--success);" id="currRevenue">—</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total Costs</span>
+              <span class="sd-info-value" style="color:var(--danger);" id="currCost">—</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Net Profit</span>
+              <span class="sd-info-value" id="currNet">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========== RIGHT PANEL ========== -->
+    <div class="right-panel">
+
+      <!-- TODAY'S COST BREAKDOWN -->
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-pie-chart-fill"></i> Today's Cost Breakdown
+          </span>
+        </div>
+        <div class="card-body" style="padding:1rem;">
+          <canvas id="costChart" height="200"></canvas>
+          <p class="sl-summary-note" style="margin-top:0.75rem; text-align:center;">Based on today's recorded transactions.</p>
+        </div>
+      </div>
+
+      <!-- DAY SUMMARY -->
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-speedometer2"></i> Day Summary
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block" style="{% if net_profit >= 0 %}background:var(--success-light); border-color:var(--success-border);{% else %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
+            <div class="sd-summary-block-label">Net Profit</div>
+            <div class="sd-total-amount" style="{% if net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
+              ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Today's Records</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Sales</span>
+              <span class="sd-info-value">{{ sales|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Purchases</span>
+              <span class="sd-info-value">{{ purchases|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Waste</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ waste_items|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Expenses</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ expenses|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Staff on Shift</span>
+              <span class="sd-info-value">{{ sale_employees|length }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const isDark    = document.documentElement.classList.contains('dark');
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#aaa' : '#666';
+
+  // ── 30-Day Revenue Trend ─────────────────────────────────────────
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: {{ trend_labels|safe }},
+      datasets: [{
+        label: 'Revenue',
+        data: {{ trend_data|safe }},
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.1)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, callback: v => '₱' + v.toLocaleString() }, grid: { color: gridColor } }
+      }
+    }
+  });
+
+  // ── Monthly / Weekly Comparison ──────────────────────────────────
+  const comparePayload = {
+    monthly: {
+      prevLabel:   '{{ last_month_label }}',
+      currLabel:   '{{ this_month_label }}',
+      subLabel:    '{{ last_month_label }} vs {{ this_month_label }}',
+      prev:        [{{ lm_revenue|floatformat:2 }}, {{ lm_cost|floatformat:2 }}, {{ lm_waste|floatformat:2 }}, {{ lm_expense|floatformat:2 }}, {{ lm_net|floatformat:2 }}],
+      curr:        [{{ tm_revenue|floatformat:2 }}, {{ tm_cost|floatformat:2 }}, {{ tm_waste|floatformat:2 }}, {{ tm_expense|floatformat:2 }}, {{ tm_net|floatformat:2 }}],
+      prevRevenue: {{ lm_revenue|floatformat:2 }},
+      prevCost:    {{ lm_cost|floatformat:2 }} + {{ lm_waste|floatformat:2 }} + {{ lm_expense|floatformat:2 }} + {{ lm_salary|floatformat:2 }},
+      prevNet:     {{ lm_net|floatformat:2 }},
+      currRevenue: {{ tm_revenue|floatformat:2 }},
+      currCost:    {{ tm_cost|floatformat:2 }} + {{ tm_waste|floatformat:2 }} + {{ tm_expense|floatformat:2 }} + {{ tm_salary|floatformat:2 }},
+      currNet:     {{ tm_net|floatformat:2 }},
+    },
+    weekly: {
+      prevLabel:   '{{ last_week_label }}',
+      currLabel:   '{{ this_week_label }}',
+      subLabel:    '{{ last_week_label }} vs {{ this_week_label }}',
+      prev:        [{{ lw_revenue|floatformat:2 }}, {{ lw_cost|floatformat:2 }}, {{ lw_waste|floatformat:2 }}, {{ lw_expense|floatformat:2 }}, {{ lw_net|floatformat:2 }}],
+      curr:        [{{ tw_revenue|floatformat:2 }}, {{ tw_cost|floatformat:2 }}, {{ tw_waste|floatformat:2 }}, {{ tw_expense|floatformat:2 }}, {{ tw_net|floatformat:2 }}],
+      prevRevenue: {{ lw_revenue|floatformat:2 }},
+      prevCost:    {{ lw_cost|floatformat:2 }} + {{ lw_waste|floatformat:2 }} + {{ lw_expense|floatformat:2 }} + {{ lw_salary|floatformat:2 }},
+      prevNet:     {{ lw_net|floatformat:2 }},
+      currRevenue: {{ tw_revenue|floatformat:2 }},
+      currCost:    {{ tw_cost|floatformat:2 }} + {{ tw_waste|floatformat:2 }} + {{ tw_expense|floatformat:2 }} + {{ tw_salary|floatformat:2 }},
+      currNet:     {{ tw_net|floatformat:2 }},
+    }
+  };
+
+  const compareChart = new Chart(document.getElementById('compareChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Revenue', 'Material Cost', 'Waste Cost', 'Expense Cost', 'Net Profit'],
+      datasets: [
+        { label: comparePayload.monthly.prevLabel, data: comparePayload.monthly.prev, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 4 },
+        { label: comparePayload.monthly.currLabel, data: comparePayload.monthly.curr, backgroundColor: 'rgba(34,197,94,0.7)',  borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: textColor, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ' ₱' + ctx.parsed.y.toLocaleString('en', {minimumFractionDigits:2}) } }
+      },
+      scales: {
+        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, callback: v => '₱' + v.toLocaleString() }, grid: { color: gridColor } }
+      }
+    }
+  });
+
+  // ── Today's Cost Breakdown ───────────────────────────────────────
+  const costData = [
+    {{ total_material_cost|floatformat:2 }},
+    {{ total_waste_cost|floatformat:2 }},
+    {{ total_salary_cost|floatformat:2 }},
+    {{ total_expense_cost|floatformat:2 }},
+  ];
+  const hasData = costData.some(v => v > 0);
+
+  new Chart(document.getElementById('costChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Material', 'Waste', 'Labor', 'Expense'],
+      datasets: [{
+        data: hasData ? costData : [1],
+        backgroundColor: hasData ? ['#f97316','#ef4444','#6366f1','#ec4899'] : ['#e5e7eb'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => hasData ? ' ₱' + ctx.parsed.toLocaleString('en', {minimumFractionDigits:2}) : ' No data' } }
+      }
+    }
+  });
+
+  // ── Comparison toggle ────────────────────────────────────────────
+  function fmt(v) {
+    return '₱' + parseFloat(v).toLocaleString('en', {minimumFractionDigits:2});
+  }
+
+  function setCompareMode(mode) {
+    const d = comparePayload[mode];
+    compareChart.data.datasets[0].label = d.prevLabel;
+    compareChart.data.datasets[0].data  = d.prev;
+    compareChart.data.datasets[1].label = d.currLabel;
+    compareChart.data.datasets[1].data  = d.curr;
+    compareChart.update();
+
+    document.getElementById('compareSubLabel').textContent = d.subLabel;
+    document.getElementById('prevLabel').textContent       = d.prevLabel;
+    document.getElementById('currLabel').textContent       = d.currLabel;
+    document.getElementById('prevRevenue').textContent     = fmt(d.prevRevenue);
+    document.getElementById('prevCost').textContent        = fmt(d.prevCost);
+    document.getElementById('prevNet').textContent         = fmt(d.prevNet);
+    document.getElementById('currRevenue').textContent     = fmt(d.currRevenue);
+    document.getElementById('currCost').textContent        = fmt(d.currCost);
+    document.getElementById('currNet').textContent         = fmt(d.currNet);
+
+    document.getElementById('prevNet').style.color = d.prevNet >= 0 ? 'var(--success)' : 'var(--danger)';
+    document.getElementById('currNet').style.color = d.currNet >= 0 ? 'var(--success)' : 'var(--danger)';
+
+    document.getElementById('toggleMonthly').className = mode === 'monthly' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline-secondary';
+    document.getElementById('toggleWeekly').className  = mode === 'weekly'  ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline-secondary';
+  }
+
+  window.setCompareMode = setCompareMode;
+  setCompareMode('monthly');
+
+});
+</script>
+
+{% endblock content %}

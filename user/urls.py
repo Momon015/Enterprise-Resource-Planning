@@ -4,6 +4,9 @@ from django.urls import path
 # Create your urls here.
 
 urlpatterns = [
+    
+    path('', views.landing, name='landing'),
+    
     path('register-form/', views.register_form, name='register-form'),
     path('register-form/verify-otp/', views.verify_otp, name='verify-otp'),
     path('register-form/resend-otp/', views.resend_otp, name='resend-otp'),

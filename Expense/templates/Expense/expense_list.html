@@ -1,0 +1,275 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") || params.get("select_month")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">EXPENSES</div>
+      <h1 class="page-title">Expenses</h1>
+      <p class="page-subtitle">Track your business operating expenses.</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-receipt"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="header-stat danger">
+        <i class="bi bi-calculator"></i>
+        Avg: <strong>₱{% if average_amount_cost %}{{ average_amount_cost|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <!-- ADVANCED FILTER -->
+      <details class="filter-card"
+               {% if request.GET.search or request.GET.select_month %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.select_month %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
+            <div class="form-group filter-search-row">
+              <div class="input-group">
+                <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                <input type="search" name="search" class="form-control"
+                       placeholder="Search by name or category..."
+                       value="{{ request.GET.search|default:'' }}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Period (month)</label>
+              <input type="month" name="select_month" class="form-control"
+                     value="{{ request.GET.select_month|default:current_year }}">
+            </div>
+            <div class="filter-actions">
+              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'expense-list' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <!-- TABLE -->
+      <div class="card table-card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Expense Records</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
+          </div>
+          <span class="card-header-sub">Most recent first</span>
+        </div>
+
+        <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th class="sl-text-end">Amount</th>
+                <th class="sl-text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for expense in page_obj %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ expense.date|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{ expense.date|date:"l" }}</div>
+                </td>
+                <td>
+                  <div class="cell-primary">{{ expense.name|capfirst }}</div>
+                </td>
+                <td>
+                  <span class="cell-sub">{{ expense.misc_expense.category.name|default:"Uncategorized" }}</span>
+                </td>
+                <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                  ₱{{ expense.amount|floatformat:2|intcomma }}
+                </td>
+                <td>
+                  <div class="table-actions">
+                    <a href="{% url 'expense-detail' expense.user.username expense.id %}"
+                      class="action-btn" title="View detail">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-receipt"></i></div>
+            <h3 class="empty-title">No expenses found</h3>
+            <p class="empty-text">Adjust your filters or log your first expense.</p>
+            <a href="{% url 'expense-create' %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Log your first expense
+            </a>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              {% with q=request.GET.search m=request.GET.select_month %}
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+              {% endwith %}
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-wallet2"></i> Expense Summary
+          </span>
+        </div>
+        <div class="card-body">
+
+          <div class="sd-summary-block" style="background:var(--danger-light); border-color:var(--danger-border);">
+            <div class="sd-summary-block-label">Total Expenses</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total amount</span>
+              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ total_amount|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total records</span>
+              <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Avg. per expense</span>
+              <span class="sd-info-value">₱{% if average_amount_cost %}{{ average_amount_cost|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Quick links</div>
+            <div class="btn-grid">
+              <a href="{% url 'expense-create' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> Log expense
+              </a>
+              <a href="{% url 'misc-expense-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-bookmark-fill"></i> Manage templates
+              </a>
+            </div>
+          </div>
+
+          <hr class="sl-quick-divider">
+
+          <div class="sl-quick-label">Quick ranges</div>
+          <div class="quick-range-grid">
+            <a href="{% url 'expense-list' %}?period=month"
+               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
+            <a href="{% url 'expense-list' %}?period=last_month"
+               class="quick-range-btn {% if request.GET.period == 'last_month' %}active{% endif %}">
+              <i class="bi bi-clock-history"></i> Last month
+            </a>
+            <a href="{% url 'expense-list' %}?select_month={{ current_year }}"
+               class="quick-range-btn {% if request.GET.select_month == current_year %}active{% endif %}">
+              <i class="bi bi-calendar"></i> This year
+            </a>
+            <a href="{% url 'expense-list' %}"
+               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.search %}active{% endif %}">
+              <i class="bi bi-grid"></i> All records
+            </a>
+          </div>
+
+          <div class="sd-note-box" style="margin-top:0.75rem;">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+            <div>
+              <div class="sd-note-title">About expenses</div>
+              <div class="sd-note-text">Expenses are logged from your saved templates. Create templates first, then log actual amounts.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

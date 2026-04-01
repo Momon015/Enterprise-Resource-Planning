@@ -8,7 +8,7 @@ from user.models import User
 # Create your models here.
 
 class Stock(TimeStampModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stocks')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stocks', null=True, blank=True)
     name = models.CharField(max_length=255, null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='stocks', null=True, blank=True)
     price = models.DecimalField(decimal_places=6, max_digits=10)

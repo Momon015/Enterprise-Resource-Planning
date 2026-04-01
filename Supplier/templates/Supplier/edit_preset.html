@@ -4,20 +4,18 @@
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-pencil-square"></i>
-        Edit Preset
-      </h4>
-      <p class="sl-page-subtitle">Adjust quantities and discounts for this preset.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING / PRESET BUNDLES</div>
+      <h1 class="page-title">Edit Preset</h1>
+      <p class="page-subtitle">Adjust quantities and discounts for this preset.</p>
     </div>
     {% comment %} <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to presets
     </a> {% endcomment %}
   </div>
 
-  <form method="POST" action="{% url 'material-edit-preset' preset.id %}">
+  <form method="POST" action="{% url 'material-edit-preset' preset.user.username preset.id %}">
     {% csrf_token %}
 
     <div class="two-col-layout">
@@ -26,19 +24,15 @@
       <div class="left-panel">
         <div class="card">
           <div class="card-header">
-            <div class="sd-card-header-left">
-              <div class="sd-header-icon">
-                <i class="bi bi-bookmark-fill"></i>
-              </div>
-              <div>
-                <div class="card-header-title">Items in this preset</div>
-                <div class="card-header-sub">Adjust quantities and discounts</div>
-              </div>
+            <div class="card-header-left-group">
+              <span class="card-header-title">Items in this preset</span>
+              <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
             </div>
-            <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
+            <span class="card-header-sub">Adjust quantities and discounts</span>
           </div>
 
           <div class="table-responsive">
+            {% if items %}
             <table class="data-table">
               <thead>
                 <tr>
@@ -50,13 +44,10 @@
               <tbody>
                 {% for item in items %}
                 <tr>
-                  <!-- ITEM -->
                   <td>
                     <div class="cell-primary">{{ item.material.name }}</div>
                     <div class="cell-sub">#{{ item.material.id }}</div>
                   </td>
-
-                  <!-- QUANTITY -->
                   <td class="sl-text-center">
                     <div class="qty-stepper">
                       <button type="button" class="qty-btn qty-ctrl"
@@ -70,8 +61,6 @@
                               data-target="quantity_{{ item.id }}" data-step="1">+</button>
                     </div>
                   </td>
-
-                  <!-- DISCOUNT -->
                   <td class="sl-text-end">
                     <div class="qty-stepper" style="justify-content:flex-end;">
                       <button type="button" class="qty-btn qty-ctrl"
@@ -86,34 +75,46 @@
                     </div>
                   </td>
                 </tr>
-                {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="3">No saved materials found for this preset.</td>
-                </tr>
                 {% endfor %}
               </tbody>
             </table>
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+              <h3 class="empty-title">No items in this preset</h3>
+              <p class="empty-text">This preset has no saved materials to edit.</p>
+            </div>
+            {% endif %}
           </div>
+
+          <!-- FORM ACTIONS BELOW TABLE -->
+          <div class="card-body" style="border-top:1px solid var(--border);">
+            <div class="mf-form-actions">
+              <a href="{% url 'material-preset-list' %}" class="btn btn-light">Cancel</a>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle sl-me-1"></i> Save changes
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <!-- RIGHT: PRESET INFO + ACTIONS -->
+      <!-- RIGHT: PRESET SNAPSHOT -->
       <div class="right-panel">
-
-        <!-- PRESET INFO -->
         <div class="card">
           <div class="card-header dark">
-            <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-              <i class="bi bi-bookmark"></i> Preset Info
+            <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+              <i class="bi bi-bookmark-fill"></i> Preset Snapshot
             </span>
           </div>
           <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-            <div class="sd-summary-block">
+            <div class="sd-summary-block highlight">
               <div class="sd-summary-block-label">Preset details</div>
               <div class="sd-info-row">
                 <span class="sd-info-label">Preset ID</span>
-                <span class="sl-badge sl-badge-light">{{ preset.id }}</span>
+                <span class="sd-info-value">#{{ preset.id }}</span>
               </div>
               <div class="sd-info-row">
                 <span class="sd-info-label">Total Items</span>
@@ -122,8 +123,8 @@
             </div>
 
             <!-- PRESET NAME INPUT -->
-            <div>
-              <label class="mf-form-label">Preset Name</label>
+            <div class="sd-summary-block">
+              <div class="sd-summary-block-label">Preset Name</div>
               <input type="text"
                      class="form-control"
                      name="preset_{{ preset.id }}"
@@ -131,22 +132,18 @@
                      placeholder="e.g. Weekly delivery bundle">
             </div>
 
+            <div class="sd-note-box">
+              <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+              <div>
+                <div class="sd-note-title">Tip</div>
+                <div class="sd-note-text">Changes here only affect the preset — not past purchases.</div>
+              </div>
+            </div>
+
           </div>
         </div>
-
-        <!-- ACTIONS -->
-        <div class="card">
-          <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
-            <button type="submit" class="btn btn-primary btn-block">
-              <i class="bi bi-check-circle"></i> Save changes
-            </button>
-            <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-block">
-              Cancel
-            </a>
-          </div>
-        </div>
-
       </div>
+
     </div>
 
   </form>

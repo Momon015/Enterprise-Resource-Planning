@@ -108,10 +108,10 @@
 
           <!-- ACTIONS -->
           <div class="btn-grid">
-            <a href="{% url 'material-detail' material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-detail' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View Detail
             </a>
-            <a href="{% url 'material-update' material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-update' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div>

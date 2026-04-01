@@ -17,7 +17,7 @@
           </div>
         </div>
         <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to list
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to categories
         </a>
       </div>
 
@@ -61,14 +61,14 @@
     <!-- RIGHT: SNAPSHOT -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-          <i class="bi bi-info-circle"></i> Current Values
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+          <i class="bi bi-speedometer2"></i> Category Snapshot
         </span>
       </div>
       <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Category Snapshot</div>
+        <div class="sd-summary-block highlight">
+          <div class="sd-summary-block-label">Current Values</div>
           <div class="sd-info-row">
             <span class="sd-info-label">Name</span>
             <span class="sd-info-value">{{ category.name|capfirst }}</span>
@@ -76,24 +76,22 @@
           <div class="sd-info-row">
             <span class="sd-info-label">Type</span>
             {% if category.category_type == 'item' %}
-              <span class="sl-badge sl-badge-light">Item</span>
+              <span class="status-badge status-success">Item</span>
             {% elif category.category_type == 'product' %}
-              <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+              <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
             {% elif category.category_type == 'expense' %}
-              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+              <span class="status-badge status-warning">Expense</span>
             {% endif %}
           </div>
         </div>
 
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Actions</div>
-          <div class="btn-grid">
-            <a href="{% url 'category-delete' category.id %}" class="btn btn-sm btn-block"
-               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
-              <i class="bi bi-trash sl-me-1"></i> Delete Category
-            </a>
-          </div>
-        </div>
+        {% comment %} <div class="sd-summary-block">
+          <div class="sd-summary-block-label">Danger Zone</div>
+          <a href="{% url 'category-delete' category.id %}" class="btn btn-sm btn-block"
+             style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); width:100%; text-align:center;">
+            <i class="bi bi-trash sl-me-1"></i> Delete Category
+          </a>
+        </div> {% endcomment %}
 
       </div>
     </div>

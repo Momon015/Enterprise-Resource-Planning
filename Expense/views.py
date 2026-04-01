@@ -17,8 +17,8 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem
-from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm, ProductWasteForm, MaterialWasteForm, WasteItemFilterForm
+from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, MiscExpense
+from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm, ProductWasteForm, MaterialWasteForm, WasteItemFilterForm, ExpenseForm, ExpenseFilterForm, MiscExpenseForm, EmployeeFilterForm
 
 from Supplier.models import Material
 from Supplier.forms import MaterialForm
@@ -39,9 +39,11 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg
+from django.db.models import Sum, Avg, Max
 
-from core.utils.owner import get_owner, permission_required
+from user.models import User
+
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user
 
 # logging
 import logging
@@ -53,7 +55,7 @@ logger = logging.getLogger('Expense')
 @login_required(login_url='login')
 @permission_required('owner_only')
 def purchase_history(request):
-    purchases = Purchase.objects.all().order_by('-created_at')
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).order_by('-created_at')
     
     # forms
     form = PurchaseFilterForm(request.GET or None)
@@ -62,6 +64,14 @@ def purchase_history(request):
     total_count = purchases.count()
     total_cost = purchases.purchase_total_cost()
     average_cost = purchases.average_total_cost()
+    
+    now = timezone.now()
+    iso_year, iso_week, iso_weekday = now.isocalendar()
+    today = now.day
+    year = now.year
+    month = now.month
+    
+    current_year = f"{year}-01"
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -100,12 +110,6 @@ def purchase_history(request):
         this year using the timezone.now().
         """
         
-        now = timezone.now()
-        iso_year, iso_week, iso_weekday = now.isocalendar()
-        today = now.day
-        year = now.year
-        month = now.month
-        
         last_year = iso_year - 1
         
         if period == 'last_week':
@@ -137,13 +141,31 @@ def purchase_history(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    context = {'page_obj': purchases, 'page_obj': page_obj, 'total_count': total_count, 'total_cost': total_cost, 'average_cost': average_cost, 'section': 'purchase'}
+    ytd_start = timezone.localdate().replace(month=1, day=1)
+    ytd_spend = purchases.filter(purchase_date__gte=ytd_start).aggregate(total_cost=Sum('total_cost'))['total_cost'] or 0
+    
+    
+    
+    context = {
+        'page_obj': page_obj,      
+        'total_count': total_count, 
+        'total_cost': total_cost, 
+        'average_cost': average_cost, 
+        'ytd_spend': ytd_spend,
+        'current_year': current_year,
+        'section': 'purchase'
+        }
     return render(request, 'Expense/purchase_history.html', context)
 
 @login_required(login_url='login')
 @permission_required('owner_only')
-def purchase_detail(request, purchase_id):
-    purchase = get_object_or_404(Purchase, id=purchase_id)
+def purchase_detail(request, username, purchase_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+    
+    purchase = get_object_or_404(Purchase, user=owner, id=purchase_id)
     purchase_items = purchase.materials.select_related('material')
     line_count = purchase_items.count()
     
@@ -161,9 +183,11 @@ def clear_cart(request):
 """clearing cart just in case there's a bug """
 
 @login_required(login_url='login')
+@permission_required('add')
 def add_to_cart(request, id):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, id=id) 
+    material = get_object_or_404(Material, user=owner, id=id) 
     material_slug = material.slug
     
     material_key = str(material.id) 
@@ -226,14 +250,16 @@ def add_to_cart(request, id):
     return redirect(url)
 
 @login_required(login_url='login')
+@permission_required('view')
 def view_cart(request):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
     subtotal = 0
     total_discount = 0
     cart_items = []
 
     for material_id, data in cart.items():
-        material = get_object_or_404(Material, id=material_id)
+        material = get_object_or_404(Material, user=owner, id=material_id)
         material_slug = material.slug
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
@@ -268,14 +294,16 @@ def view_cart(request):
 
 
 @login_required(login_url='login')
+@permission_required('view')
 def view_cart_summary(request):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
     subtotal = 0
     total_discount = 0
     cart_items = []
     
     for material_id, data in cart.items():
-        material = get_object_or_404(Material, id=material_id)
+        material = get_object_or_404(Material, user=owner, id=material_id)
         material_slug = material.slug
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
@@ -312,20 +340,22 @@ def view_cart_summary(request):
     return render(request, 'Expense/view_cart_summary.html', context)
 
 @login_required(login_url='login')
+@permission_required('update')
 def confirm_purchase_summary(request):
     cart = request.session.get('cart', {})
     lines = request.session.get('lines', 0)
     subtotal = 0
     total_discount = 0
     
+    owner = get_owner(request.user)
+    
     try: 
         with transaction.atomic():
             status, created = StatusModel.objects.get_or_create(name='paid') # cash payment directly so automatically paid
-            owner = get_owner(request.user)
             purchase = Purchase.objects.create(total_cost=0, status=status, user=owner, created_by=request.user)
 
             for material_id, data in cart.items():
-                material = get_object_or_404(Material, id=material_id)
+                material = get_object_or_404(Material, user=owner, id=material_id)
                 str_discount = data.get('discount', 0)
                 discount = Decimal(str_discount)
                 quantity = data['quantity']
@@ -381,14 +411,14 @@ def confirm_purchase_summary(request):
                     actual_unit_cost = Decimal(price * quantity) - discount
                     quantity = quantity * material.piece_per_unit
                 
-                owner = get_owner(request.user)
+                
                 stock, created = Stock.objects.get_or_create(
                     user=owner,
-                    created_by=request.user,
                     material=material,
                     defaults={
                         'quantity': quantity,
-                        'price': actual_unit_cost / quantity
+                        'price': actual_unit_cost / quantity,
+                        'created_by': request.user,
                     }         
                 )
                 
@@ -403,13 +433,12 @@ def confirm_purchase_summary(request):
 
                 product, created = Product.objects.get_or_create(
                     user=owner,
-                    created_by=request.user,
                     material=material,
-                    name=material.name,
                     defaults={
                         'cost_price': actual_unit_cost / quantity,
                         'selling_price': 0.00,
-                        'prepared_quantity': quantity
+                        'prepared_quantity': quantity,
+                        'created_by': request.user,
                     }
                 )
                 
@@ -421,22 +450,22 @@ def confirm_purchase_summary(request):
                     product.prepared_quantity = total_quantity
                     product.cost_price = ((previous_price * previous_qty) + actual_unit_cost) / total_quantity
                     product.save()
+                    
+            # check if there's a discount
+            total_after_discount = max(subtotal - total_discount, 0)
+
+            # save purchase lines - cart length
+            purchase.line_count = lines
+
+            # save the purchase object
+            purchase.total_cost = total_after_discount
+            purchase.save()
 
                 
     except ValidationError:
         messages.error(request, f"Cannot complete the purchase - Insufficient stock.")
         return redirect('material-list')
         
-    # check if there's a discount
-    total_after_discount = max(subtotal - total_discount, 0)
-    
-    # save purchase lines - cart length
-    purchase.line_count = lines
-    
-    # save the purchase object
-    purchase.total_cost = total_after_discount
-    purchase.save()
-    
     # save the purchase ID for ref
     request.session['purchase_id'] = purchase.id
     
@@ -449,7 +478,7 @@ def confirm_purchase_summary(request):
 @login_required(login_url='login')
 def view_purchase_summary(request, purchase_id):
     owner = get_owner(request.user)
-    purchase = get_object_or_404(Purchase, id=purchase_id, user=owner)
+    purchase = get_object_or_404(Purchase, user=owner, id=purchase_id)
     purchase_items = purchase.materials.select_related('material')
     
     total_discount = 0
@@ -467,7 +496,7 @@ def view_purchase_summary(request, purchase_id):
         subtotal += item_total
         
         cart_items.append({
-            'name': item.material.name,
+            'name': item.name,
             'price': item.price,
             'quantity': quantity,
             'item_total': item_total,
@@ -481,8 +510,9 @@ def view_purchase_summary(request, purchase_id):
 
 @login_required(login_url='login')
 def cart_remove_materials(request, id):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, id=id)
+    material = get_object_or_404(Material, user=owner, id=id)
     
     material_key = str(material.id)
     
@@ -495,8 +525,9 @@ def cart_remove_materials(request, id):
 
 @login_required(login_url='login')
 def edit_total_price(request, material_id):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, id=material_id)
+    material = get_object_or_404(Material, user=owner, id=material_id)
     material_key = str(material.id)
     
     if cart:
@@ -517,8 +548,9 @@ def edit_total_price(request, material_id):
 
 @login_required(login_url='login')
 def cart_edit_material(request, id):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, id=id)
+    material = get_object_or_404(Material, user=owner, id=id)
 
     material_key = str(material.id)
     
@@ -544,7 +576,6 @@ def cart_discount_material(request):
     cart = request.session.get('cart', {})
     
     for material_id, data in cart.items():
-
         raw_discount = request.POST.get(f"discount_{material_id}")
         discount_input = Decimal(raw_discount) if raw_discount else 0
         cart[material_id]['discount'] = str(discount_input)
@@ -554,38 +585,63 @@ def cart_discount_material(request):
     
     return redirect('view-cart')
 
-@login_required(login_url='login')  
-def employee_create(request):
-    page = 'employee'
-    
-    if request.method == 'POST':
-        form = EmployeeForm(request.POST)
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.user = request.user
-            obj.save()
+# @login_required(login_url='login')  
+# @permission_required('owner_only')
+# def employee_create(request):
+#     page = 'employee'
+#     owner = get_owner(request.user)
+#     if request.method == 'POST':
+#         form = EmployeeForm(request.POST, user=owner)
+#         if form.is_valid():
+#             obj = form.save(commit=False)
+#             obj.user = request.user
+#             obj.save()
             
-            messages.success(request, f"{obj.name}'s details has successfully created.")
-            return redirect('employee-list')
-        else:
-            print(form.errors)
-    else:
-        form = EmployeeForm()
+#             messages.success(request, f"{obj.name}'s details has successfully created.")
+#             return redirect('employee-list')
+#         else:
+#             print(form.errors)
+#     else:
+#         form = EmployeeForm(user=owner)
 
-    context = {'form': form, 'section': 'employee'}
-    return render(request, 'Expense/employee_create.html', context)
+#     context = {'form': form, 'section': 'employee'}
+#     return render(request, 'Expense/employee_create.html', context)
 
 @login_required(login_url='login')
 @permission_required('owner_only')
 def employee_list(request):
-    employees = Employee.objects.all()
+    employees = get_queryset_for_user(request.user, Employee.objects.all()).order_by('name')
+    
+    form = EmployeeFilterForm(request.GET or None)
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        
+        if search:
+            employees = employees.filter(name__icontains=search)
+            
+    avg_daily_rate = employees.average_daily_rate()
+    total_daily_rate = employees.total_daily_rate()
+    monthly_payroll_est = total_daily_rate * 30
+    
+    pagination = Paginator(employees, 4)
+    page = request.GET.get('page')
+    page_obj = pagination.get_page(page)
 
-    context = {'employees': employees, 'section': 'employee', 'section': 'employee'}
+    context = {
+        'page_obj': page_obj, 
+        'total_daily_rate': total_daily_rate,
+        'avg_daily_rate': avg_daily_rate,
+        'monthly_payroll_est': monthly_payroll_est,
+        'section': 'employee'
+        }
     return render(request, 'Expense/employee_list.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def employee_detail(request, employee_id):
-    employee = get_object_or_404(Employee, id=employee_id)
+    owner = get_owner(request.user)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id)
     
     monthly_rate = employee.daily_rate * 30
     
@@ -594,15 +650,18 @@ def employee_detail(request, employee_id):
     return render(request, 'Expense/employee_detail.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def employee_update(request, employee_id):
-    employee = get_object_or_404(Employee, id=employee_id)
+    owner = get_owner(request.user)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id)
     
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
         
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.user = request.user
+            obj.user = owner
+            obj.created_by = request.user
             obj.save()
             messages.success(request, f"{obj.name}'s details has been updated.")
             return redirect('employee-detail', employee.id)
@@ -615,9 +674,11 @@ def employee_update(request, employee_id):
     return render(request, 'Expense/employee_update.html', context)
 
 @login_required(login_url='login')
+@permission_required('owner_only')
 def employee_delete(request, employee_id):
-    employee = get_object_or_404(Employee, id=employee_id)
-
+    if request.user.role == 'owner':
+        employee = get_object_or_404(Employee, id=employee_id)
+        
     if request.method == 'POST':
         employee.delete()
         messages.success(request, f"{employee.name} - has been deleted from employee record.")
@@ -626,14 +687,19 @@ def employee_delete(request, employee_id):
     return render(request, 'Expense/employee_delete.html', context)
 
 @login_required(login_url='login')
+@permission_required('view') # dev
 def waste_list(request):
-    stocks = Stock.objects.all()
-    wastes = Waste.objects.all().order_by('-date')
+    stocks = get_queryset_for_user(request.user, Stock.objects.all()).order_by('-created_at')
+    wastes = get_queryset_for_user(request.user, Waste.objects.all()).order_by('-date')
+    
     total_waste_cost = wastes.total_waste_cost()
+    max_waste = wastes.aggregate(max=Max('total_cost'))['max'] or 0 
     
     form = WasteItemFilterForm(request.GET or None)
     period = request.GET.get('period')
+    
     now = timezone.now()
+    current_year = f"{now.year}-01"
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -672,89 +738,342 @@ def waste_list(request):
             wastes = wastes.filter(date__day=now.day, date__year=now.year)
         
         total_waste_cost = wastes.total_waste_cost()
-
+        
     pagination = Paginator(wastes, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'page_obj': page_obj, 'total_waste_cost': total_waste_cost, 'stocks': stocks, 'section': 'waste'}
+    context = {
+        'page_obj': page_obj, 
+        'total_waste_cost': total_waste_cost, 
+        'stocks': stocks, 
+        'max_waste': max_waste,
+        'current_year': current_year,
+        'section': 'waste'
+        }
     return render(request, 'Expense/waste_list.html', context)
 
 @login_required(login_url='login')
+@permission_required('add') # dev
 def waste_product_create(request):
+    owner = get_owner(request.user)
     page = 'waste_product' 
     if request.method == 'POST':
-        form = ProductWasteForm(request.POST)
+        form = ProductWasteForm(request.POST, user=owner)
 
         if form.is_valid():
             item = form.save(commit=False)
-            item.user = request.user
+            item.user = owner
             item.product.prepared_quantity -= item.quantity
             item.save()
             messages.success(request, f"{item.product.name} - has been added to expense.")
             return redirect('expense-waste-list')         
     else:
-        form = ProductWasteForm()
+        form = ProductWasteForm(user=owner)
 
     context = {'form': form, 'page': page, 'section': 'waste'}
     return render(request, 'Expense/waste_create.html', context)
 
 @login_required(login_url='login')
+@permission_required('add') # dev
 def waste_material_create(request):
     page = 'waste_material'
     owner = get_owner(request.user)
+    total_cost = 0
     
     if request.method == 'POST':
-        form = MaterialWasteForm(request.POST, user=owner)
-
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.user = request.user
-            
-            stock = Stock.objects.get(user=owner, material=item.material, created_by=request.user)
-            
-            if item.quantity == 0:
-                messages.warning(request, f"Quantity must be greater than 0.")
-                return redirect('view-inventory-stock')
-            
-            # deduct from the stock
-            if stock.quantity >= item.quantity:
-                stock.quantity -= item.quantity
-                stock.save()
-            else:
-                messages.warning(request, f"{stock.material.name} - {stock.quantity} left.")
-                return redirect('view-inventory-stock')
+        selected_ids = request.POST.getlist('waste_expense', [])
+        print(selected_ids)
         
-            # deduct as well for the product
-            product = Product.objects.get(user=owner, material=item.material, created_by=request.user)
-            product.prepared_quantity -= item.quantity
-            product.save()
-
+        if not selected_ids:
+            messages.warning(request, f"You forgot to check the checkbox.")   
+        
+        else:  
             waste = Waste.objects.create(
                 user=owner,
-                total_cost=0,
+                total_cost=Decimal(0),
                 created_by=request.user,
+                
             )
-            waste_cost = stock.price * item.quantity
-            waste.total_cost = waste_cost
+            
+            stocks = Stock.objects.filter(id__in=selected_ids, user=owner)
+            for stock in stocks:
+                price = stock.price
+                raw_quantity = request.POST.get(f"quantity_{stock.id}")
+                quantity = int(raw_quantity)
+                
+                cost = Decimal(price) * quantity
+                total_cost += cost
+
+                if quantity == 0:
+                    pass
+                
+                # deduct from the stock
+                if stock.quantity >= quantity:
+                    stock.quantity -= quantity
+                    stock.save()
+                else:
+                    messages.warning(request, f"{stock.material.name} - {stock.quantity} left.")
+                    return redirect('view-inventory-stock')
+                
+                # deduct as well for the product
+                product = Product.objects.filter(user=owner, material=stock.material).first()
+                if product:
+                    product.prepared_quantity -= quantity
+                    product.save()
+                
+                WasteItem.objects.create(
+                    waste=waste,
+                    material=stock.material,
+                    price=price,
+                    quantity=quantity,
+                )
+
+            waste.total_cost = max(total_cost, 0)
             waste.save()
             
-            waste_item = WasteItem.objects.create(
-                waste=waste,
-                material=item.material,
-                price=stock.price,
-                quantity=item.quantity
-            )
 
-            waste_item.save()
-
-            messages.success(request, f"{item.material.name} has been recorded as waste.")
+        
+            messages.success(request, f"Waste has been created. Please check the waste record.")
             return redirect('expense-waste-list')         
-    else:
-        form = MaterialWasteForm(user=owner)
 
-    context = {'form': form, 'page': page, 'section': 'waste'}
+    stocks = Stock.objects.filter(user=owner)
+
+    context = {'page': page, 'section': 'waste', 'stocks': stocks}
     return render(request, 'Expense/waste_create.html', context)
 
+@login_required(login_url='login')
+@permission_required('view') # dev
+def waste_material_detail(request, username, waste_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+        
+    waste = get_object_or_404(Waste, user=owner, id=waste_id)
+    waste_items = waste.waste_items.select_related('material')
+    
+    context = {'waste': waste, 'section': 'waste', 'waste_items': waste_items}
+    return render(request, 'Expense/waste_detail.html', context)
 
 
+@login_required(login_url='login')
+@permission_required('owner_only')
+def expense_create(request):
+    owner = get_owner(request.user)
+    
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('misc_expense', [])
+        
+        if not selected_ids:
+            messages.warning(request, f"You forgot to check the checkbox.")
+        else:
+            date_str = request.POST.get('date')
+            
+            # validate date
+            try:
+                from datetime import date as date_type
+                expense_date = date_type.fromisoformat(date_str)
+                if expense_date > date_type.today():
+                    messages.error(request, 'Expense date cannot be in the future.')
+                    misc_expense = MiscExpense.objects.filter(user=owner)
+                    return render(request, 'Expense/misc_and_expense_create.html',{
+                        'section': 'expense',
+                        'misc_expenses': misc_expense,
+                    })
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid date. Please select a valid date.')
+                misc_expenses = MiscExpense.objects.filter(user=owner)
+                return render(request, 'Expense/misc_and_expense_create.html', {
+                    'section': 'expense',
+                    'misc_expenses': misc_expenses,
+                })
+                
+            for misc_id in selected_ids:
+                misc = get_object_or_404(MiscExpense, user=owner, id=misc_id)
+                amount = request.POST.get(f"amount_{misc_id}")
+                date = request.POST.get('date')
+                
+                Expense.objects.create(
+                    user=owner,
+                    created_by=request.user,
+                    misc_expense=misc,
+                    name=misc.name,
+                    amount=amount,
+                    date=date,
+                )
+    
+            messages.success(request, 'Expense has been created. Please check the expense record.')
+            return redirect('expense-list')
+        
+    misc_expenses = MiscExpense.objects.filter(user=owner)
+    
+    context = {'section': 'expense', 'misc_expenses': misc_expenses}
+    return render(request, 'Expense/misc_and_expense_create.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def expense_list(request):
+    expenses = get_queryset_for_user(request.user, Expense.objects.all()).order_by('-date')
+    
+    average_amount_cost = expenses.average_amount_cost()
+    total_amount = expenses.total_amount_cost()
+    
+    form = ExpenseFilterForm(request.GET or None)
+    period = request.GET.get('period')
+    now = timezone.now()
+    
+    month = now.month
+    year = now.year
+    current_year = f"{year}-01"
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        select_month = form.cleaned_data.get('select_month')
+        
+        if search:
+            expenses = expenses.filter(
+                Q(amount__iexact=search) |
+                Q(name__iexact=search) |
+                Q(category__name__iexact=search)
+            )
+        
+        if select_month:
+            parsed_date = datetime.strptime(select_month, '%Y-%m')
+            expenses = expenses.filter(date__month=parsed_date.month, date__year=parsed_date.year)
+        
+        if period == 'last_month':
+            
+            if month == 1:
+                last_month = 12
+                last_year = year - 1
+                expenses = expenses.filter(date__month=last_month, date__year=last_year)
+            else:
+                expenses = expenses.filter(date__month=month-1, date__year=year)
+        
+        if period == 'month':
+            expenses = expenses.filter(date__month=month, date__year=year)
+        
+        total_amount = expenses.total_amount_cost()
+    
+    pagination = Paginator(expenses, 8)
+    page = request.GET.get('page')
+    page_obj = pagination.get_page(page)
+    
+    context = {
+        'page_obj': page_obj, 
+        'section': 'expense', 
+        'total_amount': total_amount, 
+        'current_year': current_year,
+        'average_amount_cost': average_amount_cost,
+    }
+    
+    return render(request, 'Expense/expense_list.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def expense_detail(request, username, expense_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+        
+    expense = get_object_or_404(Expense, user=owner, id=expense_id)
+    
+    context = {'expense': expense, 'section': 'expense'}
+    
+    return render(request, 'Expense/expense_detail.html', context)
+
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def misc_expense_list(request):
+    misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).order_by('-created_at')
+    
+    pagination = Paginator(misc_expenses, 5)
+    page = request.GET.get('page')
+    page_obj = pagination.get_page(page)
+    
+    context = {'page_obj': page_obj, 'section': 'expense'}
+    return render(request, 'Expense/misc_expense_list.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def misc_expense_create(request):
+    owner = get_owner(request.user)
+    if request.method == 'POST':
+        form = MiscExpenseForm(request.POST, user=owner)
+        
+        if form.is_valid():
+            misc_expense = form.save(commit=False)
+            misc_expense.user = owner
+            misc_expense.created_by = request.user
+            misc_expense.name = misc_expense.name.title()
+            misc_expense.save()
+            messages.success(request, f"{misc_expense.name} has been added to expense.")
+            return redirect('misc-expense-list')
+        
+    else:
+        form = MiscExpenseForm(user=owner)
+        
+    context = {'form': form, 'section': 'expense'}
+    return render(request, 'Expense/misc_and_expense_create.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def misc_expense_detail(request, username, misc_expense_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+        
+    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    
+    context = {'misc_expense': misc_expense, 'section': 'expense'}
+    
+    return render(request, 'Expense/misc_expense_detail.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def misc_expense_update(request, username, misc_expense_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+        
+    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    
+    if request.method == 'POST':
+        form = MiscExpenseForm(request.POST, instance=misc_expense, user=owner)
+        
+        if form.is_valid():
+            misc_expense = form.save(commit=False)
+            misc_expense.name = misc_expense.name.title()
+            misc_expense.user = owner
+            misc_expense.created_by = request.user
+            misc_expense.save()
+            messages.success(request, f"{misc_expense.name} has been updated.")
+            return redirect('misc-expense-list')
+    
+    else:
+        form = MiscExpenseForm(instance=misc_expense, user=owner)
+    
+    context = {'form': form, 'section': 'expense', 'misc_expense': misc_expense}
+    return render(request, 'Expense/misc_expense_update.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')
+def misc_expense_delete(request, username, misc_expense_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+        
+    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    
+    if request.method == 'POST':
+        misc_expense.delete()
+        messages.success(request, f"{misc_expense.name} has been deleted.")
+        return redirect('misc-expense-list')
+    
+    context = {'misc_expense': misc_expense, 'section': 'expense'}
+    return render(request, 'Expense/misc_expense_delete.html', context)

@@ -1,6 +1,28 @@
 {% extends "main.html" %}
 {% block content %}
 
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
 <div class="mf-page-wrapper">
   <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
@@ -61,7 +83,7 @@
     <!-- RIGHT: GUIDE -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
           <i class="bi bi-info-circle"></i> Category Guide
         </span>
       </div>
@@ -70,19 +92,19 @@
         <div class="sd-summary-block">
           <div class="mf-guide-title">Checklist</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill"></i> Short, clear names e.g. <strong>Beverages</strong>, <strong>Snacks</strong>.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Avoid duplicates — check the list before adding.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Short, clear names e.g. <strong>Beverages</strong>, <strong>Snacks</strong>.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Avoid duplicates — check the list before adding.</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Category Type</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Item</strong> — for supplier purchases and stock.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Product</strong> — for items you sell to customers.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Expense</strong> — for misc expenses like VAT, permits.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Item</strong> — for supplier purchases and stock.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Product</strong> — for items you sell to customers.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Expense</strong> — for misc expenses like VAT, permits.</li>
             {% comment %} RESTAURANT PHASE — material category
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> <strong>Material</strong> — for raw ingredients.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Material</strong> — for raw ingredients.</li>
             {% endcomment %}
           </ul>
         </div>

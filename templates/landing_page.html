@@ -1,0 +1,1625 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Swift ERP — Enterprise Resource Planning</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:        #2d6a4f;
+      --accent-hover:  #235c40;
+      --accent-light:  #e8f5ee;
+      --accent-border: #b7dfca;
+      --text:          #1a1a18;
+      --muted:         #6b7280;
+      --border:        #e5e7eb;
+      --bg:            #f4f6fa;
+      --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font); color: var(--text); background: #fff; overflow-x: hidden; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes iconPop {
+      0%   { transform: scale(0.6); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .anim-1 { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) 0.05s both; }
+    .anim-2 { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) 0.15s both; }
+    .anim-3 { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) 0.25s both; }
+    .anim-4 { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) 0.35s both; }
+    .anim-5 { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) 0.45s both; }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── NAV ── */
+    .lp-nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2.5rem; height: 62px;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .lp-brand {
+      display: flex; align-items: center; gap: 0.6rem;
+      text-decoration: none;
+    }
+
+    .lp-brand-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
+      box-shadow: 0 4px 14px rgba(45,106,79,0.3);
+    }
+
+    .lp-brand-name {
+      font-size: 1rem; font-weight: 800;
+      color: var(--text); letter-spacing: -0.02em;
+    }
+
+    .lp-brand-name em { color: var(--accent); font-style: normal; }
+
+    .lp-brand-badge {
+      font-size: 0.6rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      background: var(--accent-light); color: var(--accent);
+      border: 1px solid var(--accent-border);
+      padding: 0.15rem 0.45rem; border-radius: 99px;
+    }
+
+    .lp-nav-links {
+      display: flex; align-items: center; gap: 0.25rem; list-style: none;
+    }
+
+    .lp-nav-links a {
+      font-size: 0.875rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .lp-nav-links a:hover { background: var(--bg); color: var(--text); }
+
+    .lp-nav-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+    /* mobile hamburger */
+    .lp-hamburger {
+      display: none; background: none; border: none;
+      font-size: 1.4rem; color: var(--text); cursor: pointer; padding: 0.25rem;
+    }
+
+    .lp-mobile-menu {
+      display: none; flex-direction: column; gap: 0;
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1.25rem 1rem;
+    }
+
+    .lp-mobile-menu.open { display: flex; }
+
+    .lp-mobile-menu a {
+      font-size: 0.9375rem; font-weight: 500; color: var(--text);
+      text-decoration: none; padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .lp-mobile-menu a:last-child { border-bottom: none; }
+
+    /* ── BUTTONS ── */
+    .btn-lp {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1.1rem; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600;
+      text-decoration: none; cursor: pointer; border: none;
+      transition: all 0.15s; font-family: var(--font);
+    }
+
+    .btn-accent {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 4px 14px rgba(45,106,79,0.25);
+    }
+    .btn-accent:hover {
+      background: var(--accent-hover); color: #fff;
+      transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,106,79,0.3);
+    }
+
+    .btn-outline {
+      background: transparent; color: var(--accent);
+      border: 1.5px solid var(--accent-border);
+    }
+    .btn-outline:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+    .btn-ghost {
+      background: transparent; color: var(--muted);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+    .btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; border-radius: 10px; }
+
+    .btn-white {
+      background: #fff; color: var(--accent);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    .btn-white:hover { background: var(--accent-light); color: var(--accent-hover); transform: translateY(-1px); }
+
+    .btn-white-ghost {
+      background: transparent; color: rgba(255,255,255,0.85);
+      border: 1.5px solid rgba(255,255,255,0.3);
+    }
+    .btn-white-ghost:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+
+    /* ── HERO ── */
+    .lp-hero {
+      text-align: center; padding: 6rem 1.5rem 4rem;
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(45,106,79,0.07) 0%, transparent 70%);
+      position: relative; overflow: hidden;
+    }
+
+    .lp-eyebrow {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: var(--accent-light); color: var(--accent);
+      border: 1px solid var(--accent-border);
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.35rem 0.875rem; border-radius: 99px;
+      margin-bottom: 1.5rem;
+    }
+
+    .lp-hero h1 {
+      font-size: clamp(2.25rem, 5.5vw, 3.75rem);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -0.03em; color: var(--text);
+      max-width: 760px; margin: 0 auto 1.25rem;
+    }
+
+    .lp-hero h1 .grad {
+      background: linear-gradient(135deg, #2d6a4f 0%, #52b788 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .lp-hero p {
+      font-size: 1.0625rem; color: var(--muted);
+      max-width: 520px; margin: 0 auto 2.25rem; line-height: 1.7;
+    }
+
+    .lp-hero-actions {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0.875rem; flex-wrap: wrap;
+    }
+
+    .lp-hero-trust {
+      margin-top: 1.25rem;
+      font-size: 0.8rem; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      gap: 1.25rem; flex-wrap: wrap;
+    }
+
+    .lp-hero-trust span {
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+
+    .lp-hero-trust i { color: var(--accent); }
+
+    /* ── MOCKUP ── */
+    .lp-mockup-wrap {
+      max-width: 900px; margin: 3.5rem auto 0;
+      padding: 0 1rem;
+    }
+
+    .lp-mockup {
+      background: #0f1117; border-radius: 14px 14px 0 0;
+      padding: 0.625rem 0.875rem 0;
+      box-shadow: 0 28px 64px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.06);
+    }
+
+    .lp-mockup-bar {
+      display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem;
+    }
+
+    .lp-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .lp-mockup-screen {
+      background: var(--bg); border-radius: 6px 6px 0 0;
+      overflow: hidden; display: grid;
+      grid-template-columns: 155px 1fr; height: 340px;
+    }
+
+    .lp-mock-sidebar {
+      background: #0f1117; padding: 0.875rem 0.625rem;
+      display: flex; flex-direction: column; gap: 0.15rem;
+      overflow: hidden;
+    }
+
+    .lp-mock-brand {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.25rem 0.4rem 0.625rem;
+    }
+
+    .lp-mock-brand-icon {
+      width: 20px; height: 20px; border-radius: 5px;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.6rem;
+    }
+
+    .lp-mock-brand-text { font-size: 0.6rem; font-weight: 700; color: #fff; }
+
+    .lp-mock-section { font-size: 0.45rem; font-weight: 700; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.5rem 0.4rem 0.2rem; }
+
+    .lp-mock-item {
+      display: flex; align-items: center; gap: 0.35rem;
+      padding: 0.28rem 0.4rem; border-radius: 4px;
+      font-size: 0.575rem; color: rgba(255,255,255,0.5);
+    }
+
+    .lp-mock-item.active { background: var(--accent); color: #fff; }
+    .lp-mock-item i { font-size: 0.6rem; }
+
+    .lp-mock-main {
+      padding: 0.875rem; display: flex; flex-direction: column; gap: 0.6rem; overflow: hidden;
+    }
+
+    .lp-mock-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+    }
+
+    .lp-mock-title { font-size: 0.75rem; font-weight: 700; color: var(--text); }
+    .lp-mock-sub   { font-size: 0.5rem;  color: var(--muted); margin-top: 0.1rem; }
+
+    .lp-mock-btn {
+      background: var(--accent); color: #fff;
+      font-size: 0.475rem; font-weight: 600;
+      padding: 0.25rem 0.5rem; border-radius: 4px;
+      display: flex; align-items: center; gap: 0.2rem;
+    }
+
+    .lp-mock-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem;
+    }
+
+    .lp-mock-stat {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.4rem 0.5rem;
+    }
+
+    .lp-mock-stat-lbl { font-size: 0.44rem; color: var(--muted); }
+    .lp-mock-stat-val { font-size: 0.7rem; font-weight: 700; color: var(--text); margin-top: 0.1rem; }
+    .lp-mock-stat-val.green { color: var(--accent); }
+    .lp-mock-stat-val.red   { color: #dc2626; }
+
+    .lp-mock-table {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 6px; overflow: hidden; flex: 1;
+    }
+
+    .lp-mock-thead {
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 0.25rem 0.6rem; gap: 0.25rem;
+    }
+
+    .lp-mock-th { font-size: 0.43rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .lp-mock-row {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 0.3rem 0.6rem; gap: 0.25rem;
+      border-bottom: 1px solid var(--border); align-items: center;
+    }
+
+    .lp-mock-row:last-child { border-bottom: none; }
+    .lp-mock-cell { font-size: 0.5rem; color: var(--text); }
+    .lp-mock-cell.m { color: var(--muted); }
+
+    .lp-mock-pill {
+      display: inline-block; font-size: 0.4rem; font-weight: 600;
+      padding: 0.1rem 0.3rem; border-radius: 3px;
+    }
+
+    .mp-g { background: #f0fdf4; color: var(--accent); }
+    .mp-r { background: #fef2f2; color: #dc2626; }
+    .mp-w { background: #fffbeb; color: #d97706; }
+
+    /* ── STATS BANNER ── */
+    .lp-stats-banner {
+      background: var(--accent);
+      padding: 2.5rem 1.5rem;
+    }
+
+    .lp-stats-inner {
+      max-width: 900px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; text-align: center;
+    }
+
+    .lp-stat-num { font-size: 2rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; line-height: 1; }
+    .lp-stat-lbl { font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 0.35rem; }
+
+    /* ── SECTION WRAPPER ── */
+    .lp-section {
+      padding: 5rem 1.5rem; max-width: 1100px; margin: 0 auto;
+    }
+
+    .lp-section-label {
+      font-size: 0.75rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+    }
+
+    .lp-section-title {
+      font-size: clamp(1.6rem, 3vw, 2.25rem);
+      font-weight: 800; letter-spacing: -0.025em;
+      color: var(--text); margin-bottom: 0.75rem; line-height: 1.2;
+    }
+
+    .lp-section-sub {
+      font-size: 1rem; color: var(--muted);
+      max-width: 520px; line-height: 1.7; margin-bottom: 3rem;
+    }
+
+    /* ── FEATURES ── */
+    .lp-features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem;
+    }
+
+    .lp-feature-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.5rem;
+      transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+    }
+
+    .lp-feature-card:hover {
+      box-shadow: 0 10px 32px rgba(0,0,0,0.08);
+      transform: translateY(-3px); border-color: var(--accent-border);
+    }
+
+    .lp-feature-icon {
+      width: 44px; height: 44px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; margin-bottom: 1rem;
+    }
+
+    .ic-green  { background: var(--accent-light); color: var(--accent); }
+    .ic-blue   { background: #eff6ff;             color: #2563eb; }
+    .ic-teal   { background: #f0fdfa;             color: #0d9488; }
+    .ic-yellow { background: #fffbeb;             color: #d97706; }
+    .ic-red    { background: #fef2f2;             color: #dc2626; }
+    .ic-rose   { background: #fff1f2;             color: #e11d48; }
+    .ic-purple { background: #f5f3ff;             color: #7c3aed; }
+    .ic-amber  { background: #fef9c3;             color: #b45309; }
+    .ic-slate  { background: #f1f5f9;             color: #475569; }
+
+    .lp-feature-title { font-size: 0.9375rem; font-weight: 700; color: var(--text); margin-bottom: 0.4rem; }
+    .lp-feature-desc  { font-size: 0.8375rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── ROLES ── */
+    .lp-roles-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem;
+    }
+
+    .lp-role-card {
+      border-radius: 14px; padding: 1.75rem;
+      border: 1px solid var(--border); background: #fff;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .lp-role-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.07); transform: translateY(-2px); }
+
+    .lp-role-card.featured {
+      background: var(--accent); border-color: var(--accent);
+    }
+
+    .lp-role-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; margin-bottom: 0.875rem;
+    }
+
+    .lp-role-name { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-bottom: 0.35rem; }
+    .lp-role-desc { font-size: 0.8375rem; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+
+    .lp-role-card.featured .lp-role-name,
+    .lp-role-card.featured .lp-role-desc { color: rgba(255,255,255,0.9); }
+
+    .lp-role-perms { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+
+    .lp-perm {
+      font-size: 0.8125rem; color: var(--text);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .lp-perm i.yes { color: var(--accent); font-size: 0.75rem; }
+    .lp-perm i.no  { color: #dc2626;       font-size: 0.75rem; }
+
+    .lp-role-card.featured .lp-perm { color: rgba(255,255,255,0.85); }
+    .lp-role-card.featured .lp-perm i.yes { color: rgba(255,255,255,0.8); }
+    .lp-role-card.featured .lp-perm i.no  { color: rgba(255,100,100,0.8); }
+
+    /* ── MODULES ── */
+    .lp-modules-bg { background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .lp-modules-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+    }
+
+    .lp-module-pill {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.875rem 1rem;
+      display: flex; align-items: center; gap: 0.625rem;
+      font-size: 0.875rem; font-weight: 600; color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .lp-module-pill:hover { border-color: var(--accent-border); box-shadow: 0 2px 12px rgba(45,106,79,0.1); }
+    .lp-module-pill i { font-size: 1rem; color: var(--accent); }
+
+    /* ── HOW IT WORKS ── */
+    .lp-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+    .lp-step {
+      text-align: center; padding: 2rem 1.5rem;
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; position: relative;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .lp-step:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.07); transform: translateY(-2px); }
+
+    .lp-step-num {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--accent-light); color: var(--accent);
+      border: 2px solid var(--accent-border);
+      font-size: 1.1rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+    }
+
+    .lp-step-title { font-size: 0.9375rem; font-weight: 700; color: var(--text); margin-bottom: 0.5rem; }
+    .lp-step-desc  { font-size: 0.8375rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── CONTACT ── */
+    .lp-contact-bg { background: var(--bg); border-top: 1px solid var(--border); }
+
+    .lp-contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start;
+    }
+
+    .lp-contact-item {
+      display: flex; align-items: flex-start; gap: 1rem;
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem; margin-bottom: 0.875rem;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .lp-contact-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); border-color: var(--accent-border); }
+    .lp-contact-item:last-child { margin-bottom: 0; }
+
+    .lp-contact-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: var(--accent-light); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .lp-contact-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+    .lp-contact-value { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+    .lp-contact-value a { color: var(--accent); text-decoration: none; }
+    .lp-contact-value a:hover { text-decoration: underline; }
+
+    .lp-contact-note {
+      font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; line-height: 1.5;
+    }
+
+    .lp-contact-form-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; padding: 2rem;
+    }
+
+    .lp-form-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem; }
+    .lp-form-sub   { font-size: 0.8375rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+
+    .lp-field { margin-bottom: 1rem; }
+
+    .lp-field label {
+      display: block; font-size: 0.8125rem; font-weight: 600;
+      color: var(--text); margin-bottom: 0.35rem;
+    }
+
+    .lp-field input,
+    .lp-field textarea {
+      width: 100%; padding: 0.625rem 0.875rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 0.875rem; font-family: var(--font); color: var(--text);
+      background: var(--bg); transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+
+    .lp-field input:focus,
+    .lp-field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.1);
+      background: #fff;
+    }
+
+    .lp-field textarea { resize: vertical; min-height: 100px; }
+
+    /* ── CTA BANNER ── */
+    .lp-cta {
+      background: linear-gradient(135deg, #1a3d2b 0%, var(--accent) 60%, #3a8c65 100%);
+      padding: 5rem 1.5rem; text-align: center; position: relative; overflow: hidden;
+    }
+
+    .lp-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .lp-cta-inner { position: relative; }
+
+    .lp-cta h2 {
+      font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 800;
+      color: #fff; letter-spacing: -0.025em; margin-bottom: 0.875rem;
+    }
+
+    .lp-cta p {
+      font-size: 1rem; color: rgba(255,255,255,0.75);
+      max-width: 480px; margin: 0 auto 2rem; line-height: 1.7;
+    }
+
+    .lp-cta-actions { display: flex; align-items: center; justify-content: center; gap: 0.875rem; flex-wrap: wrap; }
+
+    /* ── FOOTER ── */
+    .lp-footer {
+      background: #0f1117;
+      padding: 3rem 2rem 2rem;
+    }
+
+    .lp-footer-grid {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 2.5rem; padding-bottom: 2.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .lp-footer-brand-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; margin-bottom: 0.75rem;
+    }
+
+    .lp-footer-brand-name {
+      font-size: 1rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 0.5rem;
+    }
+
+    .lp-footer-brand-desc { font-size: 0.8125rem; color: rgba(255,255,255,0.45); line-height: 1.6; }
+
+    .lp-footer-col-title {
+      font-size: 0.75rem; font-weight: 700; color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem;
+    }
+
+    .lp-footer-links { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .lp-footer-links a {
+      font-size: 0.875rem; color: rgba(255,255,255,0.55);
+      text-decoration: none; transition: color 0.15s;
+    }
+
+    .lp-footer-links a:hover { color: #fff; }
+
+    .lp-footer-bottom {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
+    }
+
+    .lp-footer-copy { font-size: 0.8125rem; color: rgba(255,255,255,0.35); }
+
+    .lp-footer-socials { display: flex; align-items: center; gap: 0.5rem; }
+
+    .lp-social-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55);
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none; font-size: 0.9rem;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .lp-social-btn:hover { background: var(--accent); color: #fff; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .lp-features-grid { grid-template-columns: repeat(2, 1fr); }
+      .lp-roles-grid    { grid-template-columns: 1fr; }
+      .lp-modules-grid  { grid-template-columns: repeat(2, 1fr); }
+      .lp-steps         { grid-template-columns: 1fr; }
+      .lp-contact-grid  { grid-template-columns: 1fr; }
+      .lp-footer-grid   { grid-template-columns: 1fr 1fr; }
+      .lp-stats-inner   { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .lp-nav { padding: 0 1.25rem; }
+      .lp-nav-links { display: none; }
+      .lp-nav-actions .btn-outline { display: none; }
+      .lp-hamburger { display: block; }
+      .lp-features-grid { grid-template-columns: 1fr; }
+      .lp-modules-grid  { grid-template-columns: repeat(2, 1fr); }
+      .lp-footer-grid   { grid-template-columns: 1fr; }
+      .lp-stats-inner   { grid-template-columns: repeat(2, 1fr); }
+      .lp-mockup-screen { grid-template-columns: 1fr; }
+      .lp-mock-sidebar  { display: none; }
+      .lp-mock-stats    { grid-template-columns: repeat(2, 1fr); }
+      .lp-footer-bottom { flex-direction: column; text-align: center; }
+    }
+
+    /* ── PRICING ── */
+
+    /* Billing toggle */
+
+    .lp-billing-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .lp-billing-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .lp-billing-save-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: #dcfce7;
+        color: #16a34a;
+        padding: 0.2rem 0.5rem;
+        border-radius: 99px;
+        letter-spacing: 0.02em;
+    }
+
+    .lp-toggle-btn {
+        width: 44px;
+        height: 24px;
+        border-radius: 99px;
+        border: none;
+        background: var(--border);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.25s;
+        padding: 0;
+    }
+
+    .lp-toggle-btn.active { background: #3b82f6; }
+
+    .lp-toggle-knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.25s;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+        .lp-toggle-btn.active .lp-toggle-knob { transform: translateX(20px); }
+
+        .lp-pricing-yearly-note {
+        font-size: 0.775rem;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+        margin-top: -0.25rem;
+    }
+
+        .lp-save-tag {
+        display: inline-block;
+        background: #dcfce7;
+        color: #16a34a;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.15rem 0.45rem;
+        border-radius: 99px;
+    }
+
+        .lp-pricing-bg {
+        background: var(--bg);
+        padding: 5rem 1.5rem;
+    }
+
+    .lp-pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        max-width: 1000px;
+        margin: 3rem auto 0;
+        align-items: start;
+    }
+
+    .lp-pricing-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem 1.75rem;
+        position: relative;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .lp-pricing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    }
+
+    .lp-pricing-featured {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+        transform: translateY(-8px);
+    }
+
+    .lp-pricing-featured:hover {
+        transform: translateY(-12px);
+    }
+
+    .lp-pricing-badge {
+        display: inline-block;
+        background: #3b82f6;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0.25rem 0.65rem;
+        border-radius: 99px;
+        margin-bottom: 1rem;
+    }
+
+    .lp-pricing-name {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 0.35rem;
+    }
+
+    .lp-pricing-price {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .lp-pricing-price span {
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--muted);
+    }
+
+    .lp-pricing-desc {
+        font-size: 0.8375rem;
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1.25rem;
+    }
+
+    .lp-pricing-features {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .lp-pricing-features li {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8375rem;
+        color: var(--text);
+    }
+
+    .lp-pricing-features li i {
+        color: #22c55e;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+    }
+
+    .lp-pricing-no {
+        color: var(--muted) !important;
+    }
+
+    .lp-pricing-no i {
+        color: var(--muted) !important;
+    }
+
+    @media (max-width: 900px) {
+    .lp-pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+    }
+
+    .lp-pricing-featured {
+        transform: none;
+        order: -1;
+    }
+    
+    }
+
+    .lp-pricing-terms {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        max-width: 680px;
+        margin: 2rem auto 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.875rem 1.125rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.6;
+    }
+
+    .lp-pricing-terms i {
+        font-size: 0.95rem;
+        color: var(--accent);
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+        .lp-pricing-terms strong {
+        color: var(--text);
+    }
+
+    .lp-terms-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .lp-terms-link:hover { text-decoration: underline; }
+
+
+    
+  </style>
+</head>
+<body>
+
+<!-- ──  DESKTOP NAV ── -->
+<nav class="lp-nav">
+  <a class="lp-brand" href="#">
+    <div class="lp-brand-icon"><i class="bi bi-layers-fill"></i></div>
+    <div class="lp-brand-name">Swift <em>ERP</em></div>
+    <span class="lp-brand-badge">SaaS</span>
+  </a>
+
+  <ul class="lp-nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#roles">Roles</a></li>
+    <li><a href="#modules">Modules</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+
+  <div class="lp-nav-actions">
+    <a href="{% url 'login' %}" class="btn-lp btn-outline">Sign in</a>
+    <a href="{% url 'register-form' %}" class="btn-lp btn-accent">Get Started</a>
+    <button class="lp-hamburger" id="hamburgerBtn" aria-label="Open menu">
+      <i class="bi bi-list"></i>
+    </button>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="lp-mobile-menu" id="mobileMenu">
+  <a href="#features">Features</a>
+  <a href="#how-it-works">How it works</a>
+  <a href="#roles">Roles</a>
+  <a href="#modules">Modules</a>
+  <a href="#pricing">Pricing</a> 
+  <a href="#contact">Contact</a>
+  <a href="{% url 'login' %}">Sign in</a>
+  <a href="{% url 'register-form' %}">Get Started →</a>
+</div>
+
+
+<!-- ── HERO ── -->
+<section class="lp-hero">
+
+  <div class="lp-eyebrow anim-1">
+    <i class="bi bi-lightning-charge-fill"></i> Built for small business owners
+  </div>
+
+  <h1 class="anim-2">
+    Run your business.<br><span class="grad">Not your spreadsheets.</span>
+  </h1>
+
+  <p class="anim-3">
+    Swift ERP is a complete web-based system for managing sales, inventory, purchases, expenses, employees, and more — built for owners who want clarity, not complexity.
+  </p>
+
+  <div class="lp-hero-actions anim-4">
+    <a href="{% url 'register-form' %}" class="btn-lp btn-accent btn-lg">
+      <i class="bi bi-rocket-takeoff"></i> Start for free
+    </a>
+    <a href="{% url 'login' %}" class="btn-lp btn-ghost btn-lg">
+      <i class="bi bi-box-arrow-in-right"></i> Sign in
+    </a>
+  </div>
+
+  <div class="lp-hero-trust anim-5">
+    <span><i class="bi bi-shield-check"></i> OTP-verified accounts</span>
+    <span><i class="bi bi-globe"></i> 100% web-based</span>
+    <span><i class="bi bi-people"></i> Multi-user with roles</span>
+    <span><i class="bi bi-credit-card"></i> No credit card required</span>
+  </div>
+
+  <!-- MOCKUP -->
+  <div class="lp-mockup-wrap anim-5">
+    <div class="lp-mockup">
+      <div class="lp-mockup-bar">
+        <div class="lp-dot" style="background:#ff5f57;"></div>
+        <div class="lp-dot" style="background:#febc2e;"></div>
+        <div class="lp-dot" style="background:#28c840;"></div>
+      </div>
+      <div class="lp-mockup-screen">
+        <!-- Sidebar -->
+        <div class="lp-mock-sidebar">
+          <div class="lp-mock-brand">
+            <div class="lp-mock-brand-icon"><i class="bi bi-layers-fill"></i></div>
+            <div class="lp-mock-brand-text">Swift ERP</div>
+          </div>
+          <div class="lp-mock-section">Main</div>
+          <div class="lp-mock-item active"><i class="bi bi-speedometer2"></i> Dashboard</div>
+          <div class="lp-mock-item"><i class="bi bi-calendar-check"></i> Summary</div>
+          <div class="lp-mock-item"><i class="bi bi-wallet2"></i> Expenses</div>
+          <div class="lp-mock-section">Transactions</div>
+          <div class="lp-mock-item"><i class="bi bi-cash-coin"></i> Sales</div>
+          <div class="lp-mock-item"><i class="bi bi-receipt"></i> Purchases</div>
+          <div class="lp-mock-item"><i class="bi bi-recycle"></i> Waste & Loss</div>
+          <div class="lp-mock-section">Catalog</div>
+          <div class="lp-mock-item"><i class="bi bi-basket"></i> Products</div>
+          <div class="lp-mock-item"><i class="bi bi-building"></i> Suppliers</div>
+          <div class="lp-mock-item"><i class="bi bi-box"></i> Inventory</div>
+          <div class="lp-mock-section">HR</div>
+          <div class="lp-mock-item"><i class="bi bi-people"></i> Employees</div>
+        </div>
+        <!-- Main -->
+        <div class="lp-mock-main">
+            <div class="lp-mock-header">
+                <div>
+                <div class="lp-mock-title">Today's Overview</div>
+                <div class="lp-mock-sub">April 01, 2026 — Wednesday</div>
+                </div>
+                <div style="display:flex; gap:0.25rem;">
+                <div class="lp-mock-btn" style="background:var(--accent); color:#fff;"><i class="bi bi-plus-lg"></i> New Sale</div>
+                <div class="lp-mock-btn"><i class="bi bi-plus-lg"></i> New Purchase</div>
+                </div>
+            </div>
+
+            <!-- 6 STAT CARDS -->
+            <div class="lp-mock-stats" style="grid-template-columns: repeat(6,1fr); gap:0.3rem;">
+                <div class="lp-mock-stat">
+                <div class="lp-mock-stat-lbl">Revenue</div>
+                <div class="lp-mock-stat-val green">₱207</div>
+                </div>
+                <div class="lp-mock-stat">
+                <div class="lp-mock-stat-lbl">Material Cost</div>
+                <div class="lp-mock-stat-val red">₱275</div>
+                </div>
+                <div class="lp-mock-stat">
+                <div class="lp-mock-stat-lbl">Waste Cost</div>
+                <div class="lp-mock-stat-val red">₱440</div>
+                </div>
+                <div class="lp-mock-stat">
+                <div class="lp-mock-stat-lbl">Labor Cost</div>
+                <div class="lp-mock-stat-val red">₱400</div>
+                </div>
+                <div class="lp-mock-stat">
+                <div class="lp-mock-stat-lbl">Expense Cost</div>
+                <div class="lp-mock-stat-val">₱0</div>
+                </div>
+                <div class="lp-mock-stat" style="background:var(--danger-light, #fef2f2);">
+                <div class="lp-mock-stat-lbl">Net Profit</div>
+                <div class="lp-mock-stat-val red">₱-908</div>
+                </div>
+            </div>
+
+            <!-- BOTTOM: CHART + RIGHT PANEL -->
+            <div style="display:grid; grid-template-columns: 1fr 90px; gap:0.4rem; margin-top:0.4rem;">
+
+                <!-- LEFT: REVENUE TREND -->
+                <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.4rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                    <div style="font-size:0.5rem; font-weight:700; color:var(--text);">Revenue Trend</div>
+                    <div style="font-size:0.42rem; color:var(--muted);">Last 30 days</div>
+                </div>
+                <!-- Simplified line chart using CSS -->
+                <div style="height:32px; display:flex; align-items:flex-end; gap:1px; padding: 0 2px;">
+                    {% for i in "1111111111111111111111111111" %}
+                    <div style="flex:1; background:var(--accent); opacity:0.15; border-radius:1px; height:2px;"></div>
+                    {% endfor %}
+                    <div style="flex:1; background:var(--accent); border-radius:1px; height:20px;"></div>
+                    <div style="flex:1; background:var(--accent); border-radius:1px; height:14px;"></div>
+                </div>
+                <div style="font-size:0.4rem; color:var(--muted); margin-top:0.2rem; display:flex; justify-content:space-between;">
+                    <span>Mar 03</span><span>Mar 15</span><span>Mar 30</span>
+                </div>
+                </div>
+
+                <!-- RIGHT PANEL -->
+                <div style="display:flex; flex-direction:column; gap:0.3rem;">
+
+                <!-- DONUT CHART (CSS) -->
+                <div style="background:#0f1117; border-radius:6px; padding:0.4rem; text-align:center;">
+                    <div style="font-size:0.45rem; font-weight:700; color:#fff; margin-bottom:0.3rem;">Cost Breakdown</div>
+                    <div style="width:36px; height:36px; border-radius:50%; background: conic-gradient(#f97316 0% 25%, #ef4444 25% 60%, #6366f1 60% 90%, #ec4899 90% 100%); margin:0 auto;"></div>
+                    <div style="display:flex; flex-wrap:wrap; gap:0.2rem; margin-top:0.25rem; justify-content:center;">
+                    <span style="font-size:0.38rem; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:1px;"><span style="width:4px;height:4px;border-radius:50%;background:#f97316;display:inline-block;"></span>Mat</span>
+                    <span style="font-size:0.38rem; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:1px;"><span style="width:4px;height:4px;border-radius:50%;background:#ef4444;display:inline-block;"></span>Waste</span>
+                    <span style="font-size:0.38rem; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:1px;"><span style="width:4px;height:4px;border-radius:50%;background:#6366f1;display:inline-block;"></span>Labor</span>
+                    </div>
+                </div>
+
+                    <!-- DAY SUMMARY -->
+                 <div style="background:#0f1117; border-radius:6px; padding:0.4rem; flex:1;">
+                   <div style="font-size:0.45rem; font-weight:700; color:#fff; margin-bottom:0.25rem;">Day Summary</div>
+                     <div style="font-size:0.38rem; color:rgba(255,255,255,0.4); margin-bottom:0.1rem;">NET PROFIT</div>
+                       <div style="font-size:0.6rem; font-weight:800; color:#ef4444; margin-bottom:0.3rem;">₱-908</div>
+                         <div style="display:flex; flex-direction:column; gap:0.15rem;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                                <span style="color:rgba(255,255,255,0.5);">Sales</span>
+                                <span style="color:#fff;">3</span>
+                            </div>
+
+                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                                <span style="color:rgba(255,255,255,0.5);">Purchases</span>
+                                <span style="color:#fff;">3</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                                <span style="color:rgba(255,255,255,0.5);">Waste</span>
+                                <span style="color:#ef4444;">1</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                                <span style="color:rgba(255,255,255,0.5);">Staff on Shift</span>
+                                <span style="color:#fff;">1</span>
+                            </div>
+                        </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── STATS BANNER ── -->
+<div class="lp-stats-banner">
+  <div class="lp-stats-inner">
+    <div class="reveal">
+      <div class="lp-stat-num">9+</div>
+      <div class="lp-stat-lbl">Core modules</div>
+    </div>
+    <div class="reveal">
+      <div class="lp-stat-num">3</div>
+      <div class="lp-stat-lbl">Access roles</div>
+    </div>
+    <div class="reveal">
+      <div class="lp-stat-num">100%</div>
+      <div class="lp-stat-lbl">Web-based</div>
+    </div>
+    <div class="reveal">
+      <div class="lp-stat-num">OTP</div>
+      <div class="lp-stat-lbl">Secure sign-up</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── HOW IT WORKS ── -->
+<section class="lp-section" id="how-it-works">
+  <div class="lp-section-label">How it works</div>
+  <h2 class="lp-section-title">Up and running in minutes</h2>
+  <p class="lp-section-sub">No installation, no setup headaches. Create an account, add your products, and start selling.</p>
+
+  <div class="lp-steps">
+    <div class="lp-step reveal">
+      <div class="lp-step-num">1</div>
+      <div class="lp-step-title">Create your account</div>
+      <div class="lp-step-desc">Register as an owner. Verify your email via OTP and your account is ready. Invite staff members by sharing your username with them.</div>
+    </div>
+    <div class="lp-step reveal">
+      <div class="lp-step-num">2</div>
+      <div class="lp-step-title">Set up your catalog</div>
+      <div class="lp-step-desc">Add your products, categories, and suppliers. Set prices, cost, and link materials to your inventory for real-time stock tracking.</div>
+    </div>
+    <div class="lp-step reveal">
+      <div class="lp-step-num">3</div>
+      <div class="lp-step-title">Run your operations</div>
+      <div class="lp-step-desc">Start a sale session, log expenses, record purchases, track waste, and review your daily profit summary — all in one place.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── FEATURES ── -->
+<section class="lp-section" id="features" style="padding-top: 0;">
+  <div class="lp-section-label">Features</div>
+  <h2 class="lp-section-title">Everything you need to operate</h2>
+  <p class="lp-section-sub">From ringing up a sale to reviewing end-of-day profits — Swift ERP covers the full business cycle.</p>
+
+  <div class="lp-features-grid">
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-blue"><i class="bi bi-cash-coin"></i></div>
+      <div class="lp-feature-title">Point of Sale</div>
+      <div class="lp-feature-desc">Create sessions, add products, apply discounts, and close with a full revenue summary including employee shift cost.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-teal"><i class="bi bi-box-seam"></i></div>
+      <div class="lp-feature-title">Inventory Tracking</div>
+      <div class="lp-feature-desc">Monitor raw material stock levels in real time. Know what's running low before it impacts your operations.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-yellow"><i class="bi bi-receipt"></i></div>
+      <div class="lp-feature-title">Purchase Management</div>
+      <div class="lp-feature-desc">Record supplier purchases with a cart-style flow. Track line items, quantities, and your year-to-date spending.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-red"><i class="bi bi-wallet2"></i></div>
+      <div class="lp-feature-title">Expense Tracking</div>
+      <div class="lp-feature-desc">Log operating expenses from reusable templates. Filter by category and period to see exactly where money is going.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-rose"><i class="bi bi-recycle"></i></div>
+      <div class="lp-feature-title">Waste & Loss</div>
+      <div class="lp-feature-desc">Record spoiled or wasted materials and products. Waste cost is factored directly into your daily profit summary.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-amber"><i class="bi bi-people"></i></div>
+      <div class="lp-feature-title">Employee & Payroll</div>
+      <div class="lp-feature-desc">Add employees with daily rates, assign shifts to sessions, and auto-estimate your monthly payroll obligations.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-green"><i class="bi bi-calendar-check"></i></div>
+      <div class="lp-feature-title">Daily Summary</div>
+      <div class="lp-feature-desc">A full end-of-day breakdown: sales, purchases, waste, salary, expenses, and net profit — all in one view.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-purple"><i class="bi bi-building"></i></div>
+      <div class="lp-feature-title">Supplier Catalog</div>
+      <div class="lp-feature-desc">Organize your raw materials by supplier with saved presets to speed up future purchase entries.</div>
+    </div>
+    <div class="lp-feature-card reveal">
+      <div class="lp-feature-icon ic-slate"><i class="bi bi-speedometer2"></i></div>
+      <div class="lp-feature-title">Dashboard Analytics</div>
+      <div class="lp-feature-desc">See revenue, expenses, and net profit at a glance. Quick access to all modules from one central hub.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── ROLES ── -->
+<section style="background: var(--bg); border-top: 1px solid var(--border);" id="roles">
+  <div class="lp-section">
+    <div class="lp-section-label">Access control</div>
+    <h2 class="lp-section-title">The right access for every person</h2>
+    <p class="lp-section-sub">Role-based permissions ensure each team member can only see and do what they're supposed to.</p>
+
+    <div class="lp-roles-grid">
+
+      <div class="lp-role-card reveal">
+        <div class="lp-role-icon ic-blue" style="width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem; margin-bottom:0.875rem;">
+          <i class="bi bi-person-workspace"></i>
+        </div>
+        <div class="lp-role-name">Staff</div>
+        <div class="lp-role-desc">Frontline team members who handle day-to-day sales and product tasks.</div>
+        <ul class="lp-role-perms">
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Create & manage sales</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Browse product catalog</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> View inventory stock</li>
+          <li class="lp-perm"><i class="bi bi-x-circle-fill no"></i> Cannot access financials</li>
+          <li class="lp-perm"><i class="bi bi-x-circle-fill no"></i> Cannot delete records</li>
+        </ul>
+      </div>
+
+      <div class="lp-role-card featured reveal">
+        <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:1rem; color:#fff; margin-bottom:0.875rem;">
+          <i class="bi bi-shield-fill-check"></i>
+        </div>
+        <div class="lp-role-name">Owner</div>
+        <div class="lp-role-desc">Full control over every module, every record, and every team member.</div>
+        <ul class="lp-role-perms">
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Full access to all modules</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> View financial summaries</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Manage employees & payroll</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Create, edit & delete anything</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Manage staff accounts</li>
+        </ul>
+      </div>
+
+      <div class="lp-role-card reveal">
+        <div class="lp-role-icon ic-purple" style="width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1rem; margin-bottom:0.875rem;">
+          <i class="bi bi-code-slash"></i>
+        </div>
+        <div class="lp-role-name">Developer</div>
+        <div class="lp-role-desc">Read-only access for auditing the system or building integrations.</div>
+        <ul class="lp-role-perms">
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> Read all records & data</li>
+          <li class="lp-perm"><i class="bi bi-check-circle-fill yes"></i> View every module</li>
+          <li class="lp-perm"><i class="bi bi-x-circle-fill no"></i> Cannot create records</li>
+          <li class="lp-perm"><i class="bi bi-x-circle-fill no"></i> Cannot edit or delete</li>
+          <li class="lp-perm"><i class="bi bi-x-circle-fill no"></i> No write access</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ── MODULES ── -->
+<div class="lp-modules-bg" id="modules">
+  <div class="lp-section">
+    <div class="lp-section-label">Modules</div>
+    <h2 class="lp-section-title">One system, every department</h2>
+    <p class="lp-section-sub">Swift ERP covers all areas of your business — connected, not siloed.</p>
+
+    <div class="lp-modules-grid">
+      <div class="lp-module-pill reveal"><i class="bi bi-speedometer2"></i> Dashboard</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-calendar-check"></i> Daily Summary</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-cash-coin"></i> Sales</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-receipt"></i> Purchases</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-wallet2"></i> Expenses</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-recycle"></i> Waste & Loss</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-basket"></i> Products</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-building"></i> Suppliers</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-box"></i> Inventory</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-people"></i> Employees</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-tags"></i> Categories</div>
+      <div class="lp-module-pill reveal"><i class="bi bi-bookmark-fill"></i> Presets & Templates</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── CTA BANNER ── -->
+<section class="lp-cta">
+  <div class="lp-cta-inner">
+    <h2>Ready to take control of your business?</h2>
+    <p>Create your free account in minutes. No setup fees, no hidden costs — just a cleaner way to manage your operations.</p>
+    <div class="lp-cta-actions">
+      <a href="{% url 'register-form' %}" class="btn-lp btn-white btn-lg">
+        <i class="bi bi-rocket-takeoff"></i> Get started free
+      </a>
+      <a href="{% url 'login' %}" class="btn-lp btn-white-ghost btn-lg">
+        <i class="bi bi-box-arrow-in-right"></i> Sign in
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<div class="lp-pricing-bg" id="pricing">
+  <div class="lp-section">
+    <div class="lp-section-label">Pricing</div>
+    <h2 class="lp-section-title">Simple, transparent pricing</h2>
+    <p class="lp-section-sub">No hidden fees. Pick the plan that fits your business — upgrade anytime as you grow.</p>
+
+    <!-- BILLING TOGGLE -->
+    <div class="lp-billing-toggle">
+      <span class="lp-billing-label" id="labelMonthly">Monthly</span>
+      <button class="lp-toggle-btn" id="billingToggle" aria-pressed="false">
+        <span class="lp-toggle-knob"></span>
+      </button>
+      <span class="lp-billing-label" id="labelYearly">
+        Yearly <span class="lp-billing-save-badge">Save up to 17%</span>
+      </span>
+    </div>
+
+    <div class="lp-pricing-grid">
+
+      <!-- Standard -->
+      <div class="lp-pricing-card reveal">
+        <div class="lp-pricing-name">Standard</div>
+        <div class="lp-pricing-price">
+          <span class="price-monthly">₱300<span>/mo</span></span>
+          <span class="price-yearly" style="display:none;">₱300<span>/mo</span></span>
+        </div>
+        <div class="lp-pricing-yearly-note price-yearly" style="display:none;">Billed monthly — no yearly plan</div>
+        <div class="lp-pricing-desc">Perfect for solo owners just getting started.</div>
+        <ul class="lp-pricing-features">
+          <li><i class="bi bi-check-lg"></i> 1 staff account</li>
+          <li><i class="bi bi-check-lg"></i> 30 products &amp; 30 materials</li>
+          <li><i class="bi bi-check-lg"></i> 5 suppliers</li>
+          <li><i class="bi bi-check-lg"></i> 30 sales &amp; purchase records</li>
+          <li><i class="bi bi-check-lg"></i> 30 waste records</li>
+          <li><i class="bi bi-check-lg"></i> 10 expense records</li>
+          <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+          <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
+        </ul>
+        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Get started</a>
+      </div>
+
+      <!-- PREMIUM -->
+      <div class="lp-pricing-card lp-pricing-featured reveal">
+        <div class="lp-pricing-badge">Most Popular</div>
+        <div class="lp-pricing-name">Premium</div>
+        <div class="lp-pricing-price">
+          <span class="price-monthly">₱800<span>/mo</span></span>
+          <span class="price-yearly" style="display:none;">₱675<span>/mo</span></span>
+        </div>
+        <div class="lp-pricing-yearly-note price-yearly" style="display:none;">
+          ₱8,100 billed yearly &nbsp;<span class="lp-save-tag">Save ₱1,500 · 16% off</span>
+        </div>
+        <div class="lp-pricing-desc">For growing businesses that need more room.</div>
+        <ul class="lp-pricing-features">
+          <li><i class="bi bi-check-lg"></i> 5 staff accounts</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited products &amp; materials</li>
+          <li><i class="bi bi-check-lg"></i> 10 suppliers</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited sales &amp; purchases</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited waste &amp; expenses</li>
+          <li><i class="bi bi-check-lg"></i> Monthly summary reports</li>
+          <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+        </ul>
+        <a href="{% url 'register-form' %}" class="btn-lp btn-accent" style="justify-content:center;">Get started</a>
+      </div>
+
+        <!-- PRO -->
+      <div class="lp-pricing-card reveal">
+        <div class="lp-pricing-name">Pro</div>
+        <div class="lp-pricing-price">
+          <span class="price-monthly">₱1,000<span>/mo</span></span>
+          <span class="price-yearly" style="display:none;">₱830<span>/mo</span></span>
+        </div>
+        <div class="lp-pricing-yearly-note price-yearly" style="display:none;">
+          ₱9,960 billed yearly &nbsp;<span class="lp-save-tag">Save ₱2,040 · 17% off</span>
+        </div>
+        <div class="lp-pricing-desc">Full access for established businesses.</div>
+        <ul class="lp-pricing-features">
+          <li><i class="bi bi-check-lg"></i> 10 staff accounts</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited products &amp; materials</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited suppliers</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited sales &amp; purchases</li>
+          <li><i class="bi bi-check-lg"></i> Unlimited waste &amp; expenses</li>
+          <li><i class="bi bi-check-lg"></i> Full dashboard</li>
+          <li><i class="bi bi-check-lg"></i> Daily + monthly summaries</li>
+        </ul>
+        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Get started</a>
+      </div>
+
+    </div> <!-- end lp-pricing-grid -->
+
+    <!-- BILLING TERMS NOTE -->
+    <div class="lp-pricing-terms">
+      <i class="bi bi-info-circle"></i>
+      <div>
+        <strong>Yearly billing terms:</strong> You may pay annually (up front) or in monthly installments at the discounted rate.
+            If you cancel a yearly plan early, the remaining balance is recalculated at the standard monthly rate —
+            any difference becomes due upon cancellation.
+        <a href="#contact" class="lp-terms-link">Questions? Contact us.</a>
+
+      </div>
+    </div>
+
+  </div> <!-- end lp-section -->
+</div> <!-- end lp-pricing-bg -->
+
+
+
+
+<!-- ── CONTACT ── -->
+<div class="lp-contact-bg" id="contact">
+  <div class="lp-section">
+    <div class="lp-section-label">Contact</div>
+    <h2 class="lp-section-title">Get in touch</h2>
+    <p class="lp-section-sub">Have a question, found a bug, or want to request a feature? Reach out — I'd love to hear from you.</p>
+
+    <div class="lp-contact-grid">
+
+      <!-- Left: Contact info -->
+      <div>
+        <div class="lp-contact-item reveal">
+          <div class="lp-contact-icon"><i class="bi bi-envelope-fill"></i></div>
+          <div>
+            <div class="lp-contact-label">Email</div>
+            <div class="lp-contact-value">
+              <a href="mailto:swifterp.noreply@gmail.com">swifterp.noreply@gmail.com</a>
+            </div>
+            <div class="lp-contact-note">For bug reports, feature requests, or general inquiries.</div>
+          </div>
+        </div>
+
+        <div class="lp-contact-item reveal">
+          <div class="lp-contact-icon" style="background:#dcfce7; color:#16a34a;">
+             <i class="bi bi-telephone-fill"></i>
+          </div>
+        <div>
+            <div class="lp-contact-label">Phone / Viber</div>
+            <div class="lp-contact-value">
+              <a href="tel:+639762049668">+63 976 204 9668</a>
+            </div>
+            <div class="lp-contact-note">Available Monday to Saturday, 9AM – 6PM.</div>
+        </div>
+        </div>
+
+
+        <div class="lp-contact-item reveal">
+          <div class="lp-contact-icon ic-blue">
+            <i class="bi bi-info-circle-fill"></i>
+          </div>
+          <div>
+            <div class="lp-contact-label">About</div>
+            <div class="lp-contact-value">Raymond Dela Cruz</div>
+            <div class="lp-contact-note">Solo developer building Swift ERP as a SaaS product for small business owners in the Philippines.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Contact form -->
+      <div class="lp-contact-form-card reveal">
+        <div class="lp-form-title">Send a message</div>
+        <div class="lp-form-sub">Fill out the form and I'll get back to you as soon as possible.</div>
+
+        <form method="POST" action="mailto:swifterp.noreply@gmail.com">
+          <div class="lp-field">
+            <label for="contact-name">Your name</label>
+            <input type="text" id="contact-name" name="name" placeholder="e.g. Juan dela Cruz" required>
+          </div>
+          <div class="lp-field">
+            <label for="contact-email">Email address</label>
+            <input type="email" id="contact-email" name="email" placeholder="you@example.com" required>
+          </div>
+          <div class="lp-field">
+            <label for="contact-subject">Subject</label>
+            <input type="text" id="contact-subject" name="subject" placeholder="e.g. Feature request, Bug report...">
+          </div>
+          <div class="lp-field">
+            <label for="contact-message">Message</label>
+            <textarea id="contact-message" name="message" placeholder="Describe your question or feedback..." required></textarea>
+          </div>
+          <button type="submit" class="btn-lp btn-accent" style="width:100%; justify-content:center;">
+            <i class="bi bi-send-fill"></i> Send Message
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── FOOTER ── -->
+<footer class="lp-footer">
+  <div class="lp-footer-grid">
+
+    <div>
+      <div class="lp-footer-brand-icon"><i class="bi bi-layers-fill"></i></div>
+      <div class="lp-footer-brand-name">Swift ERP</div>
+      <div class="lp-footer-brand-desc">An all-in-one ERP solution for small business owners. Manage sales, inventory, expenses, and your team from one dashboard.</div>
+    </div>
+
+    <div>
+      <div class="lp-footer-col-title">Product</div>
+      <ul class="lp-footer-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#roles">Access Roles</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="lp-footer-col-title">Account</div>
+      <ul class="lp-footer-links">
+        <li><a href="{% url 'register-form' %}">Create account</a></li>
+        <li><a href="{% url 'login' %}">Sign in</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="lp-footer-col-title">Contact</div>
+      <ul class="lp-footer-links">
+        <li><a href="mailto:swifterp.noreply@gmail.com">swifterp.noreply@gmail.com</a></li>
+        <li><a href="tel:+639762049668">+63 976 204 9668</a></li>
+
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="lp-footer-bottom">
+    <div class="lp-footer-copy">&copy; {% now "Y" %} Raymond Dela Cruz. All rights reserved.</div>
+    <div class="lp-footer-socials">
+      <a href="tel:+639123456789" class="lp-social-btn" title="Phone">
+        <i class="bi bi-telephone-fill"></i>
+      </a>
+      <a href="mailto:swifterp.noreply@gmail.com" class="lp-social-btn" title="Email">
+        <i class="bi bi-envelope-fill"></i>
+      </a>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+// Mobile menu toggle
+document.getElementById('hamburgerBtn').addEventListener('click', function () {
+  const menu = document.getElementById('mobileMenu');
+  menu.classList.toggle('open');
+  this.querySelector('i').className = menu.classList.contains('open') ? 'bi bi-x-lg' : 'bi bi-list';
+});
+
+// Close mobile menu on link click
+document.querySelectorAll('#mobileMenu a').forEach(a => {
+  a.addEventListener('click', () => {
+    document.getElementById('mobileMenu').classList.remove('open');
+    document.querySelector('#hamburgerBtn i').className = 'bi bi-list';
+  });
+});
+
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), i * 50);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+
+// Billing toggle
+const billingToggle = document.getElementById('billingToggle');
+billingToggle.addEventListener('click', function () {
+  const isYearly = this.classList.toggle('active');
+  this.setAttribute('aria-pressed', isYearly);
+
+  document.querySelectorAll('.price-monthly').forEach(el => {
+    el.style.display = isYearly ? 'none' : 'inline';
+  });
+  document.querySelectorAll('.price-yearly').forEach(el => {
+    el.style.display = isYearly ? 'inline' : 'none';
+  });
+});
+
+
+</script>
+
+</body>
+</html>

@@ -16,7 +16,8 @@ function changeValue(fieldId, delta, isInteger = false) {
 </script>
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
+
 
     <!-- LEFT: FORM -->
     <div class="card">
@@ -59,7 +60,6 @@ function changeValue(fieldId, delta, isInteger = false) {
               {{ form.category }}
               {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
-            
 
             {# Description — full width #}
             <div class="mf-field-group" style="grid-column: 1 / -1;">
@@ -157,7 +157,7 @@ function changeValue(fieldId, delta, isInteger = false) {
     <!-- RIGHT: GUIDE PANEL -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
           <i class="bi bi-info-circle"></i> Product Setup Guide
         </span>
       </div>
@@ -166,17 +166,17 @@ function changeValue(fieldId, delta, isInteger = false) {
         <div class="sd-summary-block">
           <div class="mf-guide-title">Checklist</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill"></i> Use clear, searchable product names.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Set cost price accurately for profit tracking.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Set selling price before adding to a sale.</li>
+            <li><i class="bi bi-check-circle-fill" style="color: var(--success);"></i> Use clear, searchable product names.</li>
+            <li><i class="bi bi-check-circle-fill" style="color: var(--success);"></i> Set cost price accurately for profit tracking.</li>
+            <li><i class="bi bi-check-circle-fill" style="color: var(--success);"></i> Set selling price before adding to a sale.</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Pricing Tips</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Unit cost is auto-updated from purchases.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Unit price must be set manually by the user.</li>
+            <li><i class="bi bi-info-circle" style="color: var(--info);"></i> Unit cost is auto-updated from purchases.</li>
+            <li><i class="bi bi-info-circle" style="color: var(--info);"></i> Unit price must be set manually by the user.</li>
           </ul>
         </div>
 

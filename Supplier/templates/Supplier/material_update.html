@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 
     <!-- LEFT: UPDATE FORM -->
     <div class="card" style="height: fit-content;">
@@ -28,7 +28,7 @@
           <div class="mf-fields-grid">
 
             {# Name #}
-            <div class="mf-field-group">
+              <div class="mf-field-group" style="grid-column: 1 / -1;">
               <label for="{{ form.name.id_for_label }}" class="mf-form-label">
                 {{ form.name.label }}
                 {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
@@ -134,13 +134,13 @@
     <!-- RIGHT: SNAPSHOT PANEL -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
           <i class="bi bi-info-circle"></i> Material Snapshot
         </span>
       </div>
       <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-        <div class="sd-summary-block">
+        <div class="sd-summary-block highlight">
           <div class="mf-guide-title">Current Values</div>
           <div class="sd-info-row">
             <span class="sd-info-label">Name</span>
@@ -177,13 +177,14 @@
         </div>
 
         <div class="sd-summary-block">
-          <div class="mf-guide-title">Actions</div>
+          <div class="mf-guide-title">Danger Zone</div>
           <div class="btn-grid">
-            <a href="{% url 'material-detail' material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-card-text"></i> View Detail
+            <a href="{% url 'material-detail' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-eye"></i> View Detail
             </a>
-            <a href="{% url 'material-delete' material.slug %}" class="btn btn-sm btn-block" style="background:#fdf0ef; color:var(--danger); border:1px solid #f0d0ce;">
-              <i class="bi bi-trash sl-me-1"></i> Delete Material
+            <a href="{% url 'material-delete' material.user.username material.slug %}" class="btn btn-sm btn-block"
+               style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
+              <i class="bi bi-trash3 sl-me-1"></i> Delete Material
             </a>
           </div>
         </div>

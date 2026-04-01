@@ -5,73 +5,67 @@
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-receipt-cutoff"></i>
-        Purchase Record #{{ purchase.id }}
-      </h4>
-      <p class="sl-page-subtitle">
-        Purchases • Transaction History &nbsp;|&nbsp; {{ purchase.created_at|date:"F d, Y · h:i A" }}
-      </p>
-      <p class="sl-page-subtitle">
-        Supplier:
-        {% for item in purchase.materials.all %}
-          <strong>{{ item.supplier|default:"Public Market" }}{% if not forloop.last %}, {% endif %}</strong>
-        {% endfor %}
-      </p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'purchase-list' %}" class="breadcrumb-link">PURCHASES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">Purchase Record</h1>
+      <p class="page-subtitle">{{ purchase.created_at|date:"F d, Y" }} at {{ purchase.created_at|date:"h:i A" }}</p>
     </div>
-    <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to history
-    </a>
+    <div class="page-header-right">
+      <a href="{% url 'material-list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to supplier
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: PURCHASE LINE ITEMS -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
       <div class="card">
+
         <div class="card-header">
           <div class="sd-card-header-left">
-            <div class="sd-header-icon">
+            <div class="sd-header-icon" style="background: var(--danger-light); color: var(--danger);">
               <i class="bi bi-basket3"></i>
             </div>
             <div>
-              <div class="card-header-title">Purchase #{{ purchase.id }}</div>
-              <div class="card-header-sub">{{ purchase_items|length }} item{{ purchase_items|length|pluralize }}</div>
+              <p class="card-header-title" style="margin: 0;">{{ purchase_items|length }} Item{{ purchase_items|length|pluralize }}</p>
+              <p class="card-header-sub" style="margin: 0;">Purchased materials</p>
             </div>
           </div>
-          <div class="sd-card-header-right">
-            <div class="label">Total</div>
-            <div class="amount" style="color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</div>
-          </div>
+          {% comment %} <div class="sd-card-header-right">
+            <div class="label">Total Cost</div>
+            <div class="amount" style="color: var(--danger);">₱{{ purchase.total_cost|floatformat:2|intcomma }}</div>
+          </div> {% endcomment %}
         </div>
 
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body">
 
-          <!-- QUICK STATS -->
-          <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr);">
+          <!-- Quick Stats -->
+          <div class="sd-stats-row">
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Subtotal</div>
-              <div class="sd-stat-value">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</div>
+              <div class="sd-stat-label">Reference</div>
+              <div class="sd-stat-value">{{ purchase.reference|default:"—" }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Total Discount</div>
-              <div class="sd-stat-value" style="color:var(--accent);">₱{{ purchase.total_discount|default:0|floatformat:2 }}</div>
+              <div class="sd-stat-label">Line Items</div>
+              <div class="sd-stat-value">{{ purchase_items|length }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Total Cost</div>
-              <div class="sd-stat-value" style="color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</div>
-            </div>
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Items</div>
-              <div class="sd-stat-value">{{ purchase_items|length }} item{{ purchase_items|length|pluralize }}</div>
+              <div class="sd-stat-label">Total Quantity</div>
+              <div class="sd-stat-value">{{ purchase.total_quantity_items|intcomma }}</div>
             </div>
           </div>
 
-          <!-- LINE ITEMS TABLE -->
+          <!-- Line Items Table -->
           <hr class="sd-section-divider">
           <div class="sd-section-label">Purchased Items</div>
+
           <div class="table-responsive">
             <table class="data-table">
               <thead>
@@ -88,17 +82,17 @@
                 <tr>
                   <td>
                     <div class="cell-primary">{{ line.name|capfirst|default:"—" }}</div>
-                    {% if line.material.code %}
-                      <div class="cell-sub">Code: {{ line.material.code }}</div>
-                    {% endif %}
+                    <div class="cell-sub">{{ line.supplier|default:"Public Market" }}</div>
                   </td>
-                  <td class="sl-text-center">{{ line.quantity|intcomma }}</td>
+                  <td class="sl-text-center">
+                    <span class="sl-badge sl-badge-light">{{ line.quantity|intcomma }}</span>
+                  </td>
                   <td class="sl-text-end">₱{{ line.price|floatformat:2 }}</td>
-                  <td class="sl-text-end" style="color:var(--accent);">
-                    {% if line.discount %}− ₱{{ line.discount|floatformat:2 }}{% else %}₱0.00{% endif %}
+                  <td class="sl-text-end sl-text-success">
+                    {% if line.discount %}-₱{{ line.discount|floatformat:2 }}{% else %}—{% endif %}
                   </td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ line.total_price_per_item|floatformat:2 }}
+                  <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                    ₱{{ line.total_price_per_item|floatformat:2|intcomma }}
                   </td>
                 </tr>
                 {% empty %}
@@ -114,82 +108,101 @@
       </div>
     </div>
 
-    <!-- RIGHT: SUMMARY PANEL -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
 
+      <!-- Summary Card -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-calculator"></i> Purchase Summary
+          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-calculator"></i>
+            Summary
           </span>
-          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- AMOUNT BREAKDOWN -->
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Amount Breakdown</div>
+        <div class="card-body">
+
+          <!-- Total Amount -->
+          <div class="sd-summary-block" style="background: var(--danger-light); border-color: var(--danger-border);">
+            <div class="sd-summary-block-label">Total Cost</div>
+            <div class="sd-total-amount" style="color: var(--danger);">₱{{ purchase.total_cost|floatformat:2|intcomma }}</div>
+          </div>
+
+          <!-- Amount Breakdown -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Breakdown</div>
             <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-calculator sl-me-1"></i> Subtotal</span>
+              <span class="sd-info-label">Subtotal</span>
               <span class="sd-info-value">₱{{ purchase.total_cost_per_purchase|floatformat:2 }}</span>
             </div>
+            {% if purchase.total_discount %}
             <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-percent sl-me-1" style="color:var(--accent);"></i> Total Discount</span>
-              <span class="sd-info-value" style="color:var(--accent);">
-                {% if purchase.total_discount %}− {% endif %}₱{{ purchase.total_discount|default:0|floatformat:2 }}
-              </span>
+              <span class="sd-info-label">Discount</span>
+              <span class="sd-info-value" style="color: var(--accent);">-₱{{ purchase.total_discount|floatformat:2 }}</span>
             </div>
-            <hr style="border-color:#e9ecef; margin:0.4rem 0;">
-            <div class="sd-info-row">
-              <span class="sd-info-label" style="font-weight:600;"><i class="bi bi-cash-stack sl-me-1" style="color:var(--danger);"></i> Total Cost</span>
-              <span class="sd-total-amount" style="font-size:1.25rem; color:var(--danger);">₱{{ purchase.total_cost|floatformat:2 }}</span>
-            </div>
+            {% endif %}
           </div>
 
-          <!-- TRANSACTION INFO -->
+          <!-- Created By -->
+          {% if purchase.created_by %}
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Transaction Info</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Purchase ID</span>
-              <span class="sd-info-value">#{{ purchase.id }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Supplier</span>
-              <span class="sd-info-value">{{ purchase.supplier_name|default:"Public Market" }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Date</span>
-              <span class="sd-info-value">{{ purchase.created_at|date:"M d, Y" }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Time</span>
-              <span class="sd-info-value">{{ purchase.created_at|date:"h:i A" }}</span>
+            <div class="sd-summary-block-label">Recorded By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">
+                {{ purchase.created_by.username|slice:":1"|upper }}
+              </div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ purchase.created_by.get_full_name|default:purchase.created_by.username }}</div>
+                <div class="created-by-meta">
+                  {% if purchase.created_by.role == 'developer' %}
+                    <span class="role-badge role-dev">Developer</span>
+                  {% elif purchase.created_by.role == 'owner' %}
+                    <span class="role-badge role-owner">Owner</span>
+                  {% else %}
+                    <span class="role-badge role-staff">Staff</span>
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
+          {% endif %}
 
-          {% comment %} <!-- ACTIONS -->
-          <div class="btn-grid">
-            <a href="#" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-printer"></i> Print receipt
-            </a>
-            <a href="{% url 'purchase-list' %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-arrow-left-circle"></i> Back to history
-            </a>
-          </div> {% endcomment %}
-
-          <!-- NOTE -->
+          <!-- Note -->
           <div class="sd-note-box">
-            <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
+            <div class="sd-note-icon">
+              <i class="bi bi-shield-lock"></i>
+            </div>
             <div>
-              <div class="sd-note-title">Note</div>
-              <div class="sd-note-text">This record is read-only. Contact your administrator if corrections are needed.</div>
+              <div class="sd-note-title">Read-only</div>
+              <div class="sd-note-text">This record is locked. Contact admin for corrections.</div>
             </div>
           </div>
 
         </div>
       </div>
 
+      <!-- Actions Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i>
+            Actions
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-arrow-left-circle"></i> Back to Purchases
+            </a>
+            <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> New Purchase
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
+
   </div>
 </div>
 

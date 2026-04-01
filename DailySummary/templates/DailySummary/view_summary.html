@@ -3,7 +3,7 @@
 
 {% block content %}
 
-<!-- ========== FLASH MESSAGES ========== -->
+<!-- FLASH MESSAGES -->
 {% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
@@ -56,15 +56,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <div class="page-wrapper">
 
-  <!-- ===== PAGE HEADER ===== -->
-  <div class="ss-page-header">
-    <div>
-      <h4 class="ss-page-title">
-        <i class="bi bi-bar-chart-line"></i>
-        Sales Summary
-      </h4>
-      <p class="ss-page-subtitle">Daily breakdown of revenue, costs, and profit.</p>
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">REPORTS</div>
+      <h1 class="page-title">Sales Summary</h1>
+      <p class="page-subtitle">Daily breakdown of revenue, costs, and net profit.</p>
     </div>
+
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-calendar3"></i>
+        <strong>{{ summary_list|length }}</strong> day{{ summary_list|length|pluralize }} recorded
+      </div>
+      <div class="header-stat success">
+        <i class="bi bi-trophy"></i>
+        Best month: <strong>{{ best_month_name }}</strong>
+      </div>
+
+    </div>
+
+
   </div>
 
   <div class="two-col-layout">
@@ -88,14 +100,14 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="input-group">
                 <span class="input-group-icon"><i class="bi bi-search"></i></span>
                 <input type="search" name="search" class="form-control"
-                       placeholder="Search total revenue, expense...."
+                       placeholder="Search revenue, expense..."
                        value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
             <div class="form-group">
               <label class="form-label">Period (month)</label>
               <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:'' }}">
+                     value="{{ request.GET.select_month|default:current_year }}">
             </div>
             <div class="form-group">
               <label class="form-label">From date</label>
@@ -109,7 +121,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             <div class="filter-actions">
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel me-1"></i> Filter
+                <i class="bi bi-funnel"></i> Filter
               </button>
               <a href="{% url 'view-summary' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
@@ -120,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <!-- SUMMARY TABLE -->
       <div class="card table-card">
         <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="card-header-left-group">
             <span class="card-header-title">Daily Summary</span>
             <span class="sl-badge sl-badge-light">{{ summary_list|length }} day{{ summary_list|length|pluralize }}</span>
           </div>
@@ -128,6 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if summary_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -136,84 +149,103 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-end">Waste Cost</th>
                 <th class="sl-text-end">Material Cost</th>
                 <th class="sl-text-end">Labor Cost</th>
-                <th class="sl-text-end ss-profit-col">Net Profit</th>
+                <th class="sl-text-end">Expense Cost</th>
+                <th class="sl-text-end">Net Profit</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
             <tbody>
-              {% for summary in summary_list %}
-              
+              {% for summary in page_obj %}
               <tr>
                 <td>
                   <div class="cell-primary">{{ summary.date|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ summary.date|date:"l" }}</div>
                 </td>
                 <td class="sl-text-end">
-                  <span class="ss-amount">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span>
+                  <span class="sl-fw-semibold" style="color:var(--success);">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span>
                 </td>
                 <td class="sl-text-end">
                   {% if summary.total_waste_cost %}
-                    <span class="ss-amount ss-cost">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>
+                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
                 <td class="sl-text-end">
                   {% if summary.total_cost %}
-                    <span class="ss-amount ss-cost">₱{{ summary.total_cost|floatformat:2|intcomma }}</span>
+                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
                 <td class="sl-text-end">
                   {% if summary.total_salary_cost %}
-                    <span class="ss-amount ss-cost">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>
+                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
                 <td class="sl-text-end">
-                  <span class="ss-profit">₱{{ summary.net_profit|floatformat:2|intcomma }}</span>
+                  {% if summary.total_expense_cost %}
+                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_expense_cost|floatformat:2|intcomma }}</span>
+                  {% else %}
+                    <span class="cell-sub">₱0.00</span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-end">
+                  <span class="sl-fw-semibold" style="{% if summary.net_profit < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">
+                    ₱{{ summary.net_profit|floatformat:2|intcomma }}
+                  </span>
                 </td>
                 <td class="sl-text-center">
-                  <a href="{% url 'view-summary-detail' summary.date %}" class="btn btn-sm btn-outline-secondary">View</a>
+                  <div class="btn-group">
+                    <a href="{% url 'view-summary-detail' summary.date %}" class="action-btn" title="View detail">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </div>
                 </td>
-              </tr>
-
-              {% empty %}
-              <tr class="sl-empty-row">
-                <td colspan="6">No summary data found.</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-bar-chart-line"></i></div>
+            <h3 class="empty-title">No summary data found</h3>
+            <p class="empty-text">Adjust your filters or record transactions to see a summary.</p>
+          </div>
+          {% endif %}
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj %}
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
               {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&laquo;</a>
-                  {% else %}
-                    <span class="page-link">&laquo;</span>
-                  {% endif %}
-                </li>
-                {% for s in page_obj.paginator.page_range %}
-                <li class="page-item {% if s == page_obj.number %}active{% endif %}">
-                  <a class="page-link" href="?page={{ s }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ s }}</a>
-                </li>
-                {% endfor %}
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&raquo;</a>
-                  {% else %}
-                    <span class="page-link">&raquo;</span>
-                  {% endif %}
-                </li>
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for s in page_obj.paginator.page_range %}
+              <li class="page-item {% if s == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ s }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ s }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
               {% endwith %}
             </ul>
           </nav>
@@ -229,74 +261,95 @@ document.addEventListener("DOMContentLoaded", function () {
       <!-- PERIOD TOTALS -->
       <div class="card">
         <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff;">
-            <i class="bi bi-graph-up-arrow me-1"></i>Period totals
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-graph-up-arrow"></i> Period Totals
           </span>
         </div>
-        <div class="card-body">
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Days recorded</span>
-            <span class="sl-summary-value">{{ summary_list|length }}</span>
-          </div>
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Total Revenue</span>
-            <span class="sl-summary-value green">₱{{ grand_total_revenue|floatformat:2|intcomma|default:"0.00" }}</span>
-          </div>
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Total Waste Cost</span>
-            <span class="sl-summary-value ss-red">₱{{ grand_total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-          </div>
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Total Material Cost</span>
-            <span class="sl-summary-value ss-red">₱{{ grand_total_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-          </div>
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Total Labor Cost</span>
-            <span class="sl-summary-value ss-red">₱{{ grand_total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-          </div>
-          <hr class="sl-summary-divider">
-          <div class="sl-summary-row">
-            <span class="sl-summary-label sl-fw-semibold">Net Profit</span>
-            <span class="sl-summary-value green" style="font-size:1.05rem;">₱{{ grand_net_profit|floatformat:2|intcomma|default:"0.00" }}</span>
-          </div>
-          <p class="sl-summary-note" style="margin-top:0.5rem;">Use quick ranges or advanced filters on the left to change this summary.</p>
-        </div>
-      </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-      <!-- QUICK ACTIONS -->
-      <div class="card">
-        <div class="card-body">
-          <div class="sl-quick-title">Quick actions</div>
-          <div class="btn-grid">
-            <a href="{% url 'view-sale' %}" class="btn btn-outline-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle me-1"></i>New sale
-            </a>
-            <a href="{% url 'view-cart' %}" class="btn btn-outline-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle me-1"></i>New purchase
-            </a>
-            {% comment %} <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-receipt me-1"></i>View purchase
-            </a>
-            <a href="{% url 'sale-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-receipt me-1"></i>View sales
-            </a> {% endcomment %}
+          <div class="sd-summary-block" style="background:{% if grand_net_profit >= 0 %}var(--success-light); border-color:var(--success-border);{% else %}var(--danger-light); border-color:var(--danger-border);{% endif %}">
+            <div class="sd-summary-block-label">Net Profit</div>
+            <div class="sd-total-amount" style="{% if grand_net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
+              ₱{{ grand_net_profit|floatformat:2|intcomma|default:"0.00" }}
+            </div>
           </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Overview</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Days Recorded</span>
+              <span class="sd-info-value">{{ summary_list|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total Revenue</span>
+              <span class="sd-info-value" style="color:var(--success);">₱{{ grand_total_revenue|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Waste Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Material Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Labor Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Expense Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Quick Actions</div>
+            <div class="btn-grid">
+              <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> New Sale
+              </a>
+              <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> New Purchase
+              </a>
+              {% comment %} <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-receipt me-1"></i>View purchase
+              </a>
+              <a href="{% url 'sale-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-receipt me-1"></i>View sales
+              </a> {% endcomment %}
+            </div>
+          </div>
+
           <hr class="sl-quick-divider">
-          <div class="sl-quick-label">Quick ranges</div>
-          <div class="btn-grid">
-            <a href="{% url 'view-summary' %}?period=today" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-calendar-day me-1"></i>Today
-            </a>
-            <a href="{% url 'view-summary' %}?period=last_week" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-clock-history me-1"></i>Last week
-            </a>
-            <a href="{% url 'view-summary' %}?period=week" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-calendar-week me-1"></i>This week
-            </a>
-            <a href="{% url 'view-summary' %}?period=month" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-calendar-month me-1"></i>This month
-            </a>
+          <div class="sl-quick-label">Quick Ranges</div>
+            <div class="quick-range-grid">
+              <a href="{% url 'view-summary' %}?period=today"
+                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+                <i class="bi bi-calendar-day"></i> Today
+              </a>
+              <a href="{% url 'view-summary' %}?period=last_week"
+                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> Last week
+              </a>
+              <a href="{% url 'view-summary' %}?period=week"
+                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+                <i class="bi bi-calendar-week"></i> This week
+              </a>
+              <a href="{% url 'view-summary' %}?period=month"
+                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+                <i class="bi bi-calendar-month"></i> This month
+              </a>
+            </div>
+
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+            <div>
+              <div class="sd-note-title">About this report</div>
+              <div class="sd-note-text">Figures are aggregated daily. Use filters or quick ranges to narrow the period.</div>
+            </div>
           </div>
+
         </div>
       </div>
 

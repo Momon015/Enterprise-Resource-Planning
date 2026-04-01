@@ -19,18 +19,24 @@
 </div>
 {% endif %}
 
-<div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
+<div class="container-fluid py-3 py-lg-4">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
-    <div>
-      <h1 class="page-title">🧾 Sale Summary</h1>
+    <div class="page-header-left">
+      <div class="page-breadcrumb">TRANSACTIONS</div>
+      <h1 class="page-title">Sale Summary</h1>
       <p class="page-subtitle">Review this sale before posting it to sales transactions</p>
     </div>
     {% if items %}
-    <div class="badge-pill">
-      <i class="bi bi-basket3"></i>
-      {{ items|length }} line{{ items|length|pluralize }}
+    <div class="page-header-right">
+      <div class="header-stat">
+        <i class="bi bi-basket3"></i>
+        <strong>{{ items|length }}</strong> item{{ items|length|pluralize }}
+      </div>
+      <div class="header-stat accent">
+        Total: <strong>₱{{ total_revenue|floatformat:2 }}</strong>
+      </div>
     </div>
     {% endif %}
   </div>
@@ -43,10 +49,10 @@
       <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-basket3 me-1"></i>
-            Product items
+            <i class="bi bi-basket3"></i>
+            Product Items
           </span>
-          <small style="font-size: .78rem; color: var(--muted);">Products, quantities and prices</small>
+          <span style="font-size: .8rem; color: var(--muted);">Products, quantities and prices</span>
         </div>
 
         <div style="overflow-x: auto; max-height: 420px; overflow-y: auto;">
@@ -57,7 +63,6 @@
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
                 <th>Total Cost</th>
-                {% comment %} <th>Unsold Qty</th> {% endcomment %}
                 <th>Unit Price</th>
                 <th class="pe-4">Line Total</th>
               </tr>
@@ -71,7 +76,6 @@
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
                 <td><span class="mono">₱{{ item.total_cost_price_per_line|floatformat:2 }}</span></td>
-                {% comment %} <td><span class="mono">{{ item.unsold_quantity }}</span></td> {% endcomment %}
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
                 <td class="pe-4">
                   <span class="mono" style="font-weight: 700; color: var(--accent);">₱{{ item.line_total|floatformat:2 }}</span>
@@ -88,21 +92,26 @@
     <div class="col-lg-4">
 
       <!-- SALES SUMMARY CARD -->
-      <div class="pos-card mb-3">
+      <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-graph-up-arrow me-1"></i>
-            Sales summary
+            <i class="bi bi-graph-up-arrow"></i>
+            Sales Summary
           </span>
         </div>
-        <div style="padding: 1rem;">
+        <div style="padding: 1.25rem;">
 
-          {% comment %} SUMMARY METRICS — move to summary page
-          total_salary_cost, total_cost_price, total_waste_cost, net_profit
-          {% endcomment %}
+          <!-- Summary Stats -->
+          <div class="summary-stats">
+            <div class="summary-stat-row">
+              <span class="summary-stat-label">Line Items</span>
+              <span class="summary-stat-value">{{ items|length }}</span>
+            </div>
+          </div>
 
           <hr class="divider">
-          <div class="total-row">
+
+          <div class="total-row" style="margin-bottom: 0;">
             <span class="total-label" style="font-weight: 600; color: var(--text);">
               <i class="bi bi-calculator"></i> Total Revenue
             </span>
@@ -114,11 +123,18 @@
 
       <!-- ACTIONS CARD -->
       <div class="pos-card">
-        <div style="padding: 1rem;">
-          <p style="font-size: .82rem; color: var(--muted); margin-bottom: .75rem;">
-            Confirm this sale to update inventory cost, stock, and employee salary usage.
-          </p>
-          <a href="{% url 'view-sale' %}" class="btn-clear" style="margin-bottom: .5rem;">
+        <div class="pos-card-header">
+          <span class="pos-card-title">
+            <i class="bi bi-lightning"></i>
+            Actions
+          </span>
+        </div>
+        <div style="padding: 1.25rem;">
+          <div class="action-info-box">
+            <i class="bi bi-info-circle"></i>
+            <p>Confirm this sale to update inventory cost, stock, and employee salary usage.</p>
+          </div>
+          <a href="{% url 'view-sale' %}" class="btn-secondary-action">
             <i class="bi bi-pencil-square"></i> Edit product items
           </a>
           <a href="{% url 'sale-confirm-summary' %}" class="btn-confirm">
@@ -131,6 +147,7 @@
   </div>
 
   {% else %}
+  <!-- EMPTY STATE -->
   <div class="empty-state">
     <div class="empty-icon"><i class="bi bi-basket3"></i></div>
     <div class="empty-title">No products yet</div>

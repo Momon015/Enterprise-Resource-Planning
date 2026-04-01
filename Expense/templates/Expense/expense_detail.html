@@ -1,0 +1,145 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'expense-list' %}" class="breadcrumb-link">EXPENSES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">{{ expense.name|capfirst }}</h1>
+      <p class="page-subtitle">{{ expense.date|date:"F d, Y" }}</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'expense-list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to expense
+      </a>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: MAIN INFO -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-receipt"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{{ expense.name|capfirst }}</div>
+              <div class="card-header-sub">{{ expense.misc_expense.category.name|default:"Uncategorized" }}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.15rem;">Amount</div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--danger);">₱{{ expense.amount|floatformat:2|intcomma }}</div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="sd-stats-row">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Category</div>
+              <div class="sd-stat-value">{{ expense.misc_expense.category.name|default:"—" }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Date</div>
+              <div class="sd-stat-value">{{ expense.date|date:"M d, Y" }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Day</div>
+              <div class="sd-stat-value">{{ expense.date|date:"l" }}</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT: SNAPSHOT -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle-fill"></i> Expense Snapshot
+          </span>
+        </div>
+        <div class="card-body">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Details</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Name</span>
+              <span class="sd-info-value">{{ expense.name|capfirst }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Amount</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ expense.amount|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Category</span>
+              <span class="sd-info-value">{{ expense.misc_expense.category.name|default:"Uncategorized" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date</span>
+              <span class="sd-info-value">{{ expense.date|date:"M d, Y" }}</span>
+            </div>
+            {% if expense.created_by %}
+            <div class="sd-info-row">
+              <span class="sd-info-label">Logged by</span>
+              <span class="sd-info-value">{{ expense.created_by.username }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          {% if expense.misc_expense %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Linked Template</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Template</span>
+              <span class="sd-info-value">{{ expense.misc_expense.name }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Default amount</span>
+              <span class="sd-info-value">₱{{ expense.misc_expense.amount|floatformat:2|intcomma }}</span>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

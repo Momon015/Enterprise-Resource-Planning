@@ -20,20 +20,21 @@
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-bookmark-fill"></i>
-        Preset Bundles
-      </h4>
-      <p class="sl-page-subtitle">Saved item groups you can quickly add to a purchase.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING / SUPPLIER ITEMS</div>
+      <h1 class="page-title">Preset Bundles</h1>
+      <p class="page-subtitle">Saved item groups you can quickly add to a purchase.</p>
     </div>
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-      <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-sm"
-         style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
-        <i class="bi bi-clipboard-check"></i> View Purchase Record
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-bookmark-fill"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> preset{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-clipboard-check"></i> Purchase Record
       </a>
-      <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+      <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-light btn-sm btn-back">
         <i class="bi bi-arrow-left"></i> Back to supplier
       </a>
     </div>
@@ -45,19 +46,15 @@
     <div class="left-panel">
       <div class="card table-card">
         <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon">
-              <i class="bi bi-bookmark"></i>
-            </div>
-            <div>
-              <div class="card-header-title">All Presets</div>
-              <div class="card-header-sub">Click a preset to view or add to purchase.</div>
-            </div>
+          <div class="card-header-left-group">
+            <span class="card-header-title">All Presets</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} preset{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} preset{{ page_obj.paginator.count|pluralize }}</span>
+          <span class="card-header-sub">Click a preset to view or add to purchase.</span>
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -70,80 +67,62 @@
             <tbody>
               {% for preset in page_obj %}
               <tr>
-                <!-- NAME -->
                 <td>
                   <div class="cell-primary">{{ preset.name }}</div>
-                  <div class="cell-sub">ID: #{{ preset.id }}</div>
+                  {% comment %} <div class="cell-sub">ID: #{{ preset.id }}</div> {% endcomment %}
                 </td>
-
-                <!-- ITEMS COUNT -->
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ preset.preset_items.count }}</span>
                 </td>
-
-                <!-- CREATED -->
-                <td class="sl-text-center sl-text-muted">
-                  {{ preset.created_at|date:"M d, Y" }}
+                <td class="sl-text-center">
+                  <span class="cell-sub">{{ preset.created_at|date:"M d, Y" }}</span>
                 </td>
-
-                <!-- ACTIONS -->
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <!-- ADD TO CART -->
-                    <a href="{% url 'material-add-preset-to-cart' preset.id %}?next={{request.path}}"
-                      class="action-btn"
-                      title="Add to purchase">
+                    <a href="{% url 'material-add-preset-to-cart' preset.user.username preset.id %}?{{request.GET.urlencode}}"
+                       class="action-btn" title="Add to purchase">
                       <i class="bi bi-plus-lg"></i>
                     </a>
-
-                    <!-- VIEW -->
-                    <a href="{% url 'material-preset-detail' preset.id %}"
-                      class="action-btn"
-                      title="View details">
+                    <a href="{% url 'material-preset-detail' preset.user.username preset.id %}"
+                       class="action-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-
-                    <!-- EDIT -->
-                    <a href="{% url 'material-edit-preset' preset.id %}"
-                      class="action-btn"
-                      title="Edit preset">
+                    <a href="{% url 'material-edit-preset' preset.user.username preset.id %}"
+                       class="action-btn" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
-
-                    <!-- DELETE -->
-                    <a href="{% url 'material-delete-preset' preset.id %}"
-                      class="action-btn action-btn--danger"
-                      title="Delete preset" onclick="return confirm('Delete this preset?')">
-                      <i class="bi bi-trash"></i>
+                    <a href="{% url 'material-delete-preset' preset.user.username preset.id %}"
+                       class="action-btn action-btn--danger" title="Delete preset">
+                      <i class="bi bi-trash3"></i>
                     </a>
                   </div>
-                </td>
-              </tr>
-              {% empty %}
-              <tr class="sl-empty-row">
-                <td colspan="4">
-                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No presets found</h6>
-                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Create one from your current purchase.</p>
-                  <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> Add Item
-                  </a>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+            <h3 class="empty-title">No presets yet</h3>
+            <p class="empty-text">Create a preset from your current purchase to reuse recurring orders.</p>
+            <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-clipboard-check"></i> Go to purchase screen
+            </a>
+          </div>
+          {% endif %}
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj %}
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
                 {% else %}
-                  <span class="page-link">&laquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
               {% for p in page_obj.paginator.page_range %}
@@ -153,9 +132,9 @@
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
                 {% else %}
-                  <span class="page-link">&raquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
             </ul>
@@ -166,21 +145,21 @@
       </div>
     </div>
 
-    <!-- RIGHT: QUICK ACTIONS -->
+    <!-- RIGHT: PRESET OVERVIEW -->
     <div class="right-panel">
-
-      <!-- PRESET SUMMARY -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
             <i class="bi bi-bookmark-fill"></i> Preset Overview
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
           <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label">Total Presets</div>
             <div class="sd-total-amount">{{ page_obj.paginator.count }}</div>
           </div>
+
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">How presets work</div>
             <div class="sd-info-row">
@@ -196,10 +175,17 @@
               <span class="sd-info-value" style="font-size:0.78rem;">Adjust qty & discounts</span>
             </div>
           </div>
-          <p class="sl-summary-note">Presets are created from the purchase screen after adding materials.</p>
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+            <div>
+              <div class="sd-note-title">About presets</div>
+              <div class="sd-note-text">Presets are created from the purchase screen after adding materials.</div>
+            </div>
+          </div>
+
         </div>
       </div>
-
     </div>
 
   </div>

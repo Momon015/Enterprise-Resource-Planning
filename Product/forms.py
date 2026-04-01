@@ -33,7 +33,7 @@ class ProductForm(ModelForm):
         }
             
     def __init__(self, *args, **kwargs):
-
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
         # if not self.instance.cost_price:
@@ -51,7 +51,7 @@ class ProductForm(ModelForm):
         def category_label(obj):
             return obj.name.title()
         
-        self.fields['category'].queryset = Category.objects.filter(category_type='product')
+        self.fields['category'].queryset = Category.objects.filter(category_type='product', user=user)
         self.fields['category'].empty_label = None
         self.fields['category'].label_from_instance = category_label # or lambda obj: obj.name.title()
 
@@ -68,8 +68,10 @@ class ProductFilterForm(forms.Form):
     category = forms.ModelChoiceField(queryset=Category.objects.none(), required=False)
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = Category.objects.filter(category_type='product')
+        
+        self.fields['category'].queryset = Category.objects.filter(category_type='product', user=user)
        
 
         

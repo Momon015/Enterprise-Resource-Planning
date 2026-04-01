@@ -18,16 +18,47 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") || params.get("category")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+
+</script>
+
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">INVENTORY</div>
+      <h1 class="page-title">Stock Levels</h1>
+      <p class="page-subtitle">Current stock across all materials.</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
         <i class="bi bi-boxes"></i>
-        Inventory Stock
-      </h4>
-      <p class="sl-page-subtitle">Current stock levels across all materials.</p>
+        <strong>{{ page_obj.paginator.count }}</strong> material{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <div class="header-stat accent">
+        <i class="bi bi-tag"></i>
+        Top category: <strong>{{ most_stock_category_name|capfirst|default:"N/A" }}</strong>
+      </div>
     </div>
   </div>
 
@@ -36,101 +67,99 @@
     <!-- ========== LEFT PANEL ========== -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
-      <div class="mb-2 mb-lg-3">
-        <form method="get" autocomplete="off">
-          <div class="d-flex flex-wrap gap-2 align-items-center w-100">
-
-            <!-- search -->
-            <div class="flex-grow-1">
-              <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white border-end-0">
-                  <i class="bi bi-search"></i>
-                </span>
-                <input
-                  type="search"
-                  name="search"
-                  class="form-control border-start-0"
-                  placeholder="Search material name..."
-                  value="{{ request.GET.search|default_if_none:'' }}"
-                >
+      <!-- FILTER DRAWER -->
+      <details class="filter-card"
+               {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.category %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <!-- FILTER BAR -->
+          <form method="get" autocomplete="off">
+            <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                        placeholder="Search material, supplier..."
+                        value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <div>
+                <select name="category" class="form-select form-select-sm" style="width:auto;">
+                  <option value="">All categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                      {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
+                  <i class="bi bi-funnel"></i> Filter
+                </button>
+                <a href="{% url 'view-inventory-stock' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
               </div>
             </div>
+          </form>
 
-            <!-- category dropdown -->
-            <div>
-              <select name="category" class="form-select form-select-sm">
-                <option value="">All categories</option>
-                {% for cat in categories %}
-                  <option value="{{ cat.id }}"
-                          {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
-                    {{ cat.name }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
+        </div>
+      </details>
 
-            <!-- filter / reset -->
-            <div class="d-flex gap-2">
-              <button class="btn btn-outline-secondary rounded-3 px-3 btn-sm" type="submit">
-                <i class="bi bi-funnel me-1"></i>
-                Filter
-              </button>
-              <a href="." class="btn btn-light border rounded-3 px-3 btn-sm">
-                Reset
-              </a>
-            </div>
-
-          </div>
-        </form>
-      </div>
-
+      <!-- STOCK TABLE -->
       <div class="card table-card">
         <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="card-header-left-group">
             <span class="card-header-title">Stock Records</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Most recent first</span>
+          <span class="card-header-sub">Sorted by name</span>
         </div>
 
         <div class="table-responsive">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
                 <th>Material</th>
                 <th>Category</th>
                 <th class="sl-text-center">Unit</th>
-                <th class="sl-text-center">Quantity</th>
+                <th class="sl-text-center">Qty</th>
                 <th class="sl-text-center">Status</th>
                 <th class="sl-text-end">Avg. Price</th>
                 <th class="sl-text-end">Total Value</th>
-                <th class="sl-text-end">Availability</th>
+                <th class="sl-text-center">Availability</th>
               </tr>
             </thead>
             <tbody>
-              {% for stock in stocks %}
+              {% for stock in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ stock.created_at|date:"M d, Y" }}</div>
-                  <div class="cell-sub">{{ stock.created_at|date:"h:i A" }}</div>
-                </td>
-                <td>
                   <div class="cell-primary">{{ stock.name|capfirst }}</div>
-                  <div class="cell-sub">{{ stock.supplier|capfirst|default:"—" }}</div>
+                  <div class="cell-sub">{{ stock.supplier|capfirst|default:"No supplier" }}</div>
                 </td>
                 <td>
                   <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"Uncategorized" }}</div>
                 </td>
                 <td class="sl-text-center">
-                  <span class="sl-badge sl-badge-light">{{ stock.unit|default:"—" }}</span>
+                  <span class="sl-badge sl-badge-light">
+                    {% if stock.unit in multi_unit_types %}
+                      {{ stock.unit|default:"—" }} (pc)
+                    {% else %}
+                      {{ stock.unit|default:"—" }}
+                    {% endif %}
+                  </span>
                 </td>
                 <td class="sl-text-center sl-fw-semibold">{{ stock.quantity|intcomma }}</td>
                 <td class="sl-text-center">
                   {% if stock.quantity == 0 %}
                     <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
-                  {% elif stock.quantity <= 24 %}
+                  {% elif stock.quantity <= 49 %}
                     <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
                   {% else %}
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
@@ -140,11 +169,11 @@
                 <td class="sl-text-end sl-fw-semibold" style="color:var(--accent);">
                   ₱{{ stock.total_value|floatformat:2|intcomma }}
                 </td>
-                <td class="sl-text-end">
+                <td class="sl-text-center">
                   {% if stock.quantity == 0 %}
                     <a href="{% url 'inventory-stock-delete' stock.id %}"
-                      class="btn btn-sm"
-                      style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
+                       class="btn btn-sm"
+                       style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
                       <i class="bi bi-trash"></i> Remove
                     </a>
                   {% else %}
@@ -155,8 +184,14 @@
                 </td>
               </tr>
               {% empty %}
-              <tr class="sl-empty-row">
-                <td colspan="9">No stock records found.</td>
+              <tr>
+                <td colspan="8">
+                  <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-boxes"></i></div>
+                    <h3 class="empty-title">No stock records found</h3>
+                    <p class="empty-text">Try adjusting your filters or record a purchase to populate stock.</p>
+                  </div>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -164,29 +199,35 @@
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj %}
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
+              {% with search=request.GET.search category=request.GET.category stock=request.GET.stock %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&laquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}">{{ p }}</a>
               </li>
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&raquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
+              {% endwith %}
             </ul>
           </nav>
         </div>
@@ -198,10 +239,9 @@
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
 
-      <!-- STOCK SUMMARY -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
             <i class="bi bi-graph-up"></i> Stock Overview
           </span>
         </div>
@@ -209,7 +249,9 @@
 
           <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label">Total Inventory Value</div>
-            <div class="sd-total-amount">₱{{ grand_total_value|floatformat:2|intcomma }}</div>
+            <div class="sd-total-amount" style="color:var(--accent);">
+              ₱{{ grand_total_value|floatformat:2|intcomma }}
+            </div>
           </div>
 
           <div class="sd-summary-block">
@@ -232,36 +274,51 @@
             </div>
           </div>
 
-          <p class="sl-summary-note">Stock is updated automatically when a purchase is recorded.</p>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Filter by Status</div>
+            <div class="quick-range-grid">
+              <a href="{% url 'view-inventory-stock' %}?stock=high"
+                class="quick-range-btn"
+                style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent); font-weight:600;{% endif %}">
+                <i class="bi bi-box-seam"></i> In Stock
+              </a>
+              <a href="{% url 'view-inventory-stock' %}?stock=low"
+                class="quick-range-btn"
+                style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning); font-weight:600;{% endif %}">
+                <i class="bi bi-exclamation-triangle"></i> Low Stock
+              </a>
+              <a href="{% url 'view-inventory-stock' %}?stock=none"
+                class="quick-range-btn"
+                style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger); font-weight:600;{% endif %}">
+                <i class="bi bi-slash-circle"></i> Out of Stock
+              </a>
+              <a href="{% url 'view-inventory-stock' %}"
+                class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.category %}quick-range-btn--selected{% endif %}">
+                <i class="bi bi-grid"></i> All
+              </a>
+            </div>
+          </div>
 
-        </div>
-      </div>
 
-      <!-- QUICK ACTIONS -->
-      <div class="card">
-        <div class="card-body">
-          <div class="sl-quick-title">Quick Actions</div>
+          <hr class="sl-quick-divider">
+          <div class="sl-quick-label">Quick Actions</div>
           <div class="btn-grid">
             <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-receipt sl-me-1"></i> View Purchases
+              <i class="bi bi-receipt"></i> View Purchases
             </a>
             <a href="{% url 'material-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-box-seam sl-me-1"></i> View Materials
+              <i class="bi bi-box-seam"></i> View Materials
             </a>
           </div>
-          <hr class="sl-quick-divider">
-          <div class="sl-quick-label">Filter by status</div>
-          <div class="btn-grid">
-            <a href="{% url 'view-inventory-stock' %}?stock=high" class="btn btn-sm btn-block" style="background:var(--accent-light); color:var(--accent); border:1px solid #b7dfca;">
-              <i class="bi bi-box-seam sl-me-1"></i> In Stock
-            </a>
-            <a href="{% url 'view-inventory-stock' %}?stock=low" class="btn btn-sm btn-block" style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
-              <i class="bi bi-exclamation-triangle sl-me-1"></i> Low Stock
-            </a>
-            <a href="{% url 'view-inventory-stock' %}?stock=none" class="btn btn-sm btn-block" style="background:#fdf0ef; color:var(--danger); border:1px solid #f0d0ce;">
-              <i class="bi bi-slash-circle sl-me-1"></i> Out of Stock
-            </a>
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+            <div>
+              <div class="sd-note-title">About stock</div>
+              <div class="sd-note-text">Stock is updated automatically when a purchase or waste is recorded.</div>
+            </div>
           </div>
+
         </div>
       </div>
 

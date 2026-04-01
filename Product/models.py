@@ -20,6 +20,7 @@ class Product(SlugModel, TimeStampModel):
     
     class Meta:
         ordering = ['name']
+        unique_together = ('user', 'slug')
         
     def __str__(self):
         return self.name

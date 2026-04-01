@@ -21,23 +21,40 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
 });
 </script>
+
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-tags"></i>
-        Categories
-      </h4>
-      <p class="sl-page-subtitle">Manage category names and types for your materials.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SETTINGS</div>
+      <h1 class="page-title">Categories</h1>
+      <p class="page-subtitle">Manage category names and types for your items, products, and expenses.</p>
     </div>
-    <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
-      <i class="bi bi-plus-circle"></i> Add Category
-    </a>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-tags-fill"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> categor{{ page_obj.paginator.count|pluralize:"y,ies" }}
+      </div>
+      <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Add Category
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
@@ -45,29 +62,39 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
-      <form method="get" autocomplete="off">
-        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
-          <div class="flex-grow-1">
-            <div class="input-group">
-              <span class="input-group-icon"><i class="bi bi-search"></i></span>
-              <input type="search" name="search" class="form-control"
-                     placeholder="Search category name..."
-                     value="{{ request.GET.search|default:'' }}">
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search category name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">Reset</a>
             </div>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button class="btn btn-outline-secondary btn-sm" type="submit">
-              <i class="bi bi-funnel"></i> Filter
-            </button>
-            <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">Reset</a>
-          </div>
+          </form>
         </div>
-      </form>
+      </details>
+
 
       <div class="card table-card">
         <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="card-header-left-group">
             <span class="card-header-title">Category List</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} categor{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
           </div>
@@ -85,46 +112,57 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Name</th>
                 <th class="sl-text-center">Type</th>
-                <th class="sl-text-end">Actions</th>
+                <th class="sl-text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {% for category in categories %}
+              {% for category in page_obj %}
               <tr>
                 <td>
                   <div class="cell-primary">{{ category.name|capfirst }}</div>
+                  <div class="cell-sub">by {{category.created_by|capfirst}}</div>
                 </td>
                 <td class="sl-text-center">
                   {% if category.category_type == 'item' %}
-                    <span class="sl-badge sl-badge-light">Item</span>
+                    <span class="status-badge status-success">Item</span>
                   {% elif category.category_type == 'product' %}
-                    <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+                    <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
                   {% elif category.category_type == 'expense' %}
-                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+                    <span class="status-badge status-warning">Expense</span>
                   {% endif %}
                 </td>
-                <td class="sl-text-end">
+                <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm" title="Edit">
-                      <i class="bi bi-pencil-square"></i>
+                    <a href="{% url 'category-update' category.id %}" class="action-btn" title="Edit">
+                      <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'category-delete' category.id %}" class="btn btn-outline-secondary btn-sm" title="Delete"
-                       style="color:var(--danger); border-color:#f0d0ce;">
+                    <a href="{% url 'category-delete' category.id %}" class="action-btn action-btn--danger" title="Delete">
                       <i class="bi bi-trash"></i>
                     </a>
                   </div>
                 </td>
               </tr>
               {% empty %}
-              <tr class="sl-empty-row">
-                <td colspan="3">
-                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No categories found</h6>
-                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Create your first category to organize materials.</p>
-                  <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> Add Category
-                  </a>
-                </td>
-              </tr>
+                <tr>
+                  <td colspan="4">
+                    <div class="empty-state">
+                      <div class="empty-icon"><i class="bi bi-tags"></i></div>
+                      <h3 class="empty-title">No categories found</h3>
+                      <p class="empty-text">
+                        {% if request.GET.search %}
+                          No results for "{{ request.GET.search }}". Try a different name.
+                        {% else %}
+                          Create your first category to organize your items.
+                        {% endif %}
+                      </p>
+                      {% if not request.GET.search %}
+                      <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Add Category
+                      </a>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
@@ -138,9 +176,11 @@ document.addEventListener("DOMContentLoaded", function () {
               {% with q=request.GET.search cat=request.GET.category_type %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">&laquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&laquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
               {% for p in page_obj.paginator.page_range %}
@@ -150,9 +190,11 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">&raquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category_type={{ cat }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&raquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
               {% endwith %}
@@ -168,40 +210,49 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="right-panel">
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
             <i class="bi bi-info-circle"></i> About Categories
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="mf-guide-title">Category Type</div>
-            <p style="font-size:0.82rem; color:#6c757d; margin-bottom:0.5rem;">Determines where the category appears:</p>
+            <div class="sd-summary-block-label">Category Types</div>
             <div class="sd-info-row">
-              <span class="sl-badge sl-badge-light">Item</span>
-              <span style="font-size:0.78rem; color:#6c757d;">market purchases & stock</span>
+              <span class="status-badge status-success">Item</span>
+              <span class="sd-info-value">Market purchases &amp; stock</span>
             </div>
             <div class="sd-info-row">
-              <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
-              <span style="font-size:0.78rem; color:#6c757d;">items you sell to customers</span>
+              <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
+              <span class="sd-info-value">Items you sell to customers</span>
             </div>
             <div class="sd-info-row">
-              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
-              <span style="font-size:0.78rem; color:#6c757d;">misc expenses like VAT, permits</span>
+              <span class="status-badge status-warning">Expense</span>
+              <span class="sd-info-value">Misc expenses like VAT, permits</span>
             </div>
           </div>
 
           <div class="sd-summary-block">
-            <div class="mf-guide-title">Quick Filter</div>
-            <div class="btn-grid">
-              <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-shop"></i> Item Categories
+            <div class="sd-summary-block-label">Quick Filter</div>
+            <div class="quick-range-grid">
+              <a href="{% url 'category-list' %}?category_type=item"
+                class="quick-range-btn {% if request.GET.category_type == 'item' %}active{% endif %}"
+                style="{% if request.GET.category_type == 'item' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
+                <i class="bi bi-shop"></i> Item
               </a>
-              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-sm btn-block" style="background:#e7f1ff; color:#084298; border:1px solid #b6d4fe;">
-                <i class="bi bi-basket"></i> Product Categories
+              <a href="{% url 'category-list' %}?category_type=product"
+                class="quick-range-btn {% if request.GET.category_type == 'product' %}active{% endif %}"
+                style="{% if request.GET.category_type == 'product' %}background:var(--info-light); border-color:var(--info); color:var(--info);{% endif %}">
+                <i class="bi bi-basket"></i> Product
               </a>
-              <a href="{% url 'category-list' %}?category_type=expense" class="btn btn-sm btn-block" style="background:var(--warning-light); color:var(--warning); border:1px solid #f5d5a0;">
-                <i class="bi bi-receipt"></i> Expense Categories
+              <a href="{% url 'category-list' %}?category_type=expense"
+                class="quick-range-btn {% if request.GET.category_type == 'expense' %}active{% endif %}"
+                style="{% if request.GET.category_type == 'expense' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
+                <i class="bi bi-receipt"></i> Expense
+              </a>
+              <a href="{% url 'category-list' %}"
+                class="quick-range-btn {% if not request.GET.category_type and not request.GET.search %}quick-range-btn--selected{% endif %}">
+                <i class="bi bi-grid"></i> All
               </a>
             </div>
           </div>

@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->
     <div class="card">
@@ -28,7 +28,7 @@
           <div class="mf-fields-grid">
 
             {# Name #}
-            <div class="mf-field-group">
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
               <label for="{{ form.name.id_for_label }}" class="mf-form-label">
                 {{ form.name.label }}
                 {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
@@ -43,7 +43,7 @@
           <div class="mf-form-actions">
             <a href="{% url 'supplier-list' %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save
+              <i class="bi bi-check-circle sl-me-1"></i> Save Supplier
             </button>
           </div>
 
@@ -54,7 +54,7 @@
     <!-- RIGHT: GUIDE PANEL -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
           <i class="bi bi-info-circle"></i> Supplier Guide
         </span>
       </div>
@@ -63,16 +63,16 @@
         <div class="sd-summary-block">
           <div class="mf-guide-title">Checklist</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill"></i> Use the supplier's actual business name.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Each supplier should be unique — avoid duplicates.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Use the supplier's actual business name.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Each supplier should be unique — avoid duplicates.</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">How it works</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Suppliers are linked to materials you purchase.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Purchase history is tracked per supplier.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Suppliers are linked to materials you purchase.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Purchase history is tracked per supplier.</li>
           </ul>
         </div>
 

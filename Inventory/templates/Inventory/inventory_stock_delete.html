@@ -5,22 +5,22 @@
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title" style="color:var(--danger);">
-        <i class="bi bi-trash"></i>
-        Remove Stock Record
-      </h4>
-      <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ stock.name }}</strong> from inventory.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">INVENTORY</div>
+      <h1 class="page-title" style="color:var(--danger);">Remove Stock Record</h1>
+      <p class="page-subtitle">Permanently remove <strong>{{ stock.name|capfirst }}</strong> from inventory.</p>
     </div>
-    <a href="{% url 'view-inventory-stock' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to inventory
-    </a>
+    <div class="page-header-right">
+      <a href="{% url 'view-inventory-stock' %}" class="btn btn-outline-secondary btn-sm btn-flex">
+        <i class="bi bi-arrow-left"></i> Back to Inventory
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: DETAILS -->
+    <!-- LEFT: DETAILS + FORM -->
     <div class="left-panel">
       <div class="card">
         <div class="card-header">
@@ -39,7 +39,7 @@
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Stock Info</div>
+            <div class="sd-summary-block-label">Stock Details</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Name</span>
               <span class="sd-info-value">{{ stock.name|capfirst }}</span>
@@ -58,37 +58,26 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Quantity</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ stock.quantity }}</span>
-            </div>
-          </div>
-
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:#f0d0ce;">
-            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
-            <div>
-              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">
-                Removing this stock record will also remove the linked product from your catalog.
-                Purchase and waste history will remain intact.
-              </div>
+              <span class="sd-info-value" style="color:var(--danger); font-weight:600;">{{ stock.quantity }}</span>
             </div>
           </div>
 
           <form method="POST">
             {% csrf_token %}
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:1rem; border-top:1px solid #f0f0f0; margin-top:0.5rem;">
               <a href="{% url 'view-inventory-stock' %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn"
-                style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
-                <i class="bi bi-trash"></i> Confirm Remove
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash3"></i> Confirm Remove
               </button>
             </div>
           </form>
+
 
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: WARNING -->
+    <!-- RIGHT: WARNING PANEL -->
     <div class="right-panel">
       <div class="card">
         <div class="card-header" style="background:#c0392b;">
@@ -98,12 +87,23 @@
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
+          <div class="sd-note-box" style="background:var(--danger-light); border-color:#f0d0ce;">
+            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
+              <div class="sd-note-text">
+                Removing this record will also delete the linked product from your catalog.
+                Purchase and waste history will remain intact.
+              </div>
+            </div>
+          </div>
+
           <div class="sd-summary-block" style="background:var(--danger-light); border-color:#f0d0ce;">
             <div class="sd-summary-block-label" style="color:var(--danger);">
-              <i class="bi bi-exclamation-triangle sl-me-1"></i> What gets removed
+              <i class="bi bi-x-circle sl-me-1"></i> What gets deleted
             </div>
             <ul class="mf-guide-list" style="margin-top:0.5rem;">
-              <li><i class="bi bi-x-circle" style="color:var(--danger);"></i> Stock record for <strong>{{ stock.name }}</strong></li>
+              <li><i class="bi bi-x-circle" style="color:var(--danger);"></i> Stock record for <strong>{{ stock.name|capfirst }}</strong></li>
               <li><i class="bi bi-x-circle" style="color:var(--danger);"></i> Linked product from catalog</li>
             </ul>
           </div>
@@ -111,9 +111,9 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">What stays intact</div>
             <ul class="mf-guide-list">
-              <li><i class="bi bi-check-circle-fill"></i> All purchase history</li>
-              <li><i class="bi bi-check-circle-fill"></i> All waste records</li>
-              <li><i class="bi bi-check-circle-fill"></i> All sales history</li>
+              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> All purchase history</li>
+              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> All waste records</li>
+              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> All sales history</li>
             </ul>
           </div>
 

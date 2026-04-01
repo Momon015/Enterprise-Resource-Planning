@@ -56,22 +56,33 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">EXPENSES</div>
+      <h1 class="page-title">Waste Records</h1>
+      <p class="page-subtitle">Wasted stock recorded as expenses</p>
+    </div>
+    <div class="page-header-right">
+
+      <div class="header-stat">
         <i class="bi bi-trash2"></i>
-        Waste Records
-      </h4>
-      <p class="sl-page-subtitle">Wasted stock recorded as expenses.</p>
+        <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
+      </div>
+
+      <div class="header-stat danger">
+        <i class="bi bi-trophy"></i>
+        Highest loss: <strong>₱{% if max_waste %}{{ max_waste|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
+      </div>
+
     </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: FILTERS + TABLE -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
 
-      <!-- ADVANCED FILTER DRAWER -->
+      <!-- ADVANCED FILTER -->
       <details class="filter-card"
                {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
         <summary>
@@ -89,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="input-group">
                 <span class="input-group-icon"><i class="bi bi-search"></i></span>
                 <input type="search" name="search" class="form-control"
-                       placeholder="Search for ID, cost price, and quantity"
+                       placeholder="Search by item, cost, or quantity..."
                        value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
@@ -97,7 +108,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="form-group">
               <label class="form-label">Period (month)</label>
               <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:'' }}">
+                     value="{{ request.GET.select_month|default:current_year }}">
             </div>
 
             <div class="form-group">
@@ -112,20 +123,9 @@ document.addEventListener("DOMContentLoaded", function () {
                      value="{{ request.GET.end_date|default:'' }}">
             </div>
 
-            {% comment %} RESTAURANT PHASE — type filter (product vs material waste)
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <select name="type" class="form-control">
-                <option value="">All types</option>
-                <option value="product" {% if request.GET.type == 'product' %}selected{% endif %}>Product</option>
-                <option value="material" {% if request.GET.type == 'material' %}selected{% endif %}>Material</option>
-              </select>
-            </div>
-            {% endcomment %}
-
             <div class="filter-actions">
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel me-1"></i> Filter
+                <i class="bi bi-funnel"></i> Filter
               </button>
               <a href="{% url 'expense-waste-list' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
@@ -137,9 +137,11 @@ document.addEventListener("DOMContentLoaded", function () {
       <!-- TABLE -->
       <div class="card table-card">
         <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="card-header-left-group">
             <span class="card-header-title">Waste Records</span>
-            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
+            <span class="sl-badge sl-badge-light">
+              {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
+            </span>
           </div>
           <span class="card-header-sub">Most recent first</span>
         </div>
@@ -149,163 +151,168 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Item</th>
-                {% comment %} RESTAURANT PHASE — type column
-                <th>Type</th>
-                {% endcomment %}
-                <th class="sl-text-center">Qty</th>
-                <th class="sl-text-end">Unit Price</th>
-                <th class="sl-text-end">Total Waste</th>
+                <th>Items</th>
+                <th class="sl-text-end">Total Loss</th>
+                <th class="sl-text-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {% for waste in page_obj %}
+              <tr>
+
+                <td>
+                  <div class="cell-primary">{{ waste.date|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{ waste.date|date:"l" }}</div>
+                </td>
+
+                <td>
+                  <div class="cell-primary">{{ waste.waste_items.count }} item{{ waste.waste_items.count|pluralize }}</div>
+                  <div class="cell-sub">by {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst|default:"—" }}</div>
+                </td>
+
+
+                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                  ₱{{ waste.waste_cost|floatformat:2|intcomma }}
+                </td>
+
+                <td class="sl-text-center">
+                  <div class="btn-group">
+                    <a href="{% url 'expense-waste-detail' waste.user.username waste.id %}" class="action-btn" title="View detail">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </div>
+                </td>
+
+              </tr>
+              {% empty %}
                 <tr>
-                  <td>
-                    <div class="cell-primary">{{ waste.date|date:"M d, Y" }}</div>
-                    <div class="cell-sub">{{ waste.date|date:"l" }}</div>
-                  </td>
-                  <td>
-                    {% for item in waste.waste_items.all %}
-                    {% if item.name %}
-                      <div class="cell-primary">{{ item.name|capfirst }}</div>
-                      <div class="cell-sub">{{ item.supplier|default:"—" }}</div>
-                      {% else %}
-                      <div class="cell-primary">No info</div>
-                      {% endif %}
-                    {% endfor %}
-                  </td>
-                  <td class="sl-text-center sl-fw-semibold">
-                    {% for item in waste.waste_items.all %}
-                      {{ item.quantity|intcomma }}
-                    {% endfor %}
-                  </td>
-                  <td class="sl-text-end">
-                    {% for item in waste.waste_items.all %}
-                      ₱{{ item.price|floatformat:2|intcomma }}
-                    {% endfor %}
-                  </td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ waste.waste_cost|floatformat:2|intcomma }}
+                  <td colspan="4">
+                    <div class="empty-state">
+                      <div class="empty-icon"><i class="bi bi-trash2"></i></div>
+                      <h3 class="empty-title">No waste records found</h3>
+                      <p class="empty-text">Adjust your filters or log a waste entry.</p>
+                    </div>
                   </td>
                 </tr>
-                {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="6">No waste records found.</td>
-                </tr>
+
               {% endfor %}
             </tbody>
+
           </table>
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj %}
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
               {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
+
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&laquo;</a>
+                  <a class="page-link"
+                     href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&laquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
+
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ p }}</a>
+                <a class="page-link"
+                   href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                  {{ p }}
+                </a>
               </li>
               {% endfor %}
+
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">&raquo;</a>
+                  <a class="page-link"
+                     href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&raquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
+
               {% endwith %}
             </ul>
           </nav>
         </div>
         {% endif %}
-
       </div>
     </div>
 
-    <!-- RIGHT: SUMMARY + ACTIONS -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- WASTE SUMMARY -->
+      <!-- Waste Summary -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-graph-down-arrow"></i> Waste Summary
+          <span class="card-header-title" style="color:#fff;">
+            <i class="bi bi-graph-down-arrow"></i>
+            Waste Summary
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-          <div class="sd-summary-block highlight" style="background:#fdf0ef; border-color:#f0d0ce;">
+        <div class="card-body">
+          <div class="sd-summary-block" style="background: var(--danger-light); border-color: var(--danger-border);">
             <div class="sd-summary-block-label">Total Waste Cost</div>
-            <div class="sd-total-amount" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+            <div class="sd-total-amount" style="color: var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
           </div>
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Breakdown</div>
+            <div class="sd-summary-block-label">Overview</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Total Records</span>
               <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
             </div>
-            {% comment %} <div class="sd-info-row">
-              <span class="sd-info-label">Stock Waste</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_material_waste|intcomma|floatformat:2|default:0 }}</span>
-            </div> {% endcomment %}
-            {% comment %} RESTAURANT PHASE — product waste breakdown
-            <div class="sd-info-row">
-              <span class="sd-info-label">Product Waste</span>
-              <span class="sd-info-value" style="color:#084298;">₱{{ total_product_waste|intcomma|floatformat:2|default:0 }}</span>
-            </div>
-            {% endcomment %}
           </div>
 
           <p class="sl-summary-note">Use filters on the left to narrow down by date.</p>
-
         </div>
       </div>
 
-      <!-- QUICK ACTIONS -->
+      <!-- Quick Actions -->
       <div class="card">
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i>
+            Quick Actions
+          </span>
+        </div>
+        <div class="card-body">
           {% if stocks %}
-          <div class="sl-quick-title">Quick Actions</div>
-          <div class="btn-grid">
-            <a href="{% url 'material-waste-create' %}" class="btn btn-sm btn-block"
-               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-weight:600;">
-              <i class="bi bi-bag"></i> Log Stock Waste
-            </a>
-            {% comment %} RESTAURANT PHASE — product waste button
-            <a href="{% url 'product-waste-create' %}" class="btn btn-sm btn-block"
-               style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
-              <i class="bi bi-box-seam"></i> Record Product Waste
-            </a>
-            {% endcomment %}
-          </div>
-          {% endif %}
+          <a href="{% url 'material-waste-create' %}" class="btn btn-danger btn-sm btn-block">
+            <i class="bi bi-trash2"></i> Log Stock Waste
+          </a>
           <hr class="sl-quick-divider">
+          {% endif %}
+
           <div class="sl-quick-label">Quick ranges</div>
-          <div class="btn-grid">
-            <a href="{% url 'expense-waste-list' %}?period=today" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-calendar-day"></i> Today
-            </a>
-            <a href="{% url 'expense-waste-list' %}?period=last_week" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-clock-history"></i> Last 7 days
-            </a>
-            <a href="{% url 'expense-waste-list' %}?period=week" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-calendar-week"></i> This week
-            </a>
-            <a href="{% url 'expense-waste-list' %}?period=month" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-calendar-month"></i> This month
-            </a>
-          </div>
+          
+            <div class="quick-range-grid">
+              <a href="{% url 'expense-waste-list' %}?period=today"
+                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+                <i class="bi bi-calendar-day"></i> Today
+              </a>
+              <a href="{% url 'expense-waste-list' %}?period=last_week"
+                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> Last 7 days
+              </a>
+              <a href="{% url 'expense-waste-list' %}?period=week"
+                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+                <i class="bi bi-calendar-week"></i> This week
+              </a>
+              <a href="{% url 'expense-waste-list' %}?period=month"
+                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+                <i class="bi bi-calendar-month"></i> This month
+              </a>
+            </div>
+
         </div>
       </div>
 

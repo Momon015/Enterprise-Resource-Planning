@@ -18,27 +18,35 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-box-seam"></i>
-        Product Detail
-      </h4>
-      <p class="sl-page-subtitle">
-        Inventory • Sales Management | SKU: {{ product.slug }}
-      </p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'product-list' %}" class="breadcrumb-link">PRODUCTS</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">{{ product.name|capfirst }}</h1>
+      <p class="page-subtitle">{{ product.category.name|default:"Uncategorized" }} · SKU: {{ product.slug }}</p>
     </div>
-    <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Go Back 
-    </a>
+    <div class="page-header-right">
+      <a href="{% url 'product-list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to products
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: MAIN PRODUCT INFO -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
       <div class="card">
         <div class="card-header">
@@ -47,45 +55,44 @@
               <i class="bi bi-box-seam"></i>
             </div>
             <div>
-              <div class="card-header-title">{{ product.name|capfirst }}</div>
-              <div class="card-header-sub">
-                Category:
-                {% if product.category %}{{ product.category.name }}
-                {% else %}Uncategorized{% endif %}
-              </div>
+              <div class="card-header-title">Product Overview</div>
+              <div class="card-header-sub">Pricing and inventory at a glance</div>
             </div>
           </div>
-          {% comment %} <div class="sd-card-header-right">
-            <div class="label">Current Price</div>
-            <div class="amount">₱{{ product.selling_price|floatformat:2 }}</div>
-          </div> {% endcomment %}
+          {% if product.prepared_quantity <= 0 %}
+            <span class="status-badge status-danger">Out of stock</span>
+          {% elif product.prepared_quantity <= 49 %}
+            <span class="status-badge status-warning">Low stock</span>
+          {% else %}
+            <span class="status-badge status-success">In stock</span>
+          {% endif %}
         </div>
 
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body">
 
-          <!-- QUICK STATS -->
-          <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr);">
+          <!-- Quick Stats -->
+          <div class="sd-stats-row">
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Price</div>
-              <div class="sd-stat-value">₱{{ product.selling_price|floatformat:2 }}</div>
+              <div class="sd-stat-label"><i class="bi bi-tag sl-me-1"></i>Selling Price</div>
+              <div class="sd-stat-value green">₱{{ product.selling_price|floatformat:2 }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Cost</div>
+              <div class="sd-stat-label"><i class="bi bi-receipt sl-me-1"></i>Cost Price</div>
               <div class="sd-stat-value">₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Stock on Hand</div>
-              <div class="sd-stat-value">{{ product.prepared_quantity }}</div>
-            </div>
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Unit</div>
-              <div class="sd-stat-value">{{ product.material.get_unit_display|default:"N/A" }}</div>
+              <div class="sd-stat-label"><i class="bi bi-boxes sl-me-1"></i>Stock on Hand</div>
+              <div class="sd-stat-value
+                {% if product.prepared_quantity <= 0 %}" style="color:var(--danger);"
+                {% elif product.prepared_quantity <= 49 %}" style="color:var(--warning);"
+                {% else %} green"
+                {% endif %}>{{ product.prepared_quantity }} units</div>
             </div>
           </div>
 
-          <!-- DESCRIPTION -->
+          <!-- Description -->
           <hr class="sd-section-divider">
-          <div class="sd-section-label">Description</div>
+          <div class="sd-section-label"><i class="bi bi-text-left sl-me-1"></i>Description</div>
           {% if product.description %}
             <div class="sd-summary-block">{{ product.description|linebreaksbr }}</div>
           {% else %}
@@ -96,74 +103,141 @@
       </div>
     </div>
 
-    <!-- RIGHT: SNAPSHOT PANEL -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- PRODUCT SNAPSHOT -->
+      <!-- Product Snapshot -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-speedometer2"></i> Product Snapshot
+          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-speedometer2"></i>
+            Snapshot
           </span>
-          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body">
 
-          <!-- STOCK LEVEL -->
-          <div class="sd-summary-block highlight">
+          <!-- Stock Level -->
+          <div class="sd-summary-block
+            {% if product.prepared_quantity <= 0 %}
+              " style="background:var(--danger-light); border-color:var(--danger-border);"
+            {% elif product.prepared_quantity <= 49 %}
+              " style="background:var(--warning-light); border-color:#fde68a;"
+            {% else %}
+              highlight"
+            {% endif %}>
             <div class="sd-summary-block-label">Stock Level</div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Stock on hand</span>
-              <span class="sd-info-value">{{ product.prepared_quantity }}</span>
+              <span class="sd-info-label">On hand</span>
+              <span class="sd-info-value">{{ product.prepared_quantity }} units</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Status</span>
               {% if product.prepared_quantity <= 0 %}
-                <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+                <span class="status-badge status-danger">Out of stock</span>
               {% elif product.prepared_quantity <= 49 %}
-                <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+                <span class="status-badge status-warning">Low stock</span>
               {% else %}
-                <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
+                <span class="status-badge status-success">In stock</span>
               {% endif %}
             </div>
           </div>
 
-          <!-- VALUE OVERVIEW -->
+          <!-- Value Overview -->
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Value Overview</div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Stock value (cost)</span>
-              <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
+              <span class="sd-info-label">Total stock cost</span>
+              <span class="sd-info-value">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Potential revenue</span>
-              <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
+              <span class="sd-info-value">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
             </div>
           </div>
 
-          {% comment %} <!-- ACTIONS -->
+          <!-- Created By -->
+          {% if product.created_by %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Created By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">
+                {{ product.created_by.username|slice:":1"|upper }}
+              </div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ product.created_by.get_full_name|default:product.created_by.username }}</div>
+                <div class="created-by-meta">
+                  {% if product.created_by.role == 'developer' %}
+                    <span class="role-badge role-dev">Developer</span>
+                  {% elif product.created_by.role == 'owner' %}
+                    <span class="role-badge role-owner">Owner</span>
+                  {% else %}
+                    <span class="role-badge role-staff">Staff</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Contextual Note -->
+          <div class="sd-note-box
+            {% if product.prepared_quantity <= 0 %}
+              " style="background:var(--danger-light); border-color:var(--danger-border);"
+            {% elif product.prepared_quantity <= 49 %}
+              " style="background:var(--warning-light); border-color:#fde68a;"
+            {% else %}
+              "
+            {% endif %}>
+            <div class="sd-note-icon">
+              {% if product.prepared_quantity <= 0 %}
+                <i class="bi bi-exclamation-circle-fill" style="color:var(--danger);"></i>
+              {% elif product.prepared_quantity <= 49 %}
+                <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning);"></i>
+              {% else %}
+                <i class="bi bi-lightning-charge" style="color:var(--warning);"></i>
+              {% endif %}
+            </div>
+            <div>
+              <div class="sd-note-title">
+                {% if product.prepared_quantity <= 0 %}Stock depleted
+                {% elif product.prepared_quantity <= 49 %}Stock running low
+                {% else %}Next actions{% endif %}
+              </div>
+              <div class="sd-note-text">
+                {% if product.prepared_quantity <= 0 %}
+                  This product is out of stock. Restock before adding to a sale.
+                {% elif product.prepared_quantity <= 49 %}
+                  Only {{ product.prepared_quantity }} units left. Consider restocking soon.
+                {% else %}
+                  Keep stock in range and review pricing when costs change.
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.4rem;">
+            <i class="bi bi-lightning"></i>
+            Actions
+          </span>
+        </div>
+        <div class="card-body">
           <div class="btn-grid">
             <a href="{% url 'add-to-sale' product.id %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-cart-plus"></i> Add to Sale
             </a>
-            <a href="{% url 'product-update' product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'product-update' product.user.username product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Product
             </a>
-            <a href="{% url 'product-delete' product.slug %}" class="btn btn-sm btn-block"
-               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+            <a href="{% url 'product-delete' product.user.username product.slug %}" class="btn btn-sm btn-block" style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
               <i class="bi bi-trash"></i> Delete Product
             </a>
-          </div> {% endcomment %}
-
-          <!-- NOTE -->
-          <div class="sd-note-box">
-            <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
-            <div>
-              <div class="sd-note-title">Next actions</div>
-              <div class="sd-note-text">Keep stock in range and review pricing whenever supplier costs change.</div>
-            </div>
           </div>
-
         </div>
       </div>
 

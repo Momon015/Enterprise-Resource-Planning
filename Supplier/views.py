@@ -20,18 +20,19 @@ from django.contrib.auth import update_session_auth_hash
 from Supplier.models import Material, MaterialPreset, MaterialPresetItem, Supplier
 from Supplier.forms import MaterialForm, MaterialFilterForm, SupplierForm, SupplierFilterForm
 
-from django.db.models import Q
-
 from django.core.paginator import Paginator
 
-from django.db.models import F
+from django.db.models import Q, F, Sum, Max, Avg, Count
 
 from decimal import Decimal
 
-from core.utils.owner import get_owner, permission_required
+from user.models import User
+
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user
 
 @login_required(login_url='login')
 def material_list(request):
+    owner = get_owner(request.user)
     cart = request.session.get('cart', {})
     total = 0
     
@@ -39,7 +40,7 @@ def material_list(request):
     
     if cart:
         for material_id, data in cart.items():
-            material = get_object_or_404(Material, id=material_id)
+            material = get_object_or_404(Material, user=owner, id=material_id)
             
             # computations
             line_total = data.get('quantity', 0) * material.price
@@ -54,8 +55,9 @@ def material_list(request):
                 'unit': material.unit
             })
             
-    form = MaterialFilterForm(request.GET or None)
-    materials = Material.objects.all().order_by('name')
+    form = MaterialFilterForm(request.GET or None, user=owner)
+    
+    materials = get_queryset_for_user(request.user, Material.objects.all()).order_by('name')
 
     
     """
@@ -63,7 +65,13 @@ def material_list(request):
     causing any bugs like not showing anything 
     in template to ensure this always work
     """
-    categories = form.fields['category'].queryset 
+    categories = form.fields['category'].queryset
+    categories_count = categories.count()
+    
+    # top 3 categories
+    top_categories = categories.annotate(
+        material_count=Count('materials')
+    ).order_by('-material_count')[:3]  
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -84,20 +92,21 @@ def material_list(request):
             materials = materials.filter(category=category)
         
     # pagination
-    paginator = Paginator(materials, 8)
+    paginator = Paginator(materials, 7)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
            
 
-    suppliers = Supplier.objects.all()
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all())
     
     context = {
-        'page_obj': materials, 
         'categories': categories, 
         'page_obj': page_obj, 
         'cart_items': cart_items,
         'total': total,
         'suppliers': suppliers,
+        'categories_count': categories_count,
+        'top_categories': top_categories,
         'section': 'supplier',
           
         }
@@ -105,10 +114,11 @@ def material_list(request):
     return render(request, 'Supplier/material_list.html', context)
 
 @login_required(login_url='login')
+@permission_required('create')
 def material_create(request):
     owner = get_owner(request.user)
     if request.method == 'POST':
-        form = MaterialForm(request.POST)
+        form = MaterialForm(request.POST, user=owner)
         
         if form.is_valid():
             material = form.save(commit=False)
@@ -123,25 +133,37 @@ def material_create(request):
             messages.success(request, f"{material.name} successfully created.")
             return redirect('material-list')
     else:
-        form = MaterialForm()
+        form = MaterialForm(user=owner)
         
     context = {'form': form, 'section': 'supplier'}
     return render(request, 'Supplier/material_create.html', context)
 
 @login_required(login_url='login')
-def material_detail(request, slug):
-    material = get_object_or_404(Material, slug=slug)
+def material_detail(request, username, slug):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+    else:
+        owner = get_owner(request.user)
+    material = get_object_or_404(Material, slug=slug, user=owner)
     
     context = {'material': material, 'section': 'Supplier'}
     return render(request, 'Supplier/material_detail.html', context)
 
 @login_required(login_url='login')
-def material_update(request, slug):
-    material = get_object_or_404(Material, slug=slug)
-    owner = get_owner(request.user)
-    
+@permission_required('update')
+def material_update(request, username, slug):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:   
+        owner = get_owner(request.user)
+        
+    material = get_object_or_404(Material, user=owner, slug=slug)
+
     if request.method == 'POST':
-        form = MaterialForm(request.POST, instance=material)
+        form = MaterialForm(request.POST, instance=material, user=owner)
         
         if form.is_valid():
             material = form.save(commit=False)
@@ -157,15 +179,24 @@ def material_update(request, slug):
             print(form.errors)
         
     else:
-        form = MaterialForm(instance=material)
+        form = MaterialForm(instance=material, user=owner)
         
     context = {'form': form, 'material': material, 'section': 'supplier'}
     return render(request, 'Supplier/material_update.html', context)
 
 @login_required(login_url='login')
-@permission_required('delete')
-def material_delete(request, slug):
-    material = get_object_or_404(Material, slug=slug)
+@permission_required('staff_delete')
+def material_delete(request, username, slug):
+    
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
+    
+    material = get_object_or_404(Material, user=owner, slug=slug)
     
     if request.method == 'POST':
         material.delete()
@@ -175,19 +206,24 @@ def material_delete(request, slug):
     context = {'material': material, 'section': 'supplier'}
     return render(request, 'Supplier/material_delete.html', context)
 
-@login_required(login_url='login')  
+@login_required(login_url='login')
+@permission_required('add')
 def save_items(request):
     cart = request.session.get('cart', {})
     checkbox = request.POST.get('checkbox')
     name = request.POST.get('name').title()
     print('cart', cart)
     owner = get_owner(request.user)
-    if checkbox:
-        preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
+    
+    if not checkbox:
+        messages.warning(request, 'You forgot to click the checkbox.')
         
+    else:
+        preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
+      
         for material_id, data in cart.items():
             
-            material = get_object_or_404(Material, id=material_id)
+            material = get_object_or_404(Material, user=owner, id=material_id)
             quantity = data['quantity']
             discount = data.get('discount', 0)
             
@@ -197,17 +233,23 @@ def save_items(request):
                 defaults={'quantity': quantity, 'discount': discount}
                 
             )
-            messages.success(request, f"{name} added to preset.")
-            return redirect('view-cart')
+        messages.success(request, f"{name} added to preset.")
         request.session['preset_id'] = preset.id
-        
-    return redirect('view-cart')
+        return redirect('view-cart')
 
 @login_required(login_url='login')
-def adding_preset_to_cart(request, preset_id):
+@permission_required('add') # dev
+def adding_preset_to_cart(request, username, preset_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
     cart = request.session.get('cart', {})
     
-    preset = get_object_or_404(MaterialPreset, id=preset_id)
+    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
     items = preset.preset_items.select_related('material')
     
     if preset:
@@ -237,25 +279,21 @@ def adding_preset_to_cart(request, preset_id):
                         'price': str(item.material.price),
                         'discount': str(item.discount),
                         
-                        
                     }
-                    messages.success(request, f"{preset.name} has added to purchase.")
+                    messages.success(request, f"{material.name} has added to purchase.")
                 
             else:
-                messages.warning(request, f"{material.name} exceeds the quantity limit. Please adjust the {material.name}'s quantity accordingly.")
+                messages.warning(request, f"{material.name} exceeds the quantity limit.")
                     
     request.session['cart'] = cart
     request.session.modified = True
 
-
-    
     # This allows to stay which 
-    url = request.GET.get('next', reverse('material-preset-list'))
-    return redirect(url)
+    return redirect(f"{reverse('material-preset-list')}?{request.META.get('QUERY_STRING', '')}")
     
 @login_required(login_url='login')
 def preset_list(request):
-    presets = MaterialPreset.objects.all().order_by('name')
+    presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).order_by('name')
     
     paginator = Paginator(presets, 5)
     page_number = request.GET.get('page')
@@ -265,15 +303,30 @@ def preset_list(request):
     return render(request, 'Supplier/list_preset.html', context)
 
 @login_required(login_url='login')
-def preset_detail(request, preset_id):
-    preset = get_object_or_404(MaterialPreset, id=preset_id)
+def preset_detail(request, username, preset_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+    else:
+        owner = get_owner(request.user)
+        
+    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
 
     context = {'preset': preset, 'section': 'supplier'}
     return render(request, 'Supplier/detail_preset.html', context)
 
 @login_required(login_url='login')
-def edit_preset(request, preset_id):
-    preset = get_object_or_404(MaterialPreset, id=preset_id)
+@permission_required('update') # dev
+def edit_preset(request, username, preset_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
+        
+    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
     save_items = preset.preset_items.select_related('material')
     
     qty_changed = False
@@ -288,7 +341,7 @@ def edit_preset(request, preset_id):
             new_name = request.POST.get(f'preset_{preset.id}')
             
             if new_name and new_name != preset.name:
-                preset.name = new_name
+                preset.name = new_name.title()
                 preset.user = owner
                 preset.created_by = owner
                 preset.save()
@@ -313,15 +366,22 @@ def edit_preset(request, preset_id):
         if discount_changed == True and not qty_changed == True:
             messages.success(request, f"{item.material.name}'s discount has been updated. ")
         
-        return redirect('material-preset-detail', preset.id)
+        return redirect('material-preset-list')
       
     context = {'preset': preset, 'items': save_items, 'section': 'supplier'}
     return render(request, 'Supplier/edit_preset.html', context)
 
-@login_required(login_url='login')  
-@permission_required('delete')
-def delete_preset(request, preset_id):
-    preset = get_object_or_404(MaterialPreset, id=preset_id)
+@login_required(login_url='login')
+@permission_required('staff_delete')
+def delete_preset(request, username, preset_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
+    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
     
     if request.method == 'POST':
         preset.delete()
@@ -333,7 +393,7 @@ def delete_preset(request, preset_id):
 
 @login_required(login_url='login')
 def supplier_list(request):
-    suppliers = Supplier.objects.all().order_by('name')
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).order_by('name')
     form = SupplierFilterForm(request.GET or None)
     
     if form.is_valid():
@@ -352,8 +412,10 @@ def supplier_list(request):
 
 
 @login_required(login_url='login')
+@permission_required('add')
 def supplier_create(request):
     owner = get_owner(request.user)
+    
     if request.method == 'POST':
         form = SupplierForm(request.POST)
         
@@ -379,8 +441,17 @@ def supplier_create(request):
 #     return render(request, 'Supplier/supplier_detail.html', context)
 
 @login_required(login_url='login')
-def supplier_update(request, supplier_id):
-    supplier = get_object_or_404(Supplier, id=supplier_id)
+@permission_required('update')
+def supplier_update(request, username, supplier_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
+        
+    supplier = get_object_or_404(Supplier, user=owner, id=supplier_id)
     owner = get_owner(request.user)
     
     if request.method == 'POST':
@@ -406,9 +477,16 @@ def supplier_update(request, supplier_id):
 
 
 @login_required(login_url='login')
-@permission_required('delete')
-def supplier_delete(request, supplier_id):
-    supplier = get_object_or_404(Supplier, id=supplier_id)
+@permission_required('staff_delete')
+def supplier_delete(request, username, supplier_id):
+    if request.user.role == 'developer':
+        owner = get_object_or_404(User, username=username)
+        
+        if owner != request.user:
+            return render(request, 'core/no_access.html', status=403)
+    else:
+        owner = get_owner(request.user)
+    supplier = get_object_or_404(Supplier, user=owner, id=supplier_id)
     
     if request.method == 'POST':
         supplier.delete()

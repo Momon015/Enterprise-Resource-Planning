@@ -1,143 +1,222 @@
 {% extends 'main.html' %}
 {% block content %}
 
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-xl-8 col-lg-9">
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
 
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
-        <!-- Header -->
-          <div class="bg-light border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <div>
+  document.querySelectorAll(".toggle-password-btn").forEach(btn => {
+    btn.addEventListener("click", function () {
+      const input = this.previousElementSibling;
+      if (!input) return;
+      const isPassword = input.type === "password";
+      input.type = isPassword ? "text" : "password";
+      const icon = this.querySelector("i");
+      if (icon) {
+        icon.classList.toggle("bi-eye");
+        icon.classList.toggle("bi-eye-slash");
+      }
+    });
+  });
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'user-profile' request.user.slug %}" class="breadcrumb-link">PROFILE</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>{% if page == 'user-edit-profile' %}EDIT{% else %}PASSWORD{% endif %}</span>
+      </div>
+      <h1 class="page-title">
+        {% if page == 'user-edit-profile' %}Edit Profile{% else %}Change Password{% endif %}
+      </h1>
+      <p class="page-subtitle">
+        {% if page == 'user-edit-profile' %}
+          Update your account details and personal information
+        {% else %}
+          Set a new password for your account
+        {% endif %}
+      </p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'user-profile' request.user.slug %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to profile
+      </a>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: FORM -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
               {% if page == 'user-edit-profile' %}
-                <h5 class="mb-1 fw-semibold d-flex align-items-center gap-2">
-                  <i class="bi bi-person-gear text-primary fs-5"></i>
-                  Edit Profile
-                </h5>
-                <small class="text-muted">
-                  Manage your account details and system access information.
-                </small>
-              {% elif page == 'user-edit-password' %}
-                <h5 class="mb-1 fw-semibold d-flex align-items-center gap-2">
-                  <i class="bi bi-lock-fill text-primary fs-5"></i>
-                  Change Password
-                </h5>
-                <small class="text-muted">
-                  Update your account password.
-                </small>
+                <i class="bi bi-person-gear"></i>
+              {% else %}
+                <i class="bi bi-lock-fill"></i>
               {% endif %}
             </div>
-
-            {% if page == 'user-edit-profile' %}
-              <div class="d-flex gap-2">
-                <a href="{% url 'user-edit-password' %}" class="btn btn-outline-primary btn-sm">
-                  <i class="bi bi-lock-fill me-1"></i> Edit Password
-                </a>
-
-                <a href="#" class="btn btn-outline-warning btn-sm" title="Coming soon">
-                  <i class="bi bi-key-fill me-1"></i> Reset Password
-                </a>
+            <div>
+              <div class="card-header-title">
+                {% if page == 'user-edit-profile' %}Profile Information{% else %}Update Password{% endif %}
               </div>
-            {% endif %}
+              <div class="card-header-sub">
+                {% if page == 'user-edit-profile' %}Edit your name, contact, and account details{% else %}Enter your current and new password{% endif %}
+              </div>
+            </div>
           </div>
+        </div>
 
-
-        <!-- Body -->
-        <div class="card-body p-4">
-
-          {% if page == 'user-edit-profile' %}
+        <div class="card-body">
           <form method="POST" autocomplete="off" novalidate>
             {% csrf_token %}
 
-            <div class="mb-3">
-              <h6 class="fw-semibold text-secondary mb-1">Personal Information</h6>
-              <hr class="mt-1 mb-3">
-            </div>
-
-            <div class="row g-3">
-              {% for field in form %}
-                <div class="col-md-6">
-                  <label for="{{ field.id_for_label }}" class="form-label small fw-medium">
+            {% if page == 'user-edit-profile' %}
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                {% for field in form %}
+                <div class="mf-field">
+                  <label class="mf-label" for="{{ field.id_for_label }}">
                     {{ field.label }}
-                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                    {% if field.field.required %}<span style="color:var(--danger);">*</span>{% endif %}
                   </label>
                   {{ field }}
                   {% if field.errors %}
-                    <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+                    <div style="font-size:0.75rem; color:var(--danger); margin-top:0.25rem;">{{ field.errors|striptags }}</div>
                   {% endif %}
                 </div>
-              {% endfor %}
-            </div>
+                {% endfor %}
+              </div>
 
-            <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-4">
-              <a href="{% url 'user-profile' request.user.slug %}" class="btn btn-outline-secondary px-4">Cancel</a>
-              <button type="submit" class="btn btn-primary px-4">Save Changes</button>
-            </div>
-          </form>
-
-          {% elif page == 'user-edit-password' %}
-          <form method="POST" autocomplete="off" novalidate>
-            {% csrf_token %}
-
-            <div class="mb-3">
-              <h6 class="fw-semibold text-secondary mb-1">Change Password</h6>
-              <hr class="mt-1 mb-3">
-            </div>
-
-            <div class="row g-3">
+            {% elif page == 'user-edit-password' %}
               {% for field in form %}
-                <div class="col-md-12 mb-3">
-                  <label for="{{ field.id_for_label }}" class="form-label small fw-medium">
-                    {{ field.label }}
-                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
-                  </label>
-
-                  {% if field.name == "old_password" or field.name == "new_password1" or field.name == "new_password2" %}
-                    <div class="input-group">
-                      {{ field }}
-                      <button type="button" class="btn btn-outline-secondary" onclick="togglePassword(this)">
-                        <i class="bi bi-eye"></i>
-                      </button>
-                    </div>
-                  {% else %}
+              <div class="mf-field" style="margin-bottom:0.75rem;">
+                <label class="mf-label" for="{{ field.id_for_label }}">
+                  {{ field.label }}
+                  {% if field.field.required %}<span style="color:var(--danger);">*</span>{% endif %}
+                </label>
+                {% if field.name == "old_password" or field.name == "new_password1" or field.name == "new_password2" %}
+                  <div class="input-group">
                     {{ field }}
-                  {% endif %}
-
-                  {% if field.errors %}
-                    <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
-                  {% endif %}
-                </div>
+                    <button type="button" class="toggle-password-btn"
+                            style="border:1px solid var(--border); border-left:none; background:var(--surface);
+                                   padding:0 0.75rem; cursor:pointer; color:var(--muted);">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                {% else %}
+                  {{ field }}
+                {% endif %}
+                {% if field.errors %}
+                  <div style="font-size:0.75rem; color:var(--danger); margin-top:0.25rem;">{{ field.errors|striptags }}</div>
+                {% endif %}
+              </div>
               {% endfor %}
+            {% endif %}
 
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-4">
-              <a href="{% url 'user-edit-profile' request.user.slug %}" class="btn btn-outline-secondary px-4">Back</a>
-              <button type="submit" class="btn btn-primary px-4">Update Password</button>
+            <div class="mf-form-actions" style="margin-top:1.25rem;">
+              <a href="{% url 'user-profile' request.user.slug %}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary">
+                {% if page == 'user-edit-profile' %}
+                  <i class="bi bi-check-lg sl-me-1"></i> Save Changes
+                {% else %}
+                  <i class="bi bi-lock-fill sl-me-1"></i> Update Password
+                {% endif %}
+              </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: TIPS -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle"></i>
+            {% if page == 'user-edit-profile' %}Profile Tips{% else %}Password Tips{% endif %}
+          </span>
+        </div>
+        <div class="card-body">
+
+          {% if page == 'user-edit-profile' %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">What you can update</div>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> First and last name</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Email address</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Phone number</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Username</li>
+            </ul>
+          </div>
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--accent);"></i>
+            <div>
+              <div class="sd-note-title">Username change</div>
+              <div class="sd-note-text">Changing your username will update your profile URL. Make sure to bookmark the new link.</div>
+            </div>
+          </div>
+
+          <div class="btn-grid" style="margin-top:0.75rem;">
+            <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-lock-fill"></i> Change Password Instead
+            </a>
+          </div>
+
+          {% else %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Password requirements</div>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> At least 8 characters</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Cannot be similar to your username</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Not entirely numeric</li>
+              <li><i class="bi bi-check-circle" style="color:var(--success);"></i> Not a commonly used password</li>
+            </ul>
+          </div>
+
+          <div class="sd-note-box" style="background:var(--warning-light); border-color:#fde68a;">
+            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--warning);">Keep it secret</div>
+              <div class="sd-note-text">Never share your password with anyone, including the owner or support.</div>
+            </div>
+          </div>
+
+          <div class="btn-grid" style="margin-top:0.75rem;">
+            <a href="{% url 'user-edit-profile' request.user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-person-gear"></i> Edit Profile Instead
+            </a>
+          </div>
           {% endif %}
 
         </div>
       </div>
-
     </div>
+
   </div>
 </div>
-
-<!-- Show/Hide Password Script -->
-<script>
-function togglePassword(button) {
-  const input = button.previousElementSibling;
-  if (input.type === "password") {
-    input.type = "text";
-    button.innerHTML = '<i class="bi bi-eye-slash"></i>';
-  } else {
-    input.type = "password";
-    button.innerHTML = '<i class="bi bi-eye"></i>';
-  }
-}
-</script>
 
 {% endblock %}

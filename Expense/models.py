@@ -138,6 +138,9 @@ class EmployeeQuerySet(models.QuerySet):
     def total_daily_rate(self):
         return self.aggregate(total_daily_rate=Sum('daily_rate'))['total_daily_rate'] or 0
     
+    def average_daily_rate(self):
+        return self.aggregate(average_daily_rate=Avg('daily_rate'))['average_daily_rate'] or 0
+    
 class Employee(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employees')
     staff_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employee_profile', null=True, blank=True)
@@ -145,6 +148,9 @@ class Employee(TimeStampModel):
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     objects = EmployeeQuerySet.as_manager()
+    
+    def __str__(self):
+        return self.id
 
 class WasteQuerySet(models.QuerySet):
     def total_waste_cost(self):
@@ -180,6 +186,7 @@ class WasteItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=6)
     quantity = models.PositiveBigIntegerField(default=0)
     supplier = models.CharField(max_length=255, null=True, blank=True)
+    
     objects = WasteItemQuerySet.as_manager()
     
     def __str__(self):
@@ -214,3 +221,30 @@ class WasteItem(models.Model):
         return self.price * self.quantity
     
     
+    
+class MiscExpense(TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_misc_expenses')
+    name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    
+class ExpenseQuerySet(models.QuerySet):
+    def total_amount_cost(self):
+        return self.aggregate(total_amount_cost=Sum('amount'))['total_amount_cost'] or 0
+    
+    def average_amount_cost(self):
+        return self.aggregate(average_amount_cost=Avg('amount'))['average_amount_cost'] or 0
+
+class Expense(TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
+    misc_expense = models.ForeignKey(MiscExpense, on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=255)  # snapshot
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(db_index=True)
+    
+    objects = ExpenseQuerySet.as_manager()
+    
+    def __str__(self):
+        return self.name

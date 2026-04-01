@@ -42,15 +42,22 @@ from django.db.models import Sum, Avg
 from core.models import Category
 from core.forms import CategoryForm, CategoryFilterForm
 
-from core.utils.owner import get_owner, permission_required
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user
 # logging
 import logging
 
 # Create your views here.
 
+def landing_page(request):
+    if request.is_authenticated:
+        return redirect('')
+    
+    return render(request, 'landing.html')
+
+
 @login_required(login_url='login')
 def category_list(request):
-    categories = Category.objects.all()
+    categories = get_queryset_for_user(request.user, Category.objects.all()).order_by('-name')
     section = None
     
     form = CategoryFilterForm(request.GET or None)
@@ -79,7 +86,7 @@ def category_list(request):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'categories': page_obj.object_list, 'page_obj': page_obj, 'section': section}
+    context = {'page_obj': page_obj, 'section': section}
     return render(request, 'core/category_list.html', context)
 
 @login_required(login_url='login')
@@ -90,12 +97,16 @@ def category_create(request):
         
         if form.is_valid():
             category = form.save(commit=False)
-            category.user = owner
-            category.created_by = request.user
-            category.name = category.name.title()
-            category.save()
-            messages.success(request, f"{category.name} has successfully created.")
-            return redirect('category-list')
+            
+            if Category.objects.filter(name__iexact=category.name).exists():
+                messages.error(request, f"{category.name.title()} is already exist. Please use a different name for Category.")
+            else:
+                category.user = owner
+                category.created_by = request.user
+                category.name = category.name.title()
+                category.save()
+                messages.success(request, f"{category.name} has successfully created.")
+                return redirect('category-list')
     else:
         form = CategoryForm()
     
@@ -104,6 +115,7 @@ def category_create(request):
 
 @login_required(login_url='login')
 def category_update(request, category_id):
+    
     category = get_object_or_404(Category, id=category_id)
     owner = get_owner(request.user)
     if request.method == 'POST':
@@ -126,7 +138,7 @@ def category_update(request, category_id):
 
 
 @login_required(login_url='login')
-@permission_required('delete')
+@permission_required('staff_delete')
 def category_delete(request, category_id):
     category = get_object_or_404(Category, id=category_id)
     

@@ -17,7 +17,8 @@ function changeValue(fieldId, delta, isInteger = false) {
 </script>
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
+
 
     <!-- LEFT: UPDATE FORM -->
     <div class="card" style="height:fit-content;">
@@ -60,7 +61,6 @@ function changeValue(fieldId, delta, isInteger = false) {
               {{ form.category }}
               {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
-            
 
             {# Description — full width #}
             <div class="mf-field-group" style="grid-column: 1 / -1;">
@@ -158,7 +158,7 @@ function changeValue(fieldId, delta, isInteger = false) {
     <!-- RIGHT: SNAPSHOT PANEL -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
           <i class="bi bi-speedometer2"></i> Product Snapshot
         </span>
         <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Live impact</span>
@@ -166,7 +166,14 @@ function changeValue(fieldId, delta, isInteger = false) {
       <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
         {% if product %}
-        <div class="sd-summary-block highlight">
+        <div class="sd-summary-block
+          {% if product.prepared_quantity <= 0 %}
+            " style="background:var(--danger-light); border-color:var(--danger-border);"
+          {% elif product.prepared_quantity <= 49 %}
+            " style="background:var(--warning-light); border-color:#fde68a;"
+          {% else %}
+            highlight"
+          {% endif %}>
           <div class="sd-summary-block-label">Current Stock</div>
           <div class="sd-info-row">
             <span class="sd-info-label">Stock on hand</span>
@@ -175,11 +182,11 @@ function changeValue(fieldId, delta, isInteger = false) {
           <div class="sd-info-row">
             <span class="sd-info-label">Status</span>
             {% if product.prepared_quantity <= 0 %}
-              <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
+              <span class="status-badge status-danger">Out of stock</span>
             {% elif product.prepared_quantity <= 49 %}
-              <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+              <span class="status-badge status-warning">Low stock</span>
             {% else %}
-              <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
+              <span class="status-badge status-success">In stock</span>
             {% endif %}
           </div>
         </div>
@@ -187,12 +194,12 @@ function changeValue(fieldId, delta, isInteger = false) {
         <div class="sd-summary-block">
           <div class="sd-summary-block-label">Value Overview</div>
           <div class="sd-info-row">
-            <span class="sd-info-label">Stock value</span>
-            <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
+            <span class="sd-info-label">Total stock cost</span>
+            <span class="sd-info-value">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label">Potential revenue</span>
-            <span class="sd-info-value" style="font-size:0.78rem;">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
+            <span class="sd-info-value">{{ product.prepared_quantity }} × ₱{{ product.selling_price|floatformat:2 }}</span>
           </div>
         </div>
         {% endif %}
@@ -200,9 +207,9 @@ function changeValue(fieldId, delta, isInteger = false) {
         <div class="sd-summary-block">
           <div class="mf-guide-title">How changes behave</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Stock changes do not alter sales history.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> New prices apply to future sales only.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Keep cost updated for accurate profit reporting.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Stock changes do not alter sales history.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> New prices apply to future sales only.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Keep cost updated for accurate profit reporting.</li>
           </ul>
         </div>
 

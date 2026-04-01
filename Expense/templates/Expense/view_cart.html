@@ -4,117 +4,22 @@
 {% block content %}
 
 <style>
-/* Toast container */
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1080;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Base toast */
-.toast-message {
-  min-width: 240px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  opacity: 0;
-  transform: translateY(-10px);
-  animation: toast-in 0.35s ease forwards,
-             toast-out 0.35s ease forwards 2.8s;
-}
-
-/* Color variants (Django message tags) */
-.toast-success {
-  background: #e9f8ef;
-  color: #0f5132;
-  border-left: 4px solid #198754;
-}
-
-.toast-error,
-.toast-danger {
-  background: #fdecec;
-  color: #842029;
-  border-left: 4px solid #dc3545;
-}
-
-.toast-warning {
-  background: #fff4e5;
-  color: #664d03;
-  border-left: 4px solid #ffc107;
-}
-
-.toast-info {
-  background: #e7f1ff;
-  color: #084298;
-  border-left: 4px solid #0d6efd;
-}
-
-/* Animations */
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
+.discount-col { width: 80px; text-align: center; }
 input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-input[type=number] {
-    -moz-appearance: textfield;
-}
-
-/* Discount column width */
-.discount-col {
-  width: 80px;
-  text-align: center;
-}
-
-/* Footer under the order-lines table */
-.border-top .btn {
-  margin-bottom: 0;
-}
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  // Toast removal
-  const toasts = document.querySelectorAll(".toast-message");
-  toasts.forEach(toast => setTimeout(() => toast.remove(), 3200));
-
-  // Advanced filter panel behavior (if reused here)
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("month") || params.get("start_date") || params.get("end_date") || params.get("search")) {
-      filterDetails.setAttribute("open", "");
-    }
-
-    if (filterForm) {
-      filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-      const resetBtn = filterForm.querySelector("a.btn-light");
-      if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-    }
-  }
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
+
+function toggleCostInput(itemId) {
+  const el = document.getElementById('cost_input_' + itemId);
+  if (!el) return;
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
 
 function stepDiscount(id, delta) {
   const input = document.getElementById(id);
@@ -124,12 +29,6 @@ function stepDiscount(id, delta) {
   if (value < 0) value = 0;
   input.value = value.toFixed(2);
 }
-
-function toggleCostInput(id) {
-  const wrap = document.getElementById('cost_input_' + id);
-  wrap.style.display = wrap.style.display === 'block' ? 'none' : 'block';
-}
-
 </script>
 
 <!-- FLASH MESSAGES -->
@@ -137,14 +36,10 @@ function toggleCostInput(id) {
 <div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
-      {% if message.tags == "error" %}
-        <i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}
-        <i class="bi bi-check-circle-fill me-2"></i>
-      {% elif message.tags == "info" %}
-        <i class="bi bi-info-circle-fill me-2"></i>
-      {% elif message.tags == "warning" %}
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
@@ -152,25 +47,22 @@ function toggleCostInput(id) {
 </div>
 {% endif %}
 
-<div class="container-fluid py-3 py-lg-4">
+<div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
 
-  <!-- HEADER -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <div>
-      <h4 class="fw-semibold mb-1 d-flex align-items-center gap-2">
-        🧾 Purchase Record
-      </h4>
-      <small class="text-muted">
-        Items bought from the market and track their cost for your inventory.
-      </small>
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING</div>
+      <h1 class="page-title">Purchase Record</h1>
+      <p class="page-subtitle">Items bought from the market — track cost for your inventory</p>
     </div>
     {% if cart_items %}
-    <div class="d-flex flex-wrap gap-2 small text-muted">
-      <div class="px-2 py-1 border rounded-3 bg-light">
-        Lines: <span class="fw-semibold">{{ cart_items|length }}</span>
+    <div class="page-header-right">
+      <div class="header-stat">
+        Lines: <strong>{{ cart_items|length }}</strong>
       </div>
-      <div class="px-2 py-1 border rounded-3 bg-light">
-        Due: <span class="fw-semibold">₱{{ total_after_discount|floatformat:2 }}</span>
+      <div class="header-stat accent">
+        Total: <strong>₱{{ total_after_discount|floatformat:2|intcomma }}</strong>
       </div>
     </div>
     {% endif %}
@@ -181,42 +73,60 @@ function toggleCostInput(id) {
 
     <!-- LEFT: ORDER LINES -->
     <div class="col-lg-8">
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center px-2 px-lg-2 py-2">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge text-bg-dark rounded-pill">{{ cart_items|length }}</span>
-            <h6 class="mb-0 fw-semibold">Order lines</h6>
-          </div>
-          <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-search me-1"></i>
-            Browse supplier
+      <div class="pos-card">
+        <div class="pos-card-header">
+          <span class="pos-card-title">
+            <i class="bi bi-list-ul me-1"></i> Order lines
+          </span>
+          <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn-browse">
+            <i class="bi bi-search"></i> Browse supplier
           </a>
         </div>
 
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead class="table-light small text-uppercase">
-                <tr>
-                  <th class="ps-3 ps-lg-4">Item</th>
-                  <th class="text-center">Unit Cost</th>
-                  <th class="text-center">Total Price</th>
-                  <th class="text-center">Qty</th>
-                  <th class="text-center discount-col">Disc</th>
-                  <th class="text-center">Total</th>
-                  <th class="text-center pe-3 pe-lg-4">Remove</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in cart_items %}
-                <tr>
-                  <td class="ps-3 ps-lg-4">
-                    <div class="fw-semibold">{{ item.material }}</div>
-                    <div class="small text-muted">#{{ item.id|default:"—" }}</div>
-                  </td>
-                  <td class="text-center">₱{{ item.price|floatformat:2 }}</td>
-
-                  <!-- TOTAL COST (editable) -->
+        <div style="overflow-x: auto;">
+          <table class="pos-table">
+            <thead>
+              <tr>
+                <th class="ps-4">Item</th>
+                <th>Qty</th>
+                <th>Unit Cost</th>
+                <th>Total Price</th>
+                <th class="discount-col">Disc</th>
+                <th>Line Total</th>
+                <th class="pe-4">Remove</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in cart_items %}
+              <tr>
+                <td class="ps-4">
+                  <div class="product-name">{{ item.material }}</div>
+                  <div class="product-id">#{{ item.id|default:"—" }}</div>
+                </td>
+                <td>
+                  <div class="qty-stepper">
+                    <form method="POST" action="{% url 'cart-edit-material' item.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="quantity"
+                             value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
+                      <button type="submit" class="qty-btn"
+                              {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
+                    </form>
+                    <form method="POST" action="{% url 'cart-edit-material' item.id %}">
+                      {% csrf_token %}
+                      <input type="number" min="1" name="quantity"
+                             class="qty-input"
+                             value="{{ item.quantity }}"
+                             onchange="this.form.submit()">
+                    </form>
+                    <form method="POST" action="{% url 'cart-edit-material' item.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="quantity" value="{{ item.quantity|add:'1' }}">
+                      <button type="submit" class="qty-btn">+</button>
+                    </form>
+                  </div>
+                </td>
+                <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
                 <td>
                   <form method="POST" action="{% url 'sale-edit-total-price' item.id %}">
                     {% csrf_token %}
@@ -242,237 +152,133 @@ function toggleCostInput(id) {
                     </div>
                   </form>
                 </td>
-
-                  <!-- QUANTITY CONTROLS -->
-                  <td class="text-center">
-                    <div class="d-flex justify-content-center align-items-center gap-1">
-                      <form method="POST" action="{% url 'cart-edit-material' item.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="quantity"
-                               value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
-                        <button type="submit"
-                                class="btn btn-outline-secondary btn-sm"
-                                style="width:30px; height:30px; padding:0;"
-                                {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
-                      </form>
-                      <form method="POST" action="{% url 'cart-edit-material' item.id %}">
-                        {% csrf_token %}
-                        <input type="number" min="1" name="quantity"
-                               class="form-control form-control-sm text-center"
-                               style="width:60px; height:30px; padding:0;"
-                               value="{{ item.quantity }}"
-                               onchange="this.form.submit()">
-                      </form>
-                      <form method="POST" action="{% url 'cart-edit-material' item.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="quantity" value="{{ item.quantity|add:'1' }}">
-                        <button type="submit"
-                                class="btn btn-outline-secondary btn-sm"
-                                style="width:30px; height:30px; padding:0;">+</button>
-                      </form>
-                    </div>
-                  </td>
-
-                  <!-- DISCOUNT -->
-                  <td class="text-center">
-                    <div class="d-flex justify-content-center align-items-center gap-1">
-                      <button type="button"
-                              class="btn btn-outline-secondary btn-sm"
-                              style="width:30px; height:30px; padding:0;"
-                              onclick="stepDiscount('discount_{{ item.id }}', -1)">−</button>
-                      <input type="number"
-                            name="discount_{{ item.id }}"
-                            id="discount_{{ item.id }}"
-                            form="discountForm"
-                            min="0"
-                            step="0.01"
-                            class="form-control form-control-sm text-center no-arrows"
-                            style="width:70px; height:30px; padding:0;"
-                            value="{{ item.discount|floatformat:2 }}">
-                      <button type="button"
-                              class="btn btn-outline-secondary btn-sm"
-                              style="width:30px; height:30px; padding:0;"
-                              onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
-                    </div>
-                  </td>
-
-                  <!-- LINE TOTAL -->
-                  <td class="text-center fw-semibold">
-                    ₱{{ item.item_discount|floatformat:2 }}
-                  </td>
-
-                  <!-- REMOVE -->
-                  <td class="text-center pe-3 pe-lg-4">
-                    <a href="{% url 'cart-remove-material' item.id %}"
-                       class="btn btn-outline-danger btn-sm">
-                      <i class="bi bi-trash"></i>
-                    </a>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-
-          <form id="discountForm" method="POST" action="{% url 'cart-discount-material' %}" autocomplete="off">
-            {% csrf_token %}
-            <div class="border-top px-3 px-lg-2 pt-2 pb-2 text-end">
-              <button class="btn btn-warning btn-sm fw-semibold">
-                Apply discounts
-              </button>
-            </div>
-          </form>
+                <td class="text-center discount-col">
+                  <div class="qty-stepper" style="justify-content:center;">
+                    <button type="button" class="qty-btn"
+                            onclick="stepDiscount('discount_{{ item.id }}', -1)">−</button>
+                    <input type="number"
+                           name="discount_{{ item.id }}"
+                           id="discount_{{ item.id }}"
+                           form="discountForm"
+                           min="0" step="0.01"
+                           class="qty-input"
+                           value="{{ item.discount|floatformat:2 }}">
+                    <button type="button" class="qty-btn"
+                            onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
+                  </div>
+                </td>
+                <td>
+                  <span class="mono" style="font-weight:700;">₱{{ item.item_discount|floatformat:2 }}</span>
+                </td>
+                <td class="pe-4">
+                  <a href="{% url 'cart-remove-material' item.id %}" class="remove-btn">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+
+        <form id="discountForm" method="POST" action="{% url 'cart-discount-material' %}" autocomplete="off">
+          {% csrf_token %}
+          <div style="border-top:1px solid var(--border); padding:.6rem 1.25rem; display:flex; justify-content:flex-end; background:#fafaf8;">
+            <button class="btn-preset" type="submit" style="width:auto; padding:.45rem 1.1rem;">
+              <i class="bi bi-check2"></i> Apply discounts
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
-    <!-- RIGHT: MINI RECEIPT + TOTALS + PRESETS -->
+    <!-- RIGHT PANEL -->
     <div class="col-lg-4">
 
-      <!-- Receipt preview -->
-      <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-header bg-dark text-white px-3 px-lg-4 py-2 d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-ticket-detailed"></i>
-            <h6 class="mb-0 fw-semibold">Receipt preview</h6>
-          </div>
+      <!-- RECEIPT PREVIEW -->
+      <div class="pos-card">
+        <div class="pos-card-header">
+          <span class="pos-card-title"><i class="bi bi-receipt me-1"></i> Receipt preview</span>
         </div>
-        <div class="card-body px-3 px-lg-4 py-3 small">
-          <div class="border rounded-3 p-2 bg-light mb-3" style="max-height: 220px; overflow-y: auto;">
+        <div style="padding:1rem;">
+          <div class="receipt-scroll">
             {% for item in cart_items %}
-            <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="receipt-line">
               <div>
-                <div class="fw-semibold">{{ item.material }}</div>
-                <div class="text-muted">
+                <div class="receipt-item-name">{{ item.material }}</div>
+                <div class="receipt-item-meta">
                   {{ item.quantity }} × ₱{{ item.price|floatformat:2 }}
-                  {% if item.discount %}
-                    <span class="text-success">(-{{ item.discount }})</span>
-                  {% endif %}
+                  {% if item.discount %}<span style="color:var(--accent);">(-{{ item.discount }})</span>{% endif %}
                 </div>
               </div>
-              <div class="fw-semibold">₱{{ item.item_discount|floatformat:2 }}</div>
+              <div class="receipt-line-total">₱{{ item.item_discount|floatformat:2 }}</div>
             </div>
             {% endfor %}
           </div>
 
-          <div class="d-flex justify-content-between mb-1">
-            <span class="text-muted">
-              <i class="bi bi-calculator me-1 "></i>
-              Subtotal
-            </span>
-            <span class="fw-semibold">₱{{ subtotal|floatformat:2 }}</span>
+          <div class="total-row">
+            <span class="total-label"><i class="bi bi-calculator"></i> Subtotal</span>
+            <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
           </div>
-          <div class="d-flex justify-content-between mb-2">
-            {% if total_discount %}
-            <span class="text-muted">
-              <i class="bi bi-percent me-1 text-success"></i>
-              Total Discount
-            </span>
-            <span class="fw-semibold text-success">₱{{ total_discount|floatformat:2 }}</span>
-            {% endif %}
+          {% if total_discount %}
+          <div class="total-row">
+            <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
+            <span class="total-value text-success-soft">₱{{ total_discount|floatformat:2|intcomma }}</span>
           </div>
-          <hr class="my-2">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="fw-semibold">
-            <i class="bi bi-cash-stack me-1 text-danger"></i>
-              Total Cost
-            </span>
-            <span class="fs-5 fw-bold text-danger">₱{{ total_after_discount|floatformat:2 }}</span>
+          {% endif %}
+
+          <hr class="divider">
+
+          <div class="total-row">
+            <span class="total-label"><i class="bi bi-cash-stack"></i> Total Cost</span>
+            <span class="total-value total-grand">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
           </div>
 
-          <div class="d-grid gap-2">
-            <a href="{% url 'clear-cart' %}"
-               class="btn btn-outline-danger btn-sm">
-              <i class="bi bi-trash3 me-1"></i>
-              Clear purchase items
-            </a>
-            <a href="{% url 'view-checkout-summary' %}"
-               class="btn btn-success btn-lg">
-              <i class="bi bi-check2-circle me-1"></i>
-              Confirm Purchase
-            </a>
-          </div>
+          <a href="{% url 'clear-cart' %}" class="btn-clear">
+            <i class="bi bi-trash3"></i> Clear purchase items
+          </a>
+          <a href="{% url 'view-checkout-summary' %}" class="btn-confirm">
+            <i class="bi bi-check2-circle"></i> Confirm Purchase
+          </a>
         </div>
       </div>
 
-      {% comment %} <!-- Session info -->
-      <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-body small">
-          <div class="fw-semibold mb-2">Session info</div>
-          <div class="d-flex justify-content-between">
-            <span class="text-muted">Lines</span>
-            <span>{{ cart_items|length }}</span>
-          </div>
-          <div class="d-flex justify-content-between">
-            <span class="text-muted">Total</span>
-            <span>₱{{ total_after_discount|floatformat:2 }}</span>
-          </div>
+      <!-- PRESETS -->
+      <div class="pos-card">
+        <div class="pos-card-header">
+          <span class="pos-card-title"><i class="bi bi-bookmark-fill me-1"></i> Supplier Presets</span>
+          <a href="{% url 'material-preset-list' %}" style="font-size:.8rem; color:var(--muted); text-decoration:none;">
+            View all <i class="bi bi-arrow-right"></i>
+          </a>
         </div>
-      </div> {% endcomment %}
-
-      <!-- Presets -->
-      <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body small">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="fw-semibold">Presets</span>
-            <a href="{% url 'material-preset-list' %}" class="small text-decoration-none">
-              <i class="bi bi-list-ul me-1"></i>
-              View presets
-            </a>
-          </div>
-
+        <div style="padding:1rem;">
           <form method="POST" id="presetForm" autocomplete="off" action="{% url 'material-save-items' %}">
             {% csrf_token %}
-            <div class="mb-2">
-              <label for="presetName" class="form-label small text-muted mb-1">
-                Preset title
-              </label>
-              <input type="text"
-                     id="presetName"
-                     name="name"
-                     class="form-control form-control-sm"
-                     placeholder="e.g. Weekly market run">
-            </div>
-            <div class="form-check mb-2">
-              <input class="form-check-input"
-                     type="checkbox"
-                     value="checkbox"
-                     id="presetSaveLater"
-                     name="checkbox">
-              <label class="form-check-label small" for="presetSaveLater">
-                Save for future use
-              </label>
-            </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-bookmark-check me-1"></i>
-                Save as preset
-              </button>
-            </div>
+            <input type="text" name="name" class="preset-input" placeholder="e.g. Supplier">
+            <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
+              <input type="checkbox" value="checkbox" name="checkbox" style="accent-color:var(--accent);">
+              Save for future use
+            </label>
+            <button type="submit" class="btn-preset">
+              <i class="bi bi-bookmark-check"></i> Save as preset
+            </button>
           </form>
         </div>
       </div>
 
-    </div> <!-- /RIGHT -->
-
-  </div>
-  {% else %}
-  <!-- EMPTY STATE -->
-  <div class="d-flex flex-column align-items-center justify-content-center py-5">
-    <div class="card shadow-sm text-center p-4" style="max-width: 400px;">
-      <div class="mb-3"><i class="bi bi-receipt fs-1 text-primary"></i></div>
-      <h4 class="fw-bold text-primary mb-2">No item on this purchase yet</h4>
-      <p class="text-muted mb-3">
-        Add item to start building the purchase record.
-      </p>
-      <a href="{% url 'material-list' %}" class="btn btn-primary btn-lg w-100">
-        <i class="bi bi-plus-circle me-2"></i>
-        Add item
-      </a>
     </div>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="bi bi-receipt"></i></div>
+    <div class="empty-title">No items yet</div>
+    <p class="empty-sub">Browse the supplier list and add items to start recording this purchase.</p>
+    <a href="{% url 'material-list' %}" class="btn-add-product">
+      <i class="bi bi-plus-circle"></i> Add item
+    </a>
   </div>
   {% endif %}
 
 </div>
-
 {% endblock content %}

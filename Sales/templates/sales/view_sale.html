@@ -31,22 +31,25 @@ function toggleCostInput(itemId) {
 </div>
 {% endif %}
 
-<div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
+<div class="container-fluid py-3 py-lg-4">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
-    <div>
-      <h1 class="page-title">🧾 Sales Record</h1>
+    <div class="page-header-left">
+      <div class="page-breadcrumb">TRANSACTIONS</div>
+      <h1 class="page-title">Sales Record</h1>
       <p class="page-subtitle">Add products and confirm to record today's sales</p>
     </div>
-    {% comment %} {% if items %}
-    <div class="badge-pill">
-      <i class="bi bi-receipt"></i>
-      {{ items|length }} line{{ items|length|pluralize }}
-      &nbsp;·&nbsp;
-      <span class="mono">₱{{ total_revenue|floatformat:2 }}</span>
+    {% if items %}
+    <div class="page-header-right">
+      <div class="header-stat">
+        Lines: <strong>{{ items|length }}</strong>
+      </div>
+      <div class="header-stat accent">
+        Revenue: <strong>₱{{ total_revenue|floatformat:2 }}</strong>
+      </div>
     </div>
-    {% endif %} {% endcomment %}
+    {% endif %}
   </div>
 
   {% if items %}
@@ -57,8 +60,8 @@ function toggleCostInput(itemId) {
       <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-list-ul me-1"></i>
-            Product lines
+            <i class="bi bi-list-ul"></i>
+            Product Lines
           </span>
           <a href="{% url 'product-list' %}" class="btn-browse">
             <i class="bi bi-search"></i> Browse products
@@ -72,8 +75,6 @@ function toggleCostInput(itemId) {
                 <th class="ps-4">Product</th>
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
-                {% comment %} <th>Total Cost</th>
-                <th>Unsold</th> {% endcomment %}
                 <th>Unit Price</th>
                 <th>Line Total</th>
                 <th class="pe-4">Remove</th>
@@ -116,58 +117,6 @@ function toggleCostInput(itemId) {
                 <!-- UNIT COST -->
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
 
-                {% comment %} <!-- TOTAL COST (editable) -->
-                <td>
-                  <form method="POST" action="{% url 'sale-edit-cost-price' item.id %}">
-                    {% csrf_token %}
-                    <div style="display:flex; flex-direction:column; align-items:center;">
-                      <div class="cost-display">
-                        <span>₱{{ item.total_cost_price_per_line|floatformat:2 }}</span>
-                        <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')">
-                          <i class="bi bi-pencil-square"></i>
-                        </button>
-                      </div>
-                      <div id="cost_input_{{ item.id }}" class="cost-edit-wrap">
-                        <div class="cost-input-group">
-                          <span class="cost-input-prefix">₱</span>
-                          <input type="number" step="0.01" min="0"
-                                 name="new_total_cost_price"
-                                 class="cost-input"
-                                 value="{{ item.total_cost_price_per_line|floatformat:2 }}">
-                          <button type="submit" class="cost-confirm-btn">
-                            <i class="bi bi-check2"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </form>
-                </td> {% endcomment %}
-
-                {% comment %} <!-- UNSOLD QTY -->
-                <td>
-                  <div class="qty-stepper">
-                    <form method="POST" action="{% url 'sale-edit-unsold-quantity' item.id %}">
-                      {% csrf_token %}
-                      <input type="hidden" name="new_unsold_quantity"
-                             value="{% if item.unsold_quantity|add:'-1' < 1 %}0{% else %}{{ item.unsold_quantity|add:'-1' }}{% endif %}">
-                      <button type="submit" class="qty-btn"
-                              {% if item.unsold_quantity <= 0 %}disabled{% endif %}>−</button>
-                    </form>
-                    <form method="POST" action="{% url 'sale-edit-unsold-quantity' item.id %}">
-                      {% csrf_token %}
-                      <input type="number" min="0" name="new_unsold_quantity"
-                             class="qty-input"
-                             value="{{ item.unsold_quantity }}"
-                             onchange="this.form.submit()">
-                    </form>
-                    <form method="POST" action="{% url 'sale-edit-unsold-quantity' item.id %}">
-                      {% csrf_token %}
-                      <input type="hidden" name="new_unsold_quantity" value="{{ item.unsold_quantity|add:'1' }}">
-                      <button type="submit" class="qty-btn">+</button>
-                    </form>
-                  </div>
-                </td> {% endcomment %}
-
                 <!-- UNIT PRICE -->
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
 
@@ -194,9 +143,12 @@ function toggleCostInput(itemId) {
       <!-- RECEIPT PREVIEW -->
       <div class="pos-card">
         <div class="pos-card-header">
-          <span class="pos-card-title"><i class="bi bi-receipt me-1"></i> Receipt preview</span>
+          <span class="pos-card-title">
+            <i class="bi bi-receipt"></i>
+            Receipt Preview
+          </span>
         </div>
-        <div style="padding: 1rem;">
+        <div style="padding: 1.25rem;">
           <div class="receipt-scroll">
             {% for item in items %}
             <div class="receipt-line">
@@ -209,38 +161,21 @@ function toggleCostInput(itemId) {
             {% endfor %}
           </div>
 
-          {% comment %} SUMMARY METRICS — move to summary template
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-person-workspace"></i> Labor cost</span>
-            <span class="total-value text-danger-soft">₱{{ total_salary_cost|floatformat:2 }}</span>
-          </div>
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-cash-coin"></i> Total cost price</span>
-            <span class="total-value text-danger-soft">₱{{ total_cost_price|floatformat:2 }}</span>
-          </div>
-          {% if total_waste_cost %}
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-clipboard-x"></i> Waste cost</span>
-            <span class="total-value text-danger-soft">₱{{ total_waste_cost|floatformat:2 }}</span>
-          </div>
-          {% endif %}
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-graph-up-arrow"></i> Net profit</span>
-            <span class="total-value text-success-soft">₱{{ net_profit|floatformat:2 }}</span>
-          </div>
-          {% endcomment %}
-
           {% if total_salary_cost %}
-          
           <div class="total-row">
-            <span class="total-label"><i class="bi bi-person-workspace"></i> Labor cost</span>
+            <span class="total-label">
+              <i class="bi bi-person-workspace"></i> Labor cost
+            </span>
             <span class="total-value text-danger-soft">₱{{ total_salary_cost|floatformat:2 }}</span>
           </div>
           {% endif %}
 
           <hr class="divider">
+
           <div class="total-row">
-            <span class="total-label"><i class="bi bi-calculator"></i> Total Revenue</span>
+            <span class="total-label">
+              <i class="bi bi-calculator"></i> Total Revenue
+            </span>
             <span class="total-value total-grand">₱{{ total_revenue|floatformat:2 }}</span>
           </div>
 
@@ -253,24 +188,27 @@ function toggleCostInput(itemId) {
         </div>
       </div>
 
-      <!-- EMPLOYEE SHIFT -->
+      <!-- EMPLOYEE SHIFT — owner only -->
+      {% if request.user.role == 'owner' %}
       <div class="pos-card">
         <div class="pos-card-header">
-          <span class="pos-card-title"><i class="bi bi-people-fill me-1"></i> Assign employees</span>
+          <span class="pos-card-title">
+            <i class="bi bi-people-fill"></i>
+            Assign Employees
+          </span>
         </div>
-        <div style="padding: 1rem;">
+        <div style="padding: 1.25rem;">
           <form method="POST" action="{% url 'add-salary-to-sale' %}">
             {% csrf_token %}
             {% if employees %}
-              <p style="font-size:.82rem; color:var(--muted); margin-bottom:.75rem;">
-                Select employees in this shift.
+              <p style="font-size:.84rem; color:var(--muted); margin-bottom:.85rem;">
+                Select employees working this shift.
               </p>
               {% for employee in employees %}
               <label class="emp-check-label">
                 <input type="checkbox" name="employees"
                        value="{{ employee.id }}"
-                       {% if employee.id|stringformat:"s" in selected_employee_ids %}checked{% endif %}
-                       style="accent-color: var(--accent);">
+                       {% if employee.id|stringformat:"s" in selected_employee_ids %}checked{% endif %}>
                 <span>{{ employee.name }}</span>
                 <span class="emp-rate">₱{{ employee.daily_rate }}</span>
               </label>
@@ -279,26 +217,30 @@ function toggleCostInput(itemId) {
                 <i class="bi bi-people-fill"></i> Confirm Shift
               </button>
             {% else %}
-              <p style="font-size:.85rem; color:var(--muted); margin:0;">No employees found.</p>
+              <p style="font-size:.88rem; color:var(--muted); margin:0;">No employees found. <a href="{% url 'employee-list' %}" style="color:var(--accent);">Add staff</a></p>
             {% endif %}
           </form>
         </div>
       </div>
+      {% endif %}
 
       <!-- PRESETS -->
       <div class="pos-card">
         <div class="pos-card-header">
-          <span class="pos-card-title"><i class="bi bi-bookmark me-1"></i> Product Presets</span>
-          <a href="{% url 'product-preset-list' %}" style="font-size:.8rem; color:var(--muted); text-decoration:none;">
+          <span class="pos-card-title">
+            <i class="bi bi-bookmark-fill"></i>
+            Product Presets
+          </span>
+          <a href="{% url 'product-preset-list' %}" style="font-size:.82rem; color:var(--muted); text-decoration:none;">
             View all <i class="bi bi-arrow-right"></i>
           </a>
         </div>
-        <div style="padding: 1rem;">
+        <div style="padding: 1.25rem;">
           <form method="POST" action="{% url 'product-add-to-preset' %}">
             {% csrf_token %}
             <input type="text" name="product_name" autocomplete="off"
                    class="preset-input" placeholder="e.g. Service Fees">
-            <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
+            <label style="display:flex; align-items:center; gap:.55rem; font-size:.85rem; margin-bottom:.85rem; cursor:pointer;">
               <input type="checkbox" value="checkbox" name="product_checkbox" style="accent-color:var(--accent);">
               Save for future use
             </label>

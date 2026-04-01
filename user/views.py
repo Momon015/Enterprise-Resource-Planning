@@ -25,6 +25,8 @@ from core.utils.email import send_email
 from user.models import User, EmailOTP
 from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm
 
+from core.utils.owner import get_owner, get_queryset_for_user, permission_required
+
 import json 
 import pprint
 
@@ -34,6 +36,12 @@ from django.contrib.auth.hashers import make_password
 from Expense.models import Employee
 
 # Create your views here.
+
+def landing(request):
+    if request.user.is_authenticated:
+        return redirect('product-list')
+    
+    return render(request, 'landing_page.html')
 
 def register_form(request):
     page = 'register-form'
@@ -137,7 +145,7 @@ def verify_otp(request):
                     Employee.objects.create(
                         user=user.owner,
                         staff_user=user,
-                        name=user.username,
+                        name=user.name or user.username,
                         daily_rate=0,
                     )
                 
@@ -147,10 +155,7 @@ def verify_otp(request):
                 
                 login(request, user)
                 messages.success(request, f"Your account has been successfully created.")
-                if user.role == 'staff':
-                    return redirect('product-list')
-                else:
-                    return redirect('user-profile', slug=user.username)
+                return redirect('user-profile', slug=user.username)
             
             else:
                 messages.error(request, "Invalid OTP. Please try again.")
@@ -177,7 +182,7 @@ def resend_otp(request):
         messages.warning(request, f"Your OTP is still valid. Please check your email.")
         return render(request, 'user/verify_otp.html')
     
-    if last_otp_sent and last_otp_sent.is_expired:
+    if last_otp_sent and last_otp_sent.is_expired():
         last_otp_sent.delete()
     
     # generate new OTP
@@ -225,7 +230,7 @@ def user_login(request):
             user_obj.last_login = timezone.now()
             user_obj.save(update_fields=['last_login'])
             if user.role == 'owner':
-                return redirect('material-list')
+                return redirect('dashboard')
             else:
                 return redirect('product-list')
         else:
@@ -239,20 +244,27 @@ def user_login(request):
             
     context = {'page': page}
     return render(request, 'user/register_and_login_form.html', context)
-    
+
+@login_required(login_url='login')
 def user_profile(request, slug):
     user = get_object_or_404(User, slug=slug)
     
+    if user != request.user:
+        return render(request, 'core/no_access.html', status=403)
     
     context = {'user': user}
     return render(request, 'user/user_profile.html', context)
 
+@login_required(login_url='login')
 def user_edit_profile(request, slug):
     user = get_object_or_404(User, slug=slug)
-    
+
+    if user != request.user:
+            return render(request, 'core/no_access.html', status=403)
+        
     if request.method == 'POST':
         form = UpdateUserForm(request.POST, instance=user)
-        
+    
         if form.is_valid():
             user = form.save(commit=False)
             user.username = user.username.lower()
@@ -272,6 +284,7 @@ def user_edit_profile(request, slug):
     context = {'form': form, 'page': 'user-edit-profile'}
     return render(request, 'user/edit_user_profile_form.html', context)
 
+@login_required(login_url='login')
 def user_edit_password(request):
     if request.method == 'POST':
         form = StyledPasswordChangeForm(user=request.user, data=request.POST)
@@ -292,6 +305,7 @@ def user_edit_password(request):
     context = {'form': form, 'page': 'user-edit-password'}
     return render(request, 'user/edit_user_profile_form.html', context)
 
+@login_required(login_url='login')
 # def user_reset_password(request):
 #     if request.method == 'POST':
 #         form = PasswordResetForm()
@@ -307,16 +321,21 @@ def user_edit_password(request):
 #     context = {'form': form, 'page': 'user-reset-password'}
 #     return render(request, 'user/edit_user_profile_form.html', context)
 
+@login_required(login_url='login')
 def user_delete(request, slug):
     user = get_object_or_404(User, slug=slug)
+
+    if user != request.user:
+        return render(request, 'core/no_access.html', status=403)
     
     if request.method == 'POST':
         user.delete()
-        return redirect('product-list')
+        messages.success(request, 'Your account has been deleted.')
+        return redirect('landing')
 
     context = {'user': user}
     return render(request, 'user/user_delete.html', context)
-    
+
 def user_logout(request):
     logout(request)
-    return redirect('product-list')
+    return redirect('landing')

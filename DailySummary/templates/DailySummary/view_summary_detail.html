@@ -31,7 +31,7 @@
     <div class="left-panel">
 
       <!-- KPI STATS ROW -->
-      <div class="sd-stats-row" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
+      <div class="sd-stats-row" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1rem;">
         <div class="sd-stat-box">
           <div class="sd-stat-label">Revenue</div>
           <div class="sd-stat-value" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
@@ -47,6 +47,10 @@
         <div class="sd-stat-box">
           <div class="sd-stat-label">Labor Cost</div>
           <div class="sd-stat-value" style="color:var(--muted);">₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        </div>
+        <div class="sd-stat-box">
+          <div class="sd-stat-label">Expense Cost</div>
+          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
         </div>
       </div>
 
@@ -223,6 +227,51 @@
         </div>
       </details>
 
+      <!-- EXPENSES -->
+      <details class="filter-card">
+        <summary>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);">
+              <i class="bi bi-wallet2"></i>
+            </div>
+            <span>Expenses</span>
+          </div>
+          <span class="sl-badge sl-badge-light">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
+        </summary>
+        <div class="filter-body" style="padding:0;">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="sl-text-center">Category</th>
+                  <th class="sl-text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for expense in expenses %}
+                <tr>
+                  <td>
+                    <div class="cell-primary">{{ expense.name|capfirst }}</div>
+                  </td>
+                  <td class="sl-text-center">
+                    <span class="cell-sub">{{ expense.misc_expense.category.name|default:"Uncategorized" }}</span>
+                  </td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                    ₱{{ expense.amount|floatformat:2|intcomma }}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr class="sl-empty-row">
+                  <td colspan="3">No expenses recorded for this day.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
     </div>
 
     <!-- ========== RIGHT PANEL ========== -->
@@ -238,8 +287,32 @@
 
           <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label">Net Profit</div>
-            <div class="sd-total-amount">
+            <div class="sd-total-amount" style="{% if net_profit < 0 %}color:var(--danger);{% endif %}">
               ₱{{ net_profit|floatformat:2|intcomma|default:0 }}
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Cost Breakdown</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Revenue</span>
+              <span class="sd-info-value" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Purchase Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Waste Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Labor Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Expense Cost</span>
+              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma }}</span>
             </div>
           </div>
 
@@ -256,6 +329,10 @@
             <div class="sd-info-row">
               <span class="sd-info-label">Waste Records</span>
               <span class="sd-info-value" style="color:var(--danger);">{{ waste_items|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Expense Records</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ expenses|length }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Staff on shift</span>

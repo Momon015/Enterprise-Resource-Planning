@@ -54,7 +54,7 @@ class User(AbstractUser, SlugModel):
     password_changed_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return self.username
+        return f"{self.username} - {self.id}"
     
     def is_locked(self):
         if self.locked_until:

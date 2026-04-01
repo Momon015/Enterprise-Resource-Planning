@@ -10,13 +10,13 @@
 <nav class="sidebar" id="sidebar">
 
   <!-- BRAND -->
-  <a class="sidebar-brand" href="">
+  <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login'  %}{% endif %}">
     <div class="sidebar-brand__icon">
       <i class="bi bi-graph-up-arrow"></i>
     </div>
     <div>
       <div class="sidebar-brand__name">
-        Swift <span class="sidebar-brand__badge">ERP</span>
+        Swift <span class="sidebar-brand__badge">SaaS ERP</span>
       </div>
       <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
     </div>
@@ -27,7 +27,7 @@
     <div class="sidebar-section-label">Main</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="#">
+        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
           {% if request.user.role == 'staff'%}
@@ -45,7 +45,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'expenses' %}is-active{% endif %}" href="#">
+        <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}" href="{% url 'expense-list' %}">
           <i class="bi bi-wallet2"></i>
           <span>Expenses</span>
           {% if request.user.role == 'staff'%}
@@ -61,7 +61,7 @@
     <div class="sidebar-section-label">Transactions</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'sales' %}is-active{% endif %}" href="{% url 'sale-list' %}">
+        <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
           <i class="bi bi-cash-coin"></i>
           <span>Sales</span>
           {% if request.user.role == 'staff'%}
@@ -70,7 +70,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'purchases' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
+        <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
           <i class="bi bi-receipt"></i>
           <span>Purchases</span>
           {% if request.user.role == 'staff'%}
@@ -92,13 +92,13 @@
     <div class="sidebar-section-label">Catalog</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'products' %}is-active{% endif %}" href="{% url 'product-list' %}">
+        <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}" href="{% url 'product-list' %}">
           <i class="bi bi-basket"></i>
           <span>Products</span>
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'suppliers' %}is-active{% endif %}" href="{% url 'material-list' %}">
+        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" href="{% url 'material-list' %}">
           <i class="bi bi-building"></i>
           <span>Suppliers</span>
         </a>
@@ -117,7 +117,7 @@
     <div class="sidebar-section-label">HR</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'employees' %}is-active{% endif %}" href="{% url 'employee-list' %}?next={{request.path}}">
+        <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' %}?next={{request.path}}">
           <i class="bi bi-people"></i>
           <span>Employees</span>
           {% if request.user.role == 'staff'%}

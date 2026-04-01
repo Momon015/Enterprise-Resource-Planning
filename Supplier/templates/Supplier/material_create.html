@@ -2,23 +2,23 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  <div class="mf-layout">
+  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->
     <div class="card">
       <div class="card-header">
         <div class="sd-card-header-left">
           <div class="sd-header-icon">
-            <i class="bi bi-pencil-square"></i>
+            <i class="bi bi-bag-plus"></i>
           </div>
           <div>
             <p class="card-header-title">New Material</p>
             <p class="card-header-sub">Add a material for stock tracking and costing.</p>
           </div>
         </div>
-        <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to list
-        </a>
+        {% comment %} <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to supplier
+        </a> {% endcomment %}
       </div>
 
       <div class="card-body">
@@ -28,7 +28,7 @@
           <div class="mf-fields-grid">
 
             {# Name #}
-            <div class="mf-field-group">
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
               <label for="{{ form.name.id_for_label }}" class="mf-form-label">
                 {{ form.name.label }}
                 {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
@@ -124,7 +124,7 @@
           <div class="mf-form-actions">
             <a href="{% url 'material-list' %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+              <i class="bi bi-check-circle sl-me-1"></i> Save Material
             </button>
           </div>
 
@@ -135,7 +135,7 @@
     <!-- RIGHT: GUIDE PANEL -->
     <div class="card">
       <div class="card-header dark">
-        <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
+        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
           <i class="bi bi-info-circle"></i> Material Setup Guide
         </span>
       </div>
@@ -144,27 +144,27 @@
         <div class="sd-summary-block">
           <div class="mf-guide-title">Checklist</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill"></i> Use clear, descriptive names staff can recognize quickly.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Set the correct unit before you start using this material.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Enter realistic starting quantity and price for accurate costing.</li>
-            <li><i class="bi bi-check-circle-fill"></i> Set pieces per unit for bulk purchases (e.g. 1 dozen = 12).</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Use clear, descriptive names staff can recognize quickly.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set the correct unit before you start using this material.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Enter realistic starting quantity and price for accurate costing.</li>
+            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set pieces per unit for bulk purchases (e.g. 1 dozen = 12).</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Pieces Per Unit</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Leave as 1 for single items like bottles or cans.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Set to 12 for a dozen, 6 for a pack, 30 for a tray.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Used to calculate actual stock quantity on purchase.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Leave as 1 for single items like bottles or cans.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Set to 12 for a dozen, 6 for a pack, 30 for a tray.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Used to calculate actual stock quantity on purchase.</li>
           </ul>
         </div>
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Inventory Behavior</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Included in stock counts and valuation reports.</li>
-            <li><i class="bi bi-info-circle" style="color:#0d6efd;"></i> Quantity updates automatically when used in purchases.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Included in stock counts and valuation reports.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Quantity updates automatically when used in purchases.</li>
           </ul>
         </div>
 

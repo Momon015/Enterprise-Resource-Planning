@@ -1,4 +1,5 @@
 {% extends "main.html" %}
+{% load humanize %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -17,6 +18,12 @@
 </div>
 {% endif %}
 
+<style>
+  tr.row-selected { background: rgba(220,38,38,0.06) !important; }
+  tr.row-selected td { border-color: rgba(220,38,38,0.15) !important; }
+  .waste-cb { width: 1.1rem; height: 1.1rem; cursor: pointer; accent-color: var(--danger); }
+</style>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
@@ -25,38 +32,45 @@ document.addEventListener("DOMContentLoaded", function () {
 function stepNumber(id, delta) {
   const input = document.getElementById(id);
   if (!input) return;
-  let value = parseInt(input.value || 1, 10);
-  value = isNaN(value) ? 1 : value + delta;
-  if (value < 1) value = 1;
+  let value = parseInt(input.value || 0, 10);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 0) value = 0;
   input.value = value;
 }
+
+function toggleRow(checkbox) {
+  const row = checkbox.closest('tr');
+  row.classList.toggle('row-selected', checkbox.checked);
+  const inputs = row.querySelectorAll('input[type="number"]');
+  inputs.forEach(inp => inp.disabled = !checkbox.checked);
+
+  const counter = document.getElementById("wasteCount");
+  if (counter) {
+    const n = document.querySelectorAll('.waste-cb:checked').length;
+    counter.textContent = n + " selected";
+    counter.style.display = n > 0 ? "inline-flex" : "none";
+  }
+}
 </script>
-
-<style>
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-input[type=number] { -moz-appearance: textfield; appearance: none; }
-</style>
-
-
-
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-trash2"></i>
-          Record Stock Waste
-      </h4>
-      <p class="sl-page-subtitle">
-        Log wasted stock as an expense.
-      </p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'expense-waste-list' %}" class="breadcrumb-link">WASTE</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>NEW</span>
+      </div>
+      <h1 class="page-title">Record Stock Waste</h1>
+      <p class="page-subtitle">Log wasted stock as an expense</p>
     </div>
-    {% comment %} <a href="{% url 'expense-waste-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to waste list
-    </a> {% endcomment %}
+    <div class="page-header-right">
+      <a href="{% url 'view-inventory-stock' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to inventory
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
@@ -66,57 +80,148 @@ input[type=number] { -moz-appearance: textfield; appearance: none; }
       <div class="card">
         <div class="card-header">
           <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
-                <i class="bi bi-box-seam"></i>
+            <div class="sd-header-icon" style="background: var(--danger-light); color: var(--danger);">
+              <i class="bi bi-trash2"></i>
             </div>
             <div>
-              <div class="card-header-title">
-                Stock Waste
+              <div class="card-header-title" style="margin: 0;">
+                {% if form %}Stock Waste{% else %}Material Waste{% endif %}
               </div>
-              <div class="card-header-sub">
-                  Record a stock wastes as an expense.
+              <div class="card-header-sub" style="margin: 0;">
+                {% if form %}Record a wasted product{% else %}Select materials to mark as wasted{% endif %}
               </div>
             </div>
           </div>
+          {% if not form %}
+          <span id="wasteCount" class="sl-badge" style="background:rgba(220,38,38,0.1); color:var(--danger); display:none;"></span>
+          {% endif %}
         </div>
 
         <div class="card-body">
+
+          {% if form %}
+          {# waste_product_create view — single form #}
           <form method="POST" autocomplete="off" novalidate>
             {% csrf_token %}
             <div class="mf-fields-grid">
-                {% for field in form %}
-                <div class="mf-field-group">
-                    <label for="{{ field.id_for_label }}" class="mf-form-label">
-                    {{ field.label }}
-                    {% if field.field.required %}<span class="mf-required">*</span>{% endif %}
-                    </label>
-                    {% if field.html_name == 'quantity' %}
-                    <div class="mf-stepper">
-                        <button class="qty-btn" type="button"
-                                onclick="stepNumber('{{ field.id_for_label }}', -1)">−</button>
-                        <input type="number"
-                            name="{{ field.html_name }}"
-                            id="{{ field.id_for_label }}"
-                            class="form-control"
-                            min="1" step="1"
-                            value="{{ field.value|default_if_none:1 }}">
-                        <button class="qty-btn" type="button"
-                                onclick="stepNumber('{{ field.id_for_label }}', 1)">+</button>
-                    </div>
-                    {% else %}
-                    {{ field }}
-                    {% endif %}
-                    {% if field.errors %}<div class="mf-error">{{ field.errors|striptags }}</div>{% endif %}
+              {% for field in form %}
+              <div class="mf-field-group">
+                <label for="{{ field.id_for_label }}" class="mf-form-label">
+                  {{ field.label }}
+                  {% if field.field.required %}<span class="mf-required">*</span>{% endif %}
+                </label>
+                {% if field.html_name == 'quantity' %}
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button"
+                          onclick="stepNumber('{{ field.id_for_label }}', -1)">−</button>
+                  <input type="number"
+                         name="{{ field.html_name }}"
+                         id="{{ field.id_for_label }}"
+                         class="form-control"
+                         min="1" step="1"
+                         value="{{ field.value|default_if_none:1 }}">
+                  <button class="qty-btn" type="button"
+                          onclick="stepNumber('{{ field.id_for_label }}', 1)">+</button>
                 </div>
-                {% endfor %}
-                </div>
+                {% else %}
+                {{ field }}
+                {% endif %}
+                {% if field.errors %}<div class="mf-error">{{ field.errors|striptags }}</div>{% endif %}
+              </div>
+              {% endfor %}
+            </div>
             <div class="mf-form-actions">
               <a href="{% url 'expense-waste-list' %}" class="btn btn-light">Cancel</a>
               <button type="submit" class="btn btn-danger">
-                <i class="bi bi-check-circle sl-me-1"></i> Confirm
+                <i class="bi bi-check-circle"></i> Confirm Waste
               </button>
             </div>
           </form>
+
+          {% else %}
+          {# waste_material_create view — checkbox table of stocks #}
+          <form method="POST" autocomplete="off" novalidate>
+            {% csrf_token %}
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:2.5rem; text-align:center;">
+                      <input type="checkbox" class="waste-cb" title="Select all"
+                            {% if not stocks %}disabled{% endif %}
+                            onchange="document.querySelectorAll('.waste-cb:not([title])').forEach(c => { c.checked = this.checked; toggleRow(c); })">
+                    </th>
+
+                    <th>Material</th>
+                    <th class="sl-text-center">Available</th>
+                    <th class="sl-text-end">Price</th>
+                    <th class="sl-text-end">Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for stock in stocks %}
+                  <tr>
+                    <td style="text-align:center;">
+                      <input type="checkbox"
+                             name="waste_expense"
+                             value="{{ stock.id }}"
+                             id="stock_{{ stock.id }}"
+                             class="waste-cb"
+                             onchange="toggleRow(this)">
+                    </td>
+                    <td>
+                      <label for="stock_{{ stock.id }}" style="cursor:pointer;">
+                        <div class="cell-primary">{{ stock.material.name|capfirst|default:stock.name|default:"—" }}</div>
+                        <div class="cell-sub">{{ stock.supplier|default:"—" }}</div>
+                      </label>
+                    </td>
+                    <td class="sl-text-center">
+                      <span class="sl-badge sl-badge-light">{{ stock.quantity|intcomma }}</span>
+                    </td>
+                    <td class="sl-text-end">
+                      <span class="sl-fw-semibold">₱{{ stock.price|floatformat:2 }}</span>
+                      <input type="hidden" name="price_{{ stock.id }}" value="{{ stock.price }}">
+                    </td>
+                    <td class="sl-text-end">
+                      <div class="mf-stepper" style="justify-content:flex-end;">
+                        <button class="qty-btn" type="button"
+                                onclick="stepNumber('qty_{{ stock.id }}', -1)">−</button>
+                        <input type="number"
+                               name="quantity_{{ stock.id }}"
+                               id="qty_{{ stock.id }}"
+                               class="form-control form-control-sm"
+                               style="width:70px;"
+                               min="0" step="1"
+                               value="0"
+                               disabled>
+                        <button class="qty-btn" type="button"
+                                onclick="stepNumber('qty_{{ stock.id }}', 1)">+</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="5">
+                      <div class="empty-state">
+                        <div class="empty-icon"><i class="bi bi-trash2"></i></div>
+                        <h3 class="empty-title">No stock available</h3>
+                        <p class="empty-text">There are no stock items to record waste for.</p>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="mf-form-actions" style="margin-top:1rem;">
+              <a href="{% url 'expense-waste-list' %}" class="btn btn-light">Cancel</a>
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash2"></i> Log Selected Waste
+              </button>
+            </div>
+          </form>
+          {% endif %}
+
         </div>
       </div>
     </div>
@@ -125,20 +230,42 @@ input[type=number] { -moz-appearance: textfield; appearance: none; }
     <div class="right-panel">
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-info-circle"></i> Waste Guide
+          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-info-circle"></i>
+            Waste Guide
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="mf-guide-title">Stock Waste</div>
+            <div class="sd-summary-block-label">What happens</div>
             <ul class="mf-guide-list">
-              <li><i class="bi bi-check-circle-fill"></i> Use for inventory stocks that were spoiled or discarded.</li>
-              <li><i class="bi bi-check-circle-fill"></i> Stock levels will be adjusted accordingly.</li>
-              <li><i class="bi bi-check-circle-fill"></i> Both inventory and product quantity will be deducted.</li>
+              <li><i class="bi bi-check-circle-fill"></i> Stock levels will be deducted accordingly</li>
+              <li><i class="bi bi-check-circle-fill"></i> Cost is recorded as a waste expense</li>
+              <li><i class="bi bi-check-circle-fill"></i> Affects your daily profit calculations</li>
+              {% if not form %}
+              <li><i class="bi bi-check-circle-fill"></i> Check items to include them in this record</li>
+              {% endif %}
             </ul>
           </div>
+
+          {% if not form %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Instructions</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">1.</span>
+              <span class="sd-info-value">Check each item to mark as wasted</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">2.</span>
+              <span class="sd-info-value">Adjust quantity per item</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">3.</span>
+              <span class="sd-info-value">Click "Log Selected Waste" to confirm</span>
+            </div>
+          </div>
+          {% endif %}
 
           <div class="mf-tip-box">
             <i class="bi bi-lightbulb"></i>
@@ -148,18 +275,6 @@ input[type=number] { -moz-appearance: textfield; appearance: none; }
             </div>
           </div>
 
-          {% comment %} 
-          RESTAURANT PHASE — product waste link
-          <div class="sd-summary-block">
-            <div class="mf-guide-title">Other options</div>
-            <div class="btn-grid" style="margin-top:0.5rem;">
-              <a href="{% url 'product-waste-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-box-seam"></i> Log Product Waste
-              </a>
-            </div>
-          </div>
-          {% endcomment %}
-
         </div>
       </div>
     </div>
@@ -168,4 +283,3 @@ input[type=number] { -moz-appearance: textfield; appearance: none; }
 </div>
 
 {% endblock %}
-

@@ -26,17 +26,17 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-bag"></i>
-        Item Detail
-      </h4>
-      <p class="sl-page-subtitle">SKU: {{material.name}}-{{ material.get_unit_display }}</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING / SUPPLIER ITEMS</div>
+      <h1 class="page-title">{{ material.name|capfirst }}</h1>
+      <p class="page-subtitle">{{ material.get_unit_display }} &mdash; {{ material.category.name|default:"Uncategorized" }}</p>
     </div>
-    <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to supplier
-    </a>
+    <div class="page-header-right">
+      <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-light btn-sm btn-back">
+        <i class="bi bi-arrow-left"></i> Back to supplier
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
@@ -52,12 +52,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div>
               <div class="card-header-title">{{ material.name|capfirst }}</div>
               <div class="card-header-sub">
-                Category:
-                {% if material.category %}
-                  {{ material.category.name }}
-                {% else %}
-                  Uncategorized
-                {% endif %}
+                {% if material.category %}{{ material.category.name }}{% else %}Uncategorized{% endif %}
               </div>
             </div>
           </div>
@@ -106,15 +101,15 @@ document.addEventListener("DOMContentLoaded", function () {
       <!-- MATERIAL SNAPSHOT -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-info-circle"></i> Material Snapshot
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle-fill"></i> Material Snapshot
           </span>
           <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Quick view</span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <!-- PRICE INFO -->
-          <div class="sd-summary-block">
+          <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label"><i class="bi bi-cash-stack sl-me-1"></i> Price Info</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Price per unit</span>
@@ -124,6 +119,12 @@ document.addEventListener("DOMContentLoaded", function () {
               <span class="sd-info-label">Unit</span>
               <span class="sl-badge sl-badge-light">{{ material.get_unit_display }}</span>
             </div>
+            {% if material.supplier %}
+            <div class="sd-info-row">
+              <span class="sd-info-label">Supplier</span>
+              <span class="sd-info-value">{{ material.supplier.name }}</span>
+            </div>
+            {% endif %}
           </div>
 
           <!-- CATEGORY -->
@@ -135,10 +136,37 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
 
+          <!-- RECORD INFO -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label"><i class="bi bi-person sl-me-1"></i> Record Info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Recorded by</span>
+              <span class="sd-info-value">{{ material.created_by|capfirst }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date added</span>
+              <span class="sd-info-value">{{ material.created_at|date:"M d, Y" }}</span>
+            </div>
+          </div>
+
+          <!-- ACTIONS -->
+          <div class="btn-grid">
+            <a href="{% url 'add-cart' material.id %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-basket"></i> Add to Cart
+            </a>
+            <a href="{% url 'material-update' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'material-delete' material.user.username material.slug %}?next={{ request.path }}"
+               class="btn btn-sm btn-block"
+               style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
+              <i class="bi bi-trash3"></i> Delete
+            </a>
+          </div>
+
         </div>
       </div>
 
-      <!-- ACTIONS -->
       {% comment %} <div class="card">
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
           <div class="sl-quick-title">Actions</div>

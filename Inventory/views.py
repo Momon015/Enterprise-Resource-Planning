@@ -25,26 +25,28 @@ from Product.models import Product
 from Inventory.models import Stock
 from Inventory.forms import StockFilterForm
 
-from django.db.models import Q
+from django.db.models import Q, F, Sum, Avg, Max
 
 from django.core.paginator import Paginator
 
-from django.db.models import F
+from user.models import User
 
-from core.utils.owner import get_owner, permission_required
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user
 
 # Create your views here.
 
 @login_required(login_url='login')
 def view_inventory_stock(request):
-    stocks = Stock.objects.all().order_by('-name')
-    grand_total_value = 0
+    owner = get_owner(request.user)
+    stocks = get_queryset_for_user(request.user, Stock.objects.all()).order_by('-name')
     
-    for stock in stocks:
-        total_value = stock.price * stock.quantity
-        grand_total_value += total_value
+    most_stock_category_name = (stocks.values('material__category__name') \
+    .annotate(total_count=Sum('material')).order_by('-total_count').first()
+    )
     
-    form = StockFilterForm(request.GET or None)
+    most_stock_category_name = most_stock_category_name['material__category__name'] if most_stock_category_name else 'N/A'
+    
+    form = StockFilterForm(request.GET or None, user=owner)
     categories = form.fields['category'].queryset
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -62,32 +64,49 @@ def view_inventory_stock(request):
         if category:
             stocks = stocks.filter(material__category=category)
         
-    stock = request.GET.get('stock')
+    stock_filter = request.GET.get('stock')
     
-    if stock == 'high':
-        stocks = stocks.filter(quantity__gte=25)
+    if stock_filter == 'high':
+        stocks = stocks.filter(quantity__gte=50)
         
-    elif stock == 'low':
-        stocks = stocks.filter(quantity__lte=24)
+    elif stock_filter == 'low':
+        stocks = stocks.filter(quantity__lte=49, quantity__gte=1)
     
-    elif stock == 'none':
+    elif stock_filter == 'none':
         stocks = stocks.filter(quantity=0)
+        
+    grand_total_value = sum(stock.price * stock.quantity for stock in stocks)
     
-    pagination = Paginator(stocks, 6)
+    pagination = Paginator(stocks, 9)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
-
-    context = {'stocks': page_obj.object_list, 'page_obj': page_obj, 'section': 'inventory', 'grand_total_value': grand_total_value, 'categories': categories}
+    
+    MULTI_UNIT_TYPES = ('Pack', 'Bundle', 'Tray', 'Dozen', 'Carton', 'Sachet', 'Box', 'Bag')
+    
+    context = {
+               'page_obj': page_obj, 
+               'section': 'inventory', 
+               'grand_total_value': grand_total_value,
+               'multi_unit_types': MULTI_UNIT_TYPES, 
+               'most_stock_category_name': most_stock_category_name,
+               'categories': categories
+            }
+    
     return render(request, 'Inventory/view_inventory_stock.html', context)
 
 @login_required(login_url='login')
-@permission_required('delete')
+@permission_required('staff_delete')
 def inventory_stock_delete(request, stock_id):
-    stock = get_object_or_404(Stock, id=stock_id)
+    if request.user.role == 'developer':
+        return render(request, 'core/no_permission.html', status=403)
+    
+    owner = get_owner(request.user)
+    
+    stock = get_object_or_404(Stock, user=owner, id=stock_id)
 
     if request.method == 'POST':
         if stock.material:
-            Product.objects.filter(user=request.user, material=stock.material).delete()
+            Product.objects.filter(user=owner, material=stock.material).delete()
             stock.delete()
             messages.success(request, f"{stock.name} - both stock and product has been deleted.")
         return redirect('view-inventory-stock')

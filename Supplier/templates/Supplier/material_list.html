@@ -21,24 +21,40 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") || params.get("category")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
 });
 </script>
+
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title">
-        <i class="bi bi-building"></i>
-        Supplier
-      </h4>
-      <p class="sl-page-subtitle">Record your daily supplier purchases.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING</div>
+      <h1 class="page-title">Supplier Items</h1>
+      <p class="page-subtitle">Record your daily supplier purchases.</p>
     </div>
-    <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-sm"
-       style="background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600;">
-      <i class="bi bi-file-text"></i> View Purchase Record
-    </a>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-box-seam"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-file-text"></i> Purchase Record
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
@@ -46,54 +62,65 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- LEFT: MATERIAL LIST -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
-      <form method="get" autocomplete="off">
-        <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
-          <div class="flex-grow-1">
-            <div class="input-group">
-              <span class="input-group-icon"><i class="bi bi-search"></i></span>
-              <input type="search" name="search" class="form-control"
-                     placeholder="Search material name..."
-                     value="{{ request.GET.search|default:'' }}">
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.category %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                        placeholder="Search material name..."
+                        value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <div style="position:relative;">
+                <select name="category" class="form-control" style="padding-right:2rem; appearance:none; -webkit-appearance:none;">
+                  <option value="">All categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                      {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">Reset</a>
             </div>
-          </div>
-          <div>
-            <select name="category" class="form-select form-select-sm" style="width:auto;">
-              <option value="">All categories</option>
-              {% for cat in categories %}
-                <option value="{{ cat.id }}"
-                  {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
-                  {{ cat.name }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button class="btn btn-outline-secondary btn-sm" type="submit">
-              <i class="bi bi-funnel"></i> Filter
-            </button>
-            <a href="." class="btn btn-light btn-sm">Reset</a>
-          </div>
+          </form>
         </div>
-      </form>
+      </details>
 
       <!-- TABLE CARD -->
       <div class="card table-card">
         <div class="card-header">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="card-header-left-group">
             <span class="card-header-title">Supplier Items</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Add items you bought from the supplier.</span>
+          <span class="card-header-sub">Prices, units, and quantities</span>
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
-                <th>Items</th>
-                <th class="sl-text-center">Supplier</th>
-                <th class="sl-text-center">Category</th>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Supplier</th>
                 <th class="sl-text-center">Unit</th>
                 <th class="sl-text-center">Quantity</th>
                 <th class="sl-text-end">Price</th>
@@ -106,67 +133,66 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td>
                   <div class="cell-primary">{{ material.name }}</div>
                 </td>
-                <td class="sl-text-center">
-                  <div class="cell-primary">{{ material.supplier.name }}</div>
+                <td>
+                  <span class="cell-sub">{{ material.category.name|default:"Uncategorized" }}</span>
                 </td>
-                <td class="sl-text-center">
-                  <span class="cell-primary">{{ material.category.name|default:"Uncategorized" }}</span>
+                <td>
+                  <span class="cell-sub">{{ material.supplier.name|default:'—' }}</span>
                 </td>
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ material.get_unit_display }}</span>
                 </td>
                 <td class="sl-text-center sl-fw-semibold">{{ material.quantity }}</td>
-
-                <td class="sl-text-end">₱{{ material.price|floatformat:2 }}</td>
-
+                <td class="sl-text-end sl-fw-semibold">₱{{ material.price|floatformat:2 }}</td>
                 <td class="sl-text-end">
-                  <div class="btn-group">
+                  <div class="table-actions">
                     <a href="{% url 'add-cart' material.id %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="Add to cart">
+                       class="action-btn" title="Add to cart">
                       <i class="bi bi-basket"></i>
                     </a>
-                    <a href="{% url 'material-detail' material.slug %}?{{ request.GET.urlencode }}"
-                       class="btn btn-outline-secondary btn-sm" title="View details">
-                      <i class="bi bi-card-text"></i>
+                    <a href="{% url 'material-detail' material.user.username material.slug %}?{{ request.GET.urlencode }}"
+                       class="action-btn" title="View details">
+                      <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'material-update' material.slug %}"
-                      class="btn btn-outline-secondary btn-sm" title="Edit material">
-                      <i class="bi bi-pencil-square"></i>
+                    <a href="{% url 'material-update' material.user.username material.slug %}"
+                       class="action-btn" title="Edit material">
+                      <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'material-delete' material.slug %}?next={{ request.path }}"
-                      class="btn btn-outline-secondary btn-sm" title="Delete material"
-                      style="color:var(--danger); border-color:#f0d0ce;">
-                      <i class="bi bi-trash"></i>
+                    <a href="{% url 'material-delete' material.user.username material.slug %}?next={{ request.path }}"
+                       class="action-btn action-btn--danger" title="Delete material">
+                      <i class="bi bi-trash3"></i>
                     </a>
                   </div>
-                </td>
-              </tr>
-              {% empty %}
-              <tr class="sl-empty-row">
-                <td colspan="7">
-                  <h6 class="sl-fw-semibold sl-text-muted" style="margin-bottom:0.25rem;">No items found</h6>
-                  <p class="sl-text-muted" style="font-size:0.82rem; margin-bottom:0.75rem;">Adjust your search or filters, or add a new item.</p>
-                  <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
-                    Add your first item
-                  </a>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-bag"></i></div>
+            <h3 class="empty-title">No items found</h3>
+            <p class="empty-text">Adjust your search or filters, or add a new item.</p>
+            <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Add your first item
+            </a>
+          </div>
+          {% endif %}
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj %}
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
               {% with q=request.GET.search cat=request.GET.category %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">&laquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&laquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
               {% for page in page_obj.paginator.page_range %}
@@ -176,9 +202,11 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">&raquo;</a>
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
                 {% else %}
-                  <span class="page-link">&raquo;</span>
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
               {% endwith %}
@@ -190,21 +218,19 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
     </div>
 
-    <!-- RIGHT: SUPPLIER CART PANEL -->
+    <!-- RIGHT: OVERVIEW -->
     <div class="right-panel">
-
-      <!-- CART SUMMARY -->
       <div class="card">
         <div class="card-header dark">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem;">
-            <i class="bi bi-basket2-fill"></i> Supplier Cart
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-basket2-fill"></i> Purchasing Overview
           </span>
-          <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">Today's purchase</span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body">
 
+          <!-- CART SUMMARY -->
           <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Summary</div>
+            <div class="sd-summary-block-label">Today's Cart</div>
             <div class="sd-info-row">
               <span class="sd-info-label"><i class="bi bi-collection sl-me-1"></i> Items</span>
               <span class="sd-info-value">{{ cart_items|length|default:0 }} item{{ cart_items|length|pluralize }}</span>
@@ -215,58 +241,65 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
 
-          <!-- RECEIPT OVERVIEW -->
+          <!-- QUICK LINKS -->
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label"><i class="bi bi-ticket-detailed sl-me-1"></i> Receipt Overview</div>
-            {% if cart_items %}
-              {% for item in cart_items %}
-              <div class="sd-info-row">
-                <span class="sd-info-label" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px;">{{ item.name }}</span>
-                <span class="sd-info-value" style="font-size:0.78rem; color:var(--muted);">
-                  {{ item.quantity }} × ₱{{ item.price|floatformat:2 }}
-                  {% if item.discount %}<span style="color:var(--danger);">(-{{ item.discount }})</span>{% endif %}
-                </span>
-              </div>
-              {% endfor %}
-            {% else %}
-              <p class="sl-summary-note">No items added yet.</p>
-            {% endif %}
-          </div>
-
-          <!-- ACTIONS -->
-          <div class="btn-grid">
-            <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle"></i> Add item
-            </a>
-            <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-bookmark"></i> Presets
-            </a>
-            
+            <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
+              <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> Add item
+              </a>
+              <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-bookmark-fill"></i> Presets
+              </a>
+              <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-tags-fill"></i> Categories
+              </a>
               {% if suppliers %}
                 <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-building-add"></i> View Supplier
+                  <i class="bi bi-building-fill"></i> Suppliers
                 </a>
               {% else %}
-              <a href="{% url 'supplier-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <a href="{% url 'supplier-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
                   <i class="bi bi-plus-circle"></i> Add Supplier
                 </a>
               {% endif %}
+              {% if cart_items %}
+              <a href="{% url 'clear-cart' %}" class="btn btn-sm btn-block"
+                 style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
+                <i class="bi bi-trash3"></i> Clear cart
+              </a>
+              {% endif %}
+            </div>
+          </div>
 
-            <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi-kanban" ></i> Item's category
-            </a>
-            {% if cart_items %}
-            <a href="{% url 'clear-cart' %}" class="btn btn-sm btn-block"
-               style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
-              <i class="bi bi-trash3"></i> Clear supplier items
+          <hr class="sl-quick-divider">
+          {% if categories_count > 1 %}
+          <div class="sl-quick-label">Filter by category</div>
+          <div class="quick-range-grid">
+            
+            {% for cat in top_categories %}
+              <a href="{% url 'material-list' %}?category={{ cat.id }}"
+                class="quick-range-btn {% if request.GET.category == cat.id|stringformat:'s' %}active{% endif %}">
+                <i class="bi bi-tag"></i> {{ cat.name }}
+              </a>
+            {% endfor %}
+            
+            {% endif %}
+
+            {% if categories_count > 2 %}
+            <a href="{% url 'material-list' %}"
+              class="quick-range-btn {% if not request.GET.category and not request.GET.search %}quick-range-btn--selected{% endif %}">
+              <i class="bi bi-grid"></i> All
             </a>
             {% endif %}
+            
+            
+
+            
           </div>
 
         </div>
       </div>
-
     </div>
 
   </div>

@@ -10,7 +10,7 @@ class TimeStampModel(models.Model):
         abstract = True
 
 class SlugModel(models.Model):
-    slug = models.SlugField(null=True, blank=True, unique=True)
+    slug = models.SlugField(null=True, blank=True, unique=False)
     
     class Meta:
         abstract = True
@@ -28,6 +28,9 @@ class Category(SlugModel):
     category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='item') # which app
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories')
     
+    class Meta:
+        unique_together = ('user', 'slug')
+        
     def __str__(self):
         return f"Category: {self.category_type} - {self.name}"
     

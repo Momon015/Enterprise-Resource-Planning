@@ -1,31 +1,31 @@
 {% extends 'main.html' %}
 {% load humanize %}
+
 {% block content %}
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sd-page-header">
-    <div>
-      <h4 class="sd-page-title">
-        <i class="bi bi-receipt-cutoff"></i>
-        Sales Transaction
-      </h4>
-      <p class="sd-page-breadcrumb">
-        Sales <span>•</span> Transaction Details 
-         <span>|</span> {{ sale.created_at|date:"F d, Y" }} {% comment %} · h:i A {% endcomment %}
-      </p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sale-list' %}" class="breadcrumb-link">SALES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">Sales Transaction</h1>
+      <p class="page-subtitle">{{ sale.created_at|date:"F d, Y" }} at {{ sale.created_at|date:"h:i A" }}</p>
     </div>
-    <div>
-      <a href="{% url 'sale-list' %}" class="btn btn-light btn-sm">
-        <i class="bi bi-arrow-left sl-me-1"></i> Back
+    <div class="page-header-right">
+      <a href="{% url 'product-list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- ========== LEFT PANEL ========== -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
       <div class="card">
 
@@ -35,37 +35,37 @@
               <i class="bi bi-box-seam"></i>
             </div>
             <div>
-              <p class="card-header-title">{{ sale_items|length }} Product{{ sale_items|length|pluralize }}</p>
+              <p class="card-header-title" style="margin: 0;">{{ sale_items|length }} Product{{ sale_items|length|pluralize }}</p>
+              <p class="card-header-sub" style="margin: 0;">Line items in this transaction</p>
             </div>
           </div>
+          {% comment %} <div class="sd-card-header-right">
+            <div class="label">Total</div>
+            <div class="amount">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
+          </div> {% endcomment %}
         </div>
 
         <div class="card-body">
 
-          <!-- Quick stats -->
+          <!-- Quick Stats -->
           <div class="sd-stats-row">
             <div class="sd-stat-box">
               <div class="sd-stat-label">Reference</div>
-              <div class="sd-stat-value green">
-                {{ sale.reference}}
-              </div>
+              <div class="sd-stat-value">{{ sale.reference|default:"—" }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Quantity</div>
-              <div class="sd-stat-value">
-                {{ sale.quantity_item|intcomma }}
-              </div>
+              <div class="sd-stat-label">Total Quantity</div>
+              <div class="sd-stat-value">{{ sale.quantity_item|intcomma }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Time</div>
-              <div class="sd-stat-value">
-                {{ sale.created_at|date:"h:i A" }}
-              </div>
+              <div class="sd-stat-label">Line Items</div>
+              <div class="sd-stat-value">{{ sale_items|length }}</div>
             </div>
           </div>
 
-          <!-- Line items table -->
+          <!-- Line Items Table -->
           <hr class="sd-section-divider">
+          <div class="sd-section-label">Line Items</div>
 
           <div class="table-responsive">
             <table class="data-table">
@@ -81,22 +81,15 @@
                 {% for item in sale_items %}
                 <tr>
                   <td>
-                    <div class="cell-primary">
-                      {{ item.name|capfirst|default:"—" }}
-                    </div>
-                    <div class="cell-sub">
-                      #{{ item.id|default:"—" }}
-                    </div>
+                    <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
+                    <div class="cell-sub">#{{ item.id|default:"—" }}</div>
                   </td>
-
                   <td class="sl-text-center">
-                    {{ item.quantity|intcomma }}
+                    <span class="sl-badge sl-badge-light">{{ item.quantity|intcomma }}</span>
                   </td>
-
                   <td class="sl-text-center">
                     ₱{{ item.price_at_sale|default:0|floatformat:2 }}
                   </td>
-
                   <td class="sl-text-end sl-fw-semibold sl-text-success">
                     ₱{{ item.total_sold_per_item|floatformat:2|intcomma }}
                   </td>
@@ -114,65 +107,50 @@
       </div>
     </div>
 
-    <!-- ========== RIGHT PANEL ========== -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
-      <div class="card">
 
+      <!-- Summary Card -->
+      <div class="card">
         <div class="card-header dark">
-          <div class="sd-header-summary">
+          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
             <i class="bi bi-calculator"></i>
-            <span>Summary</span>
-          </div>
+            Summary
+          </span>
         </div>
 
         <div class="card-body">
 
-          <!-- Total amount -->
+          <!-- Total Amount -->
           <div class="sd-summary-block highlight">
             <div class="sd-summary-block-label">Total Revenue</div>
-            <div class="sd-total-amount">
-              ₱{{ sale.total_revenue|floatformat:2|intcomma }}
-            </div>
-            <div class="sd-total-sub">
-              {{ sale_items|length }} item{{ sale_items|length|pluralize }}
-            </div>
+            <div class="sd-total-amount">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
+            <div class="sd-total-sub">{{ sale_items|length }} item{{ sale_items|length|pluralize }} · {{ sale.quantity_item }} units</div>
           </div>
 
-          <!-- Transaction info -->
+          <!-- Created By -->
+          {% if sale.created_by %}
           <div class="sd-summary-block">
-
-            <div class="sd-info-row">
-              <span class="sd-info-label">Reference</span>
-              <span class="sd-info-value">#{{ sale.id }}</span>
+            <div class="sd-summary-block-label">Recorded By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">
+                {{ sale.created_by.username|slice:":1"|upper }}
+              </div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</div>
+                <div class="created-by-meta">
+                  {% if sale.created_by.role == 'developer' %}
+                    <span class="role-badge role-dev">Developer</span>
+                  {% elif sale.created_by.role == 'owner' %}
+                    <span class="role-badge role-owner">Owner</span>
+                  {% else %}
+                    <span class="role-badge role-staff">Staff</span>
+                  {% endif %}
+                </div>
+              </div>
             </div>
-
-            {% comment %} <div class="sd-info-row">
-              <span class="sd-info-label">Date</span>
-              <span class="sd-info-value">
-                {{ sale.created_at|date:"M d, Y" }}
-              </span>
-            </div> {% endcomment %}
-
-            <div class="sd-info-row">
-              <span class="sd-info-label">Time</span>
-              <span class="sd-info-value">
-                {{ sale.created_at|date:"h:i A" }}
-              </span>
-            </div>
-
           </div>
-
-          {% comment %} <!-- Actions -->
-          <div class="sd-summary-block">
-            <div class="btn-grid">
-              <a href="#" class="btn btn-sm btn-outline-secondary btn-block">
-                <i class="bi bi-printer sl-me-1"></i> Print
-              </a>
-              <a href="{% url 'sale-list' %}" class="btn btn-sm btn-primary btn-block">
-                <i class="bi bi-arrow-left-circle sl-me-1"></i> Back
-              </a>
-            </div>
-          </div> {% endcomment %}
+          {% endif %}
 
           <!-- Note -->
           <div class="sd-note-box">
@@ -181,14 +159,33 @@
             </div>
             <div>
               <div class="sd-note-title">Read-only</div>
-              <div class="sd-note-text">
-                This transaction is locked. Edits restricted.
-              </div>
+              <div class="sd-note-text">This transaction is locked. Edits restricted.</div>
             </div>
           </div>
 
         </div>
       </div>
+
+      <!-- Actions Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i>
+            Actions
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <a href="{% url 'sale-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-arrow-left-circle"></i> Back to Sales
+            </a>
+            <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> New Sale
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>

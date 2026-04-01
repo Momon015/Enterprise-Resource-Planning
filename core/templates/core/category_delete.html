@@ -4,22 +4,26 @@
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
-    <div>
-      <h4 class="sl-page-title" style="color:var(--danger);">
-        <i class="bi bi-trash"></i>
-        Delete Category
-      </h4>
-      <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ category.name }}</strong>.</p>
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'category-list' %}" class="breadcrumb-link">CATEGORIES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DELETE</span>
+      </div>
+      <h1 class="page-title" style="color:var(--danger);">Delete Category</h1>
+      <p class="page-subtitle">You are about to permanently remove <strong>{{ category.name }}</strong>.</p>
     </div>
-    <a href="{% url 'category-list' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to categories
-    </a>
+    <div class="page-header-right">
+      <a href="{% url 'category-list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to categories
+      </a>
+    </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: DETAILS -->
+    <!-- LEFT: DETAILS + ACTIONS -->
     <div class="left-panel">
       <div class="card">
         <div class="card-header">
@@ -38,24 +42,20 @@
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Category info</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Name</span>
-              <span class="sd-info-value">{{ category.name|capfirst }}</span>
-            </div>
+            <div class="sd-summary-block-label">Category details</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Type</span>
               {% if category.category_type == 'item' %}
-                <span class="sl-badge sl-badge-light">Item</span>
+                <span class="status-badge status-success">Item</span>
               {% elif category.category_type == 'product' %}
-                <span class="sl-badge" style="background:#e7f1ff; color:#084298;">Product</span>
+                <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
               {% elif category.category_type == 'expense' %}
-                <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Expense</span>
+                <span class="status-badge status-warning">Expense</span>
               {% endif %}
             </div>
           </div>
 
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:#f0d0ce;">
+          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
             <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
             <div>
               <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
@@ -65,10 +65,9 @@
 
           <form method="POST">
             {% csrf_token %}
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
+            <div class="mf-form-actions">
               <a href="{% url 'category-list' %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn"
-                style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
+              <button type="submit" class="btn" style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash"></i> Confirm Delete
               </button>
             </div>
@@ -78,30 +77,39 @@
       </div>
     </div>
 
-    <!-- RIGHT: WARNING -->
+    <!-- RIGHT: DELETION IMPACT -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header" style="background:#c0392b;">
-          <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem; color:#fff;">
-            <i class="bi bi-shield-exclamation"></i> Before you delete
+        <div class="card-header" style="background:var(--danger); border-bottom:none;">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-shield-exclamation"></i> Deletion Impact
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <div class="sd-summary-block" style="background:var(--danger-light); border-color:#f0d0ce;">
+          <div class="sd-summary-block">
             <div class="sd-summary-block-label" style="color:var(--danger);">
-              <i class="bi bi-exclamation-triangle sl-me-1"></i> Warning
+              <i class="bi bi-x-circle sl-me-1"></i> Will be removed
             </div>
-            <p style="font-size:0.82rem; color:#6c757d; margin:0;">
-              Deleting <strong>{{ category.name }}</strong> is permanent. Items using this category will become uncategorized.
-            </p>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Category</span>
+              <span class="sd-info-value" style="color:var(--danger);">{{ category.name|capfirst }}</span>
+            </div>
           </div>
 
-          <div class="btn-grid">
-            <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-pencil-square"></i> Edit Instead
-            </a>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="color:var(--warning);">
+              <i class="bi bi-exclamation-triangle sl-me-1"></i> Side effects
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Linked items</span>
+              <span class="sd-info-value" style="color:var(--warning);">Become uncategorized</span>
+            </div>
           </div>
+
+          <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm" style="width:100%; text-align:center;">
+            <i class="bi bi-pencil-square"></i> Edit Instead
+          </a>
 
         </div>
       </div>

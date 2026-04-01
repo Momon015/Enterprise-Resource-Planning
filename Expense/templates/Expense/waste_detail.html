@@ -1,0 +1,135 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">EXPENSES / WASTE</div>
+      <h1 class="page-title">Waste Detail</h1>
+      <p class="page-subtitle">{{ waste.date|date:"F d, Y" }} — {{ waste.date|date:"l" }}</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'expense-waste-list' %}" class="btn btn-light btn-sm btn-back">
+        <i class="bi bi-arrow-left"></i> Back to waste records
+      </a>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <div class="card table-card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Wasted Items</span>
+            <span class="sl-badge sl-badge-light">{{ waste_items|length }} item{{ waste_items|length|pluralize }}</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="sl-text-center">Type</th>
+                <th class="sl-text-center">Qty</th>
+                <th class="sl-text-end">Unit Price</th>
+                <th class="sl-text-end">Waste Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in waste_items %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
+                  <div class="cell-sub">{{ item.supplier|default:"—" }}</div>
+                </td>
+                <td class="sl-text-center">
+                  {% if item.product %}
+                    <span class="sl-badge sl-badge-light">Product</span>
+                  {% elif item.material %}
+                    <span class="sl-badge sl-badge-light">Material</span>
+                  {% else %}
+                    <span class="cell-sub">—</span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-center sl-fw-semibold">{{ item.quantity|intcomma }}</td>
+                <td class="sl-text-end">₱{{ item.price|floatformat:2|intcomma }}</td>
+                <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                  ₱{{ item.total_material_cost|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="5">No items recorded for this waste entry.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-trash2"></i> Waste Snapshot
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block" style="background:var(--danger-light); border-color:var(--danger-border);">
+            <div class="sd-summary-block-label">Total Waste Cost</div>
+            <div class="sd-total-amount" style="color:var(--danger);">₱{{ waste.waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Details</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Items Wasted</span>
+              <span class="sd-info-value">{{ waste_items|length }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Logged by</span>
+              <span class="sd-info-value">
+                {% if waste.created_by %}
+                  {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst }}
+                {% else %}
+                  <span class="cell-sub">—</span>
+                {% endif %}
+              </span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Recorded at</span>
+              <span class="sd-info-value">{{ waste.created_at|date:"M d, Y g:i A" }}</span>
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Quick Links</div>
+            <div class="btn-grid">
+              <a href="{% url 'material-waste-create' %}" class="btn btn-sm btn-outline-secondary btn-block">
+                <i class="bi bi-plus-circle"></i> Log Waste
+              </a>
+              <a href="{% url 'expense-waste-list' %}" class="btn btn-sm btn-outline-secondary btn-block">
+                <i class="bi bi-list-ul"></i> All Records
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

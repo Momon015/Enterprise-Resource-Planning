@@ -11,6 +11,9 @@ class Supplier(TimeStampModel, SlugModel):
     name = models.CharField(max_length=255)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_supplies', null=True, blank=True)
 
+    class Meta:
+        unique_together = ('user', 'slug')
+        
     def __str__(self):
         return self.name
     
@@ -57,6 +60,9 @@ class Material(TimeStampModel, SlugModel):
     piece_per_unit = models.PositiveBigIntegerField(default=1)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_materials', null=True, blank=True)
     
+    class Meta:
+        unique_together = ('user', 'slug')
+        
     def __str__(self):
         return self.name
     

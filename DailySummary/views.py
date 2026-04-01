@@ -23,7 +23,7 @@ from Sales.forms import SaleForm, SaleFilterForm
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem
+from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
 from Expense.forms import EmployeeForm
 
 from core.models import StatusModel
@@ -37,19 +37,19 @@ from django.views.decorators.http import require_POST
 
 from django.core.paginator import Paginator
 
-from django.db.models import Q
+from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
 from django.db.models import Sum, Avg
 
 from DailySummary.forms import SummaryFilterForm
 
-from django.db.models import F
+from user.models import User
 
 from decimal import Decimal
 from operator import itemgetter
 
-from core.utils.owner import  get_owner, permission_required
+from core.utils.owner import  get_owner, permission_required, get_queryset_for_user
 
 # logging
 import logging
@@ -59,15 +59,24 @@ import logging
 @login_required(login_url='login')
 @permission_required('owner_only')
 def view_summary(request):
-    sales = Sale.objects.all()
-    purchases = Purchase.objects.all()
-    wastes = Waste.objects.all()
+    if request.user.role == 'developer':
+        return render(request, 'core/no_access.html', status=403)
+
+    sales = get_queryset_for_user(request.user, Sale.objects.all())
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all())
+    wastes = get_queryset_for_user(request.user, Waste.objects.all())
+    expenses = get_queryset_for_user(request.user, Expense.objects.all())
+    
 
     grand_net_profit = 0
     grand_total_cost = 0
     grand_total_revenue = 0
     grand_total_salary_cost = 0
     grand_total_waste_cost = 0
+    grand_total_expense_cost = 0
+    
+    expenses_by_date = expenses \
+        .values('date').annotate(total_expense_cost=Sum('amount')).order_by('-date')
     
     wastes_by_date = wastes \
         .values('date').annotate(total_waste_cost=Sum('total_cost')) \
@@ -93,6 +102,8 @@ def view_summary(request):
     now = timezone.now()
     iso_year, iso_week, iso_weekday = now.isocalendar()
 
+    current_year = f"{now.year}-01"
+    
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date', '')
         end_date = form.cleaned_data.get('end_date', '')
@@ -103,12 +114,14 @@ def view_summary(request):
             sales = sales.filter(date__range=(start_date, end_date))
             purchases = purchases.filter(purchase_date__range=(start_date, end_date))
             wastes = wastes.filter(date__range=(start_date, end_date))
+            expenses = expenses.filter(date__range=(start_date, end_date))
             
         if select_month:
             parsed_year, parsed_month = map(int, select_month.split('-'))
             sales = sales.filter(date__month=parsed_month)
             purchases = purchases.filter(purchase_date__month=parsed_month)
             wastes = wastes.filter(date__month=parsed_month)
+            expenses = expenses.filter(date__month=parsed_month)
         
         if period == 'last_week':
             if iso_week == 1:
@@ -117,27 +130,31 @@ def view_summary(request):
                 sales = sales.filter(date__week=last_year_of_last_week, date__year=last_year)
                 purchases = purchases.filter(purchase_date__week=last_year_of_last_week, purchase_date__year=last_year)
                 wastes = wastes.filter(date__week=last_year_of_last_week, date__year=last_year)
-                
+                expenses = expenses.filter(date__week=last_year_of_last_week, date__year=last_year)
             else:
                 
                 sales = sales.filter(date__week=iso_week-1, date__year=iso_year)
                 purchases = purchases.filter(purchase_date__week=iso_week-1, purchase_date__year=iso_year)
                 wastes = wastes.filter(date__week=iso_week-1, date__year=iso_year)
+                expenses = expenses.filter(date__week=iso_week-1, date__year=iso_year)
                 
         if period == 'today':
             sales = sales.filter(date__day=now.day)
             purchases = purchases.filter(purchase_date__day=now.day)
             wastes = wastes.filter(date__day=now.day)
+            expenses = expenses.filter(date__day=now.day)
 
         if period == 'month':
             sales = sales.filter(date__month=now.month)
             purchases = purchases.filter(purchase_date__month=now.month)
             wastes = wastes.filter(date__month=now.month)
+            expenses = expenses.filter(date__month=now.month)
         
         sales_by_date = sales.values('date').annotate(total_salary_cost=Sum('total_salary_cost'), total_revenue=Sum('total_revenue')).order_by('-date')
         purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
         wastes_by_date = wastes.filter(waste_items__material__isnull=False).values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
-
+        expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('amount')).order_by('-date')
+        
         if search:
             sales_by_date = sales_by_date.filter(
                 Q(total_revenue__iexact=search) |
@@ -146,6 +163,7 @@ def view_summary(request):
             )
             purchase_by_date = purchase_by_date.filter(total_cost__iexact=search)
             wastes_by_date = wastes_by_date.filter(total_unsold_cost__iexact=search)
+            expenses_by_date = expenses_by_date.filter(total_expense_cost__iexact=search)
         
     summary = {}
     for s in sales_by_date:
@@ -154,6 +172,7 @@ def view_summary(request):
             'total_salary_cost': s['total_salary_cost'],
             'total_waste_cost': 0,
             'total_cost': 0,
+            'total_expense_cost': 0,
         }
 
     for p in purchase_by_date:
@@ -164,6 +183,7 @@ def view_summary(request):
                 'total_revenue': 0,
                 'total_salary_cost': 0,
                 'total_waste_cost': 0,
+                'total_expense_cost': 0,
                 'total_cost': p['total_cost']
             }
             
@@ -176,8 +196,21 @@ def view_summary(request):
                 'total_revenue': 0,
                 'total_salary_cost': 0,
                 'total_cost': 0,
+                'total_expense_cost': 0,
                 'total_waste_cost': w['total_waste_cost']
                 
+            }
+            
+    for e in expenses_by_date:
+        if e['date'] in summary:
+            summary[e['date']]['total_expense_cost'] = e['total_expense_cost']
+        else:
+            summary[e['date']] = {
+                'total_revenue': 0,
+                'total_salary_cost': 0,
+                'total_cost': 0,
+                'total_waste_cost': 0,
+                'total_expense_cost': e['total_expense_cost']
             }
             
 
@@ -188,9 +221,11 @@ def view_summary(request):
             total_cost = value['total_cost']
             total_salary_cost = value['total_salary_cost']
             total_waste_cost = value['total_waste_cost']
+            total_expense_cost = value['total_expense_cost']
             
-            net_profit = total_revenue - total_cost - total_salary_cost - total_waste_cost
+            net_profit = total_revenue - total_cost - total_salary_cost - total_waste_cost - total_expense_cost
             
+            grand_total_expense_cost += total_expense_cost
             grand_total_waste_cost += total_waste_cost
             grand_total_revenue += total_revenue
             grand_total_salary_cost += total_salary_cost
@@ -203,14 +238,31 @@ def view_summary(request):
                 'total_cost': total_cost,
                 'total_revenue': total_revenue,
                 'total_waste_cost': total_waste_cost,
+                'total_expense_cost': total_expense_cost,
                 'net_profit': net_profit
             })
     
     sorted_list=sorted(summary_list, key=lambda x: x['date'], reverse=True)
             
-    pagination = Paginator(summary_list, 6)
+    pagination = Paginator(sorted_list, 11)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
+    
+    # most profitable of the month
+    rev_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_revenue'))}
+    cost_by_month = {p['purchase_date__month']: p['total'] for p in purchases.filter(purchase_date__year=now.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
+    waste_by_cost = {w['date__month']: w['total'] for w in wastes.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_cost'))}
+    expense_by_cost = {e['date__month']: e['total'] for e in expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('amount'))}
+    salary_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_salary_cost'))}
+    
+    all_months = set(list(rev_by_month) + list(cost_by_month) + list(waste_by_cost) + list(expense_by_cost) + list(salary_by_month))
+    best_month_name = 'N/A'
+    best_month_profit = 0
+    for m in all_months:
+        profit = (rev_by_month.get(m) or 0) - (cost_by_month.get(m) or 0) - (waste_by_cost.get(m) or 0) - (expense_by_cost.get(m) or 0) - (salary_by_month.get(m) or 0)
+        if profit > best_month_profit:
+            best_month_profit = profit
+            best_month_name = calendar.month_name[m]
 
     context = {
         'summary_list': sorted_list,
@@ -220,7 +272,12 @@ def view_summary(request):
         'grand_total_revenue': grand_total_revenue,
         'grand_total_waste_cost': grand_total_waste_cost,
         'grand_total_salary_cost': grand_total_salary_cost,
+        'grand_total_expense_cost': grand_total_expense_cost,
         'grand_net_profit': grand_net_profit,
+        'current_year': current_year,
+        
+        'best_month_name': best_month_name,
+        'best_month_profit': best_month_profit,
     }
     
     return render(request, 'DailySummary/view_summary.html', context)
@@ -228,22 +285,27 @@ def view_summary(request):
 @login_required(login_url='login')
 @permission_required('owner_only')
 def view_summary_detail(request, date):
-    sales = Sale.objects.filter(date=date)
+    owner = get_owner(request.user)
+    
+    sales = Sale.objects.filter(user=owner, date=date)
     sale_items  = SaleItem.objects.filter(sale__in=sales)
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
     
-    purchases = Purchase.objects.filter(purchase_date=date)
+    purchases = Purchase.objects.filter(user=owner, purchase_date=date)
     purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
     
-    wastes = Waste.objects.filter(date=date)
+    wastes = Waste.objects.filter(user=owner, date=date)
     waste_items = WasteItem.objects.filter(waste__in=wastes)
+    
+    expenses = Expense.objects.filter(user=owner, date=date)
+    total_expense_cost = expenses.aggregate(total_expense_cost=Sum('amount'))['total_expense_cost'] or 0
 
     net_profit = 0
     total_salary_cost = 0
     total_material_cost = 0
     total_waste_cost = 0
     total_revenue = 0
-    
+
     for waste in waste_items:
         waste_cost = waste.price * waste.quantity
         total_waste_cost += waste_cost
@@ -262,7 +324,7 @@ def view_summary_detail(request, date):
         total_revenue += revenue
         
   
-    net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost
+    net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
     
     context = {
         'sales': sales,
@@ -277,7 +339,9 @@ def view_summary_detail(request, date):
         'total_material_cost': total_material_cost,
         'total_waste_cost': total_waste_cost,
         'total_revenue': total_revenue,
+        'total_expense_cost': total_expense_cost,
+        'expenses': expenses,
         'section': 'summary'
-        }
+    }
     
     return render(request, 'DailySummary/view_summary_detail.html', context)
