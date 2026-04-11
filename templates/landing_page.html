@@ -759,9 +759,9 @@
 
     .lp-pricing-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 1.5rem;
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 3rem auto 0;
         align-items: start;
     }
@@ -863,7 +863,14 @@
         color: var(--muted) !important;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
+    .lp-pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+        max-width: 700px;
+    }
+    }
+
+    @media (max-width: 600px) {
     .lp-pricing-grid {
         grid-template-columns: 1fr;
         max-width: 420px;
@@ -911,12 +918,93 @@
     .lp-terms-link:hover { text-decoration: underline; }
 
 
+    /* Toast Message */
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1080;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .toast-message {
+      min-width: 300px;  /* Increased from 260px */
+      max-width: 420px;  /* Increased from 380px */
+      padding: 1rem 1.25rem;  /* Increased padding */
+      border-radius: 8px;
+      font-size: 0.9rem;  /* Slightly larger */
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);  /* Better shadow */
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;  /* More gap for icon */
+      opacity: 0;
+      transform: translateX(20px);
+      animation: toastIn 0.3s ease forwards, toastOut 0.3s ease forwards 2.8s;
+    }
+
+    .toast-success {
+      background: #f8faf6;
+      color: #166534;
+      border-left: 4px solid #22c55e;
+    }
+
+    .toast-error,
+    .toast-danger {
+      background: #fee2e2;
+      color: #991b1b;
+      border-left: 4px solid #ef4444;
+    }
+
+    .toast-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border-left: 4px solid #f59e0b;
+    }
+
+    .toast-info {
+      background: #dbeafe;
+      color: #1e40af;
+      border-left: 4px solid #3b82f6;
+    }
+
+    @keyframes toastIn {
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+    }
     
   </style>
 </head>
 <body>
 
 <!-- ──  DESKTOP NAV ── -->
+
+  {% if messages %}
+  <div class="toast-container" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+      <div class="toast-message toast-{{ message.tags }}">
+        {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+        {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+        {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+        {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+        {% endif %}
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
 <nav class="lp-nav">
   <a class="lp-brand" href="#">
     <div class="lp-brand-icon"><i class="bi bi-layers-fill"></i></div>
@@ -1338,7 +1426,7 @@
   <div class="lp-section">
     <div class="lp-section-label">Pricing</div>
     <h2 class="lp-section-title">Simple, transparent pricing</h2>
-    <p class="lp-section-sub">No hidden fees. Pick the plan that fits your business — upgrade anytime as you grow.</p>
+    <p class="lp-section-sub">No hidden fees. Start free, then upgrade as you grow — cancel anytime.</p>
 
     <!-- BILLING TOGGLE -->
     <div class="lp-billing-toggle">
@@ -1352,6 +1440,25 @@
     </div>
 
     <div class="lp-pricing-grid">
+
+      <!-- FREE PLAN -->
+      <div class="lp-pricing-card reveal">
+        <div class="lp-pricing-name">Free</div>
+        <div class="lp-pricing-price">
+          ₱0<span>/forever</span>
+        </div>
+        <div class="lp-pricing-desc">Try out Swift ERP with no commitment.</div>
+        <ul class="lp-pricing-features">
+          <li><i class="bi bi-check-lg"></i> Solo owner (no staff)</li>
+          <li><i class="bi bi-check-lg"></i> 10 products &amp; 10 materials</li>
+          <li><i class="bi bi-check-lg"></i> 2 suppliers</li>
+          <li><i class="bi bi-check-lg"></i> 10 sales, purchases, waste</li>
+          <li><i class="bi bi-check-lg"></i> 5 expense records</li>
+          <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+          <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
+        </ul>
+        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Get started</a>
+      </div>
 
       <!-- Standard -->
       <div class="lp-pricing-card reveal">
@@ -1367,8 +1474,7 @@
           <li><i class="bi bi-check-lg"></i> 30 products &amp; 30 materials</li>
           <li><i class="bi bi-check-lg"></i> 5 suppliers</li>
           <li><i class="bi bi-check-lg"></i> 30 sales &amp; purchase records</li>
-          <li><i class="bi bi-check-lg"></i> 30 waste records</li>
-          <li><i class="bi bi-check-lg"></i> 10 expense records</li>
+          <li><i class="bi bi-check-lg"></i> 30 waste &amp; 10 expense records</li>
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
         </ul>
@@ -1390,7 +1496,7 @@
         <ul class="lp-pricing-features">
           <li><i class="bi bi-check-lg"></i> 5 staff accounts</li>
           <li><i class="bi bi-check-lg"></i> Unlimited products &amp; materials</li>
-          <li><i class="bi bi-check-lg"></i> 10 suppliers</li>
+          <li><i class="bi bi-check-lg"></i> 20 suppliers</li>
           <li><i class="bi bi-check-lg"></i> Unlimited sales &amp; purchases</li>
           <li><i class="bi bi-check-lg"></i> Unlimited waste &amp; expenses</li>
           <li><i class="bi bi-check-lg"></i> Monthly summary reports</li>
@@ -1576,6 +1682,12 @@
 
 
 <script>
+// Toast message
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+
+
 // Mobile menu toggle
 document.getElementById('hamburgerBtn').addEventListener('click', function () {
   const menu = document.getElementById('mobileMenu');
@@ -1617,7 +1729,6 @@ billingToggle.addEventListener('click', function () {
     el.style.display = isYearly ? 'inline' : 'none';
   });
 });
-
 
 </script>
 

@@ -63,3 +63,22 @@ class ProductPresetItem(models.Model):
     
     def __str__(self):
         return f"{self.preset.id} - {self.product.name}"
+    
+    
+# class Recipe(TimeStampModel):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recipes')
+#     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='recipe', null=True, blank=True)
+#     name = models.CharField(max_length=255)
+#     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='recipes', null=True, blank=True)
+#     cost = models.DecimalField(max_digits=10, decimal_places=6)
+#     unit = models.CharField(max_length=255)
+    
+#     def __str__(self):
+#         return self.name
+    
+#     def save(self, *args, **kwargs):
+#         if not self.unit:
+#             self.unit = self.material.get_unit_display()
+        
+        
+#         super().save(*args, **kwargs)

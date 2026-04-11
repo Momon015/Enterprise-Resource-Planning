@@ -30,7 +30,7 @@
         <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
-          {% if request.user.role == 'staff'%}
+          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -39,7 +39,7 @@
         <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}?next={{request.path}}">
           <i class="bi bi-calendar-check"></i>
           <span>Summary</span>
-          {% if request.user.role == 'staff'%}
+          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -48,7 +48,7 @@
         <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}" href="{% url 'expense-list' %}">
           <i class="bi bi-wallet2"></i>
           <span>Expenses</span>
-          {% if request.user.role == 'staff'%}
+          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -64,7 +64,7 @@
         <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
           <i class="bi bi-cash-coin"></i>
           <span>Sales</span>
-          {% if request.user.role == 'staff'%}
+          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -73,7 +73,7 @@
         <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
           <i class="bi bi-receipt"></i>
           <span>Purchases</span>
-          {% if request.user.role == 'staff'%}
+          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -82,6 +82,9 @@
         <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' %}">
           <i class="bi bi-recycle"></i>
           <span>Waste & Loss</span>
+          {% if request.user.role == 'developer' %}
+            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
+          {% endif %}
         </a>
       </li>
     </ul>
@@ -119,7 +122,7 @@
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' %}?next={{request.path}}">
           <i class="bi bi-people"></i>
-          <span>Employees</span>
+          <span>Employees & Payroll</span>
           {% if request.user.role == 'staff'%}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}

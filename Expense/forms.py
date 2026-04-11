@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 
-from Expense.models import Purchase, PurchaseItem, Employee, WasteItem, Expense, MiscExpense
+from Expense.models import Purchase, PurchaseItem, Employee, WasteItem, Expense, ExpenseItem, MiscExpense
 from Inventory.models import Material
 
 from Supplier.models import Supplier
@@ -21,7 +21,7 @@ class PurchaseItemForm(ModelForm):
         fields = ['material', 'discount']
 
 class PurchaseFilterForm(forms.Form):
-    search = forms.CharField(required=False)
+    # search = forms.CharField(required=False)
     select_month = forms.CharField(required=False)
     period = forms.CharField(required=False)
     
@@ -88,11 +88,12 @@ class WasteItemFilterForm(forms.Form):
 class ExpenseForm(ModelForm):
     class Meta:
         model = Expense
-        fields = ['name', 'amount']
+        fields = ['total_amount']
         
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
         
 class MiscExpenseForm(ModelForm):
     category = forms.ModelChoiceField(queryset=Category.objects.none())
@@ -111,5 +112,5 @@ class MiscExpenseForm(ModelForm):
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         
 class ExpenseFilterForm(forms.Form):
-    search = forms.CharField(required=False)
+    # search = forms.CharField(required=False)
     select_month = forms.CharField(required=False)

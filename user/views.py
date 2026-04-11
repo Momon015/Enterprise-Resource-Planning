@@ -22,8 +22,8 @@ from django.core.paginator import Paginator
 from core.models import Category
 from core.utils.email import send_email
 
-from user.models import User, EmailOTP
-from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm
+from user.models import User, EmailOTP, BusinessProfile
+from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm
 
 from core.utils.owner import get_owner, get_queryset_for_user, permission_required
 
@@ -36,6 +36,11 @@ from django.contrib.auth.hashers import make_password
 from Expense.models import Employee
 
 # Create your views here.
+
+def get_ip(request):
+    ip = request.META.get('REMOTE_ADDR')
+    return HttpResponse(f"Your IP is {ip}")
+
 
 def landing(request):
     if request.user.is_authenticated:
@@ -154,8 +159,14 @@ def verify_otp(request):
                     request.session.pop(key, None)
                 
                 login(request, user)
-                messages.success(request, f"Your account has been successfully created.")
-                return redirect('user-profile', slug=user.username)
+                if request.user.role == 'owner':
+                    return redirect('business-profile-create')
+                else:
+                    messages.success(request, f"Your account has been successfully created.")
+                    return redirect('user-profile', slug=user.username)
+            
+            
+                
             
             else:
                 messages.error(request, "Invalid OTP. Please try again.")
@@ -322,20 +333,43 @@ def user_edit_password(request):
 #     return render(request, 'user/edit_user_profile_form.html', context)
 
 @login_required(login_url='login')
-def user_delete(request, slug):
+def user_deactivate(request, slug):
     user = get_object_or_404(User, slug=slug)
-
+    print('user', request.user)
     if user != request.user:
         return render(request, 'core/no_access.html', status=403)
     
     if request.method == 'POST':
-        user.delete()
-        messages.success(request, 'Your account has been deleted.')
+        user.is_active = False
+        user.save()
+        logout(request)
+        messages.success(request, 'Your account has been deactivated.')
         return redirect('landing')
 
     context = {'user': user}
-    return render(request, 'user/user_delete.html', context)
+    return render(request, 'user/user_deactivate.html', context)
 
 def user_logout(request):
     logout(request)
     return redirect('landing')
+
+
+def business_profile_create(request):
+    if request.method == 'POST':
+        form = BusinessProfileForm(request.POST)
+        
+        if form.is_valid():
+            profile = form.save(commit=False)
+            profile.user = request.user
+            profile.save()
+            messages.success(request, f"{profile.business_name.title()} has been created successfully.")
+            return redirect('user-profile', slug=request.user.slug)
+        else:
+            messages.error(request, f"Incomplete registration. Please register again.")
+            return redirect('register-form')
+
+    else:
+        form = BusinessProfileForm()
+        
+    context = {'form': form}
+    return render(request, 'user/business_profile_create.html', context)

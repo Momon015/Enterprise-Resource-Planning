@@ -194,7 +194,7 @@ function changeValue(fieldId, delta, isInteger = false) {
         <div class="sd-summary-block">
           <div class="sd-summary-block-label">Value Overview</div>
           <div class="sd-info-row">
-            <span class="sd-info-label">Total stock cost</span>
+            <span class="sd-info-label">Total stock value</span>
             <span class="sd-info-value">{{ product.prepared_quantity }} × ₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</span>
           </div>
           <div class="sd-info-row">
@@ -217,7 +217,7 @@ function changeValue(fieldId, delta, isInteger = false) {
           <i class="bi bi-lightning-charge sd-note-icon" style="color:var(--warning);"></i>
           <div>
             <div class="sd-note-title">Before you save</div>
-            <div class="sd-note-text">Double-check stock, cost, and selling price especially after supplier price changes.</div>
+            <div class="sd-note-text">Double-check stock, unit cost, and unit price especially after supplier price changes.</div>
           </div>
         </div>
 

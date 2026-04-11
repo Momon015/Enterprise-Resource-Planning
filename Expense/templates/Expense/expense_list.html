@@ -73,12 +73,12 @@ document.addEventListener("DOMContentLoaded", function () {
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
+          <form method="GET" id="filterForm" class="filter-form" autocomplete="off">
             <div class="form-group filter-search-row">
               <div class="input-group">
                 <span class="input-group-icon"><i class="bi bi-search"></i></span>
                 <input type="search" name="search" class="form-control"
-                       placeholder="Search by name or category..."
+                       placeholder="Search by name..."
                        value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
@@ -113,41 +113,64 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th class="sl-text-end">Amount</th>
-                <th class="sl-text-end">Actions</th>
+                <th class='sl-text-center'>Salary Cost</th>
+                <th class="sl-text-center">Expense Cost</th>
+                <th class="sl-text-center">Total Cost</th>
+                <th class="sl-text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {% for expense in page_obj %}
+              {% for record in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ expense.date|date:"M d, Y" }}</div>
-                  <div class="cell-sub">{{ expense.date|date:"l" }}</div>
+                  <div class="cell-primary">{{ record.date|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
-                <td>
-                  <div class="cell-primary">{{ expense.name|capfirst }}</div>
+
+                <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
+                  ₱{{ record.total_shift|floatformat:2|intcomma }}
                 </td>
-                <td>
-                  <span class="cell-sub">{{ expense.misc_expense.category.name|default:"Uncategorized" }}</span>
+
+                <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
+                  ₱{{ record.total_amount|floatformat:2|intcomma }}
                 </td>
-                <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                  ₱{{ expense.amount|floatformat:2|intcomma }}
+
+                <td class="sl-text-center sl-fw-semibold sl-fw-bold" style="color:var(--danger);">
+                  ₱{{ record.total_amount|add:record.total_shift|floatformat:2|intcomma }}
                 </td>
-                <td>
-                  <div class="table-actions">
-                    <a href="{% url 'expense-detail' expense.user.username expense.id %}"
-                      class="action-btn" title="View detail">
+
+                <td class="sl-text-center">
+                  <div class="btn-group">
+                    {% comment %} {% if record.first_expense_id %} {% endcomment %}
+                    <a href="{% url 'expense-detail' user.username record.date %}?{{ request.GET.urlencode }}" 
+                      class="action-btn" title="View Detail">
                       <i class="bi bi-eye"></i>
                     </a>
+                    {% comment %} {% else %}
+                    <span class="sl-text-muted">—</span> {% endcomment %}
+                    {% comment %} {% endif %} {% endcomment %}
                   </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
+            {% comment %} <tfoot>
+              <tr>
+                <td><strong>Filtered Total</strong></td>
+                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
+                  ₱{{ total_salary_filtered|floatformat:2|intcomma }}
+                </td>
+                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
+                  ₱{{ total_amount|floatformat:2|intcomma }}
+                </td>
+                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
+                  ₱{{ total_salary_filtered|add:total_amount|floatformat:2|intcomma }}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot> {% endcomment %}
           </table>
-          {% else %}
+        {% else %}
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-receipt"></i></div>
             <h3 class="empty-title">No expenses found</h3>
@@ -209,19 +232,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
           <div class="sd-summary-block" style="background:var(--danger-light); border-color:var(--danger-border);">
             <div class="sd-summary-block-label">Total Expenses</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total amount</span>
-              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ total_amount|floatformat:2|intcomma|default:"0.00" }}</span>
-            </div>
-            <div class="sd-info-row">
+            
+              <div class="sd-info-row">
               <span class="sd-info-label">Total records</span>
               <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
             </div>
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total amount</span>
+              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|add:grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+            
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total expense</span>
+              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">Total salary</span>
+              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
+            </div>
+
             <div class="sd-info-row">
               <span class="sd-info-label">Avg. per expense</span>
-              <span class="sd-info-value">₱{% if average_amount_cost %}{{ average_amount_cost|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
-            </div>
+              <span class="sd-info-value">₱{% if average_expense %}{{ average_expense|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
+            </div> 
+
+            <div class="sd-info-row">
+              <span class="sd-info-label">Avg. per salary</span>
+              <span class="sd-info-value">₱{% if average_salary %}{{ average_salary|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
+            </div> 
           </div>
+
 
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>

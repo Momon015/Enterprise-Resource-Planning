@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, MiscExpense
+from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, ExpenseItem, MiscExpense, Shift, ShiftEmployee
 from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm, ProductWasteForm, MaterialWasteForm, WasteItemFilterForm, ExpenseForm, ExpenseFilterForm, MiscExpenseForm, EmployeeFilterForm
 
 from Supplier.models import Material
@@ -26,6 +26,8 @@ from Supplier.forms import MaterialForm
 from Inventory.models import Stock
 from Product.models import Product
 from core.models import StatusModel
+
+from Sales.models import Sale, SaleEmployee
 
 from decimal import Decimal
 
@@ -36,10 +38,10 @@ from django.views.decorators.http import require_POST
 
 from django.core.paginator import Paginator
 
-from django.db.models import Q, F
+from django.db.models import Q, F, Value, CharField
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg, Max
+from django.db.models import Sum, Avg, Max, OuterRef, Subquery
 
 from user.models import User
 
@@ -74,19 +76,19 @@ def purchase_history(request):
     current_year = f"{year}-01"
     
     if form.is_valid():
-        search = form.cleaned_data.get('search')
+        # search = form.cleaned_data.get('search')
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
         select_month = form.cleaned_data.get('select_month')
         period = form.cleaned_data.get('period')
         
-        if search:
-            purchases = purchases.filter(
-                Q(line_count__iexact=search) |
-                Q(id__iexact=search) | 
-                Q(materials__quantity__iexact=search) |
-                Q(total_cost__icontains=search)
-            )
+        # if search:
+        #     purchases = purchases.filter(
+        #         Q(line_count__iexact=search) |
+        #         Q(id__iexact=search) | 
+        #         Q(materials__quantity__iexact=search) |
+        #         Q(total_cost__icontains=search)
+        #     ).distinct() # allows not to have duplicates after using search
 
         if select_month:
             parsed_year, parsed_month = map(int, select_month.split("-"))
@@ -250,7 +252,7 @@ def add_to_cart(request, id):
     return redirect(url)
 
 @login_required(login_url='login')
-@permission_required('view')
+@permission_required('view') # dev
 def view_cart(request):
     owner = get_owner(request.user)
     cart = request.session.get('cart', {})
@@ -294,7 +296,7 @@ def view_cart(request):
 
 
 @login_required(login_url='login')
-@permission_required('view')
+@permission_required('view') # dev
 def view_cart_summary(request):
     owner = get_owner(request.user)
     cart = request.session.get('cart', {})
@@ -608,7 +610,7 @@ def cart_discount_material(request):
 #     return render(request, 'Expense/employee_create.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
+# @permission_required('owner_only')
 def employee_list(request):
     employees = get_queryset_for_user(request.user, Employee.objects.all()).order_by('name')
     
@@ -638,7 +640,7 @@ def employee_list(request):
     return render(request, 'Expense/employee_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
+# @permission_required('owner_only')
 def employee_detail(request, employee_id):
     owner = get_owner(request.user)
     employee = get_object_or_404(Employee, user=owner, id=employee_id)
@@ -676,15 +678,89 @@ def employee_update(request, employee_id):
 @login_required(login_url='login')
 @permission_required('owner_only')
 def employee_delete(request, employee_id):
-    if request.user.role == 'owner':
-        employee = get_object_or_404(Employee, id=employee_id)
-        
+    owner = get_owner(request.user)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id)
+    print(employee.user)
+    print(employee.staff_user)
     if request.method == 'POST':
-        employee.delete()
+        staff = employee.staff_user # save reference FIRST
+        staff.is_active = False
+        staff.save()
+
+        employee.delete() # then delete the employee record
+        
         messages.success(request, f"{employee.name} - has been deleted from employee record.")
         return redirect('employee-list')
     context = {'employee': employee, 'section': 'employee'}
     return render(request, 'Expense/employee_delete.html', context)
+
+@login_required(login_url='login')
+@permission_required('view') # dev
+def shift_log_create(request):
+    owner = get_owner(request.user)
+    amount = 0
+    if request.method == 'POST':
+        selected_employee_ids = request.POST.getlist('selected_ids', [])
+        date = request.POST.get('date')
+        
+        if not selected_employee_ids:
+            messages.warning(request, 'Please select atleast one employee.')
+        else:
+            
+            try:
+                shift = Shift.objects.create(
+                    user=owner,
+                    amount=0,
+                    date=date,
+                    created_by=request.user,
+                )
+                
+                from datetime import date as date_type
+                emp_date = date_type.fromisoformat(date)
+                
+                if emp_date > date_type.today():
+                    messages.error(request, 'Expense date cannot be in the future.')
+                    employees = Employee.objects.filter(user=owner)
+                    return render(request, 'Expense/shift_log_create.html',{
+                        'employees': employees,
+                        'section': 'expense',
+                    })
+            except (ValueError, TypeError):
+                messages.error(request, 'Invalid date. Please select a valid date.')
+                employees = Employee.objects.filter(user=owner)
+                return render(request, 'Expense/shift_log_create.html', {
+                    'employees': employees,
+                    'section': 'expense',
+                })
+                
+            for employee_id in selected_employee_ids:
+                employee = get_object_or_404(Employee, user=owner, id=employee_id)
+                daily_rate = request.POST.get(f"daily_rate_{employee.id}")
+                
+                if not daily_rate:
+                    daily_rate = employee.daily_rate
+                
+                amount += Decimal(daily_rate)
+                
+                ShiftEmployee.objects.create(
+                    employee=employee,
+                    shift=shift,
+                    name=employee.name,
+                    daily_rate=Decimal(daily_rate),
+                    
+                )
+                
+            shift.amount = amount
+            shift.save()
+            messages.success(request, f"Today's shift has been recorded. Please check the expense record.")
+            return redirect('expense-list')
+                
+    employees = Employee.objects.filter(user=owner)
+    
+    context = {'employees': employees, 'section': 'employees'}
+    return render(request, 'Expense/shift_log_create.html', context)
+            
+
 
 @login_required(login_url='login')
 @permission_required('view') # dev
@@ -861,6 +937,7 @@ def waste_material_detail(request, username, waste_id):
 @permission_required('owner_only')
 def expense_create(request):
     owner = get_owner(request.user)
+    total_amount = 0
     
     if request.method == 'POST':
         selected_ids = request.POST.getlist('misc_expense', [])
@@ -874,6 +951,14 @@ def expense_create(request):
             try:
                 from datetime import date as date_type
                 expense_date = date_type.fromisoformat(date_str)
+                
+                expense = Expense.objects.create(
+                    total_amount=0,
+                    user=owner,
+                    created_by=request.user,
+                    date=timezone.now().date(),
+                )
+                
                 if expense_date > date_type.today():
                     messages.error(request, 'Expense date cannot be in the future.')
                     misc_expense = MiscExpense.objects.filter(user=owner)
@@ -893,15 +978,20 @@ def expense_create(request):
                 misc = get_object_or_404(MiscExpense, user=owner, id=misc_id)
                 amount = request.POST.get(f"amount_{misc_id}")
                 date = request.POST.get('date')
+                total_amount += Decimal(amount)
                 
-                Expense.objects.create(
-                    user=owner,
-                    created_by=request.user,
+                ExpenseItem.objects.create(
+                    expense=expense,
                     misc_expense=misc,
                     name=misc.name,
                     amount=amount,
-                    date=date,
                 )
+            
+            expense.total_amount = total_amount
+            expense.date = date
+            expense.save()
+                
+
     
             messages.success(request, 'Expense has been created. Please check the expense record.')
             return redirect('expense-list')
@@ -912,13 +1002,25 @@ def expense_create(request):
     return render(request, 'Expense/misc_and_expense_create.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
+# @permission_required('owner_only')
 def expense_list(request):
-    expenses = get_queryset_for_user(request.user, Expense.objects.all()).order_by('-date')
+    owner = get_owner(request.user)
+    average_amount_cost = 0
     
-    average_amount_cost = expenses.average_amount_cost()
-    total_amount = expenses.total_amount_cost()
+    expenses = get_queryset_for_user(request.user, Expense.objects.all())
+    shifts = get_queryset_for_user(request.user, Shift.objects.all())
     
+    expense_by_dates = expenses.values('date').annotate(total_amount=Sum('total_amount')).order_by('-date')
+    shift_by_dates = shifts.values('date').annotate(total_shift=Sum('amount')).order_by('-date')
+    
+    # Calculate average
+    average_expense = expenses.values('date').aggregate(total_expenses=Avg('total_amount'))['total_expenses'] or 0
+    average_salary = shifts.values('date').aggregate(total_shift=Avg('amount'))['total_shift'] or 0
+    
+    if expenses and shifts:
+        average_amount_cost = (expenses.aggregate(expense=Sum('total_amount'))['expense'] + shifts.aggregate(shift=Sum('amount'))['shift']) / 2
+    
+    # Apply filters
     form = ExpenseFilterForm(request.GET or None)
     period = request.GET.get('period')
     now = timezone.now()
@@ -926,62 +1028,206 @@ def expense_list(request):
     month = now.month
     year = now.year
     current_year = f"{year}-01"
+    
+
     if form.is_valid():
-        search = form.cleaned_data.get('search')
         select_month = form.cleaned_data.get('select_month')
-        
-        if search:
-            expenses = expenses.filter(
-                Q(amount__iexact=search) |
-                Q(name__iexact=search) |
-                Q(category__name__iexact=search)
-            )
         
         if select_month:
             parsed_date = datetime.strptime(select_month, '%Y-%m')
             expenses = expenses.filter(date__month=parsed_date.month, date__year=parsed_date.year)
-        
-        if period == 'last_month':
+            shifts = shifts.filter(date__month=parsed_date.month, date__year=parsed_date.year)
             
+        if period == 'last_month':
             if month == 1:
                 last_month = 12
                 last_year = year - 1
                 expenses = expenses.filter(date__month=last_month, date__year=last_year)
+                shifts = shifts.filter(date__month=last_month, date__year=last_year)
             else:
                 expenses = expenses.filter(date__month=month-1, date__year=year)
-        
+                shifts = shifts.filter(date__month=month-1, date__year=year)
+                
         if period == 'month':
             expenses = expenses.filter(date__month=month, date__year=year)
+            shifts = shifts.filter(date__month=month, date__year=year)
         
-        total_amount = expenses.total_amount_cost()
+        
+        expense_by_dates = expenses.values('date').annotate(total_amount=Avg('total_amount')) 
+        shift_by_dates = shifts.values('date').annotate(total_shift=Avg('amount'))
+        
+    # Build summary dict
+    summary = {}
     
-    pagination = Paginator(expenses, 8)
+    for e in expense_by_dates:
+        summary[e['date']] = {
+            'total_amount': e['total_amount'],
+            'total_shift': 0
+        }
+    
+    for s in shift_by_dates:
+        if s['date'] in summary:
+            summary[s['date']]['total_shift'] = s['total_shift']
+        else:
+            summary[s['date']] = {
+                'total_shift': s['total_shift'],
+                'total_amount': 0,
+            }
+
+    # Convert summary dict to list and sort
+    summary_list = []
+    
+    grand_total_expense = 0
+    grand_total_salary = 0
+    
+    for date, value in summary.items():
+        total_amount = value['total_amount']
+        total_shift = value['total_shift']
+        
+        grand_total_expense += total_amount
+        grand_total_salary += total_shift
+        
+        
+        summary_list.append({
+            'date': date,
+            'total_amount': total_amount,
+            'total_shift': total_shift,
+            
+            
+        })
+        
+    # Calculate average
+    average_expense = expenses.values('date').aggregate(total_expenses=Avg('total_amount'))['total_expenses'] or 0
+    average_salary = shifts.values('date').aggregate(total_shift=Avg('amount'))['total_shift'] or 0
+    
+    sorted_list = sorted(summary_list, key=lambda x: x['date'], reverse=True)
+    
+    
+    # Pagination
+    pagination = Paginator(sorted_list, 8)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
     context = {
+        
         'page_obj': page_obj, 
         'section': 'expense', 
-        'total_amount': total_amount, 
         'current_year': current_year,
+        'average_expense': average_expense,
+        'average_salary': average_salary,
+        'grand_total_salary': grand_total_salary,
+        'grand_total_expense': grand_total_expense,
         'average_amount_cost': average_amount_cost,
+        'form': form,
     }
     
     return render(request, 'Expense/expense_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def expense_detail(request, username, expense_id):
+# @permission_required('owner_only')
+def expense_detail(request, username, date):
     if request.user.role == 'developer':
         owner = get_object_or_404(User, username=username)
     else:
         owner = get_owner(request.user)
-        
-    expense = get_object_or_404(Expense, user=owner, id=expense_id)
     
-    context = {'expense': expense, 'section': 'expense'}
+    # Get all expenses and employees for this date
+    expense = Expense.objects.filter(user=owner, date=date)
+    exp_items = ExpenseItem.objects.filter(expense__in=expense)
+    
+    shift = Shift.objects.filter(user=owner, date=date)
+    shift_employees = ShiftEmployee.objects.filter(shift__in=shift)
+    
+    # Calculate totals
+    total_expense_cost = expense.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_salary_cost = shift_employees.aggregate(total=Sum('daily_rate'))['total'] or 0
+    total_cost = total_expense_cost + total_salary_cost
+
+    # Build expense items
+    expense_items = []
+    for exp in exp_items:
+        expense_items.append({
+            'type': 'expense',
+            'name': exp.misc_expense.name if exp.misc_expense.name else 'Unnamed',
+            'category': exp.misc_expense.category.name if exp.misc_expense and exp.misc_expense.category else 'Uncategorized',
+            'amount': exp.amount,
+        })
+    
+    # Build employee items
+    employee_items = []
+    for emp in shift_employees:
+        employee_items.append({
+            'type': 'salary',
+            'name': emp.name,
+            'daily_rate': emp.daily_rate,
+        })
+    
+    context = {
+        'date': date,
+        'expense': expense,
+        'shift': shift,
+        'expense_items': expense_items,
+        'employee_items': employee_items,
+        'total_expense_cost': total_expense_cost,
+        'total_salary_cost': total_salary_cost,
+        'total_cost': total_cost,
+        'expense_count': expense.count(),
+        'employee_count': shift_employees.count(),
+        'section': 'expense'
+    }
     
     return render(request, 'Expense/expense_detail.html', context)
+
+# @login_required(login_url='login')
+# @permission_required('owner_only')
+# def expense_detail(request, username, date):
+#     if request.user.role == 'developer':
+#         owner = get_object_or_404(User, username=username)
+#     else:
+#         owner = get_owner(request.user)
+        
+
+#     expense = Expense.objects.filter(user=owner, date=date)
+    
+#     expense_items = ExpenseItem.objects.filter(expense__in=expense)
+    
+#     sale = Sale.objects.filter(user=owner, date=date)
+#     sale_employees = SaleEmployee.objects.filter(sale__in=sale)
+#     total_salary_cost = sale_employees.aggregate(s=Sum(F('daily_rate')))['s'] or 0
+    
+#     total_amount = 0
+    
+#     items = []
+    
+#     for expense in expense_items:
+#         expense_name = expense.name
+#         amount = expense.amount
+#         total_amount += amount
+        
+#         items.append({
+#             'expense_name': expense_name,
+#             'amount': amount,
+#         })
+    
+#     for employee in sale_employees:
+#         employee_name = employee.name,
+#         daily_rate = employee.daily_rate,
+        
+#         items.append({
+#             'employee_name': employee_name,
+#             'daily_rate': daily_rate,
+            
+#         })
+    
+#     context = {
+#         'total_amount': total_amount,
+#         'total_salary_cost': total_salary_cost,
+#         'items': items, 
+#         'expense': expense, 
+#         'section': 'expense'
+#         }
+    
+#     return render(request, 'Expense/expense_detail.html', context)
 
 
 @login_required(login_url='login')

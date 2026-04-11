@@ -46,7 +46,7 @@ urlpatterns = [
     # expense
     path('list/', views.expense_list, name='expense-list'),
     path('create/', views.expense_create, name='expense-create'),
-    path('user/<str:username>/view/<str:expense_id>/', views.expense_detail, name='expense-detail'),
+    path('user/<str:username>/view/<str:date>/', views.expense_detail, name='expense-detail'),
     
     path('misc/create/', views.misc_expense_create, name='misc-expense-create'),
     path('misc/list/', views.misc_expense_list, name='misc-expense-list'),
@@ -54,4 +54,7 @@ urlpatterns = [
     path('misc/<str:username>/update/<str:misc_expense_id>/', views.misc_expense_update, name='misc-expense-update'),
     path('misc/<str:username>/delete/<str:misc_expense_id>/', views.misc_expense_delete, name='misc-expense-delete'),
     
+    # daily rate
+    # path('add-employee/', views.add_daily_rate_to_expense, name='add-salary-to-expense'),
+    path('create/add/shift/employees', views.shift_log_create, name='add-shift-employee'),
 ]

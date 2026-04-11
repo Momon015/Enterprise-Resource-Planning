@@ -26,9 +26,17 @@ document.addEventListener("DOMContentLoaded", function () {
   if (filterDetails) {
     const filterForm = filterDetails.querySelector("#filterForm");
     const params = new URLSearchParams(window.location.search);
+
+    // Search disabled
+    /*
     if (params.get("search") || params.get("start_date") || params.get("end_date") || params.get("select_month")) {
       filterDetails.setAttribute("open", "");
     }
+    */
+    if (params.get("start_date") || params.get("end_date") || params.get("select_month")) {
+      filterDetails.setAttribute("open", "");
+    }
+
     filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
     const resetBtn = filterForm.querySelector("a.btn-light");
     if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
@@ -71,7 +79,6 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-calendar-check"></i>
         YTD Spend: <strong>₱{{ ytd_spend|floatformat:2|intcomma }}</strong>
       </div>
-
     </div>
   </div>
 
@@ -82,11 +89,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
-               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
+               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
-          {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}
+          {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}
             <span class="filter-badge">Active</span>
           {% endif %}
         </summary>
@@ -94,6 +101,9 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="filter-body">
           <form method="get" id="filterForm" class="filter-form" autocomplete="off">
 
+            {% comment %}
+            Search temporarily disabled due to duplicate rows caused by joins.
+            Can be restored with .distinct() in queryset.
             <div class="form-group filter-search-row">
               <div class="input-group">
                 <span class="input-group-icon"><i class="bi bi-search"></i></span>
@@ -102,6 +112,7 @@ document.addEventListener("DOMContentLoaded", function () {
                        value="{{ request.GET.search|default:'' }}">
               </div>
             </div>
+            {% endcomment %}
 
             <div class="form-group">
               <label class="form-label">Period (month)</label>
@@ -166,7 +177,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td>
                   <div class="cell-primary">{{ purchase.reference|default:"—" }}</div>
-                  <div class="cell-sub">#{{ purchase.id }}</div>
+                    
+                  <div class="cell-sub">#{{ forloop.revcounter }} </div>
                 </td>
 
                 <td class="sl-text-center">
@@ -210,12 +222,12 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
+              {% with select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
 
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
                   <a class="page-link"
-                     href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     href="?page={{ page_obj.previous_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                   </a>
                 {% else %}
@@ -226,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
                 <a class="page-link"
-                   href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                   href="?page={{ p }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
                   {{ p }}
                 </a>
               </li>
@@ -235,7 +247,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
                   <a class="page-link"
-                     href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     href="?page={{ page_obj.next_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                   </a>
                 {% else %}

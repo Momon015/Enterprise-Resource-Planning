@@ -76,7 +76,7 @@ function toggleCostInput(itemId) {
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
                 <th>Unit Price</th>
-                <th>Line Total</th>
+                <th>Revenue</th>
                 <th class="pe-4">Remove</th>
               </tr>
             </thead>
@@ -86,7 +86,7 @@ function toggleCostInput(itemId) {
                 <!-- PRODUCT -->
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
-                  <div class="product-id">#{{ item.id|default:"—" }}</div>
+                  <div class="product-id">{{ item.supplier|default:"—" }}</div>
                 </td>
 
                 <!-- QTY SOLD -->
@@ -120,8 +120,32 @@ function toggleCostInput(itemId) {
                 <!-- UNIT PRICE -->
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
 
-                <!-- LINE TOTAL -->
-                <td><span class="mono" style="font-weight:700;">₱{{ item.line_total|floatformat:2 }}</span></td>
+                <!-- TOTAL UNIT PRICE / SELLING PRICE (editable) -->
+                <td>
+                  <form method="POST" action="{% url 'sale-edit-selling-price' item.id %}">
+                    {% csrf_token %}
+                    <div style="display:flex; flex-direction:column; align-items:center;">
+                      <div class="cost-display">
+                        <span>₱{{ item.total_selling_price|floatformat:2 }}</span>
+                        <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')">
+                          <i class="bi bi-pencil-square"></i>
+                        </button>
+                      </div>
+                      <div id="cost_input_{{ item.id }}" class="cost-edit-wrap">
+                        <div class="cost-input-group">
+                          <span class="cost-input-prefix">₱</span>
+                          <input type="number" step="0.01" min="0"
+                                 name="new_total_selling_price"
+                                 class="cost-input"
+                                 value="{{ item.total_selling_price|floatformat:2 }}">
+                          <button type="submit" class="cost-confirm-btn">
+                            <i class="bi bi-check2"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </td>
 
                 <!-- REMOVE -->
                 <td class="pe-4">
@@ -156,7 +180,7 @@ function toggleCostInput(itemId) {
                 <div class="receipt-item-name">{{ item.name }}</div>
                 <div class="receipt-item-meta">{{ item.quantity }} × ₱{{ item.selling_price|floatformat:2 }}</div>
               </div>
-              <div class="receipt-line-total">₱{{ item.line_total|floatformat:2 }}</div>
+              <div class="receipt-line-total">₱{{ item.total_selling_price|floatformat:2 }}</div>
             </div>
             {% endfor %}
           </div>
@@ -188,7 +212,7 @@ function toggleCostInput(itemId) {
         </div>
       </div>
 
-      <!-- EMPLOYEE SHIFT — owner only -->
+      {% comment %} <!-- EMPLOYEE SHIFT — owner only -->
       {% if request.user.role == 'owner' %}
       <div class="pos-card">
         <div class="pos-card-header">
@@ -222,7 +246,7 @@ function toggleCostInput(itemId) {
           </form>
         </div>
       </div>
-      {% endif %}
+      {% endif %} {% endcomment %}
 
       <!-- PRESETS -->
       <div class="pos-card">

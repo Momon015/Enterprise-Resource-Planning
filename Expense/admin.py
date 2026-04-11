@@ -1,11 +1,18 @@
 from django.contrib import admin
-from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem
+from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, ExpenseItem, MiscExpense, Shift, ShiftEmployee
 
 # Register your models here.
 admin.site.register(PurchaseItem)
 admin.site.register(Employee)
 admin.site.register(Waste)
 admin.site.register(WasteItem)
+
+admin.site.register(Expense)
+admin.site.register(ExpenseItem)
+admin.site.register(MiscExpense)
+
+admin.site.register(Shift)
+admin.site.register(ShiftEmployee)
 
 # admin.site.register(Purchase)
 

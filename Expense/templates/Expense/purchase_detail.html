@@ -89,7 +89,7 @@
                   </td>
                   <td class="sl-text-end">₱{{ line.price|floatformat:2 }}</td>
                   <td class="sl-text-end sl-text-success">
-                    {% if line.discount %}-₱{{ line.discount|floatformat:2 }}{% else %}—{% endif %}
+                    ₱{% if line.discount %}-{{ line.discount|floatformat:2 }}{% else %}0.00{% endif %}
                   </td>
                   <td class="sl-text-end sl-fw-semibold sl-text-danger">
                     ₱{{ line.total_price_per_item|floatformat:2|intcomma }}

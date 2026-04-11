@@ -54,7 +54,7 @@ class User(AbstractUser, SlugModel):
     password_changed_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return f"{self.username} - {self.id}"
+        return f"{self.username}"
     
     def is_locked(self):
         if self.locked_until:
@@ -118,13 +118,33 @@ class EmailOTP(TimeStampModel):
     @classmethod
     def generate_otp(cls):
         return str(random.randint(0, 999999)).zfill(6)
-    
 
-        
-        
-        
-        
-            
+class BusinessProfile(models.Model):
+    BUSINESS_TYPE_CHOICE = (
+        ('retail', 'Retail'),
+        ('cafe', 'Cafe'),
+        ('restaurant', 'Restaurant'),
+    )
     
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')
+    business_name = models.CharField(max_length=255)
+    business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
+    address = models.TextField(null=True, blank=True)
+    business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.business_name} - {self.business_type}"
+    
+    @property
+    def is_retail(self):
+        return self.business_type == 'retail'
+    
+    @property
+    def is_cafe(self):
+        return self.business_type == 'cafe'
+    
+    @property
+    def is_restaurant(self):
+        return self.business_type == 'restaurant'
     
 

@@ -64,7 +64,7 @@ def clear_sale(request):
 @login_required(login_url='login')
 @permission_required('owner_only')
 def sale_list(request):
-    sales = get_queryset_for_user(request.user, Sale.objects.all()).order_by('-date')
+    sales = get_queryset_for_user(request.user, Sale.objects.filter()).order_by('-date')
     form = SaleFilterForm(request.GET or None)
 
     now = timezone.now()
@@ -83,7 +83,7 @@ def sale_list(request):
     total_sales_count = sales.count()
     
     if form.is_valid():
-        search = form.cleaned_data.get('search')
+        # search = form.cleaned_data.get('search')
         select_month = form.cleaned_data.get('select_month')
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
@@ -100,14 +100,15 @@ def sale_list(request):
             # year, month = map(int, select_month.split('-'))
             sales = sales.filter(date__month=parsed.month)
         
-        if search:
-            sales = sales.filter(
-                Q(id__iexact=search) |
-                Q(total_revenue__iexact=search) |
-                Q(sale_items__quantity__iexact=search) |
-                Q(line_count__iexact=search)
+        # if search:
+        #     select_month = ''
+        #     sales = sales.filter(
+        #         Q(id__iexact=search) |
+        #         Q(total_revenue__iexact=search) |
+        #         Q(sale_items__quantity__iexact=search) |
+        #         Q(line_count__iexact=search) 
 
-            )
+        #     ).distinct() # <--- this allows to not have multiple rows when u filter 
             
         if period == 'last_week':
             if iso_week == 1:
@@ -139,7 +140,6 @@ def sale_list(request):
     page_obj = paginator.get_page(page_number)
     
     context = {
-        'sales': page_obj.object_list, 
         'page_obj': page_obj,
         'total_revenue': total_revenue,
         'average_total_revenue': average_total_revenue,
@@ -192,7 +192,7 @@ def add_to_sales(request, product_id):
                 'name': product.name,
                 'quantity': 1,
                 'cost_price': str(product.cost_price),
-                'unsold_quantity' : 0,
+                'selling_price': str(product.selling_price),
                 
             }
             messages.success(request, f"{product.name} added to the sale.")
@@ -205,21 +205,21 @@ def add_to_sales(request, product_id):
     return redirect(f"{reverse('product-list')}?{request.META.get('QUERY_STRING', '')}")
 
 @login_required(login_url='login')
-@permission_required('view')
+@permission_required('view') # dev
 def view_sale(request):
     owner = get_owner(request.user)
     
     sale = request.session.get('sale', {})
     total_revenue = 0
     total_cost_price = 0
-    employees = Employee.objects.filter(user=owner)
+    # employees = Employee.objects.filter(user=owner)
     
-    # after confirming who's in shift it will save the checkbox.
-    selected_employee_ids = request.session.get('selected_employee_ids', [])
-    print('session', selected_employee_ids)
-    selected_employee_ids = [str(id) for id in selected_employee_ids]
-    print('string', selected_employee_ids)
-    total_salary_cost = Decimal(request.session.get('total_salary_cost', 0))
+    # # after confirming who's in shift it will save the checkbox.
+    # selected_employee_ids = request.session.get('selected_employee_ids', [])
+    # print('session', selected_employee_ids)
+    # selected_employee_ids = [str(id) for id in selected_employee_ids]
+    # print('string', selected_employee_ids)
+    # total_salary_cost = Decimal(request.session.get('total_salary_cost', 0))
  
     items = []
     
@@ -227,7 +227,7 @@ def view_sale(request):
         for product_id, data in sale.items():
             product = get_object_or_404(Product, user=owner, id=product_id)
             quantity = data.get('quantity', 1)
-            unsold_quantity = data.get('unsold_quantity', 0)
+            selling_price = data.get('selling_price')
             cost_price = data.get('cost_price')
         
         
@@ -236,17 +236,17 @@ def view_sale(request):
             
             total_cost_price += total_cost_price_per_line
             
-            line_total = product.selling_price * quantity
-            total_revenue += line_total
+            total_selling_price = Decimal(selling_price) * quantity
+            total_revenue += total_selling_price
             
             items.append({
+                'supplier': product.material.supplier,
                 'id': product.id,
                 'name': product.name,
-                'selling_price': product.selling_price,
+                'selling_price': selling_price,
                 'quantity': quantity,
                 'cost_price': cost_price,
-                'line_total': line_total,
-                'unsold_quantity': unsold_quantity,
+                'total_selling_price': str(total_selling_price),
                 'total_cost_price_per_line': total_cost_price_per_line,
                 
             })
@@ -260,16 +260,16 @@ def view_sale(request):
         'items': items, 
         'total_revenue': total_revenue, 
         'total_cost_price': total_cost_price, 
-        'employees': employees, 
-        'selected_employee_ids': selected_employee_ids, 
-        'total_salary_cost': total_salary_cost,
+        # 'employees': employees, 
+        # 'selected_employee_ids': selected_employee_ids, 
+        # 'total_salary_cost': total_salary_cost,
         'section': 'sale'
         
         }
     return render(request, 'Sales/view_sale.html', context)
 
 @login_required(login_url='login')
-@permission_required('view')
+@permission_required('view') # dev
 def view_session_summary(request):
     owner = get_owner(user=request.user)
     sale = request.session.get('sale', {})
@@ -285,26 +285,25 @@ def view_session_summary(request):
         for product_id, data in sale.items():
             product = get_object_or_404(Product, user=owner, id=product_id)
             quantity = data.get('quantity', 1)
-            cost_price = data.get('cost_price')
-            unsold_quantity = data.get('unsold_quantity', 0)
+            cost_price = data.get('cost_price', 0)
+            selling_price = data.get('selling_price', 0)
             
             # computations
             total_cost_price_per_line = Decimal(cost_price) * quantity
             total_cost_price += total_cost_price_per_line
             
-            line_total = product.selling_price * quantity
-            total_revenue += line_total
+            total_selling_price = Decimal(selling_price) * quantity
+            total_revenue += total_selling_price
    
             items.append({
                 'id': product.id,
                 'name': product.name,
-                'selling_price': product.selling_price,
+                'selling_price': selling_price,
                 'cost_price': cost_price,
                 'quantity': quantity,
-                'unsold_quantity': unsold_quantity,
+                'total_selling_price': str(total_selling_price),
                 'total_cost_price_per_line': total_cost_price_per_line,
-                'line_total': line_total,
-                
+
             })
     request.session['sale'] = sale
     request.session.modified = True
@@ -333,25 +332,25 @@ def confirm_view_summary(request):
         with transaction.atomic():
             sale_obj = Sale.objects.create(user=owner, total_revenue=0, total_salary_cost=0, created_by=request.user)
 
-            employee_ids = request.session.get('selected_employee_ids', [])
-            print('employee_ids', employee_ids)
-            employees = Employee.objects.filter(id__in=employee_ids, user=owner)
-            print('employees', employees)
-            employee_id = employees.values_list('id', flat=True)
-            print('employee_id', employee_id)
+            # employee_ids = request.session.get('selected_employee_ids', [])
+            # print('employee_ids', employee_ids)
+            # employees = Employee.objects.filter(id__in=employee_ids, user=owner)
+            # print('employees', employees)
+            # employee_id = employees.values_list('id', flat=True)
+            # print('employee_id', employee_id)
             
             for product_id, data in sale.items():
-                product = get_object_or_404(Product, id=product_id)
+                product = get_object_or_404(Product, user=owner, id=product_id)
                 quantity = data.get('quantity', 1)
-                cost_price = data.get('cost_price')
-                unsold_quantity = data.get('unsold_quantity', 0)
+                cost_price = data.get('cost_price', 0)
+                selling_price = data.get('selling_price', 0)
                 
                 # computations 
                 total_cost_price_per_line = Decimal(cost_price) * quantity
                 total_cost_price += total_cost_price_per_line
                 
-                line_total = product.selling_price * quantity
-                total_revenue += line_total
+                total_selling_price = Decimal(selling_price) * quantity
+                total_revenue += total_selling_price
                 
                 try:
                     stock = Stock.objects.get(user=owner, material=product.material) # I removed the created_by=request.user because it's using filter/get
@@ -366,10 +365,9 @@ def confirm_view_summary(request):
                 SaleItem.objects.create(
                     sale=sale_obj,
                     product=product,
-                    price_at_sale=product.selling_price,
+                    price_at_sale=selling_price,
                     cost_price=cost_price,
                     quantity=quantity,
-                    unsold_quantity=unsold_quantity,
                 )
                 if product.prepared_quantity < quantity:
                     messages.warning(request, f"{product.name} - Insufficient stock.")
@@ -377,12 +375,12 @@ def confirm_view_summary(request):
                 product.prepared_quantity -= quantity
                 product.save()
                 
-            for employee in employees:
-                SaleEmployee.objects.create(
-                    sale=sale_obj,
-                    employee=employee,
-                    daily_rate=employee.daily_rate,
-                )
+            # for employee in employees:
+            #     SaleEmployee.objects.create(
+            #         sale=sale_obj,
+            #         employee=employee,
+            #         daily_rate=employee.daily_rate,
+            #     )
                 
             # net profit 
             sale_obj.total_revenue = max(total_revenue, 0)
@@ -399,13 +397,13 @@ def confirm_view_summary(request):
         request.session.pop(key, 0)
     
     request.session['sale'] = {}
-    request.session['selected_employee_ids'] = []
+    # request.session['selected_employee_ids'] = []
     request.session.modified = True
     
     return redirect('sale-summary', sale_obj.user.username, sale_obj.id)
 
 @login_required(login_url='login')
-@permission_required('view')
+@permission_required('view') # dev
 def view_sale_summary(request, username, sale_id):
     if request.user.role == 'developer':
         owner = get_object_or_404(User, username=username)
@@ -431,8 +429,8 @@ def view_sale_summary(request, username, sale_id):
         total_cost_price_per_line = (cost_price * quantity)
         total_cost_price += total_cost_price_per_line
         
-        line_total = item.product.selling_price * quantity
-        total_revenue += line_total
+        total_selling_price = item.price_at_sale * quantity
+        total_revenue += total_selling_price
         
         items.append({
             'id': item.product.id,
@@ -442,7 +440,7 @@ def view_sale_summary(request, username, sale_id):
             'unsold_quantity': unsold_quantity,
             'cost_price': cost_price,
             'total_cost_price_per_line': total_cost_price_per_line,
-            'line_total': line_total,
+            'total_selling_price': total_selling_price,
             
         })
 
@@ -457,29 +455,29 @@ def view_sale_summary(request, username, sale_id):
     
     return render(request, 'Sales/view_sale_summary.html', context)
 
-@login_required(login_url='login')
-@permission_required('staff_add')
-def add_daily_rate_to_sale(request):
-    owner = get_owner(request.user)
-    total_salary_cost = 0
-    if request.method == 'POST':
-        employee_ids = request.POST.getlist('employees')
+# @login_required(login_url='login')
+# @permission_required('staff_add')
+# def add_daily_rate_to_sale(request):
+#     owner = get_owner(request.user)
+#     total_salary_cost = 0
+#     if request.method == 'POST':
+#         employee_ids = request.POST.getlist('employees')
         
-        employee = Employee.objects.filter(id__in=employee_ids, user=owner)
+#         employee = Employee.objects.filter(id__in=employee_ids, user=owner)
         
-        if employee_ids:
-            total_salary_cost = employee.aggregate(daily_rate=Sum('daily_rate'))['daily_rate'] or 0
+#         if employee_ids:
+#             total_salary_cost = employee.aggregate(daily_rate=Sum('daily_rate'))['daily_rate'] or 0
             
-        if total_salary_cost:
-            messages.success(request, f"{employee.count()} staff added to shift. ₱{total_salary_cost} labor cost will be logged in summary.")
-        else:
-            messages.success(request, "Shift cleared. No labor cost will be recorded.")
+#         if total_salary_cost:
+#             messages.success(request, f"{employee.count()} staff added to shift. ₱{total_salary_cost} labor cost will be logged in summary.")
+#         else:
+#             messages.success(request, "Shift cleared. No labor cost will be recorded.")
             
-        request.session['total_salary_cost'] = str(total_salary_cost)
-        request.session['selected_employee_ids'] = employee_ids
-        request.session.modified = True
+#         request.session['total_salary_cost'] = str(total_salary_cost)
+#         request.session['selected_employee_ids'] = employee_ids
+#         request.session.modified = True
             
-    return redirect('view-sale')
+#     return redirect('view-sale')
 
 @login_required(login_url='login')
 def edit_view_sale_quantity(request, product_id):
@@ -507,7 +505,7 @@ def edit_view_sale_quantity(request, product_id):
     return redirect('view-sale')
 
 @login_required(login_url='login')
-def edit_total_cost_price(request, product_id):
+def edit_total_selling_price(request, product_id):
     owner = get_owner(request.user)
     sale = request.session.get('sale', {})
     product = get_object_or_404(Product, user=owner, id=product_id)
@@ -516,13 +514,13 @@ def edit_total_cost_price(request, product_id):
     if sale:
         data = sale[product_key]
         quantity = data.get('quantity', 0)
-        cost_price = data.get('cost_price')
-        raw_cost_price = request.POST.get('new_total_cost_price') 
-        new_total_cost_price = Decimal(raw_cost_price) / quantity if raw_cost_price else None
+        selling_price = data.get('selling_price')
+        raw_selling_price = request.POST.get('new_total_selling_price') 
+        new_total_selling_price = Decimal(raw_selling_price) / quantity if raw_selling_price else None
         
-        if new_total_cost_price and new_total_cost_price != Decimal(cost_price):
-            sale[product_key]['cost_price'] = str(new_total_cost_price)
-            messages.success(request, f"The total cost has been updated.")
+        if new_total_selling_price and new_total_selling_price != Decimal(selling_price):
+            sale[product_key]['selling_price'] = str(new_total_selling_price)
+            messages.success(request, f"The revenue for {product.name} has been updated.")
     request.session['sale'] = sale
     request.session.modified = True
     

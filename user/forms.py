@@ -4,7 +4,7 @@ from django import forms
 
 from django.contrib.auth.forms import PasswordChangeForm
 
-from user.models import password_validators, User, ROLE_CHOICES
+from user.models import password_validators, User, BusinessProfile, ROLE_CHOICES
 
 
 
@@ -99,3 +99,13 @@ class UpdateUserForm(ModelForm):
             raise ValidationError(f"Birthday must be in the past")
         return birthday
     
+class BusinessProfileForm(ModelForm):
+    class Meta:
+        model = BusinessProfile
+        fields = ['business_name', 'business_type', 'address', 'business_phone_number']
+        
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        

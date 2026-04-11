@@ -1,0 +1,205 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+{% if messages %}
+<div class="toast-container">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<style>
+  tr.row-selected { background: var(--accent-light) !important; }
+  .emp-cb { width: 1.1rem; height: 1.1rem; cursor: pointer; accent-color: var(--accent); }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const checkboxes = document.querySelectorAll(".emp-cb");
+  const counter = document.getElementById("selectedCount");
+
+  function updateCounter() {
+    if (!counter) return;
+    const n = [...checkboxes].filter(c => c.checked).length;
+    counter.textContent = n + " selected";
+    counter.style.display = n > 0 ? "inline-flex" : "none";
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener("change", function () {
+      this.closest("tr").classList.toggle("row-selected", this.checked);
+
+      const rateInput = document.getElementById(`rate_${this.value}`);
+      if (rateInput) rateInput.disabled = !this.checked;
+
+      updateCounter();
+    });
+  });
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SHIFT</div>
+      <h1 class="page-title">Create Shift Log</h1>
+      <p class="page-subtitle">Select employees, adjust daily rates if needed, and set the date.</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT -->
+    <div class="left-panel">
+
+      {% if employees %}
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="card table-card">
+          <div class="card-header">
+            <div class="card-header-left-group">
+              <span class="card-header-title">Employees</span>
+              <span class="sl-badge sl-badge-light">
+                {{ employees|length }} employee{{ employees|length|pluralize }}
+              </span>
+              <span id="selectedCount" class="sl-badge"
+                    style="background:var(--accent-light); color:var(--accent); display:none;">
+              </span>
+            </div>
+            <span class="card-header-sub">Check employees and adjust daily rate (for OT)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:2.5rem; text-align:center;">
+                    <input type="checkbox" class="emp-cb" id="checkAll"
+                      onchange="document.querySelectorAll('.emp-cb:not(#checkAll)').forEach(c => {
+                        c.checked = this.checked;
+                        c.closest('tr').classList.toggle('row-selected', this.checked);
+                        const rate = document.getElementById(`rate_${c.value}`);
+                        if (rate) rate.disabled = !this.checked;
+                      }); 
+                      document.getElementById('selectedCount').textContent = this.checked ? '{{ employees|length }} selected' : '0 selected';
+                      document.getElementById('selectedCount').style.display = this.checked ? 'inline-flex' : 'none';">
+                  </th>
+                  <th>Employee</th>
+                  <th class="sl-text-end">Default Rate</th>
+                  <th class="sl-text-end">Actual Rate</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {% for emp in employees %}
+                <tr>
+                  <td style="text-align:center;">
+                    <input type="checkbox"
+                           name="selected_ids"
+                           value="{{ emp.id }}"
+                           class="emp-cb"
+                           id="emp_{{ emp.id }}">
+                  </td>
+
+                  <td>
+                    <label for="emp_{{ emp.id }}" style="cursor:pointer;">
+                      <div class="cell-primary">{{ emp.name }}</div>
+                    </label>
+                  </td>
+
+                  <td class="sl-text-end">
+                    <span class="sl-fw-semibold">
+                      ₱{{ emp.daily_rate|floatformat:2|intcomma }}
+                    </span>
+                  </td>
+
+                  <td class="sl-text-end">
+                    <div class="mf-peso-wrap" style="justify-content:flex-end;">
+                      <span class="mf-peso-prefix">₱</span>
+                      <input type="number"
+                             name="daily_rate_{{ emp.id }}"
+                             id="rate_{{ emp.id }}"
+                             class="form-control"
+                             style="width:120px; text-align:right;"
+                             step="0.01"
+                             min="0"
+                             value="{{ emp.daily_rate|floatformat:2 }}"
+                             disabled>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- DATE + SUBMIT -->
+          <div class="card-body" style="border-top:1px solid var(--border);">
+            <div class="mf-fields-grid" style="margin-bottom:1rem;">
+              <div class="mf-field-group" style="grid-column: 1 / -1;">
+                <label class="mf-form-label">Date <span class="mf-required">*</span></label>
+                <input type="date"
+                       name="date"
+                       class="form-control"
+                       value="{% now 'Y-m-d' %}" 
+                       max="{{ today|date:'Y-m-d' }}" 
+                       required>
+              </div>
+            </div>
+
+            <div class="mf-form-actions">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle sl-me-1"></i> Save Shift
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </form>
+
+      {% else %}
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon"><i class="bi bi-people"></i></div>
+          <h3 class="empty-title">No employees yet</h3>
+          <p class="empty-text">Add employees first before creating a shift log.</p>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff;">
+            <i class="bi bi-info-circle"></i> How it works
+          </span>
+        </div>
+
+        <div class="card-body">
+          <ul class="mf-guide-list">
+            <li>✔ Select employees for the shift</li>
+            <li>✔ Adjust rate if they have OT</li>
+            <li>✔ Default rate is used if unchanged</li>
+            <li>✔ Click save to record shift</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

@@ -210,31 +210,38 @@ def material_delete(request, username, slug):
 @permission_required('add')
 def save_items(request):
     cart = request.session.get('cart', {})
-    checkbox = request.POST.get('checkbox')
-    name = request.POST.get('name').title()
-    print('cart', cart)
     owner = get_owner(request.user)
     
-    if not checkbox:
-        messages.warning(request, 'You forgot to click the checkbox.')
+    if request.method == 'POST':
+        checkbox = request.POST.get('checkbox')
+        name = request.POST.get('name').title()
         
-    else:
-        preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
-      
-        for material_id, data in cart.items():
-            
-            material = get_object_or_404(Material, user=owner, id=material_id)
-            quantity = data['quantity']
-            discount = data.get('discount', 0)
-            
-            MaterialPresetItem.objects.get_or_create(
-                preset=preset,
-                material=material,
-                defaults={'quantity': quantity, 'discount': discount}
+        if checkbox and not name:
+                messages.warning(request, "You forgot to add a preset title.")
                 
-            )
-        messages.success(request, f"{name} added to preset.")
-        request.session['preset_id'] = preset.id
+        elif not checkbox and name:
+            messages.warning(request, "You forgot to click the checkbox.")
+        
+        else:
+            messages.warning(request, "Please add a preset title and don't forget to check the checkbox.")
+            
+        if checkbox and name:
+            preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
+        
+            for material_id, data in cart.items():
+                
+                material = get_object_or_404(Material, user=owner, id=material_id)
+                quantity = data['quantity']
+                discount = data.get('discount', 0)
+                
+                MaterialPresetItem.objects.get_or_create(
+                    preset=preset,
+                    material=material,
+                    defaults={'quantity': quantity, 'discount': discount}
+                    
+                )
+            messages.success(request, f"{name} added to preset.")
+            request.session['preset_id'] = preset.id
         return redirect('view-cart')
 
 @login_required(login_url='login')

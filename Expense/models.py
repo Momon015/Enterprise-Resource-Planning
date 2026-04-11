@@ -11,10 +11,13 @@ from django.db.models import Sum, Avg, Value
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 
-from user.models import User
+from user.models import User, BusinessProfile
 
 from Product.models import Product
 from django.db.models import F
+
+from core.utils.owner import get_owner
+
 # Create your models here.
 
 """
@@ -53,9 +56,20 @@ class Purchase(TimeStampModel):
             self.is_paid = True
             
         if not self.reference:
+            owner = get_owner(self.user)
             year = timezone.now().year
-            count = Purchase.objects.filter(purchase_date__year=year).count() + 1
-            self.reference = f"PO-{year}-{count:04d}"
+            
+            last_purchase = (
+                Purchase.objects.filter(user=owner, purchase_date__year=year).order_by('-reference').first()
+            )
+            
+            if last_purchase and last_purchase.reference:
+                last_number = int(last_purchase.reference.split('-')[-1])
+                next_number = last_number + 1
+            else:
+                next_number = 1
+            
+            self.reference = f"PO-{year}-{next_number:04d}"
             
         # if not self.slug and self.status:
         #     self.slug = self.status.slug
@@ -141,16 +155,47 @@ class EmployeeQuerySet(models.QuerySet):
     def average_daily_rate(self):
         return self.aggregate(average_daily_rate=Avg('daily_rate'))['average_daily_rate'] or 0
     
-class Employee(TimeStampModel):
+class Employee(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employees')
-    staff_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employee_profile', null=True, blank=True)
-    name = models.CharField(max_length=255, unique=True)
+    staff_user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='employee_profile', null=True, blank=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='employees', null=True, blank=True)
+    name = models.CharField(max_length=255)
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     objects = EmployeeQuerySet.as_manager()
     
+    class Meta:
+        unique_together = ('user', 'business', 'slug')
+    
     def __str__(self):
-        return self.id
+        return f"{self.staff_user} "
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        
+        super().save(*args, **kwargs)
+    
+
+    
+class Shift(TimeStampModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shift_logs')
+    date = models.DateField(db_index=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_shift_logs')
+    
+    def __str__(self):
+        return f"{self.id} - {self.amount} — {self.date}"
+
+class ShiftEmployee(models.Model):
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='shift_employees')
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='shift_employees', null=True, blank=True)
+    name = models.CharField(max_length=255) # snapshot
+    daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    
+    def __str__(self):
+        return f"{self.employee}"
 
 class WasteQuerySet(models.QuerySet):
     def total_waste_cost(self):
@@ -231,20 +276,42 @@ class MiscExpense(TimeStampModel):
     
 class ExpenseQuerySet(models.QuerySet):
     def total_amount_cost(self):
-        return self.aggregate(total_amount_cost=Sum('amount'))['total_amount_cost'] or 0
+        return self.aggregate(total_amount_cost=Sum('total_amount'))['total_amount_cost'] or 0
     
     def average_amount_cost(self):
-        return self.aggregate(average_amount_cost=Avg('amount'))['average_amount_cost'] or 0
+        return self.aggregate(average_amount_cost=Avg('total_amount'))['average_amount_cost'] or 0
 
 class Expense(TimeStampModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
-    misc_expense = models.ForeignKey(MiscExpense, on_delete=models.SET_NULL, null=True, blank=True)
-    name = models.CharField(max_length=255)  # snapshot
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses', null=True, blank=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
     
     objects = ExpenseQuerySet.as_manager()
     
     def __str__(self):
+        return f"{self.id} - {self.created_by}" 
+    
+    def total_expense_items(self):
+        return sum(item.count() for item in self.expense_items.all())
+    
+
+class ExpenseItem(models.Model):
+    expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, related_name='expense_items', null=True, blank=True)
+    misc_expense = models.ForeignKey(MiscExpense, on_delete=models.SET_NULL, related_name='expense_items', null=True, blank=True)
+    name = models.CharField(max_length=255)  # snapshot
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def __str__(self):
         return self.name
+    
+    # def save(self, *args, **kwargs):
+    #     if self.misc_expense:
+    #         if not self.name:
+    #             self.name = self.misc_expense.name
+    #         if not self.amount:
+    #             self.amount = self.misc_expense.amount
+        
+    #     super().save(*args, **kwargs)
+
+

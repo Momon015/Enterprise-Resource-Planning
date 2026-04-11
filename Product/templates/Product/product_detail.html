@@ -59,13 +59,13 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="card-header-sub">Pricing and inventory at a glance</div>
             </div>
           </div>
-          {% if product.prepared_quantity <= 0 %}
+          {% comment %} {% if product.prepared_quantity <= 0 %}
             <span class="status-badge status-danger">Out of stock</span>
           {% elif product.prepared_quantity <= 49 %}
             <span class="status-badge status-warning">Low stock</span>
           {% else %}
             <span class="status-badge status-success">In stock</span>
-          {% endif %}
+          {% endif %} {% endcomment %}
         </div>
 
         <div class="card-body">
@@ -73,11 +73,11 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Quick Stats -->
           <div class="sd-stats-row">
             <div class="sd-stat-box">
-              <div class="sd-stat-label"><i class="bi bi-tag sl-me-1"></i>Selling Price</div>
+              <div class="sd-stat-label"><i class="bi bi-tag sl-me-1"></i>Unit Price</div>
               <div class="sd-stat-value green">₱{{ product.selling_price|floatformat:2 }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label"><i class="bi bi-receipt sl-me-1"></i>Cost Price</div>
+              <div class="sd-stat-label"><i class="bi bi-receipt sl-me-1"></i>Unit Cost</div>
               <div class="sd-stat-value">₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</div>
             </div>
             <div class="sd-stat-box">
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Created By -->
           {% if product.created_by %}
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Created By</div>
+            <div class="sd-summary-block-label">Recorded By</div>
             <div class="created-by-info">
               <div class="created-by-avatar">
                 {{ product.created_by.username|slice:":1"|upper }}

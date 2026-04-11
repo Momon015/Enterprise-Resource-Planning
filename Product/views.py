@@ -227,6 +227,16 @@ def add_product_to_preset(request):
     if request.method == 'POST':
         product_checkbox = request.POST.get('product_checkbox')
         product_name = request.POST.get('product_name')
+        
+        if product_checkbox and not product_name:
+            messages.warning(request, "You forgot to add a preset title.")
+            
+        elif not product_checkbox and product_name:
+            messages.warning(request, "You forgot to click the checkbox.")
+        
+        else:
+            messages.warning(request, "Please add a preset title and don't forget to click the checkbox.")
+            
         if product_checkbox and product_name:
             preset, _ = ProductPreset.objects.get_or_create(user=owner, name=product_name, is_active=True, created_by=request.user)
             for product_id, data in sale.items():
@@ -242,13 +252,7 @@ def add_product_to_preset(request):
                     'cost_price': Decimal(cost_price),
                 }
 )
-            messages.success(request, f"{product_name} has been added to preset.")
-            
-        elif product_checkbox and not product_name:
-            messages.warning(request, "Forgot to add a preset title.")
-            
-        elif not product_checkbox and product_name:
-            messages.warning(request, "Forgot to click the checkbox.")
+            messages.success(request, f"{product_name} has been added to preset.")  
 
     return redirect('view-sale')
 
@@ -267,9 +271,9 @@ def list_product_preset(request):
 def detail_product_preset(request, username, preset_id):
     if request.user.role == 'developer':
         owner = get_object_or_404(User, username=username)
-        
     else:
         owner = get_owner(request.user)
+        
     preset = get_object_or_404(ProductPreset, user=owner, id=preset_id)
     preset_items = preset.product_preset_items.select_related('product')
     items = []

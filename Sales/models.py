@@ -95,6 +95,13 @@ class SaleItem(models.Model):
     
     
 class SaleEmployee(TimeStampModel):
+    """
+    Tracks which employees worked during a sale session.
+    Currently used for labor cost tracking in summary/dashboard.
+    NOTE: Shift assignment will move to a shared cart flow in Phase 2.
+    For now, owner logs shift manually after confirming sale.
+    """
+    
     name = models.CharField(max_length=255, null=True, blank=True)
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_employees', null=True, blank=True)
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='sale_employees', null=True, blank=True)
@@ -102,7 +109,7 @@ class SaleEmployee(TimeStampModel):
     
     def __str__(self):
         if self.name:
-            return f"Sale Record ID: #{self.sale.id} - {self.employee.name}"
+            return f"Sale Record ID: #{self.sale.id} - {self.name}"
         return 'No employee info'
 
     def save(self, *args, **kwargs):

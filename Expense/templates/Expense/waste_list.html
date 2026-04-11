@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ waste.waste_items.count }} item{{ waste.waste_items.count|pluralize }}</div>
+                  <div class="cell-primary">{{ waste.waste_items.count }} waste{% if waste.waste_items.count %}{{ waste.waste_items.count|pluralize }}{% endif %}</div>
                   <div class="cell-sub">by {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst|default:"—" }}</div>
                 </td>
 

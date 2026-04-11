@@ -78,7 +78,7 @@ def category_list(request):
         categories = categories.filter(category_type='item')
         section = 'supplier'
     
-    elif 'category_type' == 'expense':
+    elif category_type == 'expense':
         categories = categories.filter(category_type='expense')
         section = 'expense'
 

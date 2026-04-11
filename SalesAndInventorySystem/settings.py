@@ -113,6 +113,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Allow CSRF requests from this Cloudflare tunnel
+CSRF_TRUSTED_ORIGINS = [
+    
+    ]
 
 # Application definition
 
@@ -215,7 +219,6 @@ TIME_ZONE = 'Asia/Manila'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

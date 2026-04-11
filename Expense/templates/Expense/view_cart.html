@@ -168,7 +168,7 @@ function stepDiscount(id, delta) {
                   </div>
                 </td>
                 <td>
-                  <span class="mono" style="font-weight:700;">₱{{ item.item_discount|floatformat:2 }}</span>
+                  <span class="mono" style="font-weight:700 ">₱{{ item.item_discount|floatformat:2 }}</span>
                 </td>
                 <td class="pe-4">
                   <a href="{% url 'cart-remove-material' item.id %}" class="remove-btn">
@@ -231,7 +231,7 @@ function stepDiscount(id, delta) {
 
           <div class="total-row">
             <span class="total-label"><i class="bi bi-cash-stack"></i> Total Cost</span>
-            <span class="total-value total-grand">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
+            <span class="total-value total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
           </div>
 
           <a href="{% url 'clear-cart' %}" class="btn-clear">

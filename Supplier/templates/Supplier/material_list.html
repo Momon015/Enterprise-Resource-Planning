@@ -120,7 +120,6 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Item</th>
                 <th>Category</th>
-                <th>Supplier</th>
                 <th class="sl-text-center">Unit</th>
                 <th class="sl-text-center">Quantity</th>
                 <th class="sl-text-end">Price</th>
@@ -132,13 +131,12 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ material.name }}</div>
+                  <span class="cell-sub">{{ material.supplier.name|default:'No supplier provided' }}</span>
                 </td>
                 <td>
                   <span class="cell-sub">{{ material.category.name|default:"Uncategorized" }}</span>
                 </td>
-                <td>
-                  <span class="cell-sub">{{ material.supplier.name|default:'—' }}</span>
-                </td>
+
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ material.get_unit_display }}</span>
                 </td>

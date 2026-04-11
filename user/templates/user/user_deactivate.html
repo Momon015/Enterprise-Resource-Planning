@@ -9,10 +9,10 @@
       <div class="page-breadcrumb">
         <a href="{% url 'user-profile' user.slug %}" class="breadcrumb-link">PROFILE</a>
         <i class="bi bi-chevron-right"></i>
-        <span>DELETE</span>
+        <span>DEACTIVATE</span>
       </div>
-      <h1 class="page-title" style="color:var(--danger);">Delete Account</h1>
-      <p class="page-subtitle">You are about to permanently remove this user account</p>
+      <h1 class="page-title" style="color:var(--danger);">Deactivate Account</h1>
+      <p class="page-subtitle">You are about to deactivate this user account</p>
     </div>
     <div class="page-header-right">
       <a href="{% url 'user-profile' user.slug %}" class="btn-back">
@@ -39,7 +39,7 @@
                   {{ user.username }}
                 {% endif %}
               </div>
-              <div class="card-header-sub" style="margin:0;">POS user account to be deleted</div>
+              <div class="card-header-sub" style="margin:0;">ERP user account to be deactivated</div>
             </div>
           </div>
           <span class="sl-badge sl-badge-light">{{ user.get_role_display }}</span>
@@ -70,8 +70,8 @@
           <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
             <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
             <div>
-              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">Deleting this account will revoke POS access and remove this user from future sales and inventory activity. You cannot restore this account after deletion.</div>
+              <div class="sd-note-title" style="color:var(--danger);">This action can be reversed</div>
+              <div class="sd-note-text">Deactivating this account will revoke ERP access and remove this user from future sales and inventory activity. An administrator can reactivate this account later if needed.</div>
             </div>
           </div>
 
@@ -80,7 +80,7 @@
             <div class="mf-form-actions" style="margin-top:1.25rem;">
               <a href="{% url 'user-profile' user.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-danger">
-                <i class="bi bi-trash3 sl-me-1"></i> Confirm Delete
+                <i class="bi bi-person-slash"></i> Deactivate
               </button>
             </div>
           </form>
@@ -94,7 +94,7 @@
       <div class="card">
         <div class="card-header" style="background:var(--danger); border-bottom:none;">
           <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-shield-exclamation"></i> Deletion Impact
+            <i class="bi bi-shield-exclamation"></i> Deactivation Impact
           </span>
         </div>
         <div class="card-body">
@@ -109,7 +109,7 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Login credentials</span>
-              <span class="sd-info-value" style="color:var(--danger);">Deleted</span>
+              <span class="sd-info-value" style="color:var(--danger);">Disabled</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Future activity</span>

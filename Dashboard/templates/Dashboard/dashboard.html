@@ -126,15 +126,15 @@
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
 
-      <!-- TODAY'S COST BREAKDOWN -->
+      <!-- TODAY'S BREAKDOWN -->
       <div class="card">
         <div class="card-header dark">
           <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-pie-chart-fill"></i> Today's Cost Breakdown
+            <i class="bi bi-pie-chart-fill"></i> Today's Breakdown
           </span>
         </div>
         <div class="card-body" style="padding:1rem;">
-          <canvas id="costChart" height="200"></canvas>
+          <canvas id="breakdownChart" height="200"></canvas>
           <p class="sl-summary-note" style="margin-top:0.75rem; text-align:center;">Based on today's recorded transactions.</p>
         </div>
       </div>
@@ -255,8 +255,18 @@ document.addEventListener("DOMContentLoaded", function () {
     data: {
       labels: ['Revenue', 'Material Cost', 'Waste Cost', 'Expense Cost', 'Net Profit'],
       datasets: [
-        { label: comparePayload.monthly.prevLabel, data: comparePayload.monthly.prev, backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 4 },
-        { label: comparePayload.monthly.currLabel, data: comparePayload.monthly.curr, backgroundColor: 'rgba(34,197,94,0.7)',  borderRadius: 4 }
+        { 
+          label: comparePayload.monthly.prevLabel, 
+          data: comparePayload.monthly.prev, 
+          backgroundColor: '#8b5cf6',
+          borderRadius: 4 
+        },
+        { 
+          label: comparePayload.monthly.currLabel, 
+          data: comparePayload.monthly.curr, 
+          backgroundColor: '#22c55e',
+          borderRadius: 4 
+        }
       ]
     },
     options: {
@@ -272,35 +282,81 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ── Today's Cost Breakdown ───────────────────────────────────────
-  const costData = [
-    {{ total_material_cost|floatformat:2 }},
-    {{ total_waste_cost|floatformat:2 }},
-    {{ total_salary_cost|floatformat:2 }},
-    {{ total_expense_cost|floatformat:2 }},
-  ];
-  const hasData = costData.some(v => v > 0);
+  // ── Today's Breakdown (Revenue vs Costs) ────────────────────────
+  const revenue = {{ total_revenue|floatformat:2 }};
+  const materialCost = {{ total_material_cost|floatformat:2 }};
+  const wasteCost = {{ total_waste_cost|floatformat:2 }};
+  const laborCost = {{ total_salary_cost|floatformat:2 }};
+  const expenseCost = {{ total_expense_cost|floatformat:2 }};
+  const netProfit = {{ net_profit|floatformat:2 }};
+  
+  // Use absolute value for net profit in chart (can't display negative in doughnut)
+  
+  
+  const breakdownData = [revenue, materialCost, wasteCost, laborCost, expenseCost];
+  const breakdownLabels = ['Revenue', 'Material', 'Waste', 'Labor', 'Expense'];
+  const breakdownColors = ['#22c55e', '#f97316', '#ef4444', '#6366f1', '#ec4899'];
+  
+  const hasData = breakdownData.some(v => v > 0);
 
-  new Chart(document.getElementById('costChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Material', 'Waste', 'Labor', 'Expense'],
-      datasets: [{
-        data: hasData ? costData : [1],
-        backgroundColor: hasData ? ['#f97316','#ef4444','#6366f1','#ec4899'] : ['#e5e7eb'],
-        borderWidth: 0,
-        hoverOffset: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      cutout: '65%',
-      plugins: {
-        legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12, padding: 12 } },
-        tooltip: { callbacks: { label: ctx => hasData ? ' ₱' + ctx.parsed.toLocaleString('en', {minimumFractionDigits:2}) : ' No data' } }
+  new Chart(document.getElementById('breakdownChart'), {
+  type: 'doughnut',
+  data: {
+    labels: hasData ? breakdownLabels : ['No Data'],
+    datasets: [{
+      data: hasData ? breakdownData : [1],
+      backgroundColor: hasData ? breakdownColors : ['#e5e7eb'],
+      borderWidth: 0,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '65%',
+    plugins: {
+      legend: { 
+        position: 'bottom', 
+        labels: { 
+          color: textColor, 
+          boxWidth: 12, 
+          padding: 12,
+          generateLabels: function(chart) {
+            if (!hasData) {
+              return [{
+                text: 'No data for today',
+                fillStyle: '#e5e7eb',
+                hidden: false,
+                index: 0
+              }];
+            }
+            
+            const actualValues = [revenue, materialCost, wasteCost, laborCost, expenseCost];
+            return breakdownLabels.map(function(label, i) {
+              return {
+                text: label,
+                fillStyle: breakdownColors[i],
+                hidden: false,
+                index: i
+              };
+            });
+          }
+        } 
+      },
+      tooltip: { 
+        callbacks: { 
+          label: function(ctx) {
+            if (!hasData) return ' No data';
+            
+            const actualValues = [revenue, materialCost, wasteCost, laborCost, expenseCost];
+            const value = actualValues[ctx.dataIndex];
+            
+            return ' ' + ctx.label + ': ₱' + Math.abs(value).toLocaleString('en', {minimumFractionDigits:2});
+          }
+        } 
       }
     }
-  });
+  }
+});
 
   // ── Comparison toggle ────────────────────────────────────────────
   function fmt(v) {

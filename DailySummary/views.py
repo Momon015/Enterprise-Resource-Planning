@@ -57,7 +57,7 @@ import logging
 # Create your views here.
 
 @login_required(login_url='login')
-@permission_required('owner_only')
+# @permission_required('owner_only')
 def view_summary(request):
     if request.user.role == 'developer':
         return render(request, 'core/no_access.html', status=403)
@@ -76,7 +76,7 @@ def view_summary(request):
     grand_total_expense_cost = 0
     
     expenses_by_date = expenses \
-        .values('date').annotate(total_expense_cost=Sum('amount')).order_by('-date')
+        .values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
     
     wastes_by_date = wastes \
         .values('date').annotate(total_waste_cost=Sum('total_cost')) \
@@ -102,12 +102,12 @@ def view_summary(request):
     now = timezone.now()
     iso_year, iso_week, iso_weekday = now.isocalendar()
 
+    
     current_year = f"{now.year}-01"
     
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date', '')
         end_date = form.cleaned_data.get('end_date', '')
-        search = form.cleaned_data.get('search', '')
         select_month = form.cleaned_data.get('select_month', '')
 
         if start_date and end_date:
@@ -153,17 +153,17 @@ def view_summary(request):
         sales_by_date = sales.values('date').annotate(total_salary_cost=Sum('total_salary_cost'), total_revenue=Sum('total_revenue')).order_by('-date')
         purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
         wastes_by_date = wastes.filter(waste_items__material__isnull=False).values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
-        expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('amount')).order_by('-date')
+        expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
         
-        if search:
-            sales_by_date = sales_by_date.filter(
-                Q(total_revenue__iexact=search) |
-                Q(total_salary_cost__iexact=search) 
-                
-            )
-            purchase_by_date = purchase_by_date.filter(total_cost__iexact=search)
-            wastes_by_date = wastes_by_date.filter(total_unsold_cost__iexact=search)
-            expenses_by_date = expenses_by_date.filter(total_expense_cost__iexact=search)
+        
+        """
+        I removed search filter for summary because
+        when you search something like the revenue 
+        other aggregated values became 0 it got  
+        excluded whensearch filter is active. To
+        make the filter accurate. I decided to 
+        remove it completely in this view summary.
+        """
         
     summary = {}
     for s in sales_by_date:
@@ -252,7 +252,7 @@ def view_summary(request):
     rev_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_revenue'))}
     cost_by_month = {p['purchase_date__month']: p['total'] for p in purchases.filter(purchase_date__year=now.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
     waste_by_cost = {w['date__month']: w['total'] for w in wastes.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_cost'))}
-    expense_by_cost = {e['date__month']: e['total'] for e in expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('amount'))}
+    expense_by_cost = {e['date__month']: e['total'] for e in expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_amount'))}
     salary_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_salary_cost'))}
     
     all_months = set(list(rev_by_month) + list(cost_by_month) + list(waste_by_cost) + list(expense_by_cost) + list(salary_by_month))
@@ -283,7 +283,7 @@ def view_summary(request):
     return render(request, 'DailySummary/view_summary.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
+# @permission_required('owner_only')
 def view_summary_detail(request, date):
     owner = get_owner(request.user)
     
@@ -298,7 +298,7 @@ def view_summary_detail(request, date):
     waste_items = WasteItem.objects.filter(waste__in=wastes)
     
     expenses = Expense.objects.filter(user=owner, date=date)
-    total_expense_cost = expenses.aggregate(total_expense_cost=Sum('amount'))['total_expense_cost'] or 0
+    total_expense_cost = expenses.aggregate(total_expense_cost=Sum('total_amount'))['total_expense_cost'] or 0
 
     net_profit = 0
     total_salary_cost = 0

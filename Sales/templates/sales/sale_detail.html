@@ -17,8 +17,8 @@
       <p class="page-subtitle">{{ sale.created_at|date:"F d, Y" }} at {{ sale.created_at|date:"h:i A" }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-list' %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to products
+      <a href="{% url 'sale-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+        <i class="bi bi-arrow-left"></i> Back to Sales
       </a>
     </div>
   </div>
@@ -176,12 +176,14 @@
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'sale-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-arrow-left-circle"></i> Back to Sales
-            </a>
             <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Sale
             </a>
+
+            <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-arrow-left-circle"></i> Needs to think something else
+            </a>
+
           </div>
         </div>
       </div>

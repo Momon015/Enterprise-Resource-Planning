@@ -142,6 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ product.name|capfirst }}</div>
+                  <span class="cell-sub">{{ product.material.supplier|default:"No supplier provided" }}</span>
                 </td>
                 <td class="sl-text-center">
                   {% if product.unit %}

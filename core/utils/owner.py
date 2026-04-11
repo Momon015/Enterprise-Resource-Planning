@@ -13,7 +13,7 @@ def permission_required(action):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             if request.user.role == 'developer':
-                if action in ('create', 'delete', 'update', 'save', 'add', 'owner_only'):
+                if action in ('create', 'view', 'delete', 'update', 'save', 'add', 'owner_only'):
                     messages.error(request, "Developer accounts have read-only access. Creating, editing, and deleting records is restricted.")
                     return redirect(request.META.get('HTTP_REFERER') or 'product-list')
             if request.user.role == 'staff':

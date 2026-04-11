@@ -41,9 +41,9 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EMPLOYEES</div>
-      <h1 class="page-title">Staff</h1>
-      <p class="page-subtitle">Staff who can be assigned to sales transactions.</p>
+      <div class="page-breadcrumb">EMPLOYEES & PAYROLL</div>
+      <h1 class="page-title">Employees</h1>
+      <p class="page-subtitle">Staff who can be assigned to sales, purchases and waste transactions.</p>
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ employee.name|capfirst }}</div>
-                  <div class="cell-sub">#{{ employee.id }}</div>
+                  {% comment %} <div class="cell-sub">#{{ employee.id }}</div> {% endcomment %}
                 </td>
                 <td class="sl-text-center sl-fw-semibold" style="color:var(--accent);">
                   ₱{{ employee.daily_rate|floatformat:2|intcomma }}
@@ -226,6 +226,9 @@ document.addEventListener("DOMContentLoaded", function () {
               {% comment %} <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-person-plus-fill"></i> Add Employee
               </a> {% endcomment %}
+              <a href="{% url 'add-shift-employee' %}" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> Log employees
+              </a>
               <a href="{% url 'expense-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-receipt"></i> Expenses
               </a>
