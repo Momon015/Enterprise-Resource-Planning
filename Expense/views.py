@@ -362,7 +362,7 @@ def confirm_purchase_summary(request):
                 discount = Decimal(str_discount)
                 quantity = data['quantity']
                 price = data.get('price')
-                print('price', price)
+                
                 # computations
                 item_total = Decimal(price) * quantity
 
@@ -680,8 +680,10 @@ def employee_update(request, employee_id):
 def employee_delete(request, employee_id):
     owner = get_owner(request.user)
     employee = get_object_or_404(Employee, user=owner, id=employee_id)
+    
     print(employee.user)
     print(employee.staff_user)
+    
     if request.method == 'POST':
         staff = employee.staff_user # save reference FIRST
         staff.is_active = False
@@ -768,7 +770,7 @@ def waste_list(request):
     stocks = get_queryset_for_user(request.user, Stock.objects.all()).order_by('-created_at')
     wastes = get_queryset_for_user(request.user, Waste.objects.all()).order_by('-date')
     
-    total_waste_cost = wastes.total_waste_cost()
+    total_waste_cost = wastes.aggregate(waste_cost=Sum(F('waste_items__price') * F('waste_items__quantity')))['waste_cost'] or 0
     max_waste = wastes.aggregate(max=Max('total_cost'))['max'] or 0 
     
     form = WasteItemFilterForm(request.GET or None)
@@ -867,50 +869,65 @@ def waste_material_create(request):
         else:  
             waste = Waste.objects.create(
                 user=owner,
-                total_cost=Decimal(0),
+                total_cost=0,
                 created_by=request.user,
                 
             )
-            
+            invalid_items = []
             stocks = Stock.objects.filter(id__in=selected_ids, user=owner)
             for stock in stocks:
                 price = stock.price
                 raw_quantity = request.POST.get(f"quantity_{stock.id}")
                 quantity = int(raw_quantity)
                 
-                cost = Decimal(price) * quantity
-                total_cost += cost
-
                 if quantity == 0:
                     pass
                 
                 # deduct from the stock
-                if stock.quantity >= quantity:
-                    stock.quantity -= quantity
-                    stock.save()
-                else:
-                    messages.warning(request, f"{stock.material.name} - {stock.quantity} left.")
-                    return redirect('view-inventory-stock')
-                
+                if stock:
+                    if stock.quantity >= quantity:
+                        stock.quantity -= quantity
+                        stock.save()
+                    else:
+                        invalid_items.append(f"{stock.name} - {stock.quantity} left.")
+                        continue
+                        
                 # deduct as well for the product
                 product = Product.objects.filter(user=owner, material=stock.material).first()
                 if product:
-                    product.prepared_quantity -= quantity
-                    product.save()
+                    if product.prepared_quantity >= quantity:
+                        product.prepared_quantity -= quantity
+                        product.save()
+                    else:
+                        pass
                 
-                WasteItem.objects.create(
+                waste_items = WasteItem.objects.create(
                     waste=waste,
                     material=stock.material,
                     price=price,
                     quantity=quantity,
                 )
-
-            waste.total_cost = max(total_cost, 0)
+                total_cost += Decimal(price) * quantity
+                
+            waste.total_cost = total_cost
             waste.save()
             
-
-        
-            messages.success(request, f"Waste has been created. Please check the waste record.")
+            # delete the waste ID if total cost is 0
+            if total_cost == 0:
+                waste.delete()
+                
+                if invalid_items:
+                    messages.error(request, f"All items were invalid: {', '.join(invalid_items)}")
+                else:
+                
+                    messages.error(request, "No valid items were processed.")
+                return redirect('expense-waste-list')
+            
+            if invalid_items:
+                messages.warning(request, f"Some items were skipped: {', '.join(invalid_items)}")
+            
+            else:
+                messages.success(request, f"Waste has been created.")
             return redirect('expense-waste-list')         
 
     stocks = Stock.objects.filter(user=owner)
@@ -991,9 +1008,7 @@ def expense_create(request):
             expense.date = date
             expense.save()
                 
-
-    
-            messages.success(request, 'Expense has been created. Please check the expense record.')
+            messages.success(request, 'Expense has been created.')
             return redirect('expense-list')
         
     misc_expenses = MiscExpense.objects.filter(user=owner)

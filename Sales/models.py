@@ -2,7 +2,7 @@ from django.db import models
 
 from Product.models import Product
 
-from user.models import User
+from user.models import User, BusinessProfile
 
 from django.db.models import Sum, Avg
 
@@ -33,8 +33,12 @@ class Sale(TimeStampModel):
     line_count = models.PositiveIntegerField(default=0)
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
     
     objects = SaleQuerySet.as_manager()
+    
+    class Meta:
+        unique_together = ('user', 'business')
     
     def __str__(self):
         return f"Date: {self.date} - {self.total_revenue}"

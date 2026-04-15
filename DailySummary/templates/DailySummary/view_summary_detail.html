@@ -98,40 +98,6 @@
             </table>
           </div>
 
-          {% if sale_employees %}
-          <div style="padding:0.75rem 1rem 0;">
-            <div class="sd-section-label">
-              <i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i>
-              Staff on Shift
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th class="sl-text-end">Daily Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for emp in sale_employees %}
-                <tr>
-                  <td>
-                    <div class="cell-primary">{{ emp.name|capfirst }}</div>
-                  </td>
-                  <td class="sl-text-end sl-fw-semibold">
-                    ₱{{ emp.daily_rate|floatformat:2|intcomma }}
-                  </td>
-                </tr>
-                {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="2">No employees recorded.</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% endif %}
         </div>
       </details>
 
@@ -250,19 +216,19 @@
               </thead>
               <tbody>
                 {% for expense in expenses %}
-                <tr>
-                  <td>
-                    {% for exp in expense.expense_items.all %}
-                    <div class="cell-primary">{{ exp.name|capfirst }}</div>
-                  </td>
-                  <td class="sl-text-center">
-                    <span class="cell-sub">{{ exp.category.name|default:"Uncategorized" }}</span>
-                  </td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ exp.amount|floatformat:2|intcomma }}
-                  </td>
-                </tr>
-                {% endfor %}
+                  {% for exp in expense.expense_items.all %}
+                  <tr>
+                    <td>
+                      <div class="cell-primary">{{ exp.name|capfirst }}</div>
+                    </td>
+                    <td class="sl-text-center">
+                      <span class="cell-sub">{{ exp.category.name|default:"Uncategorized" }}</span>
+                    </td>
+                    <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
+                      ₱{{ exp.amount|floatformat:2|intcomma }}
+                    </td>
+                  </tr>
+                  {% endfor %}
                 {% empty %}
                 <tr class="sl-empty-row">
                   <td colspan="3">No expenses recorded for this day.</td>
@@ -270,6 +236,40 @@
                 {% endfor %}
               </tbody>
             </table>
+          {% if shift_employees %}
+          <div style="padding:0.75rem 1rem 0;">
+            <div class="sd-section-label">
+              <i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i>
+              Staff on Shift
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th class="sl-text-end">Daily Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for emp in shift_employees %}
+                <tr>
+                  <td>
+                    <div class="cell-primary">{{ emp.name|capfirst }}</div>
+                  </td>
+                  <td class="sl-text-end sl-fw-semibold">
+                    ₱{{ emp.daily_rate|floatformat:2|intcomma }}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr class="sl-empty-row">
+                  <td colspan="2">No employees recorded.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
           </div>
         </div>
       </details>

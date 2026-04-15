@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from core.models import Category, SlugModel, TimeStampModel
-from user.models import User
+from user.models import User, BusinessProfile
 from Supplier.models import Material
 # Create your models here.
 
@@ -17,10 +17,11 @@ class Product(SlugModel, TimeStampModel):
     selling_price = models.DecimalField(max_digits=10, decimal_places=6)
     unit = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_products')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     
     class Meta:
         ordering = ['name']
-        unique_together = ('user', 'slug')
+        unique_together = ('user', 'slug', 'business')
         
     def __str__(self):
         return self.name

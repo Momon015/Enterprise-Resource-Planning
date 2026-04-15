@@ -3,7 +3,7 @@ from django.utils.text import slugify
 
 from core.models import TimeStampModel, SlugModel, Category
 
-from user.models import User
+from user.models import User, BusinessProfile
 # # Create your models here.
 
 class Supplier(TimeStampModel, SlugModel):
@@ -59,9 +59,10 @@ class Material(TimeStampModel, SlugModel):
     unit = models.CharField(max_length=100, choices=RETAIL_UNIT_CHOICES, default='pc')
     piece_per_unit = models.PositiveBigIntegerField(default=1)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_materials', null=True, blank=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
     
     class Meta:
-        unique_together = ('user', 'slug')
+        unique_together = ('user', 'slug', 'business')
         
     def __str__(self):
         return self.name

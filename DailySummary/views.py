@@ -23,7 +23,7 @@ from Sales.forms import SaleForm, SaleFilterForm
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
+from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, Shift, ShiftEmployee
 from Expense.forms import EmployeeForm
 
 from core.models import StatusModel
@@ -66,6 +66,7 @@ def view_summary(request):
     purchases = get_queryset_for_user(request.user, Purchase.objects.all())
     wastes = get_queryset_for_user(request.user, Waste.objects.all())
     expenses = get_queryset_for_user(request.user, Expense.objects.all())
+    shifts = get_queryset_for_user(request.user, Shift.objects.all())
     
 
     grand_net_profit = 0
@@ -75,27 +76,16 @@ def view_summary(request):
     grand_total_waste_cost = 0
     grand_total_expense_cost = 0
     
-    expenses_by_date = expenses \
-        .values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
-    
-    wastes_by_date = wastes \
-        .values('date').annotate(total_waste_cost=Sum('total_cost')) \
-        .order_by('-date')
-    
-    sales_by_date = sales \
-        .values('date') \
-        .annotate(
-            total_revenue=Sum('total_revenue'), 
-            total_salary_cost=Sum('total_salary_cost')) \
-        .order_by('-date')
-    
+    expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
+    wastes_by_date = wastes.values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
+    sales_by_date = sales.values('date').annotate(total_revenue=Sum('total_revenue')).order_by('-date')
+    shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('amount')).order_by('-date')
+    purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
+         
+        
+        
     print(sales_by_date)
 
-    purchase_by_date = purchases \
-        .values('purchase_date') \
-        .annotate(total_cost=Sum('total_cost')) \
-        .order_by('-purchase_date')
-        
     form = SummaryFilterForm(request.GET or None)
     
     period = request.GET.get('period', '')
@@ -115,13 +105,14 @@ def view_summary(request):
             purchases = purchases.filter(purchase_date__range=(start_date, end_date))
             wastes = wastes.filter(date__range=(start_date, end_date))
             expenses = expenses.filter(date__range=(start_date, end_date))
+            shifts = shifts.filter(date__range=(start_date, end_date))
             
         if select_month:
             parsed_year, parsed_month = map(int, select_month.split('-'))
             sales = sales.filter(date__month=parsed_month)
             purchases = purchases.filter(purchase_date__month=parsed_month)
             wastes = wastes.filter(date__month=parsed_month)
-            expenses = expenses.filter(date__month=parsed_month)
+            shifts = shifts.filter(date__range=(start_date, end_date))
         
         if period == 'last_week':
             if iso_week == 1:
@@ -131,30 +122,35 @@ def view_summary(request):
                 purchases = purchases.filter(purchase_date__week=last_year_of_last_week, purchase_date__year=last_year)
                 wastes = wastes.filter(date__week=last_year_of_last_week, date__year=last_year)
                 expenses = expenses.filter(date__week=last_year_of_last_week, date__year=last_year)
-            else:
+                shifts = shifts.filter(date__week=last_year_of_last_week, date__year=last_year)
                 
+            else:
                 sales = sales.filter(date__week=iso_week-1, date__year=iso_year)
                 purchases = purchases.filter(purchase_date__week=iso_week-1, purchase_date__year=iso_year)
                 wastes = wastes.filter(date__week=iso_week-1, date__year=iso_year)
                 expenses = expenses.filter(date__week=iso_week-1, date__year=iso_year)
+                shifts = shifts.filter(date__week=iso_week-1, date__year=iso_year)
                 
         if period == 'today':
             sales = sales.filter(date__day=now.day)
             purchases = purchases.filter(purchase_date__day=now.day)
             wastes = wastes.filter(date__day=now.day)
             expenses = expenses.filter(date__day=now.day)
+            shifts = shifts.filter(date__day=now.day)
+
 
         if period == 'month':
             sales = sales.filter(date__month=now.month)
             purchases = purchases.filter(purchase_date__month=now.month)
             wastes = wastes.filter(date__month=now.month)
             expenses = expenses.filter(date__month=now.month)
+            shifts = shifts.filter(date__month=now.month)
         
         sales_by_date = sales.values('date').annotate(total_salary_cost=Sum('total_salary_cost'), total_revenue=Sum('total_revenue')).order_by('-date')
         purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
-        wastes_by_date = wastes.filter(waste_items__material__isnull=False).values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
+        wastes_by_date = wastes.values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
         expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
-        
+        shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('amount')).order_by('-date')
         
         """
         I removed search filter for summary because
@@ -165,11 +161,13 @@ def view_summary(request):
         remove it completely in this view summary.
         """
         
+
+        
     summary = {}
     for s in sales_by_date:
         summary[s['date']] = {
             'total_revenue': s['total_revenue'],
-            'total_salary_cost': s['total_salary_cost'],
+            'total_salary_cost': 0,
             'total_waste_cost': 0,
             'total_cost': 0,
             'total_expense_cost': 0,
@@ -211,6 +209,19 @@ def view_summary(request):
                 'total_cost': 0,
                 'total_waste_cost': 0,
                 'total_expense_cost': e['total_expense_cost']
+            }
+            
+    for s in shifts_by_date:
+        if s['date'] in summary:
+            summary[s['date']]['total_salary_cost'] = s['total_salary_cost']
+        else:
+            summary[s['date']] = {
+                'total_salary_cost': s['total_salary_cost'],
+                'total_revenue': 0,
+                'total_cost': 0,
+                'total_waste_cost': 0,
+                'total_expense_cost': 0,
+                
             }
             
 
@@ -286,42 +297,51 @@ def view_summary(request):
 # @permission_required('owner_only')
 def view_summary_detail(request, date):
     owner = get_owner(request.user)
+    net_profit = 0
     
     sales = Sale.objects.filter(user=owner, date=date)
     sale_items  = SaleItem.objects.filter(sale__in=sales)
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
+    total_revenue = sales.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
     
     purchases = Purchase.objects.filter(user=owner, purchase_date=date)
     purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
+    total_material_cost = purchases.aggregate(material_cost=Sum('total_cost'))['material_cost'] or 0
     
     wastes = Waste.objects.filter(user=owner, date=date)
     waste_items = WasteItem.objects.filter(waste__in=wastes)
+    total_waste_cost = wastes.aggregate(waste_cost=Sum('total_cost'))['waste_cost'] or 0
     
     expenses = Expense.objects.filter(user=owner, date=date)
     total_expense_cost = expenses.aggregate(total_expense_cost=Sum('total_amount'))['total_expense_cost'] or 0
-
-    net_profit = 0
-    total_salary_cost = 0
-    total_material_cost = 0
-    total_waste_cost = 0
-    total_revenue = 0
-
-    for waste in waste_items:
-        waste_cost = waste.price * waste.quantity
-        total_waste_cost += waste_cost
+    
+    shifts = Shift.objects.filter(user=owner, date=date)
+    shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
+    total_salary_cost = shifts.aggregate(salary_cost=Sum('amount'))['salary_cost'] or 0
+    
+    
+    
+    
+    
+    
+    
+    
+    # for waste in waste_items:
+    #     waste_cost = waste.price * waste.quantity
+    #     total_waste_cost += waste_cost
         
     
-    for purchase in purchase_items:
-        material_cost = purchase.total_item_discount
-        total_material_cost += material_cost
+    # for purchase in purchase_items:
+    #     material_cost = purchase.total_item_discount
+    #     total_material_cost += material_cost
         
-    for emp in sale_employees:
-        salary_cost = emp.daily_rate
-        total_salary_cost += salary_cost
+    # for emp in sale_employees:
+    #     salary_cost = emp.daily_rate
+    #     total_salary_cost += salary_cost
         
-    for item in sale_items:
-        revenue = (item.price_at_sale * item.quantity)
-        total_revenue += revenue
+    # for item in sale_items:
+    #     revenue = (item.price_at_sale * item.quantity)
+    #     total_revenue += revenue
         
   
     net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
@@ -332,6 +352,8 @@ def view_summary_detail(request, date):
         'sale_items': sale_items, 
         'sale_employees': sale_employees, 
         'purchase_items': purchase_items,
+        'shifts': shifts,
+        'shift_employees': shift_employees,
         'wastes': wastes,
         'waste_items': waste_items,
         'net_profit': net_profit,

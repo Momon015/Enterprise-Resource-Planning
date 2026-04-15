@@ -26,24 +26,46 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+  document.querySelectorAll(".toast-message")
+    .forEach(t => setTimeout(() => t.remove(), 3200));
 
-  const checkboxes = document.querySelectorAll(".expense-cb");
+  const checkboxes = document.querySelectorAll(".expense-cb:not(#checkAll)");
   const counter = document.getElementById("selectedCount");
+  const selectAll = document.getElementById("checkAll");
 
   function updateCounter() {
     if (!counter) return;
-    const n = [...checkboxes].filter(c => c.checked).length;
+
+    const n = document.querySelectorAll(".expense-cb:not(#checkAll):checked").length;
+
     counter.textContent = n + " selected";
     counter.style.display = n > 0 ? "inline-flex" : "none";
   }
 
+  function updateRow(cb) {
+    cb.closest("tr").classList.toggle("row-selected", cb.checked);
+  }
+
   checkboxes.forEach(cb => {
     cb.addEventListener("change", function () {
-      this.closest("tr").classList.toggle("row-selected", this.checked);
+      updateRow(this);
       updateCounter();
     });
   });
+
+  // FIXED select all
+  if (selectAll) {
+    selectAll.addEventListener("change", function () {
+      const all = document.querySelectorAll(".expense-cb:not(#checkAll)");
+
+      all.forEach(cb => {
+        cb.checked = this.checked;
+        updateRow(cb);
+      });
+
+      updateCounter();
+    });
+  }
 });
 </script>
 

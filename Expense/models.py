@@ -45,8 +45,13 @@ class Purchase(TimeStampModel):
     purchase_date = models.DateField(auto_now_add=True, null=True, db_index=True) # remove NULL when you reset the DB
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
+    
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
+    
+    class Meta:
+        unique_together = ('user', 'business')
     
     def __str__(self):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
@@ -206,6 +211,10 @@ class Waste(TimeStampModel):
     date = models.DateField(auto_now_add=True, db_index=True)
     total_cost = models.DecimalField(max_digits=10, decimal_places=6)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_wastes')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='wastes', null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('user', 'business')
     
     objects = WasteQuerySet.as_manager()
     
@@ -286,8 +295,13 @@ class Expense(TimeStampModel):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='expenses', null=True, blank=True)
     
     objects = ExpenseQuerySet.as_manager()
+    
+    class Meta:
+        unique_together = ('user', 'business')
+        
     
     def __str__(self):
         return f"{self.id} - {self.created_by}" 

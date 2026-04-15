@@ -23,7 +23,7 @@ from Sales.forms import SaleForm, SaleFilterForm
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
+from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, Shift, ShiftEmployee
 from Expense.forms import EmployeeForm
 
 from core.models import StatusModel
@@ -59,28 +59,30 @@ def dashboard(request):
     today = timezone.localdate()
 
     # Today's querysets
-    sales          = Sale.objects.filter(user=owner, date=today)
-    sale_items     = SaleItem.objects.filter(sale__in=sales)
-    sale_employees = SaleEmployee.objects.filter(sale__in=sales)
-    purchases      = Purchase.objects.filter(user=owner, purchase_date=today)
-    purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
-    wastes         = Waste.objects.filter(user=owner, date=today)
-    waste_items    = WasteItem.objects.filter(waste__in=wastes)
-    expenses       = Expense.objects.filter(user=owner, date=today)
+    sales           = Sale.objects.filter(user=owner, date=today)
+    sale_items      = SaleItem.objects.filter(sale__in=sales)
+    
+    shifts          = Shift.objects.filter(user=owner, date=today)
+    shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
+    purchases       = Purchase.objects.filter(user=owner, purchase_date=today)
+    purchase_items  = PurchaseItem.objects.filter(purchase__in=purchases)
+    wastes          = Waste.objects.filter(user=owner, date=today)
+    waste_items     = WasteItem.objects.filter(waste__in=wastes)
+    expenses        = Expense.objects.filter(user=owner, date=today)
 
     # Today's totals
-    total_revenue      = sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
-    total_expense_cost = expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
-    total_salary_cost  = Decimal(0)
-    total_material_cost = Decimal(0)
-    total_waste_cost   = Decimal(0)
+    total_revenue       = sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
+    total_expense_cost  = expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
+    total_salary_cost   = shifts.aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    total_material_cost = purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    total_waste_cost    = wastes.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
 
-    for item in waste_items:
-        total_waste_cost += item.price * item.quantity
-    for item in purchase_items:
-        total_material_cost += item.total_item_discount
-    for emp in sale_employees:
-        total_salary_cost += emp.daily_rate
+    # for item in waste_items:
+    #     total_waste_cost += item.price * item.quantity
+    # for item in purchase_items:
+    #     total_material_cost += item.total_item_discount
+    # for emp in shift_employees:
+    #     total_salary_cost += emp.daily_rate
 
     net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
 
@@ -93,14 +95,14 @@ def dashboard(request):
     tw_cost    = float(Purchase.objects.filter(user=owner, purchase_date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
     tw_waste   = float(Waste.objects.filter(user=owner, date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
     tw_expense = float(Expense.objects.filter(user=owner, date__gte=this_week_start).aggregate(t=Sum('total_amount'))['t'] or 0)
-    tw_salary  = float(SaleEmployee.objects.filter(sale__user=owner, sale__date__gte=this_week_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    tw_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__gte=this_week_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
     tw_net     = tw_revenue - tw_cost - tw_waste - tw_expense - tw_salary
 
     lw_revenue = float(Sale.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
     lw_cost    = float(Purchase.objects.filter(user=owner, purchase_date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
     lw_waste   = float(Waste.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
     lw_expense = float(Expense.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
-    lw_salary  = float(SaleEmployee.objects.filter(sale__user=owner, sale__date__range=(last_week_start, last_week_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    lw_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__range=(last_week_start, last_week_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
     lw_net     = lw_revenue - lw_cost - lw_waste - lw_expense - lw_salary
 
     # Monthly comparison 
@@ -112,14 +114,14 @@ def dashboard(request):
     tm_cost    = float(Purchase.objects.filter(user=owner, purchase_date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
     tm_waste   = float(Waste.objects.filter(user=owner, date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
     tm_expense = float(Expense.objects.filter(user=owner, date__gte=this_month_start).aggregate(t=Sum('total_amount'))['t'] or 0)
-    tm_salary  = float(SaleEmployee.objects.filter(sale__user=owner, sale__date__gte=this_month_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    tm_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__gte=this_month_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
     tm_net     = tm_revenue - tm_cost - tm_waste - tm_expense - tm_salary
 
     lm_revenue = float(Sale.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
     lm_cost    = float(Purchase.objects.filter(user=owner, purchase_date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
     lm_waste   = float(Waste.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
     lm_expense = float(Expense.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
-    lm_salary  = float(SaleEmployee.objects.filter(sale__user=owner, sale__date__range=(last_month_start, last_month_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    lm_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__range=(last_month_start, last_month_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
     lm_net     = lm_revenue - lm_cost - lm_waste - lm_expense - lm_salary
 
     # 30-day revenue trend 
@@ -137,7 +139,7 @@ def dashboard(request):
         # today's querysets (for KPI row, doughnut chart, day summary counts)
         'sales': sales,
         'sale_items': sale_items,
-        'sale_employees': sale_employees,
+        'shift_employees': shift_employees,
         'purchases': purchases,
         'purchase_items': purchase_items,
         'wastes': wastes,

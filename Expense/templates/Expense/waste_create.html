@@ -26,27 +26,49 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+  document.querySelectorAll(".toast-message")
+    .forEach(t => setTimeout(() => t.remove(), 3200));
 });
 
 function stepNumber(id, delta) {
   const input = document.getElementById(id);
   if (!input) return;
+
+  // 🚫 block if disabled (out of stock or not selected)
+  if (input.disabled) return;
+
   let value = parseInt(input.value || 0, 10);
   value = isNaN(value) ? 0 : value + delta;
+
   if (value < 0) value = 0;
+
   input.value = value;
 }
 
 function toggleRow(checkbox) {
   const row = checkbox.closest('tr');
-  row.classList.toggle('row-selected', checkbox.checked);
   const inputs = row.querySelectorAll('input[type="number"]');
-  inputs.forEach(inp => inp.disabled = !checkbox.checked);
 
+  row.classList.toggle('row-selected', checkbox.checked);
+
+  inputs.forEach(inp => {
+    // ❌ remove disabled
+    // ✅ use readonly instead
+    if (checkbox.checked) {
+      // only enable if NOT out of stock
+      if (!inp.classList.contains('qty-disabled')) {
+        inp.removeAttribute("readonly");
+      }
+    } else {
+      inp.setAttribute("readonly", true);
+      inp.value = 0; // optional: reset when unchecked
+    }
+  });
+
+  // counter update
   const counter = document.getElementById("wasteCount");
   if (counter) {
-    const n = document.querySelectorAll('.waste-cb:checked').length;
+    const n = document.querySelectorAll('.waste-cb:checked:not(:disabled):not([title])').length;
     counter.textContent = n + " selected";
     counter.style.display = n > 0 ? "inline-flex" : "none";
   }
@@ -165,6 +187,7 @@ function toggleRow(checkbox) {
                       <input type="checkbox"
                              name="waste_expense"
                              value="{{ stock.id }}"
+                             {% if stock.quantity <= 0 %}disabled{% endif %}
                              id="stock_{{ stock.id }}"
                              class="waste-cb"
                              onchange="toggleRow(this)">
@@ -185,16 +208,17 @@ function toggleRow(checkbox) {
                     <td class="sl-text-end">
                       <div class="mf-stepper" style="justify-content:flex-end;">
                         <button class="qty-btn" type="button"
-                                onclick="stepNumber('qty_{{ stock.id }}', -1)">−</button>
+                                onclick="stepNumber('qty_{{ stock.id }}', -1)" >−</button>
                         <input type="number"
                                name="quantity_{{ stock.id }}"
                                id="qty_{{ stock.id }}"
-                               class="form-control form-control-sm"
+                               class="form-control form-control-sm {% if stock.quantity <= 0 %}disabled{% endif %}"
                                style="width:70px;"
                                min="0" step="1"
                                value="0"
-                               disabled>
-                        <button class="qty-btn" type="button"
+                               {% if stock.quantity <= 0 %}disabled{% endif %}>
+                               
+                        <button class="qty-btn" type="button" 
                                 onclick="stepNumber('qty_{{ stock.id }}', 1)">+</button>
                       </div>
                     </td>

@@ -119,7 +119,7 @@ class EmailOTP(TimeStampModel):
     def generate_otp(cls):
         return str(random.randint(0, 999999)).zfill(6)
 
-class BusinessProfile(models.Model):
+class BusinessProfile(SlugModel):
     BUSINESS_TYPE_CHOICE = (
         ('retail', 'Retail'),
         ('cafe', 'Cafe'),
@@ -131,6 +131,16 @@ class BusinessProfile(models.Model):
     business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
     address = models.TextField(null=True, blank=True)
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('user', 'slug')
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.business_name)
+        
+        super().save(*args, **kwargs)
+    
     
     def __str__(self):
         return f"{self.business_name} - {self.business_type}"
