@@ -2,6 +2,9 @@ from functools import wraps
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib import messages
 from django.urls import reverse
+
+from user.models import BusinessProfile, User
+
 # utils/owner.py
 def get_owner(user):
     if user.role in ('developer', 'owner'):
@@ -35,3 +38,21 @@ def get_queryset_for_user(user, queryset):
         return queryset.filter(user=owner)
 
 
+def user_account(func):
+    @wraps(func)
+    def wrapper(request, *args, **kwargs):
+        
+        user_slug = kwargs.get('slug')
+        
+        if request.user.slug != user_slug:
+            return render(request, 'core/no_access.html', status=403)
+        
+        return func(request, *args, **kwargs)
+        
+    return wrapper
+
+
+def get_business_for_user(user, business_slug):
+    owner = get_owner(user)
+    business = get_object_or_404(BusinessProfile, user=owner, slug=business_slug)
+    return business 

@@ -126,14 +126,21 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ record.date|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
-
+                {% if record.total_shift %}
                 <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
                   ₱{{ record.total_shift|floatformat:2|intcomma }}
                 </td>
+                {% else %}
+                <td class="sl-text-center sl-fw-semibold" style="color:var(--muted);">₱0.00</td>
+                {% endif %}
 
+                {% if record.total_amount %}
                 <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
                   ₱{{ record.total_amount|floatformat:2|intcomma }}
                 </td>
+                {% else %}
+                <td class="sl-text-center sl-fw-semibold" style="color:var(--muted);">₱0.00</td>
+                {% endif %}
 
                 <td class="sl-text-center sl-fw-semibold sl-fw-bold" style="color:var(--danger);">
                   ₱{{ record.total_amount|add:record.total_shift|floatformat:2|intcomma }}
