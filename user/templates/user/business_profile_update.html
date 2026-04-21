@@ -1,0 +1,116 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<div class="mf-page-wrapper">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        Profile <i class="bi bi-chevron-right"></i> Update
+      </div>
+      <h1 class="page-title">Edit Business Profile</h1>
+      <p class="page-subtitle">
+        Update your business details
+      </p>
+    </div>
+  </div>
+
+  <div class="mf-layout">
+
+    <!-- FORM CARD -->
+    <div class="card">
+      <div class="card-header">
+        <p class="card-header-title">Business Information</p>
+      </div>
+
+      <div class="card-body">
+        <form method="POST">
+          {% csrf_token %}
+
+          <div class="mf-fields-grid">
+
+            <!-- BUSINESS NAME -->
+            <div class="mf-field-group">
+              <label class="mf-form-label">
+                Business Name <span class="mf-required">*</span>
+              </label>
+              {{ form.business_name }}
+              {% if form.business_name.errors %}
+                <div class="mf-error">{{ form.business_name.errors.0 }}</div>
+              {% endif %}
+              <div class="mf-help">This will be used across your system</div>
+            </div>
+
+            <!-- TYPE -->
+            <div class="mf-field-group">
+              <label class="mf-form-label">Business Type</label>
+              {{ form.business_type }}
+              <div class="mf-help">Affects behavior (POS, reports)</div>
+            </div>
+
+            <!-- PHONE -->
+            <div class="mf-field-group">
+              <label class="mf-form-label">Phone Number</label>
+              {{ form.business_phone_number }}
+              {% if form.business_phone_number.errors %}
+                <div class="mf-error">{{ form.business_phone_number.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+          </div>
+
+          <!-- ADDRESS -->
+          <div class="mf-field-group" style="margin-top: 1rem;">
+            <label class="mf-form-label">Address</label>
+            {{ form.address }}
+            {% if form.address.errors %}
+              <div class="mf-error">{{ form.address.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- ACTIONS -->
+          <div class="mf-form-actions">
+            <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check"></i> Save Changes
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="card">
+      <div class="card-body">
+
+        <div class="mf-guide-section">
+          <p class="mf-guide-title">Tips</p>
+          <ul class="mf-guide-list">
+            <li><i class="bi bi-check"></i> Use clear business name</li>
+            <li><i class="bi bi-check"></i> Match official records</li>
+            <li><i class="bi bi-check"></i> Keep info updated</li>
+          </ul>
+        </div>
+
+        <div class="mf-tip-box">
+          <i class="bi bi-lightbulb"></i>
+          <div>
+            <div class="mf-tip-title">Reminder</div>
+            <div class="mf-tip-text">
+              Changes affect reports and transactions.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}

@@ -161,6 +161,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -204,7 +205,10 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
                 </td>
               </tr>
-              {% empty %}
+              {% endfor %}
+             </tbody>
+          </table>
+              {% else %}
               <tr>
                 <td colspan="6">
                   <div class="empty-state">
@@ -214,11 +218,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
                 </td>
               </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+              {% endif %}
         </div>
-
       </div>
     </div>
 
@@ -241,9 +242,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
           <div class="sl-summary-row">
             <span class="sl-summary-label">Total Revenue</span>
+            {% if total_revenue %}
             <span class="sl-summary-value green">
-              ₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}
+              ₱{{ total_revenue|floatformat:2|intcomma }}
             </span>
+            {% else %}
+            <span class="sl-summary-value muted">
+              ₱0.00
+            </span>
+            {% endif %}
           </div>
 
           <div class="sl-summary-row">
@@ -272,7 +279,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
             <i class="bi bi-plus-circle"></i> New Sale
           </a>
-          <a href="{% url 'material-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+          <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
             <i class="bi bi-bookmark-fill"></i> Presets
           </a>
 

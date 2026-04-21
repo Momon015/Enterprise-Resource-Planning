@@ -114,3 +114,5 @@ class MiscExpenseForm(ModelForm):
 class ExpenseFilterForm(forms.Form):
     # search = forms.CharField(required=False)
     select_month = forms.CharField(required=False)
+    start_date = forms.DateField(required=False)
+    end_date = forms.DateField(required=False)

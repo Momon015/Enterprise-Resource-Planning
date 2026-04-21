@@ -154,14 +154,14 @@ document.addEventListener("DOMContentLoaded", function () {
                       {% endif %}
                     </span>
                   {% else %}
-                    <span class="cell-sub">—</span>
+                    <span class="cell-sub">N/A</span>
                   {% endif %}
                 </td>
                 <td>
                   <span class="cell-sub">{{ product.category.name|default:"Uncategorized" }}</span>
                 </td>
                 <td class="sl-text-end">
-                  {% if product.cost_price %}₱{{ product.cost_price|floatformat:2 }}{% else %}—{% endif %}
+                  ₱{% if product.cost_price %}{{ product.cost_price|floatformat:2 }}{% else %}0.00{% endif %}
                 </td>
                 <td class="sl-text-end sl-fw-semibold">₱{{ product.selling_price|floatformat:2 }}</td>
                 <td class="sl-text-center">
@@ -207,10 +207,16 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-box-seam"></i></div>
             <h3 class="empty-title">No products found</h3>
-            <p class="empty-text">Adjust your search or filters, or add a new product.</p>
-            <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm">
+            <p class="empty-text">
+              {% if request.GET.search %}
+                No results for "{{ request.GET.search }}". Try a different product name.
+              {% else %}
+                Adjust your search or filters, or add a new product.
+              {% endif %}
+            </p>
+            {% comment %} <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Add your first product
-            </a>
+            </a> {% endcomment %}
           </div>
           {% endif %}
         </div>

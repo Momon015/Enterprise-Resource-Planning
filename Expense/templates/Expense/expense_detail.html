@@ -187,11 +187,19 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="sd-summary-block-label">Breakdown</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Expense Cost</span>
+              {% if total_expense_cost %}
               <span class="sd-info-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma }}</span>
+              {% else %}
+              <span class="sd-info-value" style="color:var(--muted);">₱0.00</span>
+              {% endif %}
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Salary Cost</span>
+              {% if total_salary_cost %}
               <span class="sd-info-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
+              {% else %}
+              <span class="sd-info-value" style="color:var(--muted);">₱0.00</span>
+              {% endif %}
             </div>
           </div>
 

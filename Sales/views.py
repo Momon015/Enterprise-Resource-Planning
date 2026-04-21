@@ -119,7 +119,7 @@ def sale_list(request):
         
         period_map = {
             'month': {'date__month': month, 'date__year': year},
-            'today': {'date__day': today},
+            'today': {'date': now.date()},
             'week': {'date__week': iso_week, 'date__year': iso_year}
 
         }

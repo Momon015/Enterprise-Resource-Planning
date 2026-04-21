@@ -25,5 +25,6 @@ urlpatterns = [
     
     # business profile
     path('create/business-profile/', views.business_profile_create, name='business-profile-create'),
-
+    path('detail/<int:business_id>/<slug:slug>/business-profile/', views.business_profile_detail, name='business-profile-detail'),
+    path('update/<int:business_id>/<slug:slug>/business-profile/', views.business_profile_update, name='business-profile-update'),
 ]

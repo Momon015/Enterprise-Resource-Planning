@@ -319,13 +319,6 @@ def view_summary_detail(request, date):
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
     total_salary_cost = shifts.aggregate(salary_cost=Sum('amount'))['salary_cost'] or 0
     
-    
-    
-    
-    
-    
-    
-    
     # for waste in waste_items:
     #     waste_cost = waste.price * waste.quantity
     #     total_waste_cost += waste_cost

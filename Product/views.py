@@ -113,13 +113,17 @@ def product_create(request):
 
         if form.is_valid():
             product = form.save(commit=False)
+            product.name = product.name.title()
+            if Product.objects.filter(user=owner, name__iexact=product.name.title(), unit=product.unit).exists():
+                messages.warning(request, f"{product.name} is already exists. Please create another product name.")
+                return redirect('product-list')
+            
             product.user = owner
             product.created_by = request.user
-            product.name = product.name.title()
             
             if product.description:
                 product.description = product.description.title()
-                
+
             product.save()
 
             messages.success(request, f"{product.name} has been created.")

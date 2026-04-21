@@ -68,11 +68,11 @@ class Material(TimeStampModel, SlugModel):
         return self.name
     
     def save(self, *args, **kwargs):
-        if not self.slug:
-            slug = slugify(self.name)
-            unit_display = self.get_unit_display().title()
-            self.slug = f"{slug}-{unit_display}"
-        return super().save(*args, **kwargs)
+        slug = slugify(self.name)
+        unit_display = self.get_unit_display().title()
+        self.slug = f"{slug}-{unit_display}"
+        
+        super().save(*args, **kwargs)
     
 class MaterialPreset(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presets')

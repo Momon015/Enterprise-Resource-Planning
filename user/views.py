@@ -164,10 +164,6 @@ def verify_otp(request):
                 else:
                     messages.success(request, f"Your account has been successfully created.")
                     return redirect('user-profile', slug=user.username)
-            
-            
-                
-            
             else:
                 messages.error(request, "Invalid OTP. Please try again.")
  
@@ -259,11 +255,12 @@ def user_login(request):
 @login_required(login_url='login')
 def user_profile(request, slug):
     user = get_object_or_404(User, slug=slug)
+    business = BusinessProfile.objects.filter(user=user).first()
     
     if user != request.user:
         return render(request, 'core/no_access.html', status=403)
     
-    context = {'user': user}
+    context = {'user': user, 'business': business}
     return render(request, 'user/user_profile.html', context)
 
 @login_required(login_url='login')
@@ -353,7 +350,6 @@ def user_logout(request):
     logout(request)
     return redirect('landing')
 
-
 def business_profile_create(request):
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST)
@@ -362,14 +358,42 @@ def business_profile_create(request):
             profile = form.save(commit=False)
             profile.user = request.user
             profile.save()
-            messages.success(request, f"{profile.business_name.title()} has been created successfully.")
+            messages.success(request, f"Your business profile has been created successfully.")
             return redirect('user-profile', slug=request.user.slug)
         else:
-            messages.error(request, f"Incomplete registration. Please register again.")
-            return redirect('register-form')
+            messages.error(request, f"Cafe and Restaurant are coming soon.")
+            return redirect('business-profile-create')
 
     else:
         form = BusinessProfileForm()
         
     context = {'form': form}
     return render(request, 'user/business_profile_create.html', context)
+
+@login_required(login_url='login')
+def business_profile_detail(request, business_id, slug):
+
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=slug)
+    
+    context = {'business': business, 'section': 'user'}
+    return render(request, 'user/business_profile_detail.html', context)
+
+@login_required(login_url='login')
+def business_profile_update(request, business_id, slug):
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=slug)
+    
+    if request.method == 'POST':
+        form = BusinessProfileForm(request.POST, instance=business)
+        
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.business_name = obj.business_name.title()
+            obj.save()
+            messages.success(request, f"Your business name changed successfully.")
+            return redirect('user-profile', slug=obj.user.slug)
+    else:
+        form = BusinessProfileForm(instance=business)
+    
+    context = {'form': form, 'business': business, 'section': 'user'}
+    return render(request, 'user/business_profile_update.html', context)
+

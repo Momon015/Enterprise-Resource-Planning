@@ -129,15 +129,22 @@ class BusinessProfile(SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')
     business_name = models.CharField(max_length=255)
     business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
-    address = models.TextField(null=True, blank=True)
+    address = models.TextField(null=True, blank=True, max_length=255)
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     
     class Meta:
         unique_together = ('user', 'slug')
     
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.business_name)
+        base_slug = slugify(self.business_name)
+        slug = base_slug
+        counter = 1
+            
+        while BusinessProfile.objects.filter(user=self.user, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+            
+        self.slug = slug 
         
         super().save(*args, **kwargs)
     

@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         <!-- TABLE -->
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -136,9 +137,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
                   </div>
                 </td>
-
               </tr>
-              {% empty %}
+              {% endfor %}
+            </tbody>
+          </table>
+              {% else %}
                 <tr>
                   <td colspan="4">
                     <div class="empty-state">
@@ -148,9 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     </div>
                   </td>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+            {% endif %}
         </div>
 
         <!-- PAGINATION -->

@@ -108,4 +108,22 @@ class BusinessProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
+        disabled_types = ['cafe', 'restaurant']
+        choices = self.fields['business_type'].choices
         
+        # Keep them but add "Coming Soon" label
+        self.fields['business_type'].choices = [
+            (k, f"{v} (Coming Soon)") if k in disabled_types else (k, v) for k, v in choices
+        ]
+
+        self.fields['business_type'].disabled = False
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        business_type = cleaned_data.get('business_type')
+        
+        disabled_types = ['cafe', 'restaurant']
+        if business_type in disabled_types:
+            raise forms.ValidationError(f"{business_type} is coming soon.")
+        
+        return cleaned_data

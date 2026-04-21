@@ -107,6 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list%}
           <table class="data-table">
             <thead>
               <tr>
@@ -142,30 +143,27 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
                 </td>
               </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4">
-                    <div class="empty-state">
-                      <div class="empty-icon"><i class="bi bi-tags"></i></div>
-                      <h3 class="empty-title">No categories found</h3>
-                      <p class="empty-text">
-                        {% if request.GET.search %}
-                          No results for "{{ request.GET.search }}". Try a different name.
-                        {% else %}
-                          Create your first category to organize your items.
-                        {% endif %}
-                      </p>
-                      {% if not request.GET.search %}
-                      <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> Add Category
-                      </a>
-                      {% endif %}
-                    </div>
-                  </td>
-                </tr>
               {% endfor %}
-            </tbody>
-          </table>
+             </tbody>
+           </table>
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-tags"></i></div>
+                <h3 class="empty-title">No categories found</h3>
+                  <p class="empty-text">
+                    {% if request.GET.search %}
+                      No results for "{{ request.GET.search }}". Try a different category name.
+                    {% else %}
+                      Create your first category to organize your items.
+                    {% endif %}
+                  </p>
+                  {% comment %} {% if not request.GET.search %}
+                  <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Category
+                  </a>
+                  {% endif %} {% endcomment %}
+              </div>
+            {% endif %}
         </div>
 
         <!-- PAGINATION -->

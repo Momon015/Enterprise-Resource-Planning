@@ -9,7 +9,7 @@ class Product(SlugModel, TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     name = models.CharField(max_length=100)
-    description = models.TextField(null=True, blank=True)
+    description = models.TextField(null=True, blank=True, max_length=500)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
     prepared_quantity = models.PositiveIntegerField()
@@ -27,8 +27,8 @@ class Product(SlugModel, TimeStampModel):
         return self.name
     
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = slugify(self.name)
+        
         if not self.cost_price:
             self.cost_price = 0
             

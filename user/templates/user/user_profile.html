@@ -186,6 +186,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'user-edit-profile' user.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Profile
             </a>
+            <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-pencil-square"></i> Business Profile
+            </a>
+
             <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-lock-fill"></i> Change Password
             </a>

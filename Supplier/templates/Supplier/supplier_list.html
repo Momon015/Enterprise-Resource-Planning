@@ -104,6 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -141,32 +142,26 @@ document.addEventListener("DOMContentLoaded", function () {
                     </a>
                   </div>
                 </td>
-              </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4">
-                    <div class="empty-state">
-                      <div class="empty-icon"><i class="bi bi-building"></i></div>
-                      <h3 class="empty-title">No suppliers found</h3>
-                      <p class="empty-text">
-                        {% if request.GET.search %}
-                          No results for "{{ request.GET.search }}". Try a different name.
-                        {% else %}
-                          Add your first supplier to start tracking purchases per vendor.
-                        {% endif %}
-                      </p>
-                      {% if not request.GET.search %}
-                      <a href="{% url 'supplier-create' %}" class="btn btn-primary btn-sm">
-                        <i class="bi bi-building-add"></i> Add Supplier
-                      </a>
-                      {% endif %}
-                    </div>
-                  </td>
-                </tr>
-
-              {% endfor %}
+               </tr>
+               {% endfor %}
             </tbody>
           </table>
+          {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-building"></i></div>
+              <h3 class="empty-title">No suppliers found</h3>
+              <p class="empty-text">
+                {% if request.GET.search %}
+                  No results for "{{ request.GET.search }}". Try a different supplier name.
+                {% else %}
+                  Add your first supplier to start tracking purchases per vendor.
+                {% endif %}
+              </p>
+              {% comment %} <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> Add your first item
+              </a> {% endcomment %}
+            </div>
+            {% endif %}
         </div>
 
         <!-- PAGINATION -->

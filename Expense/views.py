@@ -1047,6 +1047,12 @@ def expense_list(request):
 
     if form.is_valid():
         select_month = form.cleaned_data.get('select_month')
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+        
+        if start_date and end_date:
+            expenses = expenses.filter(date__range=(start_date, end_date))
+            shifts = shifts.filter(date__range=(start_date, end_date))
         
         if select_month:
             parsed_date = datetime.strptime(select_month, '%Y-%m')

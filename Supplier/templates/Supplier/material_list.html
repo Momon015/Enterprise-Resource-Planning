@@ -170,10 +170,16 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-bag"></i></div>
             <h3 class="empty-title">No items found</h3>
-            <p class="empty-text">Adjust your search or filters, or add a new item.</p>
-            <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
+            <p class="empty-text">
+              {% if request.GET.search %}
+                No results for "{{ request.GET.search }}". Try a different material name.
+              {% else %}
+                Adjust your search or filters, or add a new material.
+              {% endif %}
+            </p>
+            {% comment %} <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Add your first item
-            </a>
+            </a> {% endcomment %}
           </div>
           {% endif %}
         </div>

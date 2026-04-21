@@ -156,6 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -202,19 +203,20 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
                 </td>
               </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="6">
-                    <div class="empty-state">
-                      <div class="empty-icon"><i class="bi bi-cart"></i></div>
-                      <h3 class="empty-title">No purchase transactions found</h3>
-                      <p class="empty-text">Adjust your filters or record a new purchase.</p>
-                    </div>
-                  </td>
-                </tr>
               {% endfor %}
             </tbody>
           </table>
+              {% else %}
+              <tr>
+                <td colspan="6">
+                  <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-cart"></i></div>
+                    <h3 class="empty-title">No purchase transactions found</h3>
+                    <p class="empty-text">Adjust your filters or record a new purchase.</p>
+                  </div>
+                </td>
+              </tr>
+              {% endif %}
         </div>
 
         <!-- PAGINATION -->
@@ -282,9 +284,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
           <div class="sl-summary-row">
             <span class="sl-summary-label">Total Cost</span>
+            {% if total_cost %}
             <span class="sl-summary-value danger">
-              ₱{{ total_cost|floatformat:2|intcomma|default:"0.00" }}
+              ₱{{ total_cost|floatformat:2|intcomma }}
             </span>
+            {% else %}
+            <span class="sl-summary-value muted">
+              ₱0.00
+            </span>
+            {% endif %}
           </div>
 
           <div class="sl-summary-row">

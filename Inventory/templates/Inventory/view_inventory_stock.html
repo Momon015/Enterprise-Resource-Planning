@@ -123,6 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -183,19 +184,22 @@ document.addEventListener("DOMContentLoaded", function () {
                   {% endif %}
                 </td>
               </tr>
-              {% empty %}
-              <tr>
-                <td colspan="8">
-                  <div class="empty-state">
-                    <div class="empty-icon"><i class="bi bi-boxes"></i></div>
-                    <h3 class="empty-title">No stock records found</h3>
-                    <p class="empty-text">Try adjusting your filters or record a purchase to populate stock.</p>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+               {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-boxes"></i></div>
+              <h3 class="empty-title">No stock records found</h3>
+              <p class="empty-text">
+                {% if request.GET.search %}
+                  No results for "{{ request.GET.search }}". Try a different stock name.
+                {% else %}
+                  Try adjusting your filters or record a purchase to populate stock.
+                {% endif %}
+              </p>
+            </div>
+          {% endif %}
         </div>
 
         <!-- PAGINATION -->

@@ -147,12 +147,13 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Items</th>
-                <th class="sl-text-end">Total Loss</th>
+                <th class="sl-text-center">Total Loss</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
@@ -171,7 +172,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
 
-                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                <td class="sl-text-center sl-fw-semibold sl-text-danger">
                   ₱{{ waste.waste_cost|floatformat:2|intcomma }}
                 </td>
 
@@ -182,23 +183,23 @@ document.addEventListener("DOMContentLoaded", function () {
                     </a>
                   </div>
                 </td>
-
               </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4">
-                    <div class="empty-state">
-                      <div class="empty-icon"><i class="bi bi-trash2"></i></div>
-                      <h3 class="empty-title">No waste records found</h3>
-                      <p class="empty-text">Adjust your filters or log a waste entry.</p>
-                    </div>
-                  </td>
-                </tr>
-
               {% endfor %}
             </tbody>
-
           </table>
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-trash2"></i></div>
+              <h3 class="empty-title">No waste records found</h3>
+              <p class="empty-text">
+                {% if request.GET.search %}
+                  No results for "{{ request.GET.search }}". Try a different name.
+                {% else %}
+                  Adjust your filters or log a waste entry.
+                {% endif %}
+              </p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- PAGINATION -->

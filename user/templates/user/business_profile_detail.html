@@ -1,0 +1,120 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- HEADER -->
+  <div class="sd-page-header">
+    <div>
+      <h4 class="sd-page-title">
+        <i class="bi bi-building"></i>
+        Business Profile
+      </h4>
+      <p class="sd-page-breadcrumb">
+        Profile <span>•</span> Detail
+      </p>
+    </div>
+
+    <div class="btn-group">
+      <a href="javascript:history.back()" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+
+      <a href="{% url 'business-profile-update' business.id business.slug %}" class="btn btn-primary">
+        <i class="bi bi-pencil"></i> Edit
+      </a> 
+    </div>
+  </div>
+
+  <!-- CARD -->
+  <div class="card">
+    <div class="card-header">
+
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon">
+          <i class="bi bi-shop"></i>
+        </div>
+
+        <div>
+          <p class="card-header-title">
+            {{ business.business_name }}
+          </p>
+
+          <p class="card-header-sub">
+            {{ business.get_business_type_display }}
+          </p>
+        </div>
+      </div>
+
+      <!-- TYPE BADGE -->
+      <span class="status-badge 
+        {% if business.is_retail %}status-success
+        {% elif business.is_cafe %}status-warning
+        {% else %}status-danger
+        {% endif %}
+      ">
+        {{ business.get_business_type_display }}
+      </span>
+
+    </div>
+
+    <div class="card-body">
+
+      <!-- BUSINESS INFO -->
+      <div class="sd-section-label">Business Information</div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Business Name</span>
+        <span class="sd-info-value">{{ business.business_name }}</span>
+      </div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Type</span>
+        <span class="sd-info-value">
+          {{ business.get_business_type_display }}
+        </span>
+      </div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Phone</span>
+        <span class="sd-info-value">
+          {% if business.business_phone_number %}
+            {{ business.business_phone_number }}
+          {% else %}
+            <span class="sl-text-muted">No phone provided</span>
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Address</span>
+        <span class="sd-info-value">
+          {% if business.address %}
+            {{ business.address }}
+          {% else %}
+            <span class="sl-text-muted">No address provided</span>
+          {% endif %}
+        </span>
+      </div>
+
+      <hr class="sd-section-divider">
+
+      <!-- SYSTEM INFO -->
+      <div class="sd-section-label">System Info</div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Slug</span>
+        <span class="sd-info-value mono">{{ business.slug }}</span>
+      </div>
+
+      <div class="sd-info-row">
+        <span class="sd-info-label">Owner</span>
+        <span class="sd-info-value">{{ business.user }}</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

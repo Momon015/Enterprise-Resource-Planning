@@ -26,13 +26,35 @@ document.addEventListener("DOMContentLoaded", function () {
   if (filterDetails) {
     const filterForm = filterDetails.querySelector("#filterForm");
     const params = new URLSearchParams(window.location.search);
-    if (params.get("search") || params.get("select_month")) {
+    if (params.get("start_date") || params.get("end_date") || params.get("select_month")) {
       filterDetails.setAttribute("open", "");
     }
     filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
     const resetBtn = filterForm.querySelector("a.btn-light");
     if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
   }
+
+  // ✅ MOVE HERE
+  const monthInput = document.querySelector('input[name="select_month"]');
+  const startDateInput = document.querySelector('input[name="start_date"]');
+  const endDateInput = document.querySelector('input[name="end_date"]');
+
+  // If month selected → clear dates
+  if (monthInput) {
+    monthInput.addEventListener("change", function () {
+      if (startDateInput) startDateInput.value = "";
+      if (endDateInput) endDateInput.value = "";
+    });
+  }
+
+  // If date used → clear month
+  [startDateInput, endDateInput].forEach(el => {
+    if (!el) return;
+    el.addEventListener("change", function () {
+      if (monthInput) monthInput.value = "";
+    });
+  });
+
 });
 </script>
 
@@ -64,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
-               {% if request.GET.search or request.GET.select_month %}open{% endif %}>
+               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
@@ -76,16 +98,26 @@ document.addEventListener("DOMContentLoaded", function () {
           <form method="GET" id="filterForm" class="filter-form" autocomplete="off">
             <div class="form-group filter-search-row">
               <div class="input-group">
-                <span class="input-group-icon"><i class="bi bi-search"></i></span>
-                <input type="search" name="search" class="form-control"
-                       placeholder="Search by name..."
-                       value="{{ request.GET.search|default:'' }}">
+                
               </div>
             </div>
             <div class="form-group">
               <label class="form-label">Period (month)</label>
               <input type="month" name="select_month" class="form-control"
                      value="{{ request.GET.select_month|default:current_year }}">
+            </div>
+            <div class="form-group">
+              <label class="form-label small text-muted">From date</label>
+              <input type="date" name="start_date"
+                    class="form-control form-control-sm"
+                    value="{{ request.GET.start_date|default:'' }}">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label small text-muted">To date</label>
+              <input type="date" name="end_date"
+                    class="form-control form-control-sm"
+                    value="{{ request.GET.end_date|default:'' }}">
             </div>
             <div class="filter-actions">
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
@@ -181,10 +213,17 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-receipt"></i></div>
             <h3 class="empty-title">No expenses found</h3>
-            <p class="empty-text">Adjust your filters or log your first expense.</p>
-            <a href="{% url 'expense-create' %}" class="btn btn-primary btn-sm">
+            <p class="empty-text">
+              {% if request.GET.search %}
+                No results for "{{ request.GET.search }}". Try a different expense name.
+              {% else %}
+                Adjust your filters or log your first expense.
+              {% endif %}
+            </p>
+             
+            {% comment %} <a href="{% url 'expense-create' %}" class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Log your first expense
-            </a>
+            </a> {% endcomment %}
           </div>
           {% endif %}
         </div>
@@ -194,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with q=request.GET.search m=request.GET.select_month %}
+              {% with q=request.GET.search m=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
                   <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">
@@ -247,17 +286,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
             <div class="sd-info-row">
               <span class="sd-info-label">Total amount</span>
+              {% if grand_total_expense %}
               <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|add:grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
+              {% else %}
+              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
+              {% endif %}
             </div>
             
             <div class="sd-info-row">
               <span class="sd-info-label">Total expense</span>
-              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|floatformat:2|intcomma|default:"0.00" }}</span>
+              {% if grand_total_expense %}
+              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|floatformat:2|intcomma }}</span>
+              {% else %}
+              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
+              {% endif %}
+            
             </div>
 
             <div class="sd-info-row">
               <span class="sd-info-label">Total salary</span>
+              {% if grand_total_salary %}
               <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
+              {% else %}
+              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
+              {% endif %}
             </div>
 
             <div class="sd-info-row">
@@ -317,7 +369,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
     </div>
-
+    
   </div>
 </div>
 
