@@ -133,8 +133,14 @@
       <button type="button" class="btn-browse">
         <i class="bi bi-printer"></i> Print receipt
       </button>
-      <a href="{% url 'product-list' %}" class="btn-confirm" style="width: auto; padding: .5rem 1.25rem;">
+      {% if request.user.role == 'owner' %}
+      <a href="{% url 'dashboard' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard
+      </a>
+      {% else %}
+      <a href="{% url 'product-list' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+        <i class="bi bi-basket"></i> Back to products
+      {% endif %}
       </a>
     </div>
   </div>

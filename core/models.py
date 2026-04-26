@@ -35,9 +35,9 @@ class Category(SlugModel):
         return f"Category: {self.category_type} - {self.name}"
     
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        return super().save(*args, **kwargs)
+        self.slug = slugify(self.name)
+        
+        super().save(*args, **kwargs)
     
 class StatusModel(SlugModel, TimeStampModel):
     STATUS_CHOICES = [

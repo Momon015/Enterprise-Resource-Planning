@@ -100,10 +100,10 @@
           {% comment %} <div class="sd-summary-block">
             <div class="mf-guide-title">Quick Actions</div>
             <div class="btn-grid">
-              <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'employee-update' employee.id employee.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-pencil-square"></i> Edit Details
               </a>
-              <a href="{% url 'employee-delete' employee.id %}" class="btn btn-sm btn-block"
+              <a href="{% url 'employee-delete' employee.id employee.slug %}" class="btn btn-sm btn-block"
                  style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
                 <i class="bi bi-trash"></i> Delete Employee
               </a>

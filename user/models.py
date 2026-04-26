@@ -93,8 +93,7 @@ class User(AbstractUser, SlugModel):
         return f"—"
     
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.username)
+        self.slug = slugify(self.username)
         
         if not self.name:
             self.name = self.first_name

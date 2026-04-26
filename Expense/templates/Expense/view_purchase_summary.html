@@ -56,9 +56,9 @@ document.addEventListener("DOMContentLoaded", function () {
           <tr>
             <th class="ps-4">Item</th>
             <th>Qty</th>
-            <th>Unit Price</th>
-            <th>Discount</th>
-            <th class="pe-4">Line Total</th>
+            <th class='text-end'>Unit Price</th>
+            <th class='text-end'>Discount</th>
+            <th class="text-end pe-4">Line Cost</th>
           </tr>
         </thead>
         <tbody>
@@ -68,11 +68,11 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="product-name">{{ item.name }}</div>
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
-            <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
-            <td><span class="mono" style="color:var(--success);">
-              {% if item.discount %}₱{{ item.discount|floatformat:2 }}{% else %}—{% endif %}
+            <td class='text-end'><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
+            <td class='text-end'><span class="mono" style="color:var(--success);">
+              ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
             </span></td>
-            <td class="pe-4">
+            <td class="text-end pe-4">
               <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
             </td>
           </tr>
@@ -123,8 +123,14 @@ document.addEventListener("DOMContentLoaded", function () {
       <button type="button" class="btn-browse">
         <i class="bi bi-printer"></i> Print receipt
       </button>
-      <a href="{% url 'material-list' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+      {% if request.user.role == 'owner' %}
+      <a href="{% url 'dashboard' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard
+      </a>
+      {% else %}
+      <a href="{% url 'view-inventory-stock' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+        <i class="bi bi-basket"></i> Back to inventory
+      {% endif %}
       </a>
     </div>
   </div>

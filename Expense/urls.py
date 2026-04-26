@@ -33,9 +33,9 @@ urlpatterns = [
     # employee
     path('view/employees-list/', views.employee_list, name='employee-list'),
     # path('create/employee-detail/', views.employee_create, name='employee-create'),
-    path('view/<str:employee_id>/employee-detail/', views.employee_detail, name='employee-detail'),
-    path('update/<str:employee_id>/employee-detail/', views.employee_update, name='employee-update'),
-    path('delete/<str:employee_id>/employee-detail/', views.employee_delete, name='employee-delete'),
+    path('view/<str:employee_id>/<str:slug>/employee-detail/', views.employee_detail, name='employee-detail'),
+    path('update/<str:employee_id>/<str:slug>/employee-detail/', views.employee_update, name='employee-update'),
+    path('delete/<str:employee_id>/<str:slug>/employee-detail/', views.employee_delete, name='employee-delete'),
     
     path('view/waste-list/', views.waste_list, name='expense-waste-list'),
     path('view/<str:username>/<str:waste_id>/waste/', views.waste_material_detail, name='expense-waste-detail'),

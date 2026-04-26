@@ -641,9 +641,9 @@ def employee_list(request):
 
 @login_required(login_url='login')
 # @permission_required('owner_only')
-def employee_detail(request, employee_id):
+def employee_detail(request, employee_id, slug):
     owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
     
     monthly_rate = employee.daily_rate * 30
     
@@ -653,9 +653,9 @@ def employee_detail(request, employee_id):
 
 @login_required(login_url='login')
 @permission_required('owner_only')
-def employee_update(request, employee_id):
+def employee_update(request, employee_id, slug):
     owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
     
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
@@ -666,7 +666,7 @@ def employee_update(request, employee_id):
             obj.created_by = request.user
             obj.save()
             messages.success(request, f"{obj.name}'s details has been updated.")
-            return redirect('employee-detail', employee.id)
+            return redirect('employee-detail', employee.id, employee.slug)
         else:
             print(form.errors)
     else:
@@ -677,9 +677,9 @@ def employee_update(request, employee_id):
 
 @login_required(login_url='login')
 @permission_required('owner_only')
-def employee_delete(request, employee_id):
+def employee_delete(request, employee_id, slug):
     owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id)
+    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
     
     print(employee.user)
     print(employee.staff_user)

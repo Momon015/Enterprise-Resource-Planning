@@ -98,7 +98,7 @@
           </div>
 
           {% comment %} <div class="btn-grid">
-            <a href="{% url 'employee-update' employee.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'employee-update' employee.id employee.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div> {% endcomment %}

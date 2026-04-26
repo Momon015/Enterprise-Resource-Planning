@@ -124,13 +124,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'employee-detail' employee.id %}" class="action-btn" title="View details">
+                    <a href="{% url 'employee-detail' employee.id employee.slug %}" class="action-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'employee-update' employee.id %}" class="action-btn" title="Edit">
+                    <a href="{% url 'employee-update' employee.id employee.slug %}" class="action-btn" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'employee-delete' employee.id %}" class="action-btn action-btn--danger" title="Remove">
+                    <a href="{% url 'employee-delete' employee.id employee.slug %}" class="action-btn action-btn--danger" title="Remove">
                       <i class="bi bi-trash3"></i>
                     </a>
                   </div>

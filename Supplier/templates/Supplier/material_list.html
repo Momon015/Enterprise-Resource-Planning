@@ -146,7 +146,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="table-actions">
                     <a href="{% url 'add-cart' material.id %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="Add to cart">
-                      <i class="bi bi-basket"></i>
+                      <i class="bi bi-bag-check"></i>
                     </a>
                     <a href="{% url 'material-detail' material.user.username material.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="View details">
