@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
                   <i class="bi bi-funnel"></i> Filter
                 </button>
-                <a href="{% url 'view-inventory-stock' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+                <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
               </div>
             </div>
           </form>
@@ -145,14 +145,14 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-sub">{{ stock.supplier|capfirst|default:"No supplier" }}</div>
                 </td>
                 <td>
-                  <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"Uncategorized" }}</div>
+                  <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"No category" }}</div>
                 </td>
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">
                     {% if stock.unit in multi_unit_types %}
-                      {{ stock.unit|default:"—" }} (pc)
+                      {{ stock.unit|default:"No unit" }} (pc)
                     {% else %}
-                      {{ stock.unit|default:"—" }}
+                      {{ stock.unit|default:"No unit" }}
                     {% endif %}
                   </span>
                 </td>
@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   {% if stock.quantity == 0 %}
-                    <a href="{% url 'inventory-stock-delete' stock.id %}"
+                    <a href="{% url 'inventory-stock-delete' stock_id=stock.id business_slug=current_business.slug %}"
                        class="btn btn-sm"
                        style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
                       <i class="bi bi-trash"></i> Remove
@@ -281,22 +281,22 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Filter by Status</div>
             <div class="quick-range-grid">
-              <a href="{% url 'view-inventory-stock' %}?stock=high"
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=high"
                 class="quick-range-btn"
                 style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent); font-weight:600;{% endif %}">
                 <i class="bi bi-box-seam"></i> In Stock
               </a>
-              <a href="{% url 'view-inventory-stock' %}?stock=low"
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=low"
                 class="quick-range-btn"
                 style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning); font-weight:600;{% endif %}">
                 <i class="bi bi-exclamation-triangle"></i> Low Stock
               </a>
-              <a href="{% url 'view-inventory-stock' %}?stock=none"
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=none"
                 class="quick-range-btn"
                 style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger); font-weight:600;{% endif %}">
                 <i class="bi bi-slash-circle"></i> Out of Stock
               </a>
-              <a href="{% url 'view-inventory-stock' %}"
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
                 class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.category %}quick-range-btn--selected{% endif %}">
                 <i class="bi bi-grid"></i> All
               </a>
@@ -307,10 +307,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <hr class="sl-quick-divider">
           <div class="sl-quick-label">Quick Actions</div>
           <div class="btn-grid">
-            <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-receipt"></i> View Purchases
             </a>
-            <a href="{% url 'material-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-box-seam"></i> View Materials
             </a>
           </div>

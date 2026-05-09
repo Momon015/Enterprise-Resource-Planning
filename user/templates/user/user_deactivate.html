@@ -7,7 +7,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'user-profile' user.slug %}" class="breadcrumb-link">PROFILE</a>
+        <a href="{% url 'user-profile' user_id=user.id slug=user.slug %}" class="breadcrumb-link">PROFILE</a>
         <i class="bi bi-chevron-right"></i>
         <span>DEACTIVATE</span>
       </div>
@@ -15,7 +15,7 @@
       <p class="page-subtitle">You are about to deactivate this user account</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'user-profile' user.slug %}" class="btn-back">
+      <a href="{% url 'user-profile' user_id=user.id slug=user.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to profile
       </a>
     </div>
@@ -55,7 +55,7 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Email</span>
-              <span class="sd-info-value">{{ user.email|default:"—" }}</span>
+              <span class="sd-info-value">{{ user.email|default:"No email" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Role</span>
@@ -78,7 +78,7 @@
           <form method="POST">
             {% csrf_token %}
             <div class="mf-form-actions" style="margin-top:1.25rem;">
-              <a href="{% url 'user-profile' user.slug %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'user-profile' user_id=user.id slug=user.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-danger">
                 <i class="bi bi-person-slash"></i> Deactivate
               </button>
@@ -97,8 +97,76 @@
             <i class="bi bi-shield-exclamation"></i> Deactivation Impact
           </span>
         </div>
-        <div class="card-body">
+                <div class="card-body">
 
+          {% if user.role == 'owner' %}
+          <!-- OWNER-SPECIFIC IMPACT -->
+          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border); margin-bottom:0.85rem;">
+            <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color:var(--danger);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--danger);">Owner deactivation</div>
+              <div class="sd-note-text">As the owner, deactivating affects every business and staff account tied to your profile.</div>
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="color:var(--danger);">
+              <i class="bi bi-x-circle"></i> Will be revoked
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">All business profiles</span>
+              <span class="sd-info-value" style="color:var(--danger);">Locked</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Staff accounts</span>
+              <span class="sd-info-value" style="color:var(--danger);">Suspended</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">ERP &amp; dashboard</span>
+              <span class="sd-info-value" style="color:var(--danger);">Disabled</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Subscription</span>
+              <span class="sd-info-value" style="color:var(--danger);">Paused</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Login credentials</span>
+              <span class="sd-info-value" style="color:var(--danger);">Disabled</span>
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="color:var(--success);">
+              <i class="bi bi-check-circle"></i> Will be preserved
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">All sales records</span>
+              <span class="sd-info-value" style="color:var(--success);">Kept</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Inventory history</span>
+              <span class="sd-info-value" style="color:var(--success);">Kept</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Business profiles</span>
+              <span class="sd-info-value" style="color:var(--success);">Saved (locked)</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Reports &amp; summaries</span>
+              <span class="sd-info-value" style="color:var(--success);">Kept</span>
+            </div>
+          </div>
+
+          <div class="sd-note-box" style="background:var(--warning-light); border-color:#fde68a;">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--warning);">Reactivation</div>
+              <div class="sd-note-text">Contact support to reactivate. All business profiles and data will be restored to their original state.</div>
+            </div>
+          </div>
+
+          {% else %}
+          <!-- STAFF IMPACT -->
           <div class="sd-summary-block">
             <div class="sd-summary-block-label" style="color:var(--danger);">
               <i class="bi bi-x-circle"></i> Will be removed
@@ -130,14 +198,16 @@
               <span class="sd-info-value" style="color:var(--success);">Kept</span>
             </div>
           </div>
-
-          <div class="btn-grid">
-            <a href="{% url 'user-edit-profile' user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+          {% endif %}
+          
+          <div class="btn-grid" style="margin-top:1rem;">
+            <a href="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div>
 
         </div>
+
       </div>
     </div>
 

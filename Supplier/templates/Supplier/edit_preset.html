@@ -10,12 +10,12 @@
       <h1 class="page-title">Edit Preset</h1>
       <p class="page-subtitle">Adjust quantities and discounts for this preset.</p>
     </div>
-    {% comment %} <a href="{% url 'material-preset-detail' preset.id %}" class="btn btn-outline-secondary btn-sm">
+    {% comment %} <a href="{% url 'material-preset-detail' preset.id business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to presets
     </a> {% endcomment %}
   </div>
 
-  <form method="POST" action="{% url 'material-edit-preset' preset.user.username preset.id %}">
+  <form method="POST" action="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}">
     {% csrf_token %}
 
     <div class="two-col-layout">
@@ -46,7 +46,7 @@
                 <tr>
                   <td>
                     <div class="cell-primary">{{ item.material.name }}</div>
-                    <div class="cell-sub">#{{ item.material.id }}</div>
+                    <div class="cell-sub">{{ item.material.supplier.name|default:"No supplier" }}</div>
                   </td>
                   <td class="sl-text-center">
                     <div class="qty-stepper">
@@ -90,7 +90,7 @@
           <!-- FORM ACTIONS BELOW TABLE -->
           <div class="card-body" style="border-top:1px solid var(--border);">
             <div class="mf-form-actions">
-              <a href="{% url 'material-preset-list' %}" class="btn btn-light">Cancel</a>
+              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle sl-me-1"></i> Save changes
               </button>

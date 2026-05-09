@@ -72,6 +72,7 @@
               <tr>
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
+                  <div class="product-id">{{ item.supplier_name|default:"No supplier" }}</div>
                 </td>
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
@@ -134,10 +135,10 @@
             <i class="bi bi-info-circle"></i>
             <p>Confirm this sale to update inventory cost, stock, and employee salary usage.</p>
           </div>
-          <a href="{% url 'view-sale' %}" class="btn-secondary-action">
+          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-secondary-action">
             <i class="bi bi-pencil-square"></i> Edit product items
           </a>
-          <a href="{% url 'sale-confirm-summary' %}" class="btn-confirm">
+          <a href="{% url 'sale-confirm-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Sales
           </a>
         </div>
@@ -152,7 +153,7 @@
     <div class="empty-icon"><i class="bi bi-basket3"></i></div>
     <div class="empty-title">No products yet</div>
     <p class="empty-sub">Add products to your sale before confirming.</p>
-    <a href="{% url 'view-sale' %}" class="btn-add-product">
+    <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-add-product">
       <i class="bi bi-arrow-left"></i> Back to sale
     </a>
   </div>

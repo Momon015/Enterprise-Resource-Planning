@@ -2792,6 +2792,305 @@ details.filter-card summary:hover {
   padding-bottom: 2rem;
 } */
 
+/* Business Switcher Styling */
+.sidebar-select-container {
+  padding: 0 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-select {
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  /* Custom arrow to match your light icons */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://w3.org' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(255,255,255,0.4)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+  background-position: right 0.75rem center !important;
+  background-size: 12px 10px !important;
+}
+
+.sidebar-select:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+
+.sidebar-select:focus {
+  box-shadow: 0 0 0 2px rgba(45, 106, 79, 0.25) !important;
+  outline: none;
+}
+
+.sidebar-select option {
+  background-color: #131620; /* Matches sidebar bottom gradient */
+  color: #fff;
+}
+
+/* ══════════════════════════════════════════
+   MOBILE RESPONSIVE — GLOBAL OVERRIDES
+══════════════════════════════════════════ */
+
+/* ── Tablet & below (≤991px) ── */
+@media (max-width: 991px) {
+  /* Tighten page paddings */
+  .page-wrapper,
+  .mf-page-wrapper {
+    padding: 1rem 0.85rem;
+  }
+
+  /* Page titles down a notch */
+  .page-title { font-size: 1.25rem; }
+  .page-subtitle { font-size: 0.82rem; }
+  .sl-page-title,
+  .sd-page-title { font-size: 1.1rem; }
+
+  /* Header right wraps full width */
+  .page-header-right,
+  .sl-page-header,
+  .sd-page-header {
+    width: 100%;
+  }
+
+  /* Cards a touch smaller */
+  .card-body { padding: 1rem; }
+  .card-header { padding: 0.75rem 1rem; }
+
+  /* Container override */
+  .container-fluid.py-3.py-lg-4 {
+    padding: 1rem 0.85rem !important;
+  }
+}
+
+/* ── Phones (≤767px) ── */
+@media (max-width: 767px) {
+  /* Page header — stack vertically */
+  .page-header,
+  .sl-page-header,
+  .sd-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  /* Smaller card paddings */
+  .card-body { padding: 0.85rem; }
+  .card-header { padding: 0.7rem 0.85rem; }
+  .card-header-title { font-size: 0.88rem; }
+  .card-header-sub { font-size: 0.72rem; }
+
+  /* Card header row stacks if it has right-side content */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Header icons smaller */
+  .sd-header-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  /* Tables — horizontal scroll fallback */
+  .table-responsive,
+  .table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table.data-table,
+  .pos-table,
+  .table {
+    font-size: 0.82rem;
+    min-width: 560px;
+  }
+  table.data-table thead th,
+  .pos-table thead th {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.62rem;
+  }
+  table.data-table tbody td,
+  .pos-table tbody td {
+    padding: 0.6rem 0.55rem;
+  }
+  .table td {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+
+  /* Form action buttons stack */
+  .mf-form-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .mf-form-actions .btn {
+    width: 100%;
+  }
+
+  /* Filter actions stack */
+  .filter-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .filter-actions .btn,
+  .filter-actions .btn-group {
+    flex: 1;
+  }
+
+  /* Quick range — keep 2-col but smaller */
+  .quick-range-grid { gap: 0.4rem; }
+  .quick-range-btn {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  /* Action buttons (table row) */
+  .action-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+  }
+  .table-actions { gap: 0.3rem; }
+
+  /* Empty state */
+  .empty-state {
+    padding: 3rem 1.25rem;
+  }
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+  }
+  .empty-title { font-size: 1.05rem; }
+  .empty-sub { font-size: 0.85rem; }
+
+  /* Header stat chips wrap */
+  .header-stat {
+    font-size: 0.78rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  /* Toast full width */
+  .toast-container {
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 0.5rem;
+  }
+  .toast-message {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* Stats grids */
+  .sd-stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Pagination compact */
+  .page-item .page-link {
+    min-width: 1.85rem;
+    height: 1.85rem;
+    font-size: 0.78rem;
+  }
+}
+
+/* ── Small phones (≤540px) ── */
+@media (max-width: 540px) {
+  .page-wrapper,
+  .mf-page-wrapper {
+    padding: 0.85rem 0.65rem;
+  }
+
+  .page-title { font-size: 1.1rem; }
+  .page-subtitle { font-size: 0.78rem; }
+
+  /* Breadcrumb wraps */
+  .page-breadcrumb {
+    flex-wrap: wrap;
+    font-size: 0.62rem;
+  }
+
+  /* Stack any 2-col grid to 1 */
+  .sd-stats-row,
+  .quick-range-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Card body even tighter */
+  .card-body { padding: 0.75rem; }
+
+  /* Summary blocks tighter */
+  .sd-summary-block,
+  .sl-summary-row {
+    padding: 0.65rem;
+  }
+  .sd-note-box {
+    padding: 0.65rem;
+    font-size: 0.78rem;
+  }
+  .sd-total-amount { font-size: 1.4rem; }
+
+  /* Buttons full-width when grouped vertically */
+  .btn-grid .btn,
+  .btn-block { width: 100%; }
+
+  /* Receipt items stack name + total */
+  .receipt-line {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  /* POS stepper a little smaller */
+  .qty-stepper { transform: scale(0.95); }
+
+  /* Header stats wrap full-width */
+  .page-header-right {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .header-stat {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Created-by avatar smaller */
+  .created-by-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.7rem;
+  }
+
+  /* Pricing-sized totals */
+  .total-grand { font-size: 1.2rem; }
+}
+
+/* ── Very small (≤380px) ── */
+@media (max-width: 380px) {
+  .page-title { font-size: 1rem; }
+  .card-body { padding: 0.65rem; }
+  .btn { font-size: 0.78rem; padding: 0.35rem 0.7rem; }
+  .btn-confirm { font-size: 0.85rem; padding: 0.75rem; }
+  .action-btn { width: 28px; height: 28px; }
+}
+
+/* ── Footer cleanup on mobile ── */
+@media (max-width: 991px) {
+  footer {
+    margin-left: 0;
+    padding: 1rem 0.75rem;
+    font-size: 0.72rem;
+  }
+}
+
+
 
 /* ══════════════════════════════════════════
    ADD NEXT TEMPLATE CSS BELOW

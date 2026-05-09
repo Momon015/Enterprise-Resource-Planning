@@ -77,11 +77,12 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
+                  <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
                 </td>
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
-                <td><span class="mono" style="color:var(--success);">
-                  {% if item.discount %}₱{{ item.discount|floatformat:2 }}{% else %}—{% endif %}
+                <td><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
+                  ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
                 </span></td>
                 <td class="pe-4">
                   <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
@@ -159,10 +160,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <i class="bi bi-info-circle"></i>
             <p>Confirm this purchase to update inventory cost and stock.</p>
           </div>
-          <a href="{% url 'view-cart' %}" class="btn-secondary-action">
+          <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-secondary-action">
             <i class="bi bi-pencil-square"></i> Edit purchase items
           </a>
-          <a href="{% url 'purchase-summary' %}" class="btn-confirm">
+          <a href="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Purchase
           </a>
         </div>
@@ -176,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="empty-icon"><i class="bi bi-basket3"></i></div>
     <div class="empty-title">No items yet</div>
     <p class="empty-sub">Add items to your purchase before confirming.</p>
-    <a href="{% url 'view-cart' %}" class="btn-add-product">
+    <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-add-product">
       <i class="bi bi-arrow-left"></i> Back to purchase
     </a>
   </div>

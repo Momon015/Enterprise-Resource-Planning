@@ -35,6 +35,8 @@ from django.contrib.auth.hashers import make_password
 
 from Expense.models import Employee
 
+from django.utils.text import slugify
+
 # Create your views here.
 
 def get_ip(request):
@@ -43,9 +45,8 @@ def get_ip(request):
 
 
 def landing(request):
-    if request.user.is_authenticated:
-        return redirect('product-list')
-    
+    # if request.user.is_authenticated:
+    #     return redirect('business-list')
     return render(request, 'landing_page.html')
 
 def register_form(request):
@@ -62,39 +63,45 @@ def register_form(request):
             username = form.cleaned_data['username'].lower()
             email = form.cleaned_data['email']
             raw_password = form.cleaned_data['password1']
+            
+            # staff
             owner_username = form.cleaned_data.get('owner_username', '').lower().strip()
-            print(owner_username)
-            user = User.objects.create(username=username, is_active=False)
-            user.set_password(raw_password)
-            user.email = email
-            
-            if owner_username:
-                try:
-                    owner = User.objects.get(username=owner_username, role='owner')
-                    user.role = 'staff'
-                    user.owner = owner
-                except User.DoesNotExist:
-                    user.delete()
-                    messages.error(request, f"Owner username not found. Please check and try again later.")
-                    return redirect('register-form')
-            else:
-                user.role = 'owner'
-            
-            user.save()
-            # save user ID
+            owner_business = form.cleaned_data.get('owner_business', '')
+
+            try:
+                with transaction.atomic():
+                    # build user (no save yet)
+                    user = User(username=username, email=email, is_active=False)
+                    user.set_password(raw_password)
+
+                    if owner_username and owner_business:
+                        business = BusinessProfile.objects.get(
+                            user__role='owner',
+                            user__username=owner_username,
+                            business_name=owner_business,
+                        )
+                        request.session['business_id'] = str(business.id)
+                        user.role = 'staff'
+                        user.owner = business.user
+                    else:
+                        user.role = 'owner'
+                    user.save()  # single write
+
+                    otp = EmailOTP.generate_otp()
+                    otp_obj = EmailOTP.objects.create(user=user, otp=otp)
+
+                    send_email(user.email, otp)  # if this raises, atomic rolls back
+
+            except BusinessProfile.DoesNotExist:
+                messages.error(request, "Business name or Owner username not found.")
+                return redirect('register-form')
+            # except Exception:
+            #     messages.error(request, "Couldn't send verification email. Please try again.")
+            #     return redirect('register-form')
+
             request.session['user_id'] = user.id
-            
-            # generate OTP
-            otp = EmailOTP.generate_otp()
-            
-            # save otp_obj in DB
-            otp_obj = EmailOTP.objects.create(user=user, otp=otp)
             request.session['otp_id'] = otp_obj.id
-            
-            # send email
-            send_email(user.email, otp)
-            
-            messages.success(request, f"The OTP has been sent to your email.")
+            messages.success(request, "The OTP has been sent to your email.")
             return redirect('verify-otp')
 
     else:
@@ -120,53 +127,56 @@ def verify_otp(request):
         request.session.pop('otp_id', None)
         return redirect('expired-otp')
     
+    if otp_obj.is_expired():
+        request.session.pop('otp_id', None)
+        otp_obj.delete()
+        messages.error(request, f"The OTP has been expired. Please request for a new OTP.")
+        return redirect('expired-otp')
+    
     print('otp_obj', otp_obj)
-
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', None)
         
-        if otp_obj.is_expired():
-            request.session.pop('otp_id', None)
-            otp_obj.delete()
-            messages.error(request, f"The OTP has been expired. Please request for a new OTP.")
-            return redirect('expired-otp')
-        else:
+        if entered_otp == otp_obj.otp:
+            try:
+                with transaction.atomic():
+                    user.is_active = True
+                    user.save()
 
-            if entered_otp == otp_obj.otp:
-                try:
-                    user = User.objects.get(id=user_id)
-                except User.DoesNotExist:
-                    messages.error(request, f"Please register again.")
-                    return redirect('register-form')
-                
-                # save is_active manually
-                user.is_active=True
-                user.save()
-                
-                otp_obj.is_verified=True
-                otp_obj.save()
-                
-                if user.role == 'staff':
-                    Employee.objects.create(
-                        user=user.owner,
-                        staff_user=user,
-                        name=user.name or user.username,
-                        daily_rate=0,
-                    )
-                
-                # clear sessions
-                for key in ('user_id', 'otp_id'):
-                    request.session.pop(key, None)
-                
-                login(request, user)
-                if request.user.role == 'owner':
-                    return redirect('business-profile-create')
-                else:
-                    messages.success(request, f"Your account has been successfully created.")
-                    return redirect('user-profile', slug=user.username)
+                    otp_obj.is_verified = True
+                    otp_obj.save()
+
+                    if user.role == 'staff':
+                        business_id = request.session.get('business_id', None)
+                        if not business_id:
+                            raise ValueError("Missing business session.")
+
+                        business = BusinessProfile.objects.get(id=business_id)
+                        Employee.objects.create(
+                            user=business.user,
+                            business=business,
+                            staff_user=user,
+                            name=user.name or user.username,
+                            daily_rate=0,
+                        )
+            except (BusinessProfile.DoesNotExist, ValueError):
+                # transaction rolled back — user is still inactive, OTP unverified
+                user.delete()
+                messages.error(request, "Business name or Owner name not found.")
+                return redirect('register-form')
+            
+            # clear sessions
+            for key in ('user_id', 'otp_id', 'business_id'):
+                request.session.pop(key, None)
+            
+            login(request, user)
+            if request.user.role == 'owner':
+                return redirect('business-profile-create')
             else:
-                messages.error(request, "Invalid OTP. Please try again.")
- 
+                messages.success(request, f"Your account has been successfully created.")
+                return redirect('user-profile', slug=user.username, user_id=user.id)
+        else:
+            messages.error(request, "Invalid OTP. Please try again.")
             
     return render(request, 'user/verify_otp.html')
 
@@ -183,28 +193,32 @@ def resend_otp(request):
         messages.error(request, f"Your account is already verified")
         return redirect('login')
     
-    last_otp_sent = EmailOTP.objects.filter(user=user, is_verified=False).first()
+    last_otp_sent = EmailOTP.objects.filter(user=user, is_verified=False).order_by('-created_at').first()
     
     if last_otp_sent and not last_otp_sent.is_expired():
         messages.warning(request, f"Your OTP is still valid. Please check your email.")
-        return render(request, 'user/verify_otp.html')
+        return redirect('verify-otp')
     
     if last_otp_sent and last_otp_sent.is_expired():
         last_otp_sent.delete()
     
     # generate new OTP
-    otp = EmailOTP.generate_otp()
-    print('otp', otp)
-    otp_obj = EmailOTP.objects.create(otp=otp, user=user)
-    request.session['otp_id'] = otp_obj.id
-    
-    send_email(user.email, otp)
+    try:
+        with transaction.atomic():
+            otp = EmailOTP.generate_otp()
+            otp_obj = EmailOTP.objects.create(otp=otp, user=user)
+            send_email(user.email, otp)
+    except Exception:
+        messages.error(request, "Couldn't send OTP. Please try again.")
+        return redirect('verify-otp')
 
-    messages.success(request, f"The new OTP has been sent to your email.")
+    request.session['otp_id'] = otp_obj.id
+    messages.success(request, "The new OTP has been sent to your email.")
     return redirect('verify-otp')
 
 def verify_otp_expired(request):
-    
+    for key in ('user_id', 'otp_id', 'business_id'):
+        request.session.pop(key, None)
     return render(request, 'user/verify_otp_expired.html')
     
 def user_login(request):
@@ -220,7 +234,7 @@ def user_login(request):
         except User.DoesNotExist:
             user_obj = None
             messages.error(request, f"Username OR Password is incorrect. Please try again.")
-            print('user_obj', user_obj)
+            # print('user_obj', user_obj)
             
         if user_obj and user_obj.locked_until and timezone.now() > user_obj.locked_until: # checks if the user is not locked anymore to reset the attempts
             user_obj.reset_attempts()
@@ -233,13 +247,17 @@ def user_login(request):
 
         if user:
             login(request, user)
+            if user.role == 'staff':
+                business = BusinessProfile.objects.filter(employees__staff_user=request.user).first()
+            else:
+                business = BusinessProfile.objects.filter(user=request.user).first()
             user_obj.reset_attempts()
             user_obj.last_login = timezone.now()
             user_obj.save(update_fields=['last_login'])
             if user.role == 'owner':
-                return redirect('dashboard')
+                return redirect('dashboard', business_slug=business.slug)
             else:
-                return redirect('product-list')
+                return redirect('product-list', business_slug=business.slug)
         else:
             if user_obj and not user_obj.is_locked(): # checks if user exists and the user is not locked
                 user_obj.register_failed_login()
@@ -253,8 +271,8 @@ def user_login(request):
     return render(request, 'user/register_and_login_form.html', context)
 
 @login_required(login_url='login')
-def user_profile(request, slug):
-    user = get_object_or_404(User, slug=slug)
+def user_profile(request, user_id, slug):
+    user = get_object_or_404(User, slug=slug, id=user_id)
     business = BusinessProfile.objects.filter(user=user).first()
     
     if user != request.user:
@@ -264,8 +282,8 @@ def user_profile(request, slug):
     return render(request, 'user/user_profile.html', context)
 
 @login_required(login_url='login')
-def user_edit_profile(request, slug):
-    user = get_object_or_404(User, slug=slug)
+def user_edit_profile(request, user_id, slug):
+    user = get_object_or_404(User, slug=slug, id=user_id)
 
     if user != request.user:
             return render(request, 'core/no_access.html', status=403)
@@ -281,10 +299,10 @@ def user_edit_profile(request, slug):
             user.last_name = user.last_name.title()
             user.save()
             messages.success(request, f"Your profile has been updated.")
-            return redirect('user-profile', slug=slug)
+            return redirect('user-profile', slug=user.slug, user_id=user_id)
         
         else:
-            print('form errors: ', form.errors)
+            print(form.errors)
             
     else:
         form = UpdateUserForm(instance=user)
@@ -303,9 +321,9 @@ def user_edit_password(request):
             user.save(update_fields=['password_changed_at'])
             update_session_auth_hash(request, user) # keeps the user logged in
             messages.success(request, f"Your Password has succesfully updated.")
-            return redirect('user-profile', request.user.slug)
+            return redirect('user-profile', user_id=user.id, slug=user.slug)
         else:
-            print('form errors:', form.errors)
+            print(form.errors)
         
     else:
         form = StyledPasswordChangeForm(user=request.user)
@@ -330,9 +348,9 @@ def user_edit_password(request):
 #     return render(request, 'user/edit_user_profile_form.html', context)
 
 @login_required(login_url='login')
-def user_deactivate(request, slug):
-    user = get_object_or_404(User, slug=slug)
-    print('user', request.user)
+def user_deactivate(request, user_id, slug):
+    user = get_object_or_404(User, slug=slug, id=user_id)
+    # print('user', request.user)
     if user != request.user:
         return render(request, 'core/no_access.html', status=403)
     
@@ -350,6 +368,15 @@ def user_logout(request):
     logout(request)
     return redirect('landing')
 
+def business_list(request):
+    user = request.user
+    
+    businesses = BusinessProfile.objects.filter(user=user)
+    
+    context = {'businesses': businesses}
+    return render(request, 'user/business_list.html', context)
+    
+
 def business_profile_create(request):
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST)
@@ -359,7 +386,7 @@ def business_profile_create(request):
             profile.user = request.user
             profile.save()
             messages.success(request, f"Your business profile has been created successfully.")
-            return redirect('user-profile', slug=request.user.slug)
+            return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
         else:
             messages.error(request, f"Cafe and Restaurant are coming soon.")
             return redirect('business-profile-create')
@@ -380,6 +407,7 @@ def business_profile_detail(request, business_id, slug):
 
 @login_required(login_url='login')
 def business_profile_update(request, business_id, slug):
+    current_user = request.user
     business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=slug)
     
     if request.method == 'POST':
@@ -390,10 +418,10 @@ def business_profile_update(request, business_id, slug):
             obj.business_name = obj.business_name.title()
             obj.save()
             messages.success(request, f"Your business name changed successfully.")
-            return redirect('user-profile', slug=obj.user.slug)
+            return redirect('user-profile', user_id=obj.user.id, slug=obj.user.slug)
     else:
         form = BusinessProfileForm(instance=business)
     
-    context = {'form': form, 'business': business, 'section': 'user'}
+    context = {'form': form, 'business': business, 'section': 'user', 'current_user': current_user}
     return render(request, 'user/business_profile_update.html', context)
 

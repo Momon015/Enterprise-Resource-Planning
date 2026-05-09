@@ -15,17 +15,35 @@ def permission_required(action):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
+            business_slug = kwargs.get('business_slug')
+        
+            referer = request.META.get('HTTP_REFERER')
+            
             if request.user.role == 'developer':
-                if action in ('create', 'view', 'delete', 'update', 'save', 'add', 'owner_only'):
+                if action in ('create', 'view', 'delete', 'update', 'save', 'add', 'read_only'):
                     messages.error(request, "Developer accounts have read-only access. Creating, editing, and deleting records is restricted.")
-                    return redirect(request.META.get('HTTP_REFERER') or 'product-list')
+                    if referer:
+                        return redirect(referer)
+                    return redirect('product-list', business_slug=business_slug)
             if request.user.role == 'staff':
-                if action in ('staff_delete', 'staff_add'):
-                    messages.error(request, "You don't have permission to perform this action. Only the account owner can do this.")
-                    return redirect(request.META.get('HTTP_REFERER') or reverse('product-list'))
-                if action == 'owner_only':
-                    messages.error(request, "This section is only available to the account owner.")
-                    return redirect(request.META.get('HTTP_REFERER') or reverse('product-list'))
+                if action == 'staff_view':
+                    messages.error(request, "This section is owner-only. You don't have access to financial records and analytics.")
+                    if referer:
+                        return redirect(referer)
+                    else:
+                        return redirect('product-list', business_slug=business_slug)
+                elif action in ('owner_delete', 'staff_add'):
+                    messages.error(request, "Only the business owner can perform this action.")
+                    if referer:
+                        return redirect(referer)
+                    else:
+                        return redirect('product-list', business_slug=business_slug)
+                # if action == 'owner_only':
+                #     messages.error(request, "This section is only available to the account owner.")
+                #     if referer:
+                #         return redirect(referer)
+                #     else:
+                #         return redirect('product-list', business_slug=business_slug)
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator

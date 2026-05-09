@@ -66,10 +66,11 @@ document.addEventListener("DOMContentLoaded", function () {
           <tr>
             <td class="ps-4">
               <div class="product-name">{{ item.name }}</div>
+              <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
             <td class='text-end'><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
-            <td class='text-end'><span class="mono" style="color:var(--success);">
+            <td class='text-end'><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
               ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
             </span></td>
             <td class="text-end pe-4">
@@ -124,11 +125,11 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-printer"></i> Print receipt
       </button>
       {% if request.user.role == 'owner' %}
-      <a href="{% url 'dashboard' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+      <a href="{% url 'dashboard' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard
       </a>
       {% else %}
-      <a href="{% url 'view-inventory-stock' %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+      <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-basket"></i> Back to inventory
       {% endif %}
       </a>

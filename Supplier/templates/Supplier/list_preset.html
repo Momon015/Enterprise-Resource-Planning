@@ -31,14 +31,43 @@
         <i class="bi bi-bookmark-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> preset{{ page_obj.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+      <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm">
         <i class="bi bi-clipboard-check"></i> Purchase Record
       </a>
-      <a href="{% url 'material-list' %}?{{ request.GET.urlencode }}" class="btn btn-light btn-sm btn-back">
+      <a href="{% url 'material-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to supplier
       </a>
     </div>
   </div>
+
+  <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.category %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                        placeholder="Search preset name..."
+                        value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+            </div>
+          </form>
+        </div>
+      </details>
 
   <div class="two-col-layout">
 
@@ -47,12 +76,13 @@
       <div class="card table-card">
         <div class="card-header">
           <div class="card-header-left-group">
-            <span class="card-header-title">All Presets</span>
+            <span class="card-header-title">Presets</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} preset{{ page_obj.paginator.count|pluralize }}</span>
           </div>
           <span class="card-header-sub">Click a preset to view or add to purchase.</span>
         </div>
 
+    
         <div class="table-responsive">
           {% if page_obj and page_obj.object_list %}
           <table class="data-table">
@@ -69,7 +99,7 @@
               <tr>
                 <td>
                   <div class="cell-primary">{{ preset.name }}</div>
-                  {% comment %} <div class="cell-sub">ID: #{{ preset.id }}</div> {% endcomment %}
+                  <div class="cell-sub">#{{ forloop.counter }}</div>
                 </td>
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ preset.preset_items.count }}</span>
@@ -79,19 +109,19 @@
                 </td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'material-add-preset-to-cart' preset.user.username preset.id %}?{{request.GET.urlencode}}"
+                    <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
                        class="action-btn" title="Add to purchase">
                       <i class="bi bi-plus-lg"></i>
                     </a>
-                    <a href="{% url 'material-preset-detail' preset.user.username preset.id %}"
+                    <a href="{% url 'material-preset-detail' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
                        class="action-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'material-edit-preset' preset.user.username preset.id %}"
+                    <a href="{% url 'material-edit-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
                        class="action-btn" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'material-delete-preset' preset.user.username preset.id %}"
+                    <a href="{% url 'material-delete-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
                        class="action-btn action-btn--danger" title="Delete preset">
                       <i class="bi bi-trash3"></i>
                     </a>
@@ -106,7 +136,7 @@
             <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
             <h3 class="empty-title">No presets yet</h3>
             <p class="empty-text">Create a preset from your current purchase to reuse recurring orders.</p>
-            <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
               <i class="bi bi-clipboard-check"></i> Go to purchase screen
             </a>
           </div>

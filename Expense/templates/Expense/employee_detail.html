@@ -13,7 +13,7 @@
       </h4>
       <p class="sl-page-subtitle">Employee details · Daily rate and payroll info.</p>
     </div>
-    <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary btn-sm">
+    <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to employees
     </a>
   </div>
@@ -100,10 +100,10 @@
           {% comment %} <div class="sd-summary-block">
             <div class="mf-guide-title">Quick Actions</div>
             <div class="btn-grid">
-              <a href="{% url 'employee-update' employee.id employee.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-pencil-square"></i> Edit Details
               </a>
-              <a href="{% url 'employee-delete' employee.id employee.slug %}" class="btn btn-sm btn-block"
+              <a href="{% url 'employee-delete' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block"
                  style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
                 <i class="bi bi-trash"></i> Delete Employee
               </a>

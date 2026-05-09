@@ -12,7 +12,7 @@
       </h4>
       <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ material.name }}</strong>.</p>
     </div>
-    <a href="{% url 'material-list' %}" class="btn btn-outline-secondary btn-sm">
+    <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to materials
     </a>
   </div>
@@ -54,7 +54,7 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Category</span>
-              <span class="sd-info-value">{{ material.category.name|default:"Uncategorized" }}</span>
+              <span class="sd-info-value">{{ material.category.name|default:"No category" }}</span>
             </div>
           </div>
 
@@ -71,7 +71,7 @@
           <form method="POST">
             {% csrf_token %}
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
-              <a href="{% url 'material-list' %}" class="btn btn-outline-secondary">
+              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">
                 Cancel
               </a>
               <button type="submit" class="btn"
@@ -108,10 +108,10 @@
 
           <!-- ACTIONS -->
           <div class="btn-grid">
-            <a href="{% url 'material-detail' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-detail' id=material.id slug=material.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View Detail
             </a>
-            <a href="{% url 'material-update' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div>

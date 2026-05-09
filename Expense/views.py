@@ -45,7 +45,7 @@ from django.db.models import Sum, Avg, Max, OuterRef, Subquery
 
 from user.models import User
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 # logging
 import logging
@@ -55,9 +55,11 @@ import logging
 logger = logging.getLogger('Expense')
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def purchase_history(request):
-    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).order_by('-created_at')
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def purchase_history(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-created_at')
     
     # forms
     form = PurchaseFilterForm(request.GET or None)
@@ -160,14 +162,12 @@ def purchase_history(request):
     return render(request, 'Expense/purchase_history.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def purchase_detail(request, username, purchase_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def purchase_detail(request, business_slug, purchase_id):
+    business = get_business_for_user(request.user, business_slug)
     
-    purchase = get_object_or_404(Purchase, user=owner, id=purchase_id)
+    purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
     purchase_items = purchase.materials.select_related('material')
     line_count = purchase_items.count()
     
@@ -176,20 +176,21 @@ def purchase_detail(request, username, purchase_id):
 
 """clearing cart just in case there's a bug """
 @login_required(login_url='login')
-def clear_cart(request):
+def clear_cart(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     request.session['cart'] = {}
     request.session.modified = True
     messages.success(request, "All items has been removed.")
-    return redirect('material-list')
+    return redirect('material-list', business_slug=business.slug)
 
 """clearing cart just in case there's a bug """
 
 @login_required(login_url='login')
 @permission_required('add')
-def add_to_cart(request, id):
-    owner = get_owner(request.user)
+def add_to_cart(request, business_slug, id):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, user=owner, id=id) 
+    material = get_object_or_404(Material, business=business, id=id) 
     material_slug = material.slug
     
     material_key = str(material.id) 
@@ -207,6 +208,7 @@ def add_to_cart(request, id):
         else:
             # first time adding to the cart.
             cart[material_key] = {
+                'supplier': material.supplier.name if material.supplier else 'No supplier',
                 'id': material.id,
                 'slug': material_slug,
                 'name': material.name,
@@ -230,7 +232,7 @@ def add_to_cart(request, id):
     if request.GET.get('category'):
         query_params['category'] = request.GET.get('category')
     
-    url = reverse('material-list')
+    url = reverse('material-list', kwargs={'business_slug': business.slug})
     if query_params:
         url += "?" + urlencode(query_params)
     
@@ -253,15 +255,15 @@ def add_to_cart(request, id):
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def view_cart(request):
-    owner = get_owner(request.user)
+def view_cart(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
     subtotal = 0
     total_discount = 0
     cart_items = []
 
     for material_id, data in cart.items():
-        material = get_object_or_404(Material, user=owner, id=material_id)
+        material = get_object_or_404(Material, business=business, id=material_id)
         material_slug = material.slug
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
@@ -274,7 +276,9 @@ def view_cart(request):
         total_discount += discount
         subtotal += item_total
         
+        
         cart_items.append({
+            'supplier': material.supplier.name if material.supplier else 'No supplier',
             'id': material_id,
             'slug': material_slug,
             'material': material.name,
@@ -297,15 +301,15 @@ def view_cart(request):
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def view_cart_summary(request):
-    owner = get_owner(request.user)
+def view_cart_summary(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
     subtotal = 0
     total_discount = 0
     cart_items = []
     
     for material_id, data in cart.items():
-        material = get_object_or_404(Material, user=owner, id=material_id)
+        material = get_object_or_404(Material, business=business, id=material_id)
         material_slug = material.slug
         str_discount = data.get('discount', 0)
         discount = Decimal(str_discount)
@@ -319,6 +323,7 @@ def view_cart_summary(request):
         subtotal += item_total
         
         cart_items.append({
+            'supplier': material.supplier.name if material.supplier else 'No supplier',
             'id': material.id,
             'name': material.name,
             'slug': material_slug,
@@ -343,21 +348,27 @@ def view_cart_summary(request):
 
 @login_required(login_url='login')
 @permission_required('update')
-def confirm_purchase_summary(request):
+def confirm_purchase_summary(request, business_slug):
     cart = request.session.get('cart', {})
     lines = request.session.get('lines', 0)
     subtotal = 0
     total_discount = 0
     
-    owner = get_owner(request.user)
+    business = get_business_for_user(request.user, business_slug)
     
     try: 
         with transaction.atomic():
             status, created = StatusModel.objects.get_or_create(name='paid') # cash payment directly so automatically paid
-            purchase = Purchase.objects.create(total_cost=0, status=status, user=owner, created_by=request.user)
+            purchase = Purchase.objects.create(
+                user=business.user, 
+                business=business, 
+                total_cost=0, 
+                status=status, 
+                created_by=request.user
+            )
 
             for material_id, data in cart.items():
-                material = get_object_or_404(Material, user=owner, id=material_id)
+                material = get_object_or_404(Material, business=business, id=material_id)
                 str_discount = data.get('discount', 0)
                 discount = Decimal(str_discount)
                 quantity = data['quantity']
@@ -415,7 +426,8 @@ def confirm_purchase_summary(request):
                 
                 
                 stock, created = Stock.objects.get_or_create(
-                    user=owner,
+                    user=business.user,
+                    business=business,
                     material=material,
                     defaults={
                         'quantity': quantity,
@@ -434,7 +446,9 @@ def confirm_purchase_summary(request):
                 
 
                 product, created = Product.objects.get_or_create(
-                    user=owner,
+                    user=business.user,
+                    business=business,
+                    name=material.name,
                     material=material,
                     defaults={
                         'cost_price': actual_unit_cost / quantity,
@@ -475,12 +489,12 @@ def confirm_purchase_summary(request):
     request.session['cart'] = {}
     request.session.modified = True
 
-    return redirect('view-purchase-summary', purchase.id)
+    return redirect('view-purchase-summary', business_slug=business.slug, purchase_id=purchase.id)
 
 @login_required(login_url='login')
-def view_purchase_summary(request, purchase_id):
-    owner = get_owner(request.user)
-    purchase = get_object_or_404(Purchase, user=owner, id=purchase_id)
+def view_purchase_summary(request, business_slug, purchase_id):
+    business = get_business_for_user(request.user, business_slug)
+    purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
     purchase_items = purchase.materials.select_related('material')
     
     total_discount = 0
@@ -498,6 +512,7 @@ def view_purchase_summary(request, purchase_id):
         subtotal += item_total
         
         cart_items.append({
+            'supplier': item.supplier,
             'name': item.name,
             'price': item.price,
             'quantity': quantity,
@@ -511,10 +526,10 @@ def view_purchase_summary(request, purchase_id):
     return render(request, 'Expense/view_purchase_summary.html', context)
 
 @login_required(login_url='login')
-def cart_remove_materials(request, id):
-    owner = get_owner(request.user)
+def cart_remove_materials(request, business_slug, id):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, user=owner, id=id)
+    material = get_object_or_404(Material, business=business, id=id)
     
     material_key = str(material.id)
     
@@ -523,13 +538,13 @@ def cart_remove_materials(request, id):
         messages.success(request, f"{material.name} removed from the purchase record.")
          
     request.session.modified = True
-    return redirect('view-cart')
+    return redirect('view-cart', business_slug=business.slug)
 
 @login_required(login_url='login')
-def edit_total_price(request, material_id):
-    owner = get_owner(request.user)
+def edit_total_price(request, business_slug, material_id):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, user=owner, id=material_id)
+    material = get_object_or_404(Material, business=business, id=material_id)
     material_key = str(material.id)
     
     if cart:
@@ -546,13 +561,13 @@ def edit_total_price(request, material_id):
     request.session['cart'] = cart
     request.session.modified = True
     
-    return redirect('view-cart')
+    return redirect('view-cart', business_slug=business.slug)
 
 @login_required(login_url='login')
-def cart_edit_material(request, id):
-    owner = get_owner(request.user)
+def cart_edit_material(request, business_slug, id):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
-    material = get_object_or_404(Material, user=owner, id=id)
+    material = get_object_or_404(Material, business=business, id=id)
 
     material_key = str(material.id)
     
@@ -571,10 +586,11 @@ def cart_edit_material(request, id):
         else:
              messages.warning(request, f"{material.name} - quantity limit reached.")
     
-    return redirect('view-cart')
+    return redirect('view-cart', business_slug=business.slug)
 
 @login_required(login_url='login')
-def cart_discount_material(request):
+def cart_discount_material(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
     
     for material_id, data in cart.items():
@@ -585,15 +601,15 @@ def cart_discount_material(request):
     request.session['cart'] = cart
     request.session.modified = True
     
-    return redirect('view-cart')
+    return redirect('view-cart', business_slug=business.slug)
 
 # @login_required(login_url='login')  
 # @permission_required('owner_only')
 # def employee_create(request):
 #     page = 'employee'
-#     owner = get_owner(request.user)
+#     business = get_business_for_user(request.user, business_slug)
 #     if request.method == 'POST':
-#         form = EmployeeForm(request.POST, user=owner)
+#         form = EmployeeForm(request.POST, business=business)
 #         if form.is_valid():
 #             obj = form.save(commit=False)
 #             obj.user = request.user
@@ -604,15 +620,17 @@ def cart_discount_material(request):
 #         else:
 #             print(form.errors)
 #     else:
-#         form = EmployeeForm(user=owner)
+#         form = EmployeeForm(business=business)
 
 #     context = {'form': form, 'section': 'employee'}
 #     return render(request, 'Expense/employee_create.html', context)
 
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def employee_list(request):
-    employees = get_queryset_for_user(request.user, Employee.objects.all()).order_by('name')
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def employee_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    employees = get_queryset_for_user(request.user, Employee.objects.all()).filter(business=business).order_by('name')
     
     form = EmployeeFilterForm(request.GET or None)
     
@@ -626,7 +644,7 @@ def employee_list(request):
     total_daily_rate = employees.total_daily_rate()
     monthly_payroll_est = total_daily_rate * 30
     
-    pagination = Paginator(employees, 4)
+    pagination = Paginator(employees, 5)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
 
@@ -640,10 +658,11 @@ def employee_list(request):
     return render(request, 'Expense/employee_list.html', context)
 
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def employee_detail(request, employee_id, slug):
-    owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def employee_detail(request, business_slug, employee_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
     
     monthly_rate = employee.daily_rate * 30
     
@@ -652,21 +671,20 @@ def employee_detail(request, employee_id, slug):
     return render(request, 'Expense/employee_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def employee_update(request, employee_id, slug):
-    owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def employee_update(request, business_slug, employee_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
     
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
         
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.user = owner
-            obj.created_by = request.user
             obj.save()
             messages.success(request, f"{obj.name}'s details has been updated.")
-            return redirect('employee-detail', employee.id, employee.slug)
+            return redirect('employee-list', business_slug=business.slug)
         else:
             print(form.errors)
     else:
@@ -676,10 +694,11 @@ def employee_update(request, employee_id, slug):
     return render(request, 'Expense/employee_update.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def employee_delete(request, employee_id, slug):
-    owner = get_owner(request.user)
-    employee = get_object_or_404(Employee, user=owner, id=employee_id, slug=slug)
+@permission_required('staff_delete')
+@permission_required('read_only') # dev
+def employee_delete(request, business_slug, employee_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
     
     print(employee.user)
     print(employee.staff_user)
@@ -692,14 +711,15 @@ def employee_delete(request, employee_id, slug):
         employee.delete() # then delete the employee record
         
         messages.success(request, f"{employee.name} - has been deleted from employee record.")
-        return redirect('employee-list')
+        return redirect('employee-list', business_slug=business.slug)
     context = {'employee': employee, 'section': 'employee'}
     return render(request, 'Expense/employee_delete.html', context)
 
 @login_required(login_url='login')
-@permission_required('view') # dev
-def shift_log_create(request):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def shift_log_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     amount = 0
     if request.method == 'POST':
         selected_employee_ids = request.POST.getlist('selected_ids', [])
@@ -711,7 +731,8 @@ def shift_log_create(request):
             
             try:
                 shift = Shift.objects.create(
-                    user=owner,
+                    user=business.user,
+                    business=business,
                     amount=0,
                     date=date,
                     created_by=request.user,
@@ -722,21 +743,21 @@ def shift_log_create(request):
                 
                 if emp_date > date_type.today():
                     messages.error(request, 'Expense date cannot be in the future.')
-                    employees = Employee.objects.filter(user=owner)
+                    employees = Employee.objects.filter(business=business)
                     return render(request, 'Expense/shift_log_create.html',{
                         'employees': employees,
                         'section': 'expense',
                     })
             except (ValueError, TypeError):
                 messages.error(request, 'Invalid date. Please select a valid date.')
-                employees = Employee.objects.filter(user=owner)
+                employees = Employee.objects.filter(business=business)
                 return render(request, 'Expense/shift_log_create.html', {
                     'employees': employees,
                     'section': 'expense',
                 })
                 
             for employee_id in selected_employee_ids:
-                employee = get_object_or_404(Employee, user=owner, id=employee_id)
+                employee = get_object_or_404(Employee, business=business, id=employee_id)
                 daily_rate = request.POST.get(f"daily_rate_{employee.id}")
                 
                 if not daily_rate:
@@ -755,9 +776,9 @@ def shift_log_create(request):
             shift.amount = amount
             shift.save()
             messages.success(request, f"Today's shift has been recorded. Please check the expense record.")
-            return redirect('expense-list')
+            return redirect('expense-list', business_slug=business.slug)
                 
-    employees = Employee.objects.filter(user=owner)
+    employees = Employee.objects.filter(business=business)
     
     context = {'employees': employees, 'section': 'employees'}
     return render(request, 'Expense/shift_log_create.html', context)
@@ -765,10 +786,11 @@ def shift_log_create(request):
 
 
 @login_required(login_url='login')
-@permission_required('view') # dev
-def waste_list(request):
-    stocks = get_queryset_for_user(request.user, Stock.objects.all()).order_by('-created_at')
-    wastes = get_queryset_for_user(request.user, Waste.objects.all()).order_by('-date')
+@permission_required('read_only') # dev
+def waste_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    stocks = get_queryset_for_user(request.user, Stock.objects.all()).filter(business=business).order_by('-created_at')
+    wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business).order_by('-date')
     
     total_waste_cost = wastes.aggregate(waste_cost=Sum(F('waste_items__price') * F('waste_items__quantity')))['waste_cost'] or 0
     max_waste = wastes.aggregate(max=Max('total_cost'))['max'] or 0 
@@ -833,30 +855,31 @@ def waste_list(request):
 
 @login_required(login_url='login')
 @permission_required('add') # dev
-def waste_product_create(request):
-    owner = get_owner(request.user)
+def waste_product_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     page = 'waste_product' 
     if request.method == 'POST':
-        form = ProductWasteForm(request.POST, user=owner)
+        form = ProductWasteForm(request.POST, business=business)
 
         if form.is_valid():
             item = form.save(commit=False)
-            item.user = owner
+            item.user = business.user
+            item.business = business
             item.product.prepared_quantity -= item.quantity
             item.save()
             messages.success(request, f"{item.product.name} - has been added to expense.")
-            return redirect('expense-waste-list')         
+            return redirect('expense-waste-list', business_slug=business.slug)         
     else:
-        form = ProductWasteForm(user=owner)
+        form = ProductWasteForm(business=business)
 
     context = {'form': form, 'page': page, 'section': 'waste'}
     return render(request, 'Expense/waste_create.html', context)
 
 @login_required(login_url='login')
 @permission_required('add') # dev
-def waste_material_create(request):
+def waste_material_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     page = 'waste_material'
-    owner = get_owner(request.user)
     total_cost = 0
     
     if request.method == 'POST':
@@ -868,13 +891,14 @@ def waste_material_create(request):
         
         else:  
             waste = Waste.objects.create(
-                user=owner,
+                user=business.user,
+                business=business,
                 total_cost=0,
                 created_by=request.user,
                 
             )
             invalid_items = []
-            stocks = Stock.objects.filter(id__in=selected_ids, user=owner)
+            stocks = Stock.objects.filter(id__in=selected_ids, business=business)
             for stock in stocks:
                 price = stock.price
                 raw_quantity = request.POST.get(f"quantity_{stock.id}")
@@ -893,7 +917,7 @@ def waste_material_create(request):
                         continue
                         
                 # deduct as well for the product
-                product = Product.objects.filter(user=owner, material=stock.material).first()
+                product = Product.objects.filter(business=business, material=stock.material).first()
                 if product:
                     if product.prepared_quantity >= quantity:
                         product.prepared_quantity -= quantity
@@ -928,22 +952,19 @@ def waste_material_create(request):
             
             else:
                 messages.success(request, f"Waste has been created.")
-            return redirect('expense-waste-list')         
+            return redirect('expense-waste-list', business_slug=business.slug)         
 
-    stocks = Stock.objects.filter(user=owner)
+    stocks = Stock.objects.filter(business=business)
 
     context = {'page': page, 'section': 'waste', 'stocks': stocks}
     return render(request, 'Expense/waste_create.html', context)
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def waste_material_detail(request, username, waste_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+def waste_material_detail(request, business_slug, waste_id):
+    business = get_business_for_user(request.user, business_slug)
         
-    waste = get_object_or_404(Waste, user=owner, id=waste_id)
+    waste = get_object_or_404(Waste, business=business, id=waste_id)
     waste_items = waste.waste_items.select_related('material')
     
     context = {'waste': waste, 'section': 'waste', 'waste_items': waste_items}
@@ -951,9 +972,10 @@ def waste_material_detail(request, username, waste_id):
 
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def expense_create(request):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def expense_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     total_amount = 0
     
     if request.method == 'POST':
@@ -971,28 +993,29 @@ def expense_create(request):
                 
                 expense = Expense.objects.create(
                     total_amount=0,
-                    user=owner,
+                    user=business.user,
+                    business=business,
                     created_by=request.user,
                     date=timezone.now().date(),
                 )
                 
                 if expense_date > date_type.today():
                     messages.error(request, 'Expense date cannot be in the future.')
-                    misc_expense = MiscExpense.objects.filter(user=owner)
+                    misc_expense = MiscExpense.objects.filter(business=business)
                     return render(request, 'Expense/misc_and_expense_create.html',{
                         'section': 'expense',
                         'misc_expenses': misc_expense,
                     })
             except (ValueError, TypeError):
                 messages.error(request, 'Invalid date. Please select a valid date.')
-                misc_expenses = MiscExpense.objects.filter(user=owner)
+                misc_expenses = MiscExpense.objects.filter(business=business)
                 return render(request, 'Expense/misc_and_expense_create.html', {
                     'section': 'expense',
                     'misc_expenses': misc_expenses,
                 })
                 
             for misc_id in selected_ids:
-                misc = get_object_or_404(MiscExpense, user=owner, id=misc_id)
+                misc = get_object_or_404(MiscExpense, business=business, id=misc_id)
                 amount = request.POST.get(f"amount_{misc_id}")
                 date = request.POST.get('date')
                 total_amount += Decimal(amount)
@@ -1009,21 +1032,22 @@ def expense_create(request):
             expense.save()
                 
             messages.success(request, 'Expense has been created.')
-            return redirect('expense-list')
+            return redirect('expense-list', business_slug=business.slug)
         
-    misc_expenses = MiscExpense.objects.filter(user=owner)
+    misc_expenses = MiscExpense.objects.filter(business=business)
     
     context = {'section': 'expense', 'misc_expenses': misc_expenses}
     return render(request, 'Expense/misc_and_expense_create.html', context)
 
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def expense_list(request):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def expense_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     average_amount_cost = 0
     
-    expenses = get_queryset_for_user(request.user, Expense.objects.all())
-    shifts = get_queryset_for_user(request.user, Shift.objects.all())
+    expenses = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
+    shifts = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
     
     expense_by_dates = expenses.values('date').annotate(total_amount=Sum('total_amount')).order_by('-date')
     shift_by_dates = shifts.values('date').annotate(total_shift=Sum('amount')).order_by('-date')
@@ -1145,18 +1169,16 @@ def expense_list(request):
     return render(request, 'Expense/expense_list.html', context)
 
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def expense_detail(request, username, date):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def expense_detail(request, business_slug, date):
+    business = get_business_for_user(request.user, business_slug)
     
     # Get all expenses and employees for this date
-    expense = Expense.objects.filter(user=owner, date=date)
+    expense = Expense.objects.filter(business=business, date=date)
     exp_items = ExpenseItem.objects.filter(expense__in=expense)
     
-    shift = Shift.objects.filter(user=owner, date=date)
+    shift = Shift.objects.filter(business=business, date=date)
     shift_employees = ShiftEmployee.objects.filter(shift__in=shift)
     
     # Calculate totals
@@ -1169,8 +1191,8 @@ def expense_detail(request, username, date):
     for exp in exp_items:
         expense_items.append({
             'type': 'expense',
-            'name': exp.misc_expense.name if exp.misc_expense.name else 'Unnamed',
-            'category': exp.misc_expense.category.name if exp.misc_expense and exp.misc_expense.category else 'Uncategorized',
+            'name': exp.name,
+            'category': exp.category,
             'amount': exp.amount,
         })
     
@@ -1205,7 +1227,7 @@ def expense_detail(request, username, date):
 #     if request.user.role == 'developer':
 #         owner = get_object_or_404(User, username=username)
 #     else:
-#         owner = get_owner(request.user)
+#         business = get_business_for_user(request.user, business_slug)
         
 
 #     expense = Expense.objects.filter(user=owner, date=date)
@@ -1252,9 +1274,11 @@ def expense_detail(request, username, date):
 
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def misc_expense_list(request):
-    misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).order_by('-created_at')
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def misc_expense_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).filter(business=business).order_by('-created_at')
     
     pagination = Paginator(misc_expenses, 5)
     page = request.GET.get('page')
@@ -1264,83 +1288,77 @@ def misc_expense_list(request):
     return render(request, 'Expense/misc_expense_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def misc_expense_create(request):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def misc_expense_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     if request.method == 'POST':
-        form = MiscExpenseForm(request.POST, user=owner)
+        form = MiscExpenseForm(request.POST, business=business)
         
         if form.is_valid():
             misc_expense = form.save(commit=False)
-            misc_expense.user = owner
+            misc_expense.user = business.user
+            misc_expense.business = business
             misc_expense.created_by = request.user
             misc_expense.name = misc_expense.name.title()
             misc_expense.save()
             messages.success(request, f"{misc_expense.name} has been added to expense.")
-            return redirect('misc-expense-list')
+            return redirect('misc-expense-list', business_slug=business.slug)
         
     else:
-        form = MiscExpenseForm(user=owner)
+        form = MiscExpenseForm(business=business)
         
     context = {'form': form, 'section': 'expense'}
     return render(request, 'Expense/misc_and_expense_create.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def misc_expense_detail(request, username, misc_expense_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def misc_expense_detail(request, business_slug, misc_expense_id):
+    business = get_business_for_user(request.user, business_slug)
         
-    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    misc_expense = get_object_or_404(MiscExpense, business=business, id=misc_expense_id)
     
     context = {'misc_expense': misc_expense, 'section': 'expense'}
     
     return render(request, 'Expense/misc_expense_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def misc_expense_update(request, username, misc_expense_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def misc_expense_update(request, business_slug, misc_expense_id):
+    business = get_business_for_user(request.user, business_slug)
         
-    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    misc_expense = get_object_or_404(MiscExpense, business=business, id=misc_expense_id)
     
     if request.method == 'POST':
-        form = MiscExpenseForm(request.POST, instance=misc_expense, user=owner)
+        form = MiscExpenseForm(request.POST, instance=misc_expense, business=business)
         
         if form.is_valid():
             misc_expense = form.save(commit=False)
             misc_expense.name = misc_expense.name.title()
-            misc_expense.user = owner
-            misc_expense.created_by = request.user
             misc_expense.save()
             messages.success(request, f"{misc_expense.name} has been updated.")
-            return redirect('misc-expense-list')
+            return redirect('misc-expense-list', business_slug=business.slug)
     
     else:
-        form = MiscExpenseForm(instance=misc_expense, user=owner)
+        form = MiscExpenseForm(instance=misc_expense, business=business)
     
     context = {'form': form, 'section': 'expense', 'misc_expense': misc_expense}
     return render(request, 'Expense/misc_expense_update.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def misc_expense_delete(request, username, misc_expense_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+@permission_required('staff_delete')
+@permission_required('read_only') # dev
+def misc_expense_delete(request, business_slug, misc_expense_id):
+    business = get_business_for_user(request.user, business_slug)
         
-    misc_expense = get_object_or_404(MiscExpense, user=owner, id=misc_expense_id)
+    misc_expense = get_object_or_404(MiscExpense, business=business, id=misc_expense_id)
     
     if request.method == 'POST':
         misc_expense.delete()
         messages.success(request, f"{misc_expense.name} has been deleted.")
-        return redirect('misc-expense-list')
+        return redirect('misc-expense-list', business_slug=business.slug)
     
     context = {'misc_expense': misc_expense, 'section': 'expense'}
     return render(request, 'Expense/misc_expense_delete.html', context)

@@ -42,7 +42,7 @@ from django.db.models import Sum, Avg, Max, Count, Q, F
 
 from operator import itemgetter
 
-from core.utils.owner import  get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import  get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 import json
 import calendar
@@ -53,22 +53,23 @@ import logging
 # Create your views here.
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def dashboard(request):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def dashboard(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     today = timezone.localdate()
 
     # Today's querysets
-    sales           = Sale.objects.filter(user=owner, date=today)
+    sales           = Sale.objects.filter(business=business, date=today)
     sale_items      = SaleItem.objects.filter(sale__in=sales)
     
-    shifts          = Shift.objects.filter(user=owner, date=today)
+    shifts          = Shift.objects.filter(business=business,date=today)
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
-    purchases       = Purchase.objects.filter(user=owner, purchase_date=today)
+    purchases       = Purchase.objects.filter(business=business, purchase_date=today)
     purchase_items  = PurchaseItem.objects.filter(purchase__in=purchases)
-    wastes          = Waste.objects.filter(user=owner, date=today)
+    wastes          = Waste.objects.filter(business=business, date=today)
     waste_items     = WasteItem.objects.filter(waste__in=wastes)
-    expenses        = Expense.objects.filter(user=owner, date=today)
+    expenses        = Expense.objects.filter(business=business, date=today)
 
     # Today's totals
     total_revenue       = sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
@@ -91,18 +92,18 @@ def dashboard(request):
     last_week_end   = this_week_start - timedelta(days=1)
     last_week_start = last_week_end - timedelta(days=6)
 
-    tw_revenue = float(Sale.objects.filter(user=owner, date__gte=this_week_start).aggregate(t=Sum('total_revenue'))['t'] or 0)
-    tw_cost    = float(Purchase.objects.filter(user=owner, purchase_date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
-    tw_waste   = float(Waste.objects.filter(user=owner, date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
-    tw_expense = float(Expense.objects.filter(user=owner, date__gte=this_week_start).aggregate(t=Sum('total_amount'))['t'] or 0)
-    tw_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__gte=this_week_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    tw_revenue = float(Sale.objects.filter(business=business, date__gte=this_week_start).aggregate(t=Sum('total_revenue'))['t'] or 0)
+    tw_cost    = float(Purchase.objects.filter(business=business, purchase_date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
+    tw_waste   = float(Waste.objects.filter(business=business, date__gte=this_week_start).aggregate(t=Sum('total_cost'))['t'] or 0)
+    tw_expense = float(Expense.objects.filter(business=business, date__gte=this_week_start).aggregate(t=Sum('total_amount'))['t'] or 0)
+    tw_salary = float(Shift.objects.filter(business=business, date__gte=this_week_start).aggregate(t=Sum('amount'))['t'] or 0)
     tw_net     = tw_revenue - tw_cost - tw_waste - tw_expense - tw_salary
 
-    lw_revenue = float(Sale.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
-    lw_cost    = float(Purchase.objects.filter(user=owner, purchase_date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
-    lw_waste   = float(Waste.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
-    lw_expense = float(Expense.objects.filter(user=owner, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
-    lw_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__range=(last_week_start, last_week_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    lw_revenue = float(Sale.objects.filter(business=business, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
+    lw_cost    = float(Purchase.objects.filter(business=business, purchase_date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
+    lw_waste   = float(Waste.objects.filter(business=business, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
+    lw_expense = float(Expense.objects.filter(business=business, date__range=(last_week_start, last_week_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
+    lw_salary  = float(ShiftEmployee.objects.filter(shift__business=business, shift__date__range=(last_week_start, last_week_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
     lw_net     = lw_revenue - lw_cost - lw_waste - lw_expense - lw_salary
 
     # Monthly comparison 
@@ -110,24 +111,24 @@ def dashboard(request):
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
-    tm_revenue = float(Sale.objects.filter(user=owner, date__gte=this_month_start).aggregate(t=Sum('total_revenue'))['t'] or 0)
-    tm_cost    = float(Purchase.objects.filter(user=owner, purchase_date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
-    tm_waste   = float(Waste.objects.filter(user=owner, date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
-    tm_expense = float(Expense.objects.filter(user=owner, date__gte=this_month_start).aggregate(t=Sum('total_amount'))['t'] or 0)
-    tm_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__gte=this_month_start).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    tm_revenue = float(Sale.objects.filter(business=business, date__gte=this_month_start).aggregate(t=Sum('total_revenue'))['t'] or 0)
+    tm_cost    = float(Purchase.objects.filter(business=business, purchase_date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
+    tm_waste   = float(Waste.objects.filter(business=business, date__gte=this_month_start).aggregate(t=Sum('total_cost'))['t'] or 0)
+    tm_expense = float(Expense.objects.filter(business=business, date__gte=this_month_start).aggregate(t=Sum('total_amount'))['t'] or 0)
+    tm_salary = float(Shift.objects.filter(business=business, date__gte=this_month_start).aggregate(t=Sum('amount'))['t'] or 0)
     tm_net     = tm_revenue - tm_cost - tm_waste - tm_expense - tm_salary
 
-    lm_revenue = float(Sale.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
-    lm_cost    = float(Purchase.objects.filter(user=owner, purchase_date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
-    lm_waste   = float(Waste.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
-    lm_expense = float(Expense.objects.filter(user=owner, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
-    lm_salary  = float(ShiftEmployee.objects.filter(shift__user=owner, shift__date__range=(last_month_start, last_month_end)).aggregate(t=Sum('daily_rate'))['t'] or 0)
+    lm_revenue = float(Sale.objects.filter(business=business, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_revenue'))['t'] or 0)
+    lm_cost    = float(Purchase.objects.filter(business=business, purchase_date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
+    lm_waste   = float(Waste.objects.filter(business=business, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_cost'))['t'] or 0)
+    lm_expense = float(Expense.objects.filter(business=business, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('total_amount'))['t'] or 0)
+    lm_salary  = float(Shift.objects.filter(business=business, date__range=(last_month_start, last_month_end)).aggregate(t=Sum('amount'))['t'] or 0)
     lm_net     = lm_revenue - lm_cost - lm_waste - lm_expense - lm_salary
 
     # 30-day revenue trend 
     thirty_days_ago = today - timedelta(days=29)
     daily_sales = (
-        Sale.objects.filter(user=owner, date__gte=thirty_days_ago)
+        Sale.objects.filter(business=business, date__gte=thirty_days_ago)
         .values('date').annotate(rev=Sum('total_revenue')).order_by('date')
     )
     trend_labels = [(thirty_days_ago + timedelta(days=i)).strftime('%b %d') for i in range(30)]

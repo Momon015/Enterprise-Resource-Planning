@@ -8,7 +8,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'purchase-list' %}" class="breadcrumb-link">PURCHASES</a>
+        <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="breadcrumb-link">PURCHASES</a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
@@ -16,7 +16,7 @@
       <p class="page-subtitle">{{ purchase.created_at|date:"F d, Y" }} at {{ purchase.created_at|date:"h:i A" }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'material-list' %}" class="btn-back">
+      <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to supplier
       </a>
     </div>
@@ -50,7 +50,7 @@
           <div class="sd-stats-row">
             <div class="sd-stat-box">
               <div class="sd-stat-label">Reference</div>
-              <div class="sd-stat-value">{{ purchase.reference|default:"—" }}</div>
+              <div class="sd-stat-value">{{ purchase.reference|default:"No reference" }}</div>
             </div>
             <div class="sd-stat-box">
               <div class="sd-stat-label">Line Items</div>
@@ -81,8 +81,8 @@
                 {% for line in purchase_items %}
                 <tr>
                   <td>
-                    <div class="cell-primary">{{ line.name|capfirst|default:"—" }}</div>
-                    <div class="cell-sub">{{ line.supplier|default:"Public Market" }}</div>
+                    <div class="cell-primary">{{ line.name|capfirst|default:"No name" }}</div>
+                    <div class="cell-sub">{{ line.supplier|default:"No supplier" }}</div>
                   </td>
                   <td class="sl-text-center">
                     <span class="sl-badge sl-badge-light">{{ line.quantity|intcomma }}</span>
@@ -191,10 +191,10 @@
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'purchase-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-arrow-left-circle"></i> Back to Purchases
             </a>
-            <a href="{% url 'view-cart' %}" class="btn btn-primary btn-sm btn-block">
+            <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Purchase
             </a>
           </div>

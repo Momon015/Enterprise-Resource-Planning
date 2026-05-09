@@ -11,7 +11,7 @@
       <p class="page-subtitle">Review the items below before confirming deletion.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'material-preset-list' %}" class="btn btn-light btn-sm btn-back">
+      <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
         <i class="bi bi-arrow-left"></i> Back
       </a>
     </div>
@@ -29,7 +29,7 @@
             </div>
             <div>
               <div class="card-header-title">{{ preset.name }}</div>
-              <div class="card-header-sub">Preset ID: #{{ preset.id }}</div>
+              <div class="card-header-sub">{{ preset.created_at|date:"M d, Y" }}</div>
             </div>
           </div>
         </div>
@@ -51,7 +51,7 @@
               <tr>
                 <td>
                   <div class="cell-primary">{{ item.material.name }}</div>
-                  <div class="cell-sub">#{{ item.material.id }}</div>
+                  <div class="cell-sub">{{ item.material.supplier.name|default:"No supplier" }}</div>
                 </td>
                 <td class="sl-text-end">
                   <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
@@ -80,10 +80,10 @@
 
         <!-- CONFIRM ACTIONS BELOW TABLE -->
         <div class="card-body" style="border-top:1px solid var(--border);">
-          <form method="post">
+          <form method="POST">
             {% csrf_token %}
             <div class="mf-form-actions">
-              <a href="{% url 'material-preset-list' %}" class="btn btn-light">Cancel</a>
+              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
               <button type="submit" class="btn btn-sm"
                 style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash3-fill sl-me-1"></i> Delete preset
@@ -116,7 +116,7 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Will be removed</div>
             <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-x-circle sl-me-1" style="color:var(--danger);"></i> Preset bundle</span>
+              <span class="sd-info-label"><i class="bi bi-x-circle sl-me-1" style="color:var(--danger);"></i> Preset name</span>
               <span class="sd-info-value">{{ preset.name }}</span>
             </div>
             <div class="sd-info-row">

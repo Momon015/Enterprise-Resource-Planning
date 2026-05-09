@@ -50,7 +50,7 @@ class MaterialWasteForm(ModelForm):
         exclude = ['price', 'product', 'waste', 'name', 'supplier']
         
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
         for field in self.fields.values():
@@ -58,8 +58,8 @@ class MaterialWasteForm(ModelForm):
             
         self.fields['material'].empty_label = None
         self.fields['material'].label = 'Item'
-        self.fields['material'].queryset = Material.objects.filter(stocks__user=user).distinct()
-        self.fields['supplier'].queryset = Supplier.objects.filter(user=user)
+        self.fields['material'].queryset = Material.objects.filter(stocks__business=business).distinct()
+        self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
             
 class ProductWasteForm(ModelForm):
     class Meta:
@@ -67,13 +67,13 @@ class ProductWasteForm(ModelForm):
         exclude = ['price', 'material', 'name', 'waste', 'supplier']
     
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
         
-        self.fields['supplier'].queryset = Supplier.objects.filter(user=user)
+        self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
         
         self.fields['product'].empty_label = None
         self.fields['product'].label = 'Finished Product'
@@ -103,10 +103,10 @@ class MiscExpenseForm(ModelForm):
         fields = ['name', 'amount', 'category']
         
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        self.fields['category'].queryset = Category.objects.filter(category_type='expense', user=user)
+        self.fields['category'].queryset = Category.objects.filter(category_type='expense', business=business)
         self.fields['category'].empty_label = None
         self.fields['category'].required = False
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()

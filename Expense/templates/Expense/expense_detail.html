@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'expense-list' %}" class="breadcrumb-link">EXPENSES</a>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'expense-list' %}?{{ request.GET.urlencode }}" class="btn-back">
+      <a href="{% url 'expense-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to expenses
       </a>
     </div>

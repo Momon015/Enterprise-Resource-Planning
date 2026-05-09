@@ -16,7 +16,7 @@
             <p class="card-header-sub">Update details for {{ employee.name }}.</p>
           </div>
         </div>
-        {% comment %} <a href="{% url 'employee-list' %}" class="btn btn-light btn-sm">
+        {% comment %} <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to list
         </a> {% endcomment %}
       </div>
@@ -62,7 +62,7 @@
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'employee-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
@@ -99,7 +99,7 @@
         {% comment %} <div class="sd-summary-block">
           <div class="mf-guide-title">Actions</div>
           <div class="btn-grid">
-            <a href="{% url 'employee-delete' employee.id employee.slug %}" class="btn btn-sm btn-block"
+            <a href="{% url 'employee-delete' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block"
                style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
               <i class="bi bi-trash sl-me-1"></i> Delete Employee
             </a>

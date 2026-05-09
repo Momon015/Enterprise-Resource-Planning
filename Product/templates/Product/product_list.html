@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <strong>{{ out_of_stock }}</strong> out of stock
       </div>
       {% endif %}
-      <a href="{% url 'view-sale' %}" class="btn btn-outline-secondary btn-sm">
+      <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-receipt"></i> Sales Record
       </a>
     </div>
@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'product-list' %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
             </div>
           </form>
         </div>
@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ product.name|capfirst }}</div>
-                  <span class="cell-sub">{{ product.material.supplier|default:"No supplier provided" }}</span>
+                  <span class="cell-sub">{{ product.material.supplier|default:"No supplier" }}</span>
                 </td>
                 <td class="sl-text-center">
                   {% if product.unit %}
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   {% endif %}
                 </td>
                 <td>
-                  <span class="cell-sub">{{ product.category.name|default:"Uncategorized" }}</span>
+                  <span class="cell-sub">{{ product.category.name|default:"No category" }}</span>
                 </td>
                 <td class="sl-text-end">
                   ₱{% if product.cost_price %}{{ product.cost_price|floatformat:2 }}{% else %}0.00{% endif %}
@@ -181,19 +181,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="table-actions">
-                    <a href="{% url 'add-to-sale' product.id %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="Add to sale">
                       <i class="bi bi-basket"></i>
                     </a>
-                    <a href="{% url 'product-detail' product.user.username product.slug %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'product-detail' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'product-update' product.user.username product.slug %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="Edit product">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'product-delete' product.user.username product.slug %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'product-delete' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--danger" title="Delete product">
                       <i class="bi bi-trash3"></i>
                     </a>
@@ -298,13 +298,13 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
-              <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm btn-block">
+              <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Add product
               </a>
-              <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-bookmark-fill"></i> Presets
               </a>
-              <a href="{% url 'category-list' %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
             </div>
@@ -313,22 +313,22 @@ document.addEventListener("DOMContentLoaded", function () {
           <hr class="sl-quick-divider">
           <div class="sl-quick-label">Filter by stock</div>
           <div class="quick-range-grid">
-            <a href="{% url 'product-list' %}?stock=high"
+            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=high"
               class="quick-range-btn {% if request.GET.stock == 'high' %}active{% endif %}"
               style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
               <i class="bi bi-box-seam"></i> In Stock
             </a>
-            <a href="{% url 'product-list' %}?stock=low"
+            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=low"
               class="quick-range-btn {% if request.GET.stock == 'low' %}active{% endif %}"
               style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
               <i class="bi bi-exclamation-triangle"></i> Low Stock
             </a>
-            <a href="{% url 'product-list' %}?stock=none"
+            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=none"
               class="quick-range-btn {% if request.GET.stock == 'none' %}active{% endif %}"
               style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger);{% endif %}">
               <i class="bi bi-slash-circle"></i> Out of Stock
             </a>
-            <a href="{% url 'product-list' %}"
+            <a href="{% url 'product-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.cat %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>

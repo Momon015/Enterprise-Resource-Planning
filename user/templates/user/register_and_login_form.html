@@ -250,6 +250,20 @@
                 {% endif %}
               </div>
 
+              {# owner_business — full width, shown first #}
+              <div class="auth-field full">
+                <label for="{{ form.owner_business.id_for_label }}">
+                  {{ form.owner_business.label }}
+                </label>
+                {{ form.owner_business }}
+                {% if form.owner_business.help_text %}
+                  <div class="auth-help">{{ form.owner_business.help_text }}</div>
+                {% endif %}
+                {% if form.owner_business.errors %}
+                  <div class="auth-error">{{ form.owner_business.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
               {# username — left col #}
               <div class="auth-field">
                 <label for="{{ form.username.id_for_label }}">

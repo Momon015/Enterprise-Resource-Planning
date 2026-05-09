@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-preset-list' %}" class="breadcrumb-link">PRESETS</a>
+        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESETS</a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">Saved product items and quantities for quick sales.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-preset-list' %}" class="btn-back">
+      <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to presets
       </a>
     </div>
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <!-- ITEM -->
                 <td>
                   <div class="cell-primary">{{ item.name }}</div>
-                  <div class="cell-sub">#{{ item.id }}</div>
+                  <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
                 </td>
 
                 <!-- QUANTITY -->
@@ -153,39 +153,29 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
 
-      <!-- QUICK ACTIONS -->
-      <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-lightning-fill"></i> Quick Actions
-          </span>
+        <!-- QUICK ACTIONS -->
+        <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Quick links</div>
+              <div class="btn-grid">
+                  <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-primary btn-block">
+                    <i class="bi bi-cart-plus"></i> Add to current sale
+                  </a>
+                  <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-block">
+                    <i class="bi bi-receipt"></i> Go to sale screen
+                  </a>
+                  {% comment %}
+                  <hr style="border-color: #f0f0f0; margin: 0.25rem 0;">
+                  <a href="{% url 'product-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-block">
+                    <i class="bi bi-pencil-square"></i> Edit preset
+                  </a>
+                  <a href="{% url 'product-delete-preset' preset.user.username preset.id %}" class="btn btn-block"
+                    style="background:var(--danger-light); color:var(--danger); border-color:#f0d0ce; font-weight:600;">
+                    <i class="bi bi-trash3"></i> Delete preset
+                  </a>
+                  {% endcomment %}
+            </div>
+          </div>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
-          <p style="font-size:0.82rem; color:var(--muted); margin:0;">
-            Add all product items from this bundle into the active sale.
-          </p>
-
-          <a href="{% url 'product-preset-add-to-sale' preset.user.username preset.id %}?next={{request.path}}" class="btn btn-primary btn-block">
-            <i class="bi bi-cart-plus"></i> Add to current sale
-          </a>
-
-          <a href="{% url 'view-sale' %}" class="btn btn-outline-secondary btn-block">
-            <i class="bi bi-receipt"></i> Go to sale screen
-          </a>
-
-          {% comment %}
-          <hr style="border-color: #f0f0f0; margin: 0.25rem 0;">
-          <a href="{% url 'product-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-block">
-            <i class="bi bi-pencil-square"></i> Edit preset
-          </a>
-          <a href="{% url 'product-delete-preset' preset.user.username preset.id %}" class="btn btn-block"
-             style="background:var(--danger-light); color:var(--danger); border-color:#f0d0ce; font-weight:600;">
-            <i class="bi bi-trash3"></i> Delete preset
-          </a>
-          {% endcomment %}
-
-        </div>
-      </div>
 
     </div>
   </div>

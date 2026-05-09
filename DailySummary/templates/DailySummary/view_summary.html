@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'view-summary' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
           </form>
         </div>
@@ -188,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'view-summary-detail' summary.date %}" class="action-btn" title="View detail">
+                    <a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}" class="action-btn" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>
@@ -294,10 +294,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Actions</div>
             <div class="btn-grid">
-              <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
+              <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> New Sale
               </a>
-              <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> New Purchase
               </a>
             </div>
@@ -306,19 +306,19 @@ document.addEventListener("DOMContentLoaded", function () {
           <hr class="sl-quick-divider">
           <div class="sl-quick-label">Quick Ranges</div>
           <div class="quick-range-grid">
-            <a href="{% url 'view-summary' %}?period=today"
+            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today"
                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'view-summary' %}?period=last_week"
+            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week"
                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% url 'view-summary' %}?period=week"
+            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=week"
                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% url 'view-summary' %}?period=month"
+            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=month"
                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>

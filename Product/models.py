@@ -27,7 +27,16 @@ class Product(SlugModel, TimeStampModel):
         return self.name
     
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while Product.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
         
         if not self.cost_price:
             self.cost_price = 0
@@ -42,21 +51,40 @@ class Product(SlugModel, TimeStampModel):
         self.save()
         
 
-class ProductPreset(TimeStampModel):
+class ProductPreset(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_presets')
     name = models.CharField(max_length=255, unique=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='product_presets', null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_product_presets', null=True, blank=True)
     
+    class Meta:
+        unique_together = ('user', 'name', 'slug')
+        
+    def save(self, *args, **kwargs):
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while ProductPreset.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
+
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"{self.name}"
-
 
 class ProductPresetItem(models.Model):
     preset = models.ForeignKey(ProductPreset, on_delete=models.CASCADE, related_name='product_preset_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_preset_items', null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=0)
+    supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
+    
     
     class Meta:
         unique_together = ('preset', 'product')
@@ -65,6 +93,11 @@ class ProductPresetItem(models.Model):
     def __str__(self):
         return f"{self.preset.id} - {self.product.name}"
     
+    def save(self, *args, **kwargs):
+        if not self.supplier_name:
+            self.supplier_name = self.product.material.supplier.name if self.product.material.supplier else 'No supplier'
+            
+        super().save(*args, **kwargs)
     
 # class Recipe(TimeStampModel):
 #     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recipes')

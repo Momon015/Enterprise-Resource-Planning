@@ -50,9 +50,6 @@ class Purchase(TimeStampModel):
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
     
-    class Meta:
-        unique_together = ('user', 'business')
-    
     def __str__(self):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
     
@@ -151,8 +148,6 @@ class PurchaseItem(TimeStampModel):
     #         return self.total_price_per_item - self.discount
     #     return self.total_price_per_item
     
-    
-
 class EmployeeQuerySet(models.QuerySet):
     def total_daily_rate(self):
         return self.aggregate(total_daily_rate=Sum('daily_rate'))['total_daily_rate'] or 0
@@ -176,14 +171,22 @@ class Employee(TimeStampModel, SlugModel):
         return f"{self.staff_user} "
     
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while Employee.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
         
         super().save(*args, **kwargs)
     
-
-    
 class Shift(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shift_logs')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='shifts', null=True, blank=True)
     date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_shift_logs')
@@ -211,9 +214,6 @@ class Waste(TimeStampModel):
     total_cost = models.DecimalField(max_digits=10, decimal_places=6)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_wastes')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='wastes', null=True, blank=True)
-    
-    class Meta:
-        unique_together = ('user', 'business')
     
     objects = WasteQuerySet.as_manager()
     
@@ -279,6 +279,7 @@ class MiscExpense(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_misc_expenses')
     name = models.CharField(max_length=255)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='misc_expenses', null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     
@@ -298,10 +299,6 @@ class Expense(TimeStampModel):
     
     objects = ExpenseQuerySet.as_manager()
     
-    class Meta:
-        unique_together = ('user', 'business')
-        
-    
     def __str__(self):
         return f"{self.id} - {self.created_by}" 
     
@@ -312,11 +309,18 @@ class Expense(TimeStampModel):
 class ExpenseItem(models.Model):
     expense = models.ForeignKey(Expense, on_delete=models.SET_NULL, related_name='expense_items', null=True, blank=True)
     misc_expense = models.ForeignKey(MiscExpense, on_delete=models.SET_NULL, related_name='expense_items', null=True, blank=True)
-    name = models.CharField(max_length=255)  # snapshot
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    name = models.CharField(max_length=255)  # snapshot
+    category = models.CharField(max_length=150, null=True, blank=True)  # snapshot
     
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.category:
+            self.category = self.misc_expense.category.name
+        
+        super().save(*args, **kwargs)
     
     # def save(self, *args, **kwargs):
     #     if self.misc_expense:

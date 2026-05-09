@@ -16,7 +16,7 @@
             <p class="card-header-sub">Update material details and pricing.</p>
           </div>
         </div>
-        {% comment %} <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">
+        {% comment %} <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to materials
         </a> {% endcomment %}
       </div>
@@ -121,7 +121,7 @@
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'material-list' %}?next={{request.path}}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'material-list' business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
@@ -160,11 +160,11 @@
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label">Category</span>
-            <span class="sd-info-value">{{ material.category.name|default:"Uncategorized" }}</span>
+            <span class="sd-info-value">{{ material.category.name|default:"No category" }}</span>
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label">Supplier</span>
-            <span class="sd-info-value">{{ material.supplier.name|default:"—" }}</span>
+            <span class="sd-info-value">{{ material.supplier.name|default:"No supplier" }}</span>
           </div>
         </div>
 
@@ -179,10 +179,10 @@
         <div class="sd-summary-block">
           <div class="mf-guide-title">Danger Zone</div>
           <div class="btn-grid">
-            <a href="{% url 'material-detail' material.user.username material.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'material-detail' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View Detail
             </a>
-            <a href="{% url 'material-delete' material.user.username material.slug %}" class="btn btn-sm btn-block"
+            <a href="{% url 'material-delete' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-sm btn-block"
                style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
               <i class="bi bi-trash3 sl-me-1"></i> Delete Material
             </a>

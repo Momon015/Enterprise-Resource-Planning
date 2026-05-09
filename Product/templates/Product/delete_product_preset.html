@@ -7,7 +7,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-preset-list' %}" class="breadcrumb-link">PRESETS</a>
+        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESETS</a>
         <i class="bi bi-chevron-right"></i>
         <span>DELETE</span>
       </div>
@@ -15,7 +15,7 @@
       <p class="page-subtitle">Review the products below before confirming deletion.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-preset-list' %}" class="btn-back">
+      <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to presets
       </a>
     </div>
@@ -33,7 +33,7 @@
             </div>
             <div>
               <div class="card-header-title">{{ preset.name }}</div>
-              <div class="card-header-sub">Preset ID: #{{ preset.id }}</div>
+              <div class="card-header-sub">{{ preset.created_at|date:"M d, Y" }}</div>
             </div>
           </div>
           <span class="sl-badge sl-badge-light">
@@ -55,7 +55,7 @@
               <tr>
                 <td>
                   <div class="cell-primary">{{ item.product.name }}</div>
-                  <div class="cell-sub">#{{ item.product.id }}</div>
+                  <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
                 </td>
                 <td class="sl-text-end">
                   <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
@@ -84,7 +84,7 @@
           <form method="post">
             {% csrf_token %}
             <div class="mf-form-actions">
-              <a href="{% url 'product-preset-detail' preset.user.username preset.id %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn" style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash3-fill"></i> Confirm Delete
               </button>
@@ -95,47 +95,47 @@
       </div>
     </div>
 
-    <!-- RIGHT: DELETION IMPACT SNAPSHOT -->
+    <!-- RIGHT: DELETION IMPACT -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header" style="background:var(--danger); border-bottom:none;">
+        <div class="card-header dark">
           <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-shield-exclamation"></i> Deletion Impact
+            <i class="bi bi-exclamation-triangle-fill"></i> Deletion Impact
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color:var(--danger);">
-              <i class="bi bi-x-circle sl-me-1"></i> Will be removed
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Preset</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ preset.name }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Items</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ preset.product_preset_items.count }} deleted</span>
+          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
+            <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color:var(--danger);"></i>
+            <div>
+              <div class="sd-note-title" style="color:var(--danger);">This action cannot be undone</div>
+              <div class="sd-note-text">All items in this preset will be permanently removed.</div>
             </div>
           </div>
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color:var(--success);">
-              <i class="bi bi-check-circle sl-me-1"></i> Will be preserved
+            <div class="sd-summary-block-label">Will be removed</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label"><i class="bi bi-x-circle sl-me-1" style="color:var(--danger);"></i> Preset name</span>
+              <span class="sd-info-value">{{ preset.name }}</span>
             </div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Product catalog</span>
-              <span class="sd-info-value" style="color:var(--success);">Kept</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Sales history</span>
-              <span class="sd-info-value" style="color:var(--success);">Kept</span>
+              <span class="sd-info-label"><i class="bi bi-x-circle sl-me-1" style="color:var(--danger);"></i> Saved products</span>
+              <span class="sd-info-value">{{ preset.product_preset_items.count }} item{{ preset.preset_items.count|pluralize }}</span>
             </div>
           </div>
 
-          <a href="{% url 'product-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-sm" style="width:100%; text-align:center;">
-            <i class="bi bi-pencil-square"></i> Edit Instead
-          </a>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Will be preserved</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label"><i class="bi bi-check-circle sl-me-1" style="color:var(--success);"></i> Products</span>
+              <span class="sd-info-value">Not affected</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label"><i class="bi bi-check-circle sl-me-1" style="color:var(--success);"></i> Sales history</span>
+              <span class="sd-info-value">Not affected</span>
+            </div>
+          </div>
 
         </div>
       </div>

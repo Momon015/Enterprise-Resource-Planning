@@ -15,6 +15,8 @@ from django.utils import timezone
 from core.models import TimeStampModel
 from django.core.exceptions import ValidationError
 
+from core.utils.owner import get_owner
+
 # Create your models here.
 
 class SaleQuerySet(models.QuerySet):
@@ -37,9 +39,6 @@ class Sale(TimeStampModel):
     
     objects = SaleQuerySet.as_manager()
     
-    class Meta:
-        unique_together = ('user', 'business')
-    
     def __str__(self):
         return f"Date: {self.date} - {self.total_revenue}"
     
@@ -49,8 +48,16 @@ class Sale(TimeStampModel):
     def save(self, *args, **kwargs):
         if not self.reference:
             year = timezone.now().year
-            count = Sale.objects.filter(date__year=year).count() + 1
-            self.reference = f"SI-{year}-{count:04d}"
+            
+            last_sales = Sale.objects.filter(user=self.user, date__year=year).order_by('-reference').first()
+            
+            if last_sales and last_sales.reference:
+                last_number = int(last_sales.reference.split('-')[-1])
+                next_number = last_number + 1
+            else:
+                next_number = 1
+            
+            self.reference = f"SI-{year}-{next_number:04d}"
         
         super().save(*args, **kwargs)
         
@@ -61,8 +68,9 @@ class SaleItem(models.Model):
     price_at_sale = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=1.00)
     quantity = models.PositiveIntegerField(default=1)
-    unsold_quantity = models.PositiveIntegerField(default=0)
-
+    unsold_quantity = models.PositiveIntegerField(default=0) # will not be used, I didnt remove it due to migrations
+    supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
+    
     def __str__(self):
         if self.name:
             return f"{self.name} x {self.quantity}"
@@ -70,12 +78,14 @@ class SaleItem(models.Model):
     def save(self, *args, **kwargs):
         if not self.price_at_sale:
             self.price_at_sale = self.product.selling_price
-            
+        
         if self.product:
             self.name = self.product.name 
         
-        
-        return super().save(*args, **kwargs)
+        if not self.supplier_name:
+            self.supplier_name = self.product.material.supplier.name if self.product.material.supplier else 'No supplier'
+
+        super().save(*args, **kwargs)
         
     # def clean(self):
     #     if self.product.prepared_quantity > self.quantity:

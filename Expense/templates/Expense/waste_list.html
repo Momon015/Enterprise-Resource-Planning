@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'expense-waste-list' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
 
           </form>
@@ -168,7 +168,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td>
                   <div class="cell-primary">{{ waste.waste_items.count }} waste{% if waste.waste_items.count %}{{ waste.waste_items.count|pluralize }}{% endif %}</div>
-                  <div class="cell-sub">by {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst|default:"—" }}</div>
+                  <div class="cell-sub">by {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst|default:"-" }}</div>
                 </td>
 
 
@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'expense-waste-detail' waste.user.username waste.id %}" class="action-btn" title="View detail">
+                    <a href="{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}" class="action-btn" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>
@@ -287,7 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
         <div class="card-body">
           {% if stocks %}
-          <a href="{% url 'material-waste-create' %}" class="btn btn-danger btn-sm btn-block">
+          <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-danger btn-sm btn-block">
             <i class="bi bi-trash2"></i> Log Stock Waste
           </a>
           <hr class="sl-quick-divider">
@@ -296,19 +296,19 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sl-quick-label">Quick ranges</div>
           
             <div class="quick-range-grid">
-              <a href="{% url 'expense-waste-list' %}?period=today"
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=today"
                 class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
                 <i class="bi bi-calendar-day"></i> Today
               </a>
-              <a href="{% url 'expense-waste-list' %}?period=last_week"
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=last_week"
                 class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
                 <i class="bi bi-clock-history"></i> Last 7 days
               </a>
-              <a href="{% url 'expense-waste-list' %}?period=week"
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=week"
                 class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
                 <i class="bi bi-calendar-week"></i> This week
               </a>
-              <a href="{% url 'expense-waste-list' %}?period=month"
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=month"
                 class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
                 <i class="bi bi-calendar-month"></i> This month
               </a>

@@ -15,16 +15,17 @@ urlpatterns = [
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
     
-    path('profile/<slug:slug>/', views.user_profile, name='user-profile'),
-    path('deactivate/<slug:slug>/', views.user_deactivate, name='user-deactivate'),
+    path('profile/<int:user_id>/<slug:slug>/', views.user_profile, name='user-profile'),
+    path('deactivate/<int:user_id>/<slug:slug>/', views.user_deactivate, name='user-deactivate'),
     
     path('edit/profile/password/', views.user_edit_password, name='user-edit-password'),
     # path('edit/profile/reset/password/', views.user_reset_password, name='user-reset-password'),
-    path('edit/profile/<slug:slug>/', views.user_edit_profile, name='user-edit-profile'),
+    path('edit/profile/<int:user_id>/<slug:slug>/', views.user_edit_profile, name='user-edit-profile'),
     
     
     # business profile
-    path('create/business-profile/', views.business_profile_create, name='business-profile-create'),
-    path('detail/<int:business_id>/<slug:slug>/business-profile/', views.business_profile_detail, name='business-profile-detail'),
-    path('update/<int:business_id>/<slug:slug>/business-profile/', views.business_profile_update, name='business-profile-update'),
+    path('business/list/', views.business_list, name='business-list'),
+    path('business-profile/create/', views.business_profile_create, name='business-profile-create'),
+    path('business/<int:business_id>/<slug:slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
+    path('business/<int:business_id>/<slug:slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
 ]

@@ -7,7 +7,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'category-list' %}" class="breadcrumb-link">CATEGORIES</a>
+        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="breadcrumb-link">CATEGORIES</a>
         <i class="bi bi-chevron-right"></i>
         <span>DELETE</span>
       </div>
@@ -15,7 +15,7 @@
       <p class="page-subtitle">You are about to permanently remove <strong>{{ category.name }}</strong>.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'category-list' %}" class="btn-back">
+      <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to categories
       </a>
     </div>
@@ -66,7 +66,7 @@
           <form method="POST">
             {% csrf_token %}
             <div class="mf-form-actions">
-              <a href="{% url 'category-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn" style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash"></i> Confirm Delete
               </button>
@@ -103,11 +103,11 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Linked items</span>
-              <span class="sd-info-value" style="color:var(--warning);">Become uncategorized</span>
+              <span class="sd-info-value" style="color:var(--warning);">Become no category</span>
             </div>
           </div>
 
-          <a href="{% url 'category-update' category.id %}" class="btn btn-outline-secondary btn-sm" style="width:100%; text-align:center;">
+          <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="btn btn-outline-secondary btn-sm" style="width:100%; text-align:center;">
             <i class="bi bi-pencil-square"></i> Edit Instead
           </a>
 

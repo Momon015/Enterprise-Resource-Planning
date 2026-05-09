@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-bookmark-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> template{{ page_obj.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'expense-list' %}" class="btn btn-light btn-sm btn-back">
+      <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
         <i class="bi bi-arrow-left"></i> Back to expenses
       </a>
     </div>
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ misc.name|capfirst }}</div>
                 </td>
                 <td>
-                  <span class="cell-sub">{{ misc.category.name|default:"Uncategorized" }}</span>
+                  <span class="cell-sub">{{ misc.category.name|default:"No category" }}</span>
                 </td>
                 <td>
                   <div class="cell-sub">{{ misc.created_at|date:"M d, Y" }}</div>
@@ -84,15 +84,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end sl-fw-semibold">₱{{ misc.amount|floatformat:2|intcomma }}</td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'misc-expense-detail' request.user.username misc.id %}"
+                    <a href="{% url 'misc-expense-detail' misc_expense_id=misc.id business_slug=current_business.slug %}"
                        class="action-btn" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'misc-expense-update' request.user.username misc.id %}"
+                    <a href="{% url 'misc-expense-update' misc_expense_id=misc.id business_slug=current_business.slug %}"
                        class="action-btn" title="Edit template">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'misc-expense-delete' request.user.username misc.id %}"
+                    <a href="{% url 'misc-expense-delete' misc_expense_id=misc.id business_slug=current_business.slug %}"
                        class="action-btn action-btn--danger" title="Delete template">
                       <i class="bi bi-trash3"></i>
                     </a>
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
             <h3 class="empty-title">No templates yet</h3>
             <p class="empty-text">Create reusable expense templates for recurring costs like rent or utilities.</p>
-            <a href="{% url 'misc-expense-create' %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Add your first template
             </a>
           </div>
@@ -164,16 +164,16 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
-              <a href="{% url 'misc-expense-create' %}" class="btn btn-primary btn-sm btn-block">
+              <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Add template
               </a> 
-              <a href="{% url 'expense-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-receipt-cutoff"></i> Log expense
               </a>
-              {% comment %} <a href="{% url 'expense-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              {% comment %} <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-wallet2"></i> Expense records
               </a> {% endcomment %}
-              <a href="{% url 'category-list' %}?category_type=expense" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=expense" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
             </div>

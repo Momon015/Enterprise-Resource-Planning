@@ -12,10 +12,10 @@ class MaterialFilterForm(forms.Form):
     category = forms.ModelChoiceField(queryset=Category.objects.none(), required=False)
         
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        qs = Category.objects.filter(category_type='item', user=user)
+        qs = Category.objects.filter(category_type='item', business=business)
         self.fields['category'].queryset = qs
         
 class MaterialForm(ModelForm):
@@ -24,15 +24,15 @@ class MaterialForm(ModelForm):
         fields = ['name', 'price', 'category', 'quantity', 'unit', 'supplier', 'piece_per_unit']
         
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        self.fields['category'].empty_label = None
-        self.fields['category'].queryset = Category.objects.filter(category_type='item', user=user)
+        self.fields['category'].empty_label = 'No category'
+        self.fields['category'].queryset = Category.objects.filter(category_type='item', business=business)
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         
-        self.fields['supplier'].queryset = Supplier.objects.filter(user=user)
-        self.fields['supplier'].empty_label = None
+        self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
+        self.fields['supplier'].empty_label = 'No supplier'
         
         self.fields['piece_per_unit'].label = 'Pieces per Unit'
         
@@ -47,8 +47,9 @@ class SupplierForm(ModelForm):
             
 
 class SupplierFilterForm(forms.Form):
-    search = forms.CharField(required=False)   
+    search = forms.CharField(max_length=100, required=False)   
 
-
+class PresetFilterForm(forms.Form):
+    search = forms.CharField(max_length=100, required=False)
             
             

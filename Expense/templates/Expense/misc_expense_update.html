@@ -17,7 +17,7 @@
             <p class="card-header-sub">Edit the name, amount, or category for this expense template.</p>
           </div>
         </div>
-        <a href="{% url 'misc-expense-list' %}" class="btn btn-light btn-sm">
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to templates
         </a>
       </div>
@@ -102,7 +102,7 @@
           {% endif %}
 
           <div class="mf-form-actions">
-            <a href="{% url 'misc-expense-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
@@ -133,7 +133,7 @@
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label">Category</span>
-            <span class="sd-info-value">{{ form.instance.category.name|default:"Uncategorized" }}</span>
+            <span class="sd-info-value">{{ form.instance.category.name|default:"No category" }}</span>
           </div>
         </div>
 
@@ -147,7 +147,7 @@
 
         <div class="sd-summary-block">
           <div class="mf-guide-title">Danger Zone</div>
-          <a href="{% url 'misc-expense-delete' form.instance.user.username form.instance.id %}"
+          <a href="{% url 'misc-expense-delete' current_business.slug form.instance.id %}"
              class="btn btn-sm btn-block"
              style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
             <i class="bi bi-trash3 sl-me-1"></i> Delete Template

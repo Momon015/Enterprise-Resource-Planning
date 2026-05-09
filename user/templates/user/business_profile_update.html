@@ -1,116 +1,234 @@
 {% extends 'main.html' %}
 {% block content %}
 
-<div class="mf-page-wrapper">
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
 
-  <!-- HEADER -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        Profile <i class="bi bi-chevron-right"></i> Update
+        <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="breadcrumb-link">PROFILE</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'business-profile-detail' business.id business.slug %}" class="breadcrumb-link">{{ business.business_name|upper }}</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>EDIT</span>
       </div>
       <h1 class="page-title">Edit Business Profile</h1>
       <p class="page-subtitle">
-        Update your business details
+        Update your business details — changes reflect across reports, transactions, and receipts
       </p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'user-profile' user_id=current_user.id slug=current_user.slug %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to profile
+      </a>
     </div>
   </div>
 
-  <div class="mf-layout">
+  <div class="two-col-layout">
 
-    <!-- FORM CARD -->
-    <div class="card">
-      <div class="card-header">
-        <p class="card-header-title">Business Information</p>
-      </div>
+    <!-- LEFT: FORM -->
+    <div class="left-panel">
+      <div class="card">
 
-      <div class="card-body">
-        <form method="POST">
-          {% csrf_token %}
+        <!-- HERO HEADER -->
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon"
+                 style="background:
+                   {% if business.is_retail %}var(--accent-light); color:var(--accent);
+                   {% elif business.is_cafe %}var(--warning-light); color:var(--warning);
+                   {% else %}var(--danger-light); color:var(--danger);
+                   {% endif %}">
+              <i class="bi bi-pencil-square"></i>
+            </div>
+            <div>
+              <div class="card-header-title">Editing: {{ business.business_name }}</div>
+              <div class="card-header-sub">{{ business.get_business_type_display }} business profile</div>
+            </div>
+          </div>
+          <span class="status-badge
+            {% if business.is_retail %}status-success
+            {% elif business.is_cafe %}status-warning
+            {% else %}status-danger
+            {% endif %}">
+            {{ business.get_business_type_display }}
+          </span>
+        </div>
 
-          <div class="mf-fields-grid">
+        <div class="card-body">
+          <form method="POST" autocomplete="off" novalidate>
+            {% csrf_token %}
 
-            <!-- BUSINESS NAME -->
-            <div class="mf-field-group">
-              <label class="mf-form-label">
-                Business Name <span class="mf-required">*</span>
-              </label>
-              {{ form.business_name }}
-              {% if form.business_name.errors %}
-                <div class="mf-error">{{ form.business_name.errors.0 }}</div>
-              {% endif %}
-              <div class="mf-help">This will be used across your system</div>
+            <!-- BASIC INFO -->
+            <div class="sd-section-label">Basic Information</div>
+
+            <div class="mf-fields-grid" style="margin-bottom: 0.5rem;">
+
+              <!-- BUSINESS NAME -->
+              <div class="mf-field-group">
+                <label class="mf-form-label">
+                  Business Name <span class="mf-required">*</span>
+                </label>
+                {{ form.business_name }}
+                {% if form.business_name.errors %}
+                  <div class="mf-error">{{ form.business_name.errors.0 }}</div>
+                {% endif %}
+                <div class="mf-help">Used across receipts, reports, and statements</div>
+              </div>
+
+              <!-- TYPE -->
+              <div class="mf-field-group">
+                <label class="mf-form-label">
+                  Business Type <span class="mf-required">*</span>
+                </label>
+                {{ form.business_type }}
+                {% if form.business_type.errors %}
+                  <div class="mf-error">{{ form.business_type.errors.0 }}</div>
+                {% endif %}
+                <div class="mf-help">Affects POS layout and report breakdowns</div>
+              </div>
+
             </div>
 
-            <!-- TYPE -->
-            <div class="mf-field-group">
-              <label class="mf-form-label">Business Type</label>
-              {{ form.business_type }}
-              <div class="mf-help">Affects behavior (POS, reports)</div>
-            </div>
+            <!-- CONTACT INFO -->
+            <hr class="sd-section-divider" style="margin: 1rem 0;">
+            <div class="sd-section-label">Contact &amp; Location</div>
 
-            <!-- PHONE -->
-            <div class="mf-field-group">
+            <div class="mf-field-group" style="margin-bottom: 0.9rem;">
               <label class="mf-form-label">Phone Number</label>
               {{ form.business_phone_number }}
               {% if form.business_phone_number.errors %}
                 <div class="mf-error">{{ form.business_phone_number.errors.0 }}</div>
               {% endif %}
+              <div class="mf-help">Optional — appears on printed receipts</div>
             </div>
 
-          </div>
+            <div class="mf-field-group">
+              <label class="mf-form-label">Address</label>
+              {{ form.address }}
+              {% if form.address.errors %}
+                <div class="mf-error">{{ form.address.errors.0 }}</div>
+              {% endif %}
+              <div class="mf-help">Optional — full street address for your business</div>
+            </div>
 
-          <!-- ADDRESS -->
-          <div class="mf-field-group" style="margin-top: 1rem;">
-            <label class="mf-form-label">Address</label>
-            {{ form.address }}
-            {% if form.address.errors %}
-              <div class="mf-error">{{ form.address.errors.0 }}</div>
-            {% endif %}
-          </div>
+            <!-- ACTIONS -->
+            <div class="mf-form-actions">
+              <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-outline-secondary">
+                Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg sl-me-1"></i> Save Changes
+              </button>
+            </div>
 
-          <!-- ACTIONS -->
-          <div class="mf-form-actions">
-            <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-outline-secondary">
-              Cancel
-            </a>
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check"></i> Save Changes
-            </button>
-          </div>
-
-        </form>
+          </form>
+        </div>
       </div>
     </div>
 
-    <!-- SIDE PANEL -->
-    <div class="card">
-      <div class="card-body">
+    <!-- RIGHT: GUIDE PANEL -->
+    <div class="right-panel">
 
-        <div class="mf-guide-section">
-          <p class="mf-guide-title">Tips</p>
-          <ul class="mf-guide-list">
-            <li><i class="bi bi-check"></i> Use clear business name</li>
-            <li><i class="bi bi-check"></i> Match official records</li>
-            <li><i class="bi bi-check"></i> Keep info updated</li>
-          </ul>
+      <!-- TIPS -->
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-lightbulb"></i> Editing Tips
+          </span>
         </div>
+        <div class="card-body">
+          <div class="mf-guide-section">
+            <p class="mf-guide-title">Best Practices</p>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-check-circle-fill"></i> Use a clear, recognizable business name</li>
+              <li><i class="bi bi-check-circle-fill"></i> Match details with official records</li>
+              <li><i class="bi bi-check-circle-fill"></i> Keep your phone and address current</li>
+            </ul>
+          </div>
 
-        <div class="mf-tip-box">
-          <i class="bi bi-lightbulb"></i>
-          <div>
-            <div class="mf-tip-title">Reminder</div>
-            <div class="mf-tip-text">
-              Changes affect reports and transactions.
+          <div class="mf-tip-box">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+              <div class="mf-tip-title">Heads up</div>
+              <div class="mf-tip-text">
+                Changes apply immediately across all reports, transactions, and receipts.
+              </div>
             </div>
           </div>
         </div>
-
       </div>
+
+      <!-- BUSINESS TYPE REFERENCE -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-tags" style="color:var(--accent);"></i> Business Types
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="display:flex; align-items:center; gap:0.4rem;">
+              <i class="bi bi-shop" style="color:var(--accent);"></i> Retail
+            </div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
+              Small shops, sari-sari stores, and general merchandise.
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="display:flex; align-items:center; gap:0.4rem;">
+              <i class="bi bi-cup-hot" style="color:var(--warning);"></i> Cafe
+            </div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
+              Coffee shops, juice bars, and beverage stands.
+            </div>
+          </div>
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label" style="display:flex; align-items:center; gap:0.4rem;">
+              <i class="bi bi-egg-fried" style="color:var(--danger);"></i> Restaurant
+            </div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
+              Food service with full kitchen operations.
+            </div>
+          </div>
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle-fill sd-note-icon"></i>
+            <div>
+              <div class="sd-note-title">Switching types?</div>
+              <div class="sd-note-text">Some modules (POS layout, reports) may behave differently after changing.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
-
 </div>
 
 {% endblock %}

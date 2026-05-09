@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <p class="card-header-sub">Create a category to organize your items.</p>
           </div>
         </div>
-        <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">
+        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back to list
         </a>
       </div>
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'category-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Category
             </button>

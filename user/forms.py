@@ -39,10 +39,16 @@ class RegisterForm(UserCreationForm):
         required=False,
         help_text="Enter your owner's username if you are registering as staff."
     )
+    
+    owner_business = forms.CharField(
+        max_length=150,
+        required=False,
+        help_text="Enter your owner's business name if you are registering as staff."
+    )
 
     class Meta:
         model = User
-        fields = ['owner_username', 'username', 'email', 'password1', 'password2']
+        fields = ['owner_username', 'owner_business', 'username', 'email', 'password1', 'password2']
         
         
     def __init__(self, *args, **kwargs):

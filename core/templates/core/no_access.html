@@ -48,7 +48,7 @@
           <a href="javascript:history.back()" class="btn btn-primary btn-block">
             <i class="bi bi-arrow-left sl-me-1"></i> Go Back
           </a>
-          <a href="{% url 'product-list' %}" class="btn btn-outline-secondary btn-block">
+          <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-block">
             <i class="bi bi-house sl-me-1"></i> Go to Products
           </a>
         </div>

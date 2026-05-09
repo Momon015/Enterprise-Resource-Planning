@@ -22,17 +22,19 @@ from user import views as user_views
 urlpatterns = [
     # landing page
     path('', user_views.landing, name='landing'),
-    
     path('admin/', admin.site.urls),
     path('user/', include('user.urls')),
-    
-    path('products/', include('Product.urls')),
-    path('expenses/', include('Expense.urls')),
-    path('inventory/', include('Inventory.urls')),
-    path('sales/', include('Sales.urls')),
     path('', include('core.urls')),
-    path('', include('DailySummary.urls')),
-    path('', include('Dashboard.urls')),
-    path('supplier/', include('Supplier.urls')),
+    
+    path('business/<str:business_slug>/', include([
+        path('products/', include('Product.urls')),
+        path('expenses/', include('Expense.urls')),
+        path('inventory/', include('Inventory.urls')),
+        path('sales/', include('Sales.urls')),
+        path('summary/', include('DailySummary.urls')),
+        path('dashboard/', include('Dashboard.urls')),
+        path('supplier/', include('Supplier.urls')),
+    ])),
+    
     
 ]

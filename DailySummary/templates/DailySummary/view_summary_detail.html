@@ -19,7 +19,7 @@
       </p>
     </div>
     <div>
-      <a href="{% url 'view-summary' %}" class="btn btn-light btn-sm">
+      <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
         <i class="bi bi-arrow-left sl-me-1"></i> Back to summary
       </a>
     </div>
@@ -81,8 +81,8 @@
                 {% for item in sale_items %}
                 <tr>
                   <td>
-                    <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
-                    {% comment %} <div class="cell-sub">#{{ item.id|default:"—" }}</div> {% endcomment %}
+                    <div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div>
+                    {% comment %} <div class="cell-sub">{{ item.id|default:"—" }}</div> {% endcomment %}
                   </td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
                   <td class="sl-text-center">₱{{ item.cost_price|floatformat:2|intcomma }}</td>
@@ -222,7 +222,7 @@
                       <div class="cell-primary">{{ exp.name|capfirst }}</div>
                     </td>
                     <td class="sl-text-center">
-                      <span class="cell-sub">{{ exp.category.name|default:"Uncategorized" }}</span>
+                      <span class="cell-sub">{{ exp.category|default:"No category" }}</span>
                     </td>
                     <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
                       ₱{{ exp.amount|floatformat:2|intcomma }}
@@ -345,10 +345,10 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Actions</div>
             <div class="btn-grid">
-              <a href="{% url 'view-sale' %}" class="btn btn-sm btn-outline-primary btn-block">
+              <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-primary btn-block">
                 <i class="bi bi-plus-circle sl-me-1"></i> New sale
               </a>
-              <a href="{% url 'view-cart' %}" class="btn btn-sm btn-outline-primary btn-block">
+              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-primary btn-block">
                 <i class="bi bi-plus-circle sl-me-1"></i> New purchase
               </a>
             </div>

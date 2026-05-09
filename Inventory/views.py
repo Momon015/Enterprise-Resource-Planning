@@ -31,14 +31,14 @@ from django.core.paginator import Paginator
 
 from user.models import User
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 # Create your views here.
 
 @login_required(login_url='login')
-def view_inventory_stock(request):
-    owner = get_owner(request.user)
-    stocks = get_queryset_for_user(request.user, Stock.objects.all()).order_by('-name')
+def view_inventory_stock(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    stocks = get_queryset_for_user(request.user, Stock.objects.all()).filter(business=business).order_by('-name')
     
     most_stock_category_name = (stocks.values('material__category__name') \
     .annotate(total_count=Sum('material')).order_by('-total_count').first()
@@ -46,7 +46,7 @@ def view_inventory_stock(request):
     
     most_stock_category_name = most_stock_category_name['material__category__name'] if most_stock_category_name else 'N/A'
     
-    form = StockFilterForm(request.GET or None, user=owner)
+    form = StockFilterForm(request.GET or None, business=business)
     categories = form.fields['category'].queryset
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -96,20 +96,17 @@ def view_inventory_stock(request):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def inventory_stock_delete(request, stock_id):
-    if request.user.role == 'developer':
-        return render(request, 'core/no_permission.html', status=403)
+def inventory_stock_delete(request, business_slug, stock_id):
+    business = get_business_for_user(request.user, business_slug)
     
-    owner = get_owner(request.user)
-    
-    stock = get_object_or_404(Stock, user=owner, id=stock_id)
+    stock = get_object_or_404(Stock, business=business, id=stock_id)
 
     if request.method == 'POST':
         if stock.material:
-            Product.objects.filter(user=owner, material=stock.material).delete()
+            Product.objects.filter(business=business, material=stock.material).delete()
             stock.delete()
             messages.success(request, f"{stock.name} - both stock and product has been deleted.")
-        return redirect('view-inventory-stock')
+        return redirect('view-inventory-stock', business_slug=business.slug)
     
     context = {'stock': stock, 'section': 'inventory'}
     return render(request, 'Inventory/inventory_stock_delete.html', context)

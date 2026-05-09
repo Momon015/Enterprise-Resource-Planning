@@ -2,15 +2,17 @@ from django.db import models
 from django.utils.text import slugify
 from django.conf import settings
 
+from user.models import BusinessProfile
+
 class TimeStampModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         abstract = True
 
 class SlugModel(models.Model):
-    slug = models.SlugField(null=True, blank=True, unique=False)
+    slug = models.SlugField(null=True, blank=True, unique=False, db_index=True)
     
     class Meta:
         abstract = True
@@ -27,15 +29,25 @@ class Category(SlugModel):
     name = models.CharField(max_length=100)
     category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='item') # which app
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories')
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='categories', null=True, blank=True)
     
     class Meta:
-        unique_together = ('user', 'slug')
+        unique_together = ('user', 'slug', 'business')
         
     def __str__(self):
         return f"Category: {self.category_type} - {self.name}"
     
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while Category.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
         
         super().save(*args, **kwargs)
     

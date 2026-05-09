@@ -141,7 +141,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'sale-list' %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+              <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
 
           </form>
@@ -182,8 +182,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ sale.reference|default:"—" }}</div>
-                  {% comment %} <div class="cell-sub">#{{ sale.id }}</div> {% endcomment %}
+                  <div class="cell-primary">{{ sale.reference|default:"No reference" }}</div>
+                   <div class="cell-sub">#{{ forloop.revcounter }}</div> 
                 </td>
 
                 <td class="sl-text-end">
@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'sale-detail' sale.user.username sale.id %}" class="action-btn" title="View detail">
+                    <a href="{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}" class="action-btn" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>
@@ -276,10 +276,10 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body">
-          <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm btn-block">
+          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
             <i class="bi bi-plus-circle"></i> New Sale
           </a>
-          <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
             <i class="bi bi-bookmark-fill"></i> Presets
           </a>
 
@@ -287,19 +287,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
           <div class="sl-quick-label">Quick ranges</div>
             <div class="quick-range-grid">
-              <a href="{% url 'sale-list' %}?period=today"
+              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today"
                 class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
                 <i class="bi bi-calendar-day"></i> Today
               </a>
-              <a href="{% url 'sale-list' %}?period=last_week"
+              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week"
                 class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
                 <i class="bi bi-clock-history"></i> Last 7 days
               </a>
-              <a href="{% url 'sale-list' %}?period=week"
+              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week"
                 class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
                 <i class="bi bi-calendar-week"></i> This week
               </a>
-              <a href="{% url 'sale-list' %}?period=month"
+              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month"
                 class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
                 <i class="bi bi-calendar-month"></i> This month
               </a>

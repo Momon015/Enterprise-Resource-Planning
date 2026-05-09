@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'employee-list' %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
             </div>
           </form>
         </div>
@@ -124,13 +124,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'employee-detail' employee.id employee.slug %}" class="action-btn" title="View details">
+                    <a href="{% url 'employee-detail' business_slug=current_business.slug employee_id=employee.id slug=employee.slug %}" class="action-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'employee-update' employee.id employee.slug %}" class="action-btn" title="Edit">
+                    <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="action-btn" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'employee-delete' employee.id employee.slug %}" class="action-btn action-btn--danger" title="Remove">
+                    <a href="{% url 'employee-delete' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="action-btn action-btn--danger" title="Remove">
                       <i class="bi bi-trash3"></i>
                     </a>
                   </div>
@@ -224,13 +224,13 @@ document.addEventListener("DOMContentLoaded", function () {
               {% comment %} <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-person-plus-fill"></i> Add Employee
               </a> {% endcomment %}
-              <a href="{% url 'add-shift-employee' %}" class="btn btn-primary btn-sm btn-block">
+              <a href="{% url 'add-shift-employee' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Log employees
               </a>
-              <a href="{% url 'expense-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-receipt"></i> Expenses
               </a>
-              <a href="{% url 'expense-waste-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-trash3"></i> Waste
               </a>
             </div>

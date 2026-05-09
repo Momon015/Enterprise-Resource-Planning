@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-box-seam"></i>
         <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'view-cart' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+      <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-file-text"></i> Purchase Record
       </a>
     </div>
@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'material-list' %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
             </div>
           </form>
         </div>
@@ -131,10 +131,10 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ material.name }}</div>
-                  <span class="cell-sub">{{ material.supplier.name|default:'No supplier provided' }}</span>
+                  <span class="cell-sub">{{ material.supplier.name|default:'No supplier' }}</span>
                 </td>
                 <td>
-                  <span class="cell-sub">{{ material.category.name|default:"Uncategorized" }}</span>
+                  <span class="cell-sub">{{ material.category.name|default:"No category" }}</span>
                 </td>
 
                 <td class="sl-text-center">
@@ -144,19 +144,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end sl-fw-semibold">₱{{ material.price|floatformat:2 }}</td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'add-cart' material.id %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="Add to cart">
                       <i class="bi bi-bag-check"></i>
                     </a>
-                    <a href="{% url 'material-detail' material.user.username material.slug %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'material-detail' id=material.id slug=material.slug business_slug=material.business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'material-update' material.user.username material.slug %}"
+                    <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}"
                        class="action-btn" title="Edit material">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'material-delete' material.user.username material.slug %}?next={{ request.path }}"
+                    <a href="{% url 'material-delete' id=material.id slug=material.slug business_slug=material.business.slug %}?next={{ request.path }}"
                        class="action-btn action-btn--danger" title="Delete material">
                       <i class="bi bi-trash3"></i>
                     </a>
@@ -249,26 +249,26 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
-              <a href="{% url 'material-create' %}" class="btn btn-primary btn-sm btn-block">
+              <a href="{% url 'material-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Add item
               </a>
-              <a href="{% url 'material-preset-list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-bookmark-fill"></i> Presets
               </a>
-              <a href="{% url 'category-list' %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
               {% if suppliers %}
-                <a href="{% url 'supplier-list' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                   <i class="bi bi-building-fill"></i> Suppliers
                 </a>
               {% else %}
-                <a href="{% url 'supplier-create' %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                   <i class="bi bi-plus-circle"></i> Add Supplier
                 </a>
               {% endif %}
               {% if cart_items %}
-              <a href="{% url 'clear-cart' %}" class="btn btn-sm btn-block"
+              <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn btn-sm btn-block"
                  style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
                 <i class="bi bi-trash3"></i> Clear cart
               </a>
@@ -282,7 +282,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="quick-range-grid">
             
             {% for cat in top_categories %}
-              <a href="{% url 'material-list' %}?category={{ cat.id }}"
+              <a href="{% url 'material-list' business_slug=current_business.slug %}?category={{ cat.id }}"
                 class="quick-range-btn {% if request.GET.category == cat.id|stringformat:'s' %}active{% endif %}">
                 <i class="bi bi-tag"></i> {{ cat.name }}
               </a>
@@ -291,7 +291,7 @@ document.addEventListener("DOMContentLoaded", function () {
             {% endif %}
 
             {% if categories_count > 2 %}
-            <a href="{% url 'material-list' %}"
+            <a href="{% url 'material-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.category and not request.GET.search %}quick-range-btn--selected{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>

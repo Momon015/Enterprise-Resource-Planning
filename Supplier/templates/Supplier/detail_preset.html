@@ -27,7 +27,7 @@
       <p class="page-subtitle">Saved items and quantities you can drop into any purchase.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'material-preset-list' %}" class="btn btn-light btn-sm btn-back">
+      <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
         <i class="bi bi-arrow-left"></i> Back to presets
       </a>
     </div>
@@ -64,7 +64,7 @@
               <tr>
                 <td>
                   <div class="cell-primary">{{ item.material.name }}</div>
-                  <div class="cell-sub">#{{ item.material.id }}</div>
+                  <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
                 </td>
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ qty }}</span>
@@ -99,7 +99,7 @@
           {% comment %} <a href="{% url 'material-add-preset-to-cart' preset.user.username preset.id %}?next={{request.path}}" class="btn btn-primary btn-sm">
             <i class="bi bi-cart-plus"></i> Add to current purchase
           </a>
-          <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm">
+          <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-receipt"></i> Go to purchase screen
           </a> {% endcomment %}
           {% comment %} <hr style="border-color: #f0f0f0; margin: 0.25rem 0;">
@@ -152,10 +152,10 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
-              <a href="{% url 'material-add-preset-to-cart' preset.user.username preset.id %}?next={{request.path}}" class="btn btn-primary btn-sm">
+              <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-primary btn-sm">
                 <i class="bi bi-cart-plus"></i> Add to current purchase
               </a>
-              <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm">
+              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-receipt"></i> Go to purchase screen
               </a>
               {% comment %} <a href="{% url 'material-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-sm btn-block">

@@ -31,7 +31,7 @@ function changeValue(fieldId, delta, isInteger = false) {
             <p class="card-header-sub">Create a new item or product for your sales and inventory catalog.</p>
           </div>
         </div>
-        {% comment %} <a href="{% url 'product-list' %}" class="btn btn-light btn-sm">
+        {% comment %} <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
           <i class="bi bi-arrow-left sl-me-1"></i> Back
         </a> {% endcomment %}
       </div>
@@ -144,7 +144,7 @@ function changeValue(fieldId, delta, isInteger = false) {
           </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'product-list' %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Product
             </button>

@@ -3,7 +3,6 @@ from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import AbstractUser, UserManager
 
-from core.models import SlugModel, TimeStampModel
 from datetime import date, timedelta
 
 from django.utils import timezone
@@ -35,7 +34,7 @@ ROLE_CHOICES = [
         
     ]
 
-class User(AbstractUser, SlugModel):
+class User(AbstractUser):
     """
     I override accidentally the UserManager() so I need to manually assign to objects
     """
@@ -44,7 +43,8 @@ class User(AbstractUser, SlugModel):
     cleanup = DeleteUnverifiedUserManager()
     
     name = models.CharField(max_length=255)
-    email = models.EmailField(null=True, blank=True)
+    slug = models.SlugField(max_length=255, db_index=True, null=True, blank=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
     role = models.CharField(max_length=100, choices=ROLE_CHOICES, null=True, blank=True, default='owner')
     owner = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='staff_members')   
     birthday = models.DateField(null=True, blank=True)
@@ -52,6 +52,8 @@ class User(AbstractUser, SlugModel):
     locked_until = models.DateTimeField(null=True, blank=True)
     failed_attempts = models.PositiveIntegerField(default=0)
     password_changed_at = models.DateTimeField(null=True, blank=True)
+    
+    
     
     def __str__(self):
         return f"{self.username}"
@@ -100,10 +102,13 @@ class User(AbstractUser, SlugModel):
         
         super().save(*args, **kwargs)
         
-class EmailOTP(TimeStampModel):
+class EmailOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_otps', null=True, blank=True)
     otp = models.CharField(max_length=6)
     is_verified = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"To: {self.user} - OTP Code: {self.otp} "
@@ -118,7 +123,7 @@ class EmailOTP(TimeStampModel):
     def generate_otp(cls):
         return str(random.randint(0, 999999)).zfill(6)
 
-class BusinessProfile(SlugModel):
+class BusinessProfile(models.Model):
     BUSINESS_TYPE_CHOICE = (
         ('retail', 'Retail'),
         ('cafe', 'Cafe'),
@@ -127,9 +132,14 @@ class BusinessProfile(SlugModel):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')
     business_name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True, max_length=255, db_index=True, null=True, blank=True)
     business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
-    address = models.TextField(null=True, blank=True, max_length=255)
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
+    address = models.TextField(null=True, blank=True, max_length=255)
+    
+    
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         unique_together = ('user', 'slug')

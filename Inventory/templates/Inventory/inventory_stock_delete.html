@@ -12,7 +12,7 @@
       <p class="page-subtitle">Permanently remove <strong>{{ stock.name|capfirst }}</strong> from inventory.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'view-inventory-stock' %}" class="btn btn-outline-secondary btn-sm btn-flex">
+      <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-flex">
         <i class="bi bi-arrow-left"></i> Back to Inventory
       </a>
     </div>
@@ -46,11 +46,11 @@
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Supplier</span>
-              <span class="sd-info-value">{{ stock.supplier|capfirst|default:"—" }}</span>
+              <span class="sd-info-value">{{ stock.supplier|capfirst|default:"No supplier" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Unit</span>
-              <span class="sd-info-value">{{ stock.get_unit_display|default:"—" }}</span>
+              <span class="sd-info-value">{{ stock.get_unit_display|default:"No unit" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Avg. Price</span>
@@ -65,7 +65,7 @@
           <form method="POST">
             {% csrf_token %}
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:1rem; border-top:1px solid #f0f0f0; margin-top:0.5rem;">
-              <a href="{% url 'view-inventory-stock' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-danger">
                 <i class="bi bi-trash3"></i> Confirm Remove
               </button>

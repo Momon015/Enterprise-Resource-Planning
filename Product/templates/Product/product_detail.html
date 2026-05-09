@@ -30,15 +30,15 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-list' %}" class="breadcrumb-link">PRODUCTS</a>
+        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCTS</a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
       <h1 class="page-title">{{ product.name|capfirst }}</h1>
-      <p class="page-subtitle">{{ product.category.name|default:"Uncategorized" }} · SKU: {{ product.slug }}</p>
+      <p class="page-subtitle">{{ product.category.name|default:"No category" }} · SKU: {{ product.slug }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-list' %}" class="btn-back">
+      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
@@ -228,13 +228,13 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'add-to-sale' product.id %}" class="btn btn-primary btn-sm btn-block">
+            <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-cart-plus"></i> Add to Sale
             </a>
-            <a href="{% url 'product-update' product.user.username product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Product
             </a>
-            <a href="{% url 'product-delete' product.user.username product.slug %}" class="btn btn-sm btn-block" style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
+            <a href="{% url 'product-delete' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block" style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
               <i class="bi bi-trash"></i> Delete Product
             </a>
           </div>

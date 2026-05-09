@@ -12,7 +12,7 @@
       </h4>
       <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ employee.name }}</strong>.</p>
     </div>
-    {% comment %} <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary btn-sm">
+    {% comment %} <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to employees
     </a> {% endcomment %}
   </div>
@@ -66,7 +66,7 @@
           <form method="POST">
             {% csrf_token %}
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; border-top:1px solid #f0f0f0; padding-top:1rem; margin-top:0.5rem;">
-              <a href="{% url 'employee-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn"
                 style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
                 <i class="bi bi-trash"></i> Confirm Delete
@@ -98,7 +98,7 @@
           </div>
 
           {% comment %} <div class="btn-grid">
-            <a href="{% url 'employee-update' employee.id employee.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div> {% endcomment %}

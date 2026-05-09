@@ -8,7 +8,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-list' %}" class="breadcrumb-link">PRODUCTS</a>
+        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCTS</a>
         <i class="bi bi-chevron-right"></i>
         <span>DELETE</span>
       </div>
@@ -16,7 +16,7 @@
       <p class="page-subtitle">You are about to permanently remove <strong>{{ product.name }}</strong></p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-list' %}" class="btn-back">
+      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
@@ -46,7 +46,7 @@
             <div class="sd-summary-block-label">Product Details</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Category</span>
-              <span class="sd-info-value">{{ product.category.name|default:"Uncategorized" }}</span>
+              <span class="sd-info-value">{{ product.category.name|default:"No category" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Stock on hand</span>
@@ -71,7 +71,7 @@
           <form method="POST">
             {% csrf_token %}
             <div class="mf-form-actions">
-              <a href="{% url 'product-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-danger">
                 <i class="bi bi-trash"></i> Confirm Delete
               </button>
@@ -122,7 +122,7 @@
           </div>
 
           <div class="btn-grid">
-            <a href="{% url 'product-update' product.user.username product.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Instead
             </a>
           </div>

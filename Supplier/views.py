@@ -18,7 +18,7 @@ from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
 from Supplier.models import Material, MaterialPreset, MaterialPresetItem, Supplier
-from Supplier.forms import MaterialForm, MaterialFilterForm, SupplierForm, SupplierFilterForm
+from Supplier.forms import MaterialForm, MaterialFilterForm, SupplierForm, SupplierFilterForm, PresetFilterForm
 
 from django.core.paginator import Paginator
 
@@ -28,11 +28,12 @@ from decimal import Decimal
 
 from user.models import User
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
 
 @login_required(login_url='login')
-def material_list(request):
-    owner = get_owner(request.user)
+def material_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
     cart = request.session.get('cart', {})
     total = 0
     
@@ -40,7 +41,7 @@ def material_list(request):
     
     if cart:
         for material_id, data in cart.items():
-            material = get_object_or_404(Material, user=owner, id=material_id)
+            material = get_object_or_404(Material, business=business, id=material_id)
             
             # computations
             line_total = data.get('quantity', 0) * material.price
@@ -55,9 +56,9 @@ def material_list(request):
                 'unit': material.unit
             })
             
-    form = MaterialFilterForm(request.GET or None, user=owner)
+    form = MaterialFilterForm(request.GET or None, business=business)
     
-    materials = get_queryset_for_user(request.user, Material.objects.all()).order_by('name')
+    materials = get_queryset_for_user(request.user, Material.objects.all()).filter(business=business).order_by('name')
 
     
     """
@@ -97,7 +98,7 @@ def material_list(request):
     page_obj = paginator.get_page(page_number)
            
 
-    suppliers = get_queryset_for_user(request.user, Supplier.objects.all())
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('-name')
     
     context = {
         'categories': categories, 
@@ -108,6 +109,7 @@ def material_list(request):
         'categories_count': categories_count,
         'top_categories': top_categories,
         'section': 'supplier',
+        'business': business
           
         }
     
@@ -115,102 +117,89 @@ def material_list(request):
 
 @login_required(login_url='login')
 @permission_required('create')
-def material_create(request):
-    owner = get_owner(request.user)
+def material_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
     if request.method == 'POST':
-        form = MaterialForm(request.POST, user=owner)
+        form = MaterialForm(request.POST, business=business)
         
         if form.is_valid():
             material = form.save(commit=False)
-            if Material.objects.filter(user=owner, name__iexact=material.name, unit=material.unit).exists():
+            if Material.objects.filter(business=business, name__iexact=material.name, unit=material.unit).exists():
                 messages.warning(request, f"{material.name.title()} - {material.get_unit_display()} already exists.")
-                return redirect('material-list')
+                return redirect('material-list', business=business_slug)
             
-            material.user = owner
+            material.user = business.user
             material.created_by = request.user
             material.name = material.name.title()
+            material.business = business
             material.save()
             messages.success(request, f"{material.name} successfully created.")
-            return redirect('material-list')
+            return redirect('material-list', business_slug=business.slug)
     else:
-        form = MaterialForm(user=owner)
+        form = MaterialForm(business=business)
         
     context = {'form': form, 'section': 'supplier'}
     return render(request, 'Supplier/material_create.html', context)
 
 @login_required(login_url='login')
-def material_detail(request, username, slug):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
-    material = get_object_or_404(Material, slug=slug, user=owner)
+def material_detail(request, slug, id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    material = get_object_or_404(Material, business=business, slug=slug, id=id)
     
     context = {'material': material, 'section': 'Supplier'}
     return render(request, 'Supplier/material_detail.html', context)
 
 @login_required(login_url='login')
 @permission_required('update')
-def material_update(request, username, slug):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
+def material_update(request,  slug, id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
         
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:   
-        owner = get_owner(request.user)
-        
-    material = get_object_or_404(Material, user=owner, slug=slug)
+    material = get_object_or_404(Material, business=business, slug=slug, id=id)
 
     if request.method == 'POST':
-        form = MaterialForm(request.POST, instance=material, user=owner)
+        form = MaterialForm(request.POST, instance=material, business=business)
         
         if form.is_valid():
             material = form.save(commit=False)
             material.name = material.name.title()
-            material.user = owner
-            material.created_by = request.user
+            # material.user = business.user
             material.save()
             
             messages.success(request, f"{material.name} successfully updated.")
             url = request.GET.get('next', 'material-list')
-            return redirect(url)
+            return redirect(url, business_slug=business.slug)
         else:
             print(form.errors)
         
     else:
-        form = MaterialForm(instance=material, user=owner)
+        form = MaterialForm(instance=material, business=business)
         
     context = {'form': form, 'material': material, 'section': 'supplier'}
     return render(request, 'Supplier/material_update.html', context)
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def material_delete(request, username, slug):
-    
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-    
-    material = get_object_or_404(Material, user=owner, slug=slug)
+@permission_required('delete') # dev
+def material_delete(request, slug, id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    material = get_object_or_404(Material, business=business, slug=slug, id=id)
     
     if request.method == 'POST':
         material.delete()
         messages.success(request, f"{material.name} successfully deleted.")
-        return redirect('material-list')
+        return redirect('material-list', business_slug=business.slug)
     
     context = {'material': material, 'section': 'supplier'}
     return render(request, 'Supplier/material_delete.html', context)
 
 @login_required(login_url='login')
 @permission_required('add')
-def save_items(request):
+def save_items(request, business_slug):
     cart = request.session.get('cart', {})
-    owner = get_owner(request.user)
+    
+    business = get_business_for_user(request.user, business_slug)
     
     if request.method == 'POST':
         checkbox = request.POST.get('checkbox')
@@ -226,11 +215,18 @@ def save_items(request):
             messages.warning(request, "Please add a preset title and don't forget to check the checkbox.")
             
         if checkbox and name:
-            preset, _ = MaterialPreset.objects.get_or_create(user=owner, is_active=True, name=name, created_by=request.user)
+            preset, _ = MaterialPreset.objects.get_or_create(
+                user=business.user,
+                business=business, 
+                name=name,
+                defaults={
+                    'is_active': True,
+                    'created_by': request.user
+                })
         
             for material_id, data in cart.items():
                 
-                material = get_object_or_404(Material, user=owner, id=material_id)
+                material = get_object_or_404(Material, business=business, id=material_id)
                 quantity = data['quantity']
                 discount = data.get('discount', 0)
                 
@@ -242,22 +238,20 @@ def save_items(request):
                 )
             messages.success(request, f"{name} added to preset.")
             request.session['preset_id'] = preset.id
-        return redirect('view-cart')
+        return redirect('view-cart', business_slug=business.slug)
 
 @login_required(login_url='login')
 @permission_required('add') # dev
-def adding_preset_to_cart(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
+def adding_preset_to_cart(request, preset_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
     cart = request.session.get('cart', {})
     
-    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
+    preset = get_object_or_404(MaterialPreset, business=business, id=preset_id)
     items = preset.preset_items.select_related('material')
+    
+    added_count = 0
+    failed_count = 0
     
     if preset:
         for item in items:
@@ -274,33 +268,50 @@ def adding_preset_to_cart(request, username, preset_id):
             """
             existing_qty = cart.get(material_key, {}).get('quantity', 0)
             
-            if material.quantity >= item.quantity + existing_qty:
-                if material_key in cart:
+            if material_key in cart:
+                if material.quantity >= item.quantity + existing_qty:
                     cart[material_key]['quantity'] += item.quantity
-                    messages.success(request, f"{material.name} quantity updated in purchase.")
+                    added_count += 1
                 else:
-                    cart[material_key] = {
-                        'id': item.material.id,
-                        'name': item.material.name,
-                        'quantity': item.quantity,
-                        'price': str(item.material.price),
-                        'discount': str(item.discount),
-                        
-                    }
-                    messages.success(request, f"{material.name} has added to purchase.")
-                
+                    failed_count += 1
             else:
-                messages.warning(request, f"{material.name} exceeds the quantity limit.")
-                    
+                cart[material_key] = {
+                    'id': item.material.id,
+                    'name': item.material.name,
+                    'quantity': item.quantity,
+                    'price': str(item.material.price),
+                    'discount': str(item.discount),
+                }
+                added_count += 1
+                
+        # Show ONE summary message
+        if added_count > 0:
+            messages.success(request, f"{preset.name} - {added_count} item(s) added to purchase.")
+        if failed_count > 0:
+            messages.warning(request, f"{failed_count} item(s) couldn't be added (quantity limit).")
+                
+
     request.session['cart'] = cart
     request.session.modified = True
 
-    # This allows to stay which 
-    return redirect(f"{reverse('material-preset-list')}?{request.META.get('QUERY_STRING', '')}")
+    # This allows to stay which page the user currently in after adding.
+    query_string = request.META.get('QUERY_STRING', '')
+    url = reverse('material-preset-list', kwargs={'business_slug': business.slug})
+    return redirect(f"{url}?{query_string}" if query_string else url)
     
 @login_required(login_url='login')
-def preset_list(request):
-    presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).order_by('name')
+def preset_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).filter(business=business).order_by('-created_at')
+    
+    form = PresetFilterForm(request.GET or None)
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        
+        if search:
+            presets = presets.filter(name__icontains=search)
     
     paginator = Paginator(presets, 5)
     page_number = request.GET.get('page')
@@ -310,57 +321,47 @@ def preset_list(request):
     return render(request, 'Supplier/list_preset.html', context)
 
 @login_required(login_url='login')
-def preset_detail(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-    else:
-        owner = get_owner(request.user)
-        
-    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
+def preset_detail(request, business_slug, id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
 
     context = {'preset': preset, 'section': 'supplier'}
     return render(request, 'Supplier/detail_preset.html', context)
 
 @login_required(login_url='login')
 @permission_required('update') # dev
-def edit_preset(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
+def edit_preset(request, business_slug, id, slug):
+    business = get_business_for_user(request.user, business_slug)
         
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-        
-    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
+    preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
     save_items = preset.preset_items.select_related('material')
     
     qty_changed = False
     discount_changed = False
     
-    owner = get_owner(request.user)
-    
     if request.method == 'POST':
         for item in save_items:
-            new_qty = int(request.POST.get(f'quantity_{item.id}'))
-            new_discount = int(request.POST.get(f"discount_{item.id}"))
+            raw_qty = request.POST.get(f'quantity_{item.id}')
+            new_qty = int(raw_qty)
+            
+            raw_discount = request.POST.get(f"discount_{item.id}")
+            new_discount = int(raw_discount)
+            
             new_name = request.POST.get(f'preset_{preset.id}')
             
-            if new_name and new_name != preset.name:
+            if new_name and new_name != preset.name: # validate the name with max and min length 
                 preset.name = new_name.title()
-                preset.user = owner
-                preset.created_by = owner
                 preset.save()
                 messages.success(request, f"Preset Name has been updated. ")
                     
             if new_qty and new_qty != item.quantity:
-                item.quantity = int(new_qty)
+                item.quantity = new_qty
                 item.save()
                 qty_changed = True
                 
             if new_discount and new_discount != item.discount: 
-                item.discount = int(new_discount)
+                item.discount = new_discount
                 item.save()
                 discount_changed = True
                 
@@ -373,34 +374,30 @@ def edit_preset(request, username, preset_id):
         if discount_changed == True and not qty_changed == True:
             messages.success(request, f"{item.material.name}'s discount has been updated. ")
         
-        return redirect('material-preset-list')
+        return redirect('material-preset-list', business_slug=business.slug)
       
     context = {'preset': preset, 'items': save_items, 'section': 'supplier'}
     return render(request, 'Supplier/edit_preset.html', context)
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def delete_preset(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-    preset = get_object_or_404(MaterialPreset, user=owner, id=preset_id)
+def delete_preset(request, business_slug, id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
     
     if request.method == 'POST':
         preset.delete()
         messages.success(request, f"{preset.name} has been deleted.")
-        return redirect('material-preset-list')
+        return redirect('material-preset-list', business_slug=business.slug)
     
     context = {'preset': preset, 'section': 'supplier'}
     return render(request, 'Supplier/delete_preset.html', context)
 
 @login_required(login_url='login')
-def supplier_list(request):
-    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).order_by('name')
+def supplier_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('name')
     form = SupplierFilterForm(request.GET or None)
     
     if form.is_valid():
@@ -409,7 +406,6 @@ def supplier_list(request):
         if search:
             suppliers = suppliers.filter(name__icontains=search)
         
-        
     pagination = Paginator(suppliers, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
@@ -417,23 +413,23 @@ def supplier_list(request):
     context = {'page_obj': page_obj, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_list.html', context)
 
-
 @login_required(login_url='login')
 @permission_required('add')
-def supplier_create(request):
-    owner = get_owner(request.user)
-    
+def supplier_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
     if request.method == 'POST':
         form = SupplierForm(request.POST)
         
         if form.is_valid():
             supplier = form.save(commit=False)
-            supplier.user = owner
+            supplier.user = business.user
             supplier.created_by = request.user
+            supplier.business = business
             supplier.name = supplier.name.title()
             supplier.save()
             messages.success(request, f"{supplier.name} successfully created.")
-            return redirect('supplier-list')
+            return redirect('material-list', business_slug=business.slug)
     else:
         form = SupplierForm()
         
@@ -449,56 +445,40 @@ def supplier_create(request):
 
 @login_required(login_url='login')
 @permission_required('update')
-def supplier_update(request, username, supplier_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-        
-    supplier = get_object_or_404(Supplier, user=owner, id=supplier_id)
-    owner = get_owner(request.user)
-    
+def supplier_update(request, business_slug, supplier_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
+
     if request.method == 'POST':
         form = SupplierForm(request.POST, instance=supplier)
         
         if form.is_valid():
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
-            supplier.user = owner
-            supplier.created_by = request.user
             supplier.save()
-            
             messages.success(request, f"{supplier.name} successfully updated.")
-            return redirect(f"{reverse('supplier-list')}?{request.META.get('QUERY_STRING', '')}")
+            query_string = request.META.get('QUERY_STRING', '')
+            url = reverse('material-list', kwargs={'business_slug': business.slug})
+            return redirect(f"{url}?{query_string}" if query_string else url)
         else:
             print(form.errors)
-        
     else:
         form = SupplierForm(instance=supplier)
         
     context = {'form': form, 'supplier': supplier, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_update.html', context)
 
-
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def supplier_delete(request, username, supplier_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-    supplier = get_object_or_404(Supplier, user=owner, id=supplier_id)
+@permission_required('delete') # dev
+def supplier_delete(request, business_slug, supplier_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
     
     if request.method == 'POST':
         supplier.delete()
         messages.success(request, f"{supplier.name} successfully deleted.")
-        return redirect('supplier-list')
+        return redirect('material-list', business_slug=business.slug)
     
     context = {'supplier': supplier, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_delete.html', context)

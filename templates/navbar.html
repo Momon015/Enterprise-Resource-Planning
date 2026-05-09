@@ -10,7 +10,7 @@
 <nav class="sidebar" id="sidebar">
 
   <!-- BRAND -->
-  <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login'  %}{% endif %}">
+  <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login'  %}{% endif %}">
     <div class="sidebar-brand__icon">
       <i class="bi bi-graph-up-arrow"></i>
     </div>
@@ -22,12 +22,85 @@
     </div>
   </a>
 
+  <!-- CURRENT BUSINESS SECTION -->
+<div class="sidebar-section" style="margin-bottom: 1.5rem;">
+  <div class="sidebar-section-label" style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;">
+    Current Business
+  </div>
+  
+  {% if request.user.role == 'owner' and user_businesses|length > 1 %}
+    <!-- Owner with multiple businesses: Dropdown -->
+    <select class="business-selector" onchange="location = this.value;" style="
+      width: 100%;
+      background: #1f2937;
+      color: #f9fafb;
+      border: 1px solid #374151;
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.5rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+    " onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#1f2937'">
+      {% for biz in user_businesses %}
+        <option value="{% url 'dashboard' business_slug=biz.slug %}" 
+                {% if current_business.id == biz.id %}selected{% endif %}>
+          {{ biz.business_name }}
+        </option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <!-- Staff or single-business owner: Static display -->
+    <div class="business-display" style="
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 0.375rem;
+      padding: 0.3rem 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    ">
+      <div style="
+        width: 24px;
+        height: 24px;
+        background: #2d6a4f;
+        border-radius: 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      ">
+        {% if current_business.business_type == 'cafe' %}
+          <i class="bi bi-cup-hot-fill" style="color: white; font-size: 0.75rem;"></i>
+        {% elif current_business.business_type == 'restaurant' %}
+          <i class="bi bi-egg-fried" style="color: white; font-size: 0.75rem;"></i>
+        {% elif current_business.business_type == 'retail' %}
+          <i class="bi bi-shop" style="color: white; font-size: 0.75rem;"></i>
+        {% else %}
+          <i class="bi bi-building" style="color: white; font-size: 0.75rem;"></i>
+        {% endif %}
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="color: #f9fafb; font-weight: 500; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> 
+          {{ current_business.business_name }}
+        </div>
+        {% if current_business.business_type %}
+        <div style="color: #9ca3af; font-size: 0.625rem; margin-top: 0;">
+          {{ current_business.get_business_type_display }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+
   <!-- MAIN MODULES -->
   <div class="sidebar-section">
     <div class="sidebar-section-label">Main</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">
+        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' business_slug=current_business.slug %}">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
@@ -36,7 +109,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' %}?next={{request.path}}">
+        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' business_slug=current_business.slug %}?next={{request.path}}">
           <i class="bi bi-calendar-check"></i>
           <span>Summary</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
@@ -45,7 +118,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}" href="{% url 'expense-list' %}">
+        <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}" href="{% url 'expense-list' business_slug=current_business.slug %}">
           <i class="bi bi-wallet2"></i>
           <span>Expenses</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
@@ -61,7 +134,7 @@
     <div class="sidebar-section-label">Transactions</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' %}">
+        <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' business_slug=current_business.slug %}">
           <i class="bi bi-cash-coin"></i>
           <span>Sales</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
@@ -70,7 +143,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' %}">
+        <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' business_slug=current_business.slug %}">
           <i class="bi bi-receipt"></i>
           <span>Purchases</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
@@ -79,7 +152,7 @@
         </a>
       </li>
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' %}">
+        <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' business_slug=current_business.slug %}">
           <i class="bi bi-recycle"></i>
           <span>Waste & Loss</span>
           {% if request.user.role == 'developer' %}
@@ -90,37 +163,45 @@
     </ul>
   </div>
 
-  <!-- CATALOG -->
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Catalog</div>
-    <ul class="sidebar-nav">
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}" href="{% url 'product-list' %}">
-          <i class="bi bi-basket"></i>
-          <span>Products</span>
-        </a>
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" href="{% url 'material-list' %}">
+<!-- CATALOG -->
+<div class="sidebar-section">
+  <div class="sidebar-section-label">Catalog</div>
+  <ul class="sidebar-nav">
+    <li class="sidebar-nav__item">
+      <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}" href="{% url 'product-list' business_slug=current_business.slug %}">
+        <i class="bi bi-basket"></i>
+        <span>Products</span>
+      </a>
+    </li>
+    <li class="sidebar-nav__item">
+      {% if current_business %}
+        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" 
+           href="{% url 'material-list' business_slug=current_business.slug %}">
           <i class="bi bi-building"></i>
           <span>Suppliers</span>
         </a>
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' %}">
-          <i class="bi bi-box"></i>
-          <span>Inventory</span>
+      {% else %}
+        <span class="sidebar-nav__link text-muted" style="cursor: not-allowed;" title="Select a business first">
+          <i class="bi bi-building"></i>
+          <span>Suppliers</span>
         </a>
-      </li>
-    </ul>
-  </div>
+      {% endif %}
+    </li>
+    <li class="sidebar-nav__item">
+      <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
+        <i class="bi bi-box"></i>
+        <span>Inventory</span>
+      </a>
+    </li>
+  </ul>
+</div>
 
   <!-- HR -->
   <div class="sidebar-section">
     <div class="sidebar-section-label">HR</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' %}?next={{request.path}}">
+        <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' business_slug=current_business.slug %}?next={{request.path}}">
           <i class="bi bi-people"></i>
           <span>Employees & Payroll</span>
           {% if request.user.role == 'staff'%}
@@ -133,7 +214,7 @@
 
   <!-- FOOTER -->
   <div class="sidebar-footer">
-    <a href="{% url 'view-sale' %}" class="sidebar-new-sale">
+    <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="sidebar-new-sale">
       <i class="bi bi-plus-lg"></i>
       <span>New Sale</span>
     </a>
@@ -153,7 +234,7 @@
 
       <div class="sidebar-dropdown" id="accountDropdown">
         {% if user.is_authenticated %}
-          <a class="sidebar-dropdown__item" href="{% url 'user-profile' request.user.slug %}">
+          <a class="sidebar-dropdown__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
             <i class="bi bi-person-circle"></i> Profile
           </a>
           <a class="sidebar-dropdown__item" href="#">

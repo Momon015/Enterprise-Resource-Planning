@@ -7,7 +7,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-preset-list' %}" class="breadcrumb-link">PRESETS</a>
+        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESETS</a>
         <i class="bi bi-chevron-right"></i>
         <span>EDIT</span>
       </div>
@@ -15,13 +15,13 @@
       <p class="page-subtitle">Adjust quantities for this preset. Pricing is managed in the product catalog.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-preset-list' %}" class="btn-back">
+      <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to presets
       </a>
     </div>
   </div>
 
-  <form method="POST" action="{% url 'product-edit-preset' preset.user.username preset.id %}">
+  <form method="POST" action="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}">
     {% csrf_token %}
 
     <div class="two-col-layout">
@@ -62,7 +62,7 @@
                   <!-- PRODUCT -->
                   <td>
                     <div class="cell-primary">{{ item.product.name }}</div>
-                    <div class="cell-sub">#{{ item.product.id }}</div>
+                    <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
                   </td>
 
                   <!-- QUANTITY -->
@@ -76,7 +76,8 @@
                              class="qty-input"
                              name="new_product_quantity_{{ item.product.id }}"
                              value="{{ item.quantity }}"
-                             min="1"
+                             min="0"
+                             max="999"
                              readonly>
                       <button type="button"
                               class="qty-btn qty-ctrl"
@@ -98,7 +99,7 @@
           <!-- ACTIONS -->
           <div class="card-body" style="border-top:1px solid var(--border-light);">
             <div class="mf-form-actions">
-              <a href="{% url 'product-preset-list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle"></i> Save changes
               </button>
@@ -167,14 +168,22 @@ document.addEventListener('click', function(e) {
   if (!btn) return;
 
   const inputName = btn.dataset.target;
-  const step = parseInt(btn.dataset.step);
+  const step = parseInt(btn.dataset.step, 10);
   const input = document.querySelector(`input[name="${inputName}"]`);
 
-  const min = parseInt(input.min) || 1;
-  let current = parseInt(input.value) || min;
+  if (!input) return;
+
+  const min = parseInt(input.min, 10) || 0;
+  const max = parseInt(input.max, 10) || 999;
+
+  let current = parseInt(input.value, 10);
+  if (isNaN(current)) current = min;
 
   current += step;
+
+  // Clamp value between min and max
   if (current < min) current = min;
+  if (current > max) current = max;
 
   input.value = current;
 });

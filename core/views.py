@@ -42,22 +42,23 @@ from django.db.models import Sum, Avg
 from core.models import Category
 from core.forms import CategoryForm, CategoryFilterForm
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 # logging
 import logging
 
 # Create your views here.
 
 def landing_page(request):
-    if request.is_authenticated:
+    if request.user.is_authenticated:
         return redirect('')
     
     return render(request, 'landing.html')
 
 
 @login_required(login_url='login')
-def category_list(request):
-    categories = get_queryset_for_user(request.user, Category.objects.all()).order_by('-name')
+def category_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    categories = get_queryset_for_user(request.user, Category.objects.all()).filter(business=business).order_by('-name')
     section = None
     
     form = CategoryFilterForm(request.GET or None)
@@ -90,23 +91,25 @@ def category_list(request):
     return render(request, 'core/category_list.html', context)
 
 @login_required(login_url='login')
-def category_create(request):
-    owner = get_owner(request.user)
+def category_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         
         if form.is_valid():
             category = form.save(commit=False)
             
-            if Category.objects.filter(name__iexact=category.name).exists():
+            if Category.objects.filter(name__iexact=category.name, business=business).exists():
                 messages.error(request, f"{category.name.title()} is already exist. Please use a different name for Category.")
             else:
-                category.user = owner
+                category.user = business.user
+                category.business = business
                 category.created_by = request.user
                 category.name = category.name.title()
                 category.save()
                 messages.success(request, f"{category.name} has successfully created.")
-                return redirect('category-list')
+                return redirect('category-list', business_slug=business.slug)
     else:
         form = CategoryForm()
     
@@ -114,21 +117,19 @@ def category_create(request):
     return render(request, 'core/category_create.html', context)
 
 @login_required(login_url='login')
-def category_update(request, category_id):
-    
-    category = get_object_or_404(Category, id=category_id)
-    owner = get_owner(request.user)
+def category_update(request, business_slug, category_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    category = get_object_or_404(Category, business=business, id=category_id, slug=slug)
+
     if request.method == 'POST':
         form = CategoryForm(request.POST, instance=category)
         
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.user = owner
-            obj.created_by = request.user
             obj.name = obj.name.title()
             obj.save()
             messages.success(request, f"{category.name} has successfully updated.")
-            return redirect('category-list')
+            return redirect('category-list', business_slug=business.slug)
     
     else:
         form = CategoryForm(instance=category)
@@ -139,13 +140,15 @@ def category_update(request, category_id):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def category_delete(request, category_id):
-    category = get_object_or_404(Category, id=category_id)
+@permission_required('read_only') # dev
+def category_delete(request, business_slug, category_id, slug):
+    business = get_business_for_user(request.user, business_slug)
+    category = get_object_or_404(Category, business=business, id=category_id, slug=slug)
     
     if request.method == 'POST':
         category.delete()
         messages.success(request, f"{category.name} has successfully deleted.")
-        return redirect('category-list')
+        return redirect('category-list', business_slug=business.slug)
     
     context = {'category': category}
     return render(request, 'core/category_delete.html', context)

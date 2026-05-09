@@ -14,37 +14,59 @@
       <p class="page-subtitle">{{ today|date:"F d, Y" }} — {{ today|date:"l" }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'view-sale' %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle"></i> New Sale
       </a>
-      <a href="{% url 'view-cart' %}" class="btn btn-outline-secondary btn-sm">
+      <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-plus-circle"></i> New Purchase
       </a>
     </div>
   </div>
 
   <!-- KPI STATS ROW -->
+
+  <!-- REVENUE -->
   <div class="sd-stats-row" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
     <div class="sd-stat-box">
       <div class="sd-stat-label">Revenue</div>
-      <div class="sd-stat-value" style="color:var(--success);">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="sd-stat-value" style="color:{% if total_revenue %}var(--success){% else %}var(--muted){% endif %};">
+          ₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}
+        </div>
     </div>
+
+    <!-- MATERIAL COST -->
     <div class="sd-stat-box">
       <div class="sd-stat-label">Material Cost</div>
-      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="sd-stat-value" style="color:{% if total_material_cost %}var(--danger){% else %}var(--muted){% endif %};">
+           ₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}
+        </div>
     </div>
+
+    <!-- WASTE COST -->
     <div class="sd-stat-box">
       <div class="sd-stat-label">Waste Cost</div>
-      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="sd-stat-value" style="color:{% if total_waste_cost %}var(--danger){% else %}var(--muted){% endif %};">
+          ₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}
+        </div>
     </div>
+
+    <!-- LABOR COST -->
     <div class="sd-stat-box">
       <div class="sd-stat-label">Labor Cost</div>
-      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="sd-stat-value" style="color:{% if total_salary_cost %}var(--danger){% else %}var(--muted){% endif %};">
+          ₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}
+        </div>
     </div>
+
+    <!-- EXPENSE COST -->
     <div class="sd-stat-box">
       <div class="sd-stat-label">Expense Cost</div>
-      <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="sd-stat-value" style="color:{% if total_expense_cost %}var(--danger){% else %}var(--muted){% endif %};">
+          ₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}
+        </div>
     </div>
+
+    <!-- NET PROFIT -->
     <div class="sd-stat-box" style="{% if net_profit >= 0 %}background:var(--success-light); border-color:var(--success-border);{% else %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
       <div class="sd-stat-label">Net Profit</div>
       <div class="sd-stat-value" style="{% if net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">

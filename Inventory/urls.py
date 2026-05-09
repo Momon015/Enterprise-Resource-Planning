@@ -5,8 +5,8 @@ from django.urls import path
 
 urlpatterns = [
     
-    path('view/inventory-stock/', views.view_inventory_stock, name='view-inventory-stock'),
-    path('delete/<int:stock_id>/inventory-stock/', views.inventory_stock_delete, name='inventory-stock-delete'),
+    path('view/stocks/list/', views.view_inventory_stock, name='view-inventory-stock'),
+    path('<int:stock_id>/stocks/delete/', views.inventory_stock_delete, name='inventory-stock-delete'),
     
     
 ]

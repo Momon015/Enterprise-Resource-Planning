@@ -33,6 +33,7 @@ Thumbs.db
 
 testing_some_logic.py
 prices.py
+updated_prices.py
 seed_test_data.py
 
 *.local.json

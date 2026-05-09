@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">Manage your account details and security settings</p>
     </div>
     {% comment %} <div class="page-header-right">
-      <a href="{% url 'user-edit-profile' user.slug %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-pencil-square"></i> Edit Profile
       </a>
       <a href="{% url 'user-delete' user.id %}" class="btn btn-sm"
@@ -89,11 +89,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="sd-summary-block-label">Contact</div>
             <div class="sd-info-row">
               <span class="sd-info-label">Email</span>
-              <span class="sd-info-value">{{ user.email|default:"—" }}</span>
+              <span class="sd-info-value">{{ user.email|default:"No email" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Phone</span>
-              <span class="sd-info-value">{{ user.phone_number|default:"—" }}</span>
+              <span class="sd-info-value">{{ user.phone_number|default:"No contact" }}</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Birthday</span>
@@ -183,17 +183,18 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'user-edit-profile' user.slug %}" class="btn btn-primary btn-sm btn-block">
+            <a href="{% url 'user-edit-profile' slug=user.slug user_id=user.id %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Profile
             </a>
-            <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-pencil-square"></i> Business Profile
+            {% if request.user.role == 'owner' %}
+            <a href="{% url 'business-profile-detail' business_id=business.id slug=business.slug %}" class="btn btn-outline-primary btn-sm btn-block">
+              <i class="bi bi-shop"></i> Business Profile
             </a>
-
+            {% endif %}
             <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-lock-fill"></i> Change Password
             </a>
-            <a href="{% url 'user-deactivate' user.slug %}" class="btn btn-sm btn-block"
+            <a href="{% url 'user-deactivate' user_id=user.id slug=user.slug %}" class="btn btn-sm btn-block"
               style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
               <i class="bi bi-person-slash"></i> Deactivate Account
             </a>

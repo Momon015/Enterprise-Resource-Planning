@@ -12,7 +12,7 @@
       <p class="page-subtitle">{{ waste.date|date:"F d, Y" }} — {{ waste.date|date:"l" }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'expense-waste-list' %}" class="btn btn-light btn-sm btn-back">
+      <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
         <i class="bi bi-arrow-left"></i> Back to waste records
       </a>
     </div>
@@ -46,8 +46,8 @@
               {% for item in waste_items %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
-                  <div class="cell-sub">{{ item.supplier|default:"—" }}</div>
+                  <div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div>
+                  <div class="cell-sub">{{ item.supplier|default:"No supplier" }}</div>
                 </td>
                 <td class="sl-text-center">
                   {% if item.product %}
@@ -116,10 +116,10 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Links</div>
             <div class="btn-grid">
-              <a href="{% url 'material-waste-create' %}" class="btn btn-sm btn-outline-secondary btn-block">
+              <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-secondary btn-block">
                 <i class="bi bi-plus-circle"></i> Log Waste
               </a>
-              <a href="{% url 'expense-waste-list' %}" class="btn btn-sm btn-outline-secondary btn-block">
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-secondary btn-block">
                 <i class="bi bi-list-ul"></i> All Records
               </a>
             </div>

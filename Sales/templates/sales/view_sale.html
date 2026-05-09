@@ -63,7 +63,7 @@ function toggleCostInput(itemId) {
             <i class="bi bi-list-ul"></i>
             Product Lines
           </span>
-          <a href="{% url 'product-list' %}" class="btn-browse">
+          <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-browse">
             <i class="bi bi-search"></i> Browse products
           </a>
         </div>
@@ -86,27 +86,27 @@ function toggleCostInput(itemId) {
                 <!-- PRODUCT -->
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
-                  <div class="product-id">{{ item.supplier|default:"—" }}</div>
+                  <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
                 </td>
 
                 <!-- QTY SOLD -->
                 <td>
                   <div class="qty-stepper">
-                    <form method="POST" action="{% url 'sale-edit-quantity' item.id %}">
+                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}">
                       {% csrf_token %}
                       <input type="hidden" name="new_quantity"
                              value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
                       <button type="submit" class="qty-btn"
                               {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
                     </form>
-                    <form method="POST" action="{% url 'sale-edit-quantity' item.id %}">
+                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}">
                       {% csrf_token %}
                       <input type="number" min="1" name="new_quantity"
                              class="qty-input"
                              value="{{ item.quantity }}"
                              onchange="this.form.submit()">
                     </form>
-                    <form method="POST" action="{% url 'sale-edit-quantity' item.id %}">
+                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}">
                       {% csrf_token %}
                       <input type="hidden" name="new_quantity" value="{{ item.quantity|add:'1' }}">
                       <button type="submit" class="qty-btn">+</button>
@@ -122,7 +122,7 @@ function toggleCostInput(itemId) {
 
                 <!-- TOTAL UNIT PRICE / SELLING PRICE (editable) -->
                 <td>
-                  <form method="POST" action="{% url 'sale-edit-selling-price' item.id %}">
+                  <form method="POST" action="{% url 'sale-edit-selling-price' product_id=item.id business_slug=current_business.slug %}">
                     {% csrf_token %}
                     <div style="display:flex; flex-direction:column; align-items:center;">
                       <div class="cost-display">
@@ -149,7 +149,7 @@ function toggleCostInput(itemId) {
 
                 <!-- REMOVE -->
                 <td class="pe-4">
-                  <a href="{% url 'sale-delete-quantity' item.id %}" class="remove-btn">
+                  <a href="{% url 'sale-delete-quantity' product_id=item.id business_slug=current_business.slug %}" class="remove-btn">
                     <i class="bi bi-trash"></i>
                   </a>
                 </td>
@@ -203,10 +203,10 @@ function toggleCostInput(itemId) {
             <span class="total-value total-grand">₱{{ total_revenue|floatformat:2 }}</span>
           </div>
 
-          <a href="{% url 'clear-sale' %}" class="btn-clear">
+          <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="btn-clear">
             <i class="bi bi-trash3"></i> Clear all items
           </a>
-          <a href="{% url 'view-session-summary' %}" class="btn-confirm">
+          <a href="{% url 'view-session-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Sales
           </a>
         </div>
@@ -241,7 +241,7 @@ function toggleCostInput(itemId) {
                 <i class="bi bi-people-fill"></i> Confirm Shift
               </button>
             {% else %}
-              <p style="font-size:.88rem; color:var(--muted); margin:0;">No employees found. <a href="{% url 'employee-list' %}" style="color:var(--accent);">Add staff</a></p>
+              <p style="font-size:.88rem; color:var(--muted); margin:0;">No employees found. <a href="{% url 'employee-list' business_slug=current_business.slug' %}" style="color:var(--accent);">Add staff</a></p>
             {% endif %}
           </form>
         </div>
@@ -255,12 +255,12 @@ function toggleCostInput(itemId) {
             <i class="bi bi-bookmark-fill"></i>
             Product Presets
           </span>
-          <a href="{% url 'product-preset-list' %}" style="font-size:.82rem; color:var(--muted); text-decoration:none;">
+          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" style="font-size:.82rem; color:var(--muted); text-decoration:none;">
             View all <i class="bi bi-arrow-right"></i>
           </a>
         </div>
         <div style="padding: 1.25rem;">
-          <form method="POST" action="{% url 'product-add-to-preset' %}">
+          <form method="POST" action="{% url 'product-add-to-preset' business_slug=current_business.slug %}">
             {% csrf_token %}
             <input type="text" name="product_name" autocomplete="off"
                    class="preset-input" placeholder="e.g. Service Fees">
@@ -284,7 +284,7 @@ function toggleCostInput(itemId) {
     <div class="empty-icon"><i class="bi bi-receipt"></i></div>
     <div class="empty-title">No products yet</div>
     <p class="empty-sub">Browse the product list and add items to start recording today's sales.</p>
-    <a href="{% url 'product-list' %}" class="btn-add-product">
+    <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-add-product">
       <i class="bi bi-plus-circle"></i> Add product
     </a>
   </div>

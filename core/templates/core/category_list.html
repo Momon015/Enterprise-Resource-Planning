@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-tags-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> categor{{ page_obj.paginator.count|pluralize:"y,ies" }}
       </div>
-      <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'category-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle"></i> Add Category
       </a>
     </div>
@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'category-list' %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
             </div>
           </form>
         </div>
@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", function () {
           {% if request.GET.category_type %}
             <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
               Filtered: {{ request.GET.category_type|capfirst }}
-              <a href="{% url 'category-list' %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
+              <a href="{% url 'category-list' business_slug=current_business.slug %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
             </span>
           {% endif %}
         </div>
@@ -134,10 +134,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'category-update' category.id %}" class="action-btn" title="Edit">
+                    <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'category-delete' category.id %}" class="action-btn action-btn--danger" title="Delete">
+                    <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn action-btn--danger" title="Delete">
                       <i class="bi bi-trash"></i>
                     </a>
                   </div>
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     {% endif %}
                   </p>
                   {% comment %} {% if not request.GET.search %}
-                  <a href="{% url 'category-create' %}" class="btn btn-primary btn-sm">
+                  <a href="{% url 'category-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-circle"></i> Add Category
                   </a>
                   {% endif %} {% endcomment %}
@@ -233,22 +233,22 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>
             <div class="quick-range-grid">
-              <a href="{% url 'category-list' %}?category_type=item"
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=item"
                 class="quick-range-btn {% if request.GET.category_type == 'item' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'item' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
                 <i class="bi bi-shop"></i> Item
               </a>
-              <a href="{% url 'category-list' %}?category_type=product"
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product"
                 class="quick-range-btn {% if request.GET.category_type == 'product' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'product' %}background:var(--info-light); border-color:var(--info); color:var(--info);{% endif %}">
                 <i class="bi bi-basket"></i> Product
               </a>
-              <a href="{% url 'category-list' %}?category_type=expense"
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=expense"
                 class="quick-range-btn {% if request.GET.category_type == 'expense' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'expense' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
                 <i class="bi bi-receipt"></i> Expense
               </a>
-              <a href="{% url 'category-list' %}"
+              <a href="{% url 'category-list' business_slug=current_business.slug %}"
                 class="quick-range-btn {% if not request.GET.category_type and not request.GET.search %}quick-range-btn--selected{% endif %}">
                 <i class="bi bi-grid"></i> All
               </a>

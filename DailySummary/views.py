@@ -49,26 +49,26 @@ from user.models import User
 from decimal import Decimal
 from operator import itemgetter
 
-from core.utils.owner import  get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import  get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 # logging
 import logging
 
 # Create your views here.
 
+
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def view_summary(request):
-    if request.user.role == 'developer':
-        return render(request, 'core/no_access.html', status=403)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def view_summary(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
 
-    sales = get_queryset_for_user(request.user, Sale.objects.all())
-    purchases = get_queryset_for_user(request.user, Purchase.objects.all())
-    wastes = get_queryset_for_user(request.user, Waste.objects.all())
-    expenses = get_queryset_for_user(request.user, Expense.objects.all())
-    shifts = get_queryset_for_user(request.user, Shift.objects.all())
+    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business)
+    wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business)
+    expenses = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
+    shifts = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
     
-
     grand_net_profit = 0
     grand_total_cost = 0
     grand_total_revenue = 0
@@ -82,8 +82,6 @@ def view_summary(request):
     shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('amount')).order_by('-date')
     purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
          
-        
-        
     print(sales_by_date)
 
     form = SummaryFilterForm(request.GET or None)
@@ -294,28 +292,29 @@ def view_summary(request):
     return render(request, 'DailySummary/view_summary.html', context)
 
 @login_required(login_url='login')
-# @permission_required('owner_only')
-def view_summary_detail(request, date):
-    owner = get_owner(request.user)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def view_summary_detail(request, business_slug, date):
+    business = get_business_for_user(request.user, business_slug)
     net_profit = 0
     
-    sales = Sale.objects.filter(user=owner, date=date)
+    sales = Sale.objects.filter(business=business, date=date)
     sale_items  = SaleItem.objects.filter(sale__in=sales)
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
     total_revenue = sales.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
     
-    purchases = Purchase.objects.filter(user=owner, purchase_date=date)
+    purchases = Purchase.objects.filter(business=business, purchase_date=date)
     purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
     total_material_cost = purchases.aggregate(material_cost=Sum('total_cost'))['material_cost'] or 0
     
-    wastes = Waste.objects.filter(user=owner, date=date)
+    wastes = Waste.objects.filter(business=business, date=date)
     waste_items = WasteItem.objects.filter(waste__in=wastes)
     total_waste_cost = wastes.aggregate(waste_cost=Sum('total_cost'))['waste_cost'] or 0
     
-    expenses = Expense.objects.filter(user=owner, date=date)
+    expenses = Expense.objects.filter(business=business, date=date)
     total_expense_cost = expenses.aggregate(total_expense_cost=Sum('total_amount'))['total_expense_cost'] or 0
     
-    shifts = Shift.objects.filter(user=owner, date=date)
+    shifts = Shift.objects.filter(business=business, date=date)
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
     total_salary_cost = shifts.aggregate(salary_cost=Sum('amount'))['salary_cost'] or 0
     

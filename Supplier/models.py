@@ -7,19 +7,29 @@ from user.models import User, BusinessProfile
 # # Create your models here.
 
 class Supplier(TimeStampModel, SlugModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='supplies', null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='suppliers', null=True, blank=True)
     name = models.CharField(max_length=255)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_supplies', null=True, blank=True)
-
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='suppliers', null=True, blank=True)
+    
     class Meta:
-        unique_together = ('user', 'slug')
+        unique_together = ('user', 'slug', 'business')
         
     def __str__(self):
         return self.name
     
     def save(self, *args, **kwargs): 
-        if not self.slug:
-            self.slug = slugify(self.name)
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while Supplier.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
+        
         super().save(*args, **kwargs)
 
 class Material(TimeStampModel, SlugModel):
@@ -68,33 +78,67 @@ class Material(TimeStampModel, SlugModel):
         return self.name
     
     def save(self, *args, **kwargs):
-        slug = slugify(self.name)
         unit_display = self.get_unit_display().title()
-        self.slug = f"{slug}-{unit_display}"
+        base_slug = f"{slugify(self.name)}-{unit_display}"
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while Material.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
+        
         
         super().save(*args, **kwargs)
     
-class MaterialPreset(TimeStampModel):
+class MaterialPreset(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presets')
     name = models.CharField(max_length=255)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='presets', null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_material_presets', null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('user', 'name', 'slug')
+        
+    def save(self, *args, **kwargs):
+        base_slug = slugify(self.name)  # or whatever name field
+        slug = base_slug
+        counter = 1
+        
+        # include business in collision check
+        while MaterialPreset.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        self.slug = slug
+
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return self.name
 
 class MaterialPresetItem(models.Model):
-    class Meta:
-        unique_together = ('preset', 'material')
-        ordering = ['id']
-        
     preset = models.ForeignKey(MaterialPreset, on_delete=models.CASCADE, related_name='preset_items')
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='preset_items')
     quantity = models.PositiveIntegerField(default=1)
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
+    
+    class Meta:
+        unique_together = ('preset', 'material')
+        ordering = ['id']
     
     def __str__(self):
         return f"{self.material} x {self.quantity} - Discount: {self.discount}"
+    
+    def save(self, *args, **kwargs):
+        if not self.supplier_name:
+            self.supplier_name = self.material.supplier.name if self.material.supplier else 'No supplier'
+            
+        super().save(*args, **kwargs)
     
     @property
     def total_line_cost(self):

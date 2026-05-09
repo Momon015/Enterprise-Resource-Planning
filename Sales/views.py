@@ -45,7 +45,7 @@ from django.db.models import Sum, Avg, Max, Q, F
 
 from decimal import Decimal
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 from user.models import User
 
@@ -55,16 +55,19 @@ import logging
 # Create your views here.
 
 @login_required(login_url='login')
-def clear_sale(request):
+def clear_sale(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     request.session['sale'] = {}
     request.session.modified = True
     messages.success(request, 'All items has been removed.')
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def sale_list(request):
-    sales = get_queryset_for_user(request.user, Sale.objects.filter()).order_by('-date')
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def sale_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business).order_by('-date')
     form = SaleFilterForm(request.GET or None)
 
     now = timezone.now()
@@ -153,18 +156,13 @@ def sale_list(request):
     return render(request, 'Sales/sale_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('owner_only')
-def sale_detail(request, username, sale_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-    sale = get_object_or_404(Sale, user=owner, id=sale_id)
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def sale_detail(request, sale_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
     sale_items = sale.sale_items.select_related('product')
     sale_employees = sale.sale_employees.select_related('employee')
-    
     total_salary_cost = sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
     
     context = {'sale': sale, 'sale_items': sale_items, 'sale_employees': sale_employees, 'total_salary_cost': total_salary_cost}
@@ -172,11 +170,11 @@ def sale_detail(request, username, sale_id):
 
 @login_required(login_url='login')
 @permission_required('add')
-def add_to_sales(request, product_id):
-    owner = get_owner(request.user)
+def add_to_sales(request, product_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     
     sale = request.session.get('sale', {})
-    product = get_object_or_404(Product, user=owner, id=product_id)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
 
     if product.prepared_quantity >= 1:
@@ -202,13 +200,14 @@ def add_to_sales(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect(f"{reverse('product-list')}?{request.META.get('QUERY_STRING', '')}")
+    query_string = request.META.get('QUERY_STRING', '')
+    url = reverse('product-list', kwargs={'business_slug': business.slug})
+    return redirect(f"{url}?{query_string}" if query_string else url)
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def view_sale(request):
-    owner = get_owner(request.user)
-    
+def view_sale(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     sale = request.session.get('sale', {})
     total_revenue = 0
     total_cost_price = 0
@@ -225,7 +224,7 @@ def view_sale(request):
     
     if sale:
         for product_id, data in sale.items():
-            product = get_object_or_404(Product, user=owner, id=product_id)
+            product = get_object_or_404(Product, business=business, id=product_id)
             quantity = data.get('quantity', 1)
             selling_price = data.get('selling_price')
             cost_price = data.get('cost_price')
@@ -239,8 +238,20 @@ def view_sale(request):
             total_selling_price = Decimal(selling_price) * quantity
             total_revenue += total_selling_price
             
+            material = product.material.supplier
+            if material:
+                supplier_name = material.name
+            else:
+                supplier_name = 'No supplier'
+            
+            # preset = product.product_preset_items.first()
+            # if preset:
+            #     supplier_name = preset.supplier_name
+            # else:
+            #     supplier_name = 'No supplier'
+
             items.append({
-                'supplier': product.material.supplier,
+                'supplier': supplier_name,
                 'id': product.id,
                 'name': product.name,
                 'selling_price': selling_price,
@@ -264,14 +275,14 @@ def view_sale(request):
         # 'selected_employee_ids': selected_employee_ids, 
         # 'total_salary_cost': total_salary_cost,
         'section': 'sale'
-        
         }
+    
     return render(request, 'Sales/view_sale.html', context)
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def view_session_summary(request):
-    owner = get_owner(user=request.user)
+def view_session_summary(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     sale = request.session.get('sale', {})
     total_revenue = 0
     total_cost_price = 0
@@ -283,7 +294,7 @@ def view_session_summary(request):
         
     if sale:
         for product_id, data in sale.items():
-            product = get_object_or_404(Product, user=owner, id=product_id)
+            product = get_object_or_404(Product, business=business, id=product_id)
             quantity = data.get('quantity', 1)
             cost_price = data.get('cost_price', 0)
             selling_price = data.get('selling_price', 0)
@@ -296,6 +307,7 @@ def view_session_summary(request):
             total_revenue += total_selling_price
    
             items.append({
+                'supplier_name': product.material.supplier.name if product.material.supplier else 'No supplier',
                 'id': product.id,
                 'name': product.name,
                 'selling_price': selling_price,
@@ -321,16 +333,23 @@ def view_session_summary(request):
 
 @login_required(login_url='login')
 @permission_required('update')
-def confirm_view_summary(request):
+def confirm_view_summary(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
     sale = request.session.get('sale', {})
     line_count = request.session.get('line_count', 0)
     total_salary_cost = request.session.get('total_salary_cost', 0)
     total_revenue = 0
     total_cost_price = 0
-    owner = get_owner(request.user)
+    
     try:
         with transaction.atomic():
-            sale_obj = Sale.objects.create(user=owner, total_revenue=0, total_salary_cost=0, created_by=request.user)
+            sale_obj = Sale.objects.create(
+                user=business.user,
+                business=business, 
+                total_revenue=0, 
+                total_salary_cost=0, 
+                created_by=request.user)
 
             # employee_ids = request.session.get('selected_employee_ids', [])
             # print('employee_ids', employee_ids)
@@ -340,7 +359,7 @@ def confirm_view_summary(request):
             # print('employee_id', employee_id)
             
             for product_id, data in sale.items():
-                product = get_object_or_404(Product, user=owner, id=product_id)
+                product = get_object_or_404(Product, business=business, id=product_id)
                 quantity = data.get('quantity', 1)
                 cost_price = data.get('cost_price', 0)
                 selling_price = data.get('selling_price', 0)
@@ -353,7 +372,7 @@ def confirm_view_summary(request):
                 total_revenue += total_selling_price
                 
                 try:
-                    stock = Stock.objects.get(user=owner, material=product.material) # I removed the created_by=request.user because it's using filter/get
+                    stock = Stock.objects.get(business=business, material=product.material) # I removed the created_by=request.user because it's using filter/get
                     if stock.quantity >= quantity:
                         stock.quantity -= quantity
                         stock.save()
@@ -390,7 +409,7 @@ def confirm_view_summary(request):
 
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
-        return redirect('view-sale')  # exits early if error occurs
+        return redirect('view-sale', business_slug=business.slug)  # exits early if error occurs
     
     
     for key in ('total_salary_cost', 'line_count'):
@@ -400,16 +419,13 @@ def confirm_view_summary(request):
     # request.session['selected_employee_ids'] = []
     request.session.modified = True
     
-    return redirect('sale-summary', sale_obj.user.username, sale_obj.id)
+    return redirect('sale-summary', business_slug=sale_obj.business.slug, sale_id=sale_obj.id)
 
 @login_required(login_url='login')
 @permission_required('view') # dev
-def view_sale_summary(request, username, sale_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:   
-        owner = get_owner(request.user)
-    sale = get_object_or_404(Sale, user=owner, id=sale_id)
+def view_sale_summary(request, sale_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
     sale_items = sale.sale_items.select_related('product')
     total_salary_cost = sale.sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
     print(total_salary_cost)
@@ -417,7 +433,6 @@ def view_sale_summary(request, username, sale_id):
     total_revenue = 0
     total_cost_price = 0
 
-    
     items = []
 
     for item in sale_items:
@@ -433,6 +448,7 @@ def view_sale_summary(request, username, sale_id):
         total_revenue += total_selling_price
         
         items.append({
+            'supplier_name': item.product.material.supplier.name if item.product.material.supplier else 'No supplier',
             'id': item.product.id,
             'name': item.name,
             'quantity': item.quantity,
@@ -441,7 +457,6 @@ def view_sale_summary(request, username, sale_id):
             'cost_price': cost_price,
             'total_cost_price_per_line': total_cost_price_per_line,
             'total_selling_price': total_selling_price,
-            
         })
 
     context = {
@@ -458,7 +473,7 @@ def view_sale_summary(request, username, sale_id):
 # @login_required(login_url='login')
 # @permission_required('staff_add')
 # def add_daily_rate_to_sale(request):
-#     owner = get_owner(request.user)
+#     business = get_business_for_user(request.user, business_slug)
 #     total_salary_cost = 0
 #     if request.method == 'POST':
 #         employee_ids = request.POST.getlist('employees')
@@ -480,10 +495,11 @@ def view_sale_summary(request, username, sale_id):
 #     return redirect('view-sale')
 
 @login_required(login_url='login')
-def edit_view_sale_quantity(request, product_id):
-    owner = get_owner(request.user)
+def edit_view_sale_quantity(request, product_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
     sale = request.session.get('sale', {})
-    product = get_object_or_404(Product, user=owner, id=product_id)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
     if request.method == 'POST':
         raw_qty = request.POST.get(f"new_quantity", 1)
@@ -502,13 +518,13 @@ def edit_view_sale_quantity(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
-def edit_total_selling_price(request, product_id):
-    owner = get_owner(request.user)
+def edit_total_selling_price(request, product_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     sale = request.session.get('sale', {})
-    product = get_object_or_404(Product, user=owner, id=product_id)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
     
     if sale:
@@ -524,13 +540,13 @@ def edit_total_selling_price(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
-def edit_unsold_quantity(request, product_id):
-    owner = get_owner(request.user)
+def edit_unsold_quantity(request, product_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     sale = request.session.get('sale', {})
-    product = get_object_or_404(Product, user=owner, id=product_id)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
     if sale:
         new_unsold_quantity = int(request.POST.get(f"new_unsold_quantity"))
@@ -545,15 +561,15 @@ def edit_unsold_quantity(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
 @permission_required('delete')
-def delete_view_sale_quantity(request, product_id):
-    owner = get_owner(request.user)
+def delete_view_sale_quantity(request, product_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     
     sale = request.session.get('sale', {})
-    product = get_object_or_404(Product, user=owner, id=product_id)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
     
     if product_key in sale:
@@ -563,7 +579,7 @@ def delete_view_sale_quantity(request, product_id):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 
 

@@ -1,120 +1,268 @@
 {% extends 'main.html' %}
 {% block content %}
 
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill sl-me-1"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill sl-me-1"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill sl-me-1"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill sl-me-1"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
 <div class="page-wrapper">
 
-  <!-- HEADER -->
-  <div class="sd-page-header">
-    <div>
-      <h4 class="sd-page-title">
-        <i class="bi bi-building"></i>
-        Business Profile
-      </h4>
-      <p class="sd-page-breadcrumb">
-        Profile <span>•</span> Detail
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="breadcrumb-link">PROFILE</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>{{ business.business_name|upper }}</span>
+      </div>
+      <h1 class="page-title">{{ business.business_name }}</h1>
+      <p class="page-subtitle">
+        {{ business.get_business_type_display }} · Business profile details
       </p>
     </div>
-
-    <div class="btn-group">
-      <a href="javascript:history.back()" class="btn-back">
+    {% comment %} <div class="page-header-right">
+      <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back
       </a>
-
-      <a href="{% url 'business-profile-update' business.id business.slug %}" class="btn btn-primary">
-        <i class="bi bi-pencil"></i> Edit
-      </a> 
-    </div>
+      <a href="{% url 'business-profile-update' business_id=business.id slug=business.slug %}" class="btn btn-primary">
+        <i class="bi bi-pencil sl-me-1"></i> Edit
+      </a>
+    </div> {% endcomment %}
   </div>
 
-  <!-- CARD -->
-  <div class="card">
-    <div class="card-header">
+  <div class="two-col-layout">
 
-      <div class="sd-card-header-left">
-        <div class="sd-header-icon">
-          <i class="bi bi-shop"></i>
-        </div>
+    <!-- LEFT: BUSINESS DETAILS -->
+    <div class="left-panel">
+      <div class="card">
 
-        <div>
-          <p class="card-header-title">
-            {{ business.business_name }}
-          </p>
-
-          <p class="card-header-sub">
+        <!-- HERO HEADER -->
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon"
+                 style="background:
+                   {% if business.is_retail %}var(--accent-light); color:var(--accent);
+                   {% elif business.is_cafe %}var(--warning-light); color:var(--warning);
+                   {% else %}var(--danger-light); color:var(--danger);
+                   {% endif %}">
+              {% if business.is_retail %}<i class="bi bi-shop"></i>
+              {% elif business.is_cafe %}<i class="bi bi-cup-hot"></i>
+              {% else %}<i class="bi bi-egg-fried"></i>
+              {% endif %}
+            </div>
+            <div>
+              <div class="card-header-title">{{ business.business_name }}</div>
+              <div class="card-header-sub">{{ business.get_business_type_display }}</div>
+            </div>
+          </div>
+          <span class="status-badge
+            {% if business.is_retail %}status-success
+            {% elif business.is_cafe %}status-warning
+            {% else %}status-danger
+            {% endif %}">
             {{ business.get_business_type_display }}
-          </p>
+          </span>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <!-- QUICK STATS -->
+          <div class="sd-stats-row">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Type</div>
+              <div class="sd-stat-value">{{ business.get_business_type_display }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Phone</div>
+              <div class="sd-stat-value">
+                {% if business.business_phone_number %}
+                  {{ business.business_phone_number }}
+                {% else %}
+                  <span class="sl-text-muted">—</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Owner</div>
+              <div class="sd-stat-value">{{ business.user }}</div>
+            </div>
+          </div>
+
+          <!-- BUSINESS INFO -->
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">Business Information</div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Business Name</span>
+            <span class="sd-info-value">{{ business.business_name }}</span>
+          </div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Type</span>
+            <span class="sd-info-value">{{ business.get_business_type_display }}</span>
+          </div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Phone</span>
+            <span class="sd-info-value">
+              {% if business.business_phone_number %}
+                {{ business.business_phone_number }}
+              {% else %}
+                <span class="sl-text-muted">No phone provided</span>
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Address</span>
+            <span class="sd-info-value">
+              {% if business.address %}
+                {{ business.address }}
+              {% else %}
+                <span class="sl-text-muted">No address provided</span>
+              {% endif %}
+            </span>
+          </div>
+
+          <!-- SYSTEM INFO -->
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">System Info</div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Slug</span>
+            <span class="sd-info-value mono">{{ business.slug }}</span>
+          </div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Owner</span>
+            <span class="sd-info-value">{{ business.user }}</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SUMMARY + ACTIONS -->
+    <div class="right-panel">
+
+      <!-- OWNER CARD -->
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-person-badge"></i> Owner
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="created-by-info">
+            <div class="created-by-avatar">
+              {{ business.user.username|slice:":1"|upper }}
+            </div>
+            <div class="created-by-details">
+              <div class="created-by-name">{{ business.user.get_full_name|default:business.user.username }}</div>
+              <div class="created-by-meta">
+                {% if business.user.role == 'developer' %}
+                  <span class="role-badge role-dev">Developer</span>
+                {% elif business.user.role == 'owner' %}
+                  <span class="role-badge role-owner">Owner</span>
+                {% else %}
+                  <span class="role-badge role-staff">Staff</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- TYPE BADGE -->
-      <span class="status-badge 
-        {% if business.is_retail %}status-success
-        {% elif business.is_cafe %}status-warning
-        {% else %}status-danger
-        {% endif %}
-      ">
-        {{ business.get_business_type_display }}
-      </span>
+      <!-- SUBSCRIPTION CARD -->
+      {% if request.user.subscription %}
+      <div class="card">
+        <div class="card-header dark" style="background:#1e40af;">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-credit-card"></i> Subscription
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">Current Plan</div>
+            <div class="sd-total-amount" style="font-size:1.4rem; color:var(--accent);">
+              {{ request.user.subscription.get_plan_display }}
+            </div>
+            <div class="sd-total-sub">Bundle: {{ request.user.subscription.get_bundle_display }}</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ABOUT TYPE -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle" style="color:var(--accent);"></i> About This Type
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">{{ business.get_business_type_display }}</div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
+              {% if business.is_retail %}
+                Small shops, sari-sari stores, and general merchandise. Optimized for inventory tracking and daily sales.
+              {% elif business.is_cafe %}
+                Coffee shops, juice bars, and beverage stands. Manage menu items, drinks, and daily transactions.
+              {% else %}
+                Food service businesses with full kitchen operations. Track meals, ingredients, and employee shifts.
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="sd-note-box">
+            <i class="bi bi-shield-lock sd-note-icon"></i>
+            <div>
+              <div class="sd-note-title">Need to make changes?</div>
+              <div class="sd-note-text">Edit this profile to update info. Changes affect reports and receipts.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-lightning"></i> Actions
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <a href="{% url 'business-profile-update' business_id=business.id slug=business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-pencil"></i> Edit Business
+            </a>
+            <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-arrow-left-circle"></i> Back to Profile
+            </a>
+          </div>
+        </div>
+      </div>
 
     </div>
 
-    <div class="card-body">
-
-      <!-- BUSINESS INFO -->
-      <div class="sd-section-label">Business Information</div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Business Name</span>
-        <span class="sd-info-value">{{ business.business_name }}</span>
-      </div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Type</span>
-        <span class="sd-info-value">
-          {{ business.get_business_type_display }}
-        </span>
-      </div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Phone</span>
-        <span class="sd-info-value">
-          {% if business.business_phone_number %}
-            {{ business.business_phone_number }}
-          {% else %}
-            <span class="sl-text-muted">No phone provided</span>
-          {% endif %}
-        </span>
-      </div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Address</span>
-        <span class="sd-info-value">
-          {% if business.address %}
-            {{ business.address }}
-          {% else %}
-            <span class="sl-text-muted">No address provided</span>
-          {% endif %}
-        </span>
-      </div>
-
-      <hr class="sd-section-divider">
-
-      <!-- SYSTEM INFO -->
-      <div class="sd-section-label">System Info</div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Slug</span>
-        <span class="sd-info-value mono">{{ business.slug }}</span>
-      </div>
-
-      <div class="sd-info-row">
-        <span class="sd-info-label">Owner</span>
-        <span class="sd-info-value">{{ business.user }}</span>
-      </div>
-
-    </div>
   </div>
-
 </div>
 
 {% endblock %}

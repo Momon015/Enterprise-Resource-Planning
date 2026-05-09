@@ -28,20 +28,20 @@ from user.models import User
 from decimal import Decimal
 from django.db.models import Q, F
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 # Create your views here.
 
 @login_required(login_url='login')
-def product_list(request):
-    owner = get_owner(request.user)
+def product_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     
-    form = ProductFilterForm(request.GET or None, user=owner)
+    form = ProductFilterForm(request.GET or None, business=business)
     
     """
     The helper function allows to isolate the owner and the staffs for every client.
     """
     
-    products = get_queryset_for_user(request.user, Product.objects.all()).order_by('name')
+    products = get_queryset_for_user(request.user, Product.objects.all()).filter(business=business).order_by('name')
     
     # option 2
     # if request.user.role == 'developer':
@@ -106,19 +106,25 @@ def product_list(request):
 
 @login_required(login_url='login')
 @permission_required('add') # dev
-def product_create(request):
-    owner = get_owner(request.user)
+def product_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
     if request.method == 'POST':
-        form = ProductForm(request.POST, user=owner)
+        form = ProductForm(request.POST, business=business)
 
         if form.is_valid():
+            
+            # if business.business_type == 'retail':
+                
             product = form.save(commit=False)
             product.name = product.name.title()
-            if Product.objects.filter(user=owner, name__iexact=product.name.title(), unit=product.unit).exists():
+            if Product.objects.filter(business=business, name__iexact=product.name.title(), unit=product.unit).exists():
                 messages.warning(request, f"{product.name} is already exists. Please create another product name.")
-                return redirect('product-list')
+                return redirect('product-list', business_slug=business.slug)
             
-            product.user = owner
+            product.user = business.user
+            product.name = product.name.title()
+            product.business = business
             product.created_by = request.user
             
             if product.description:
@@ -127,52 +133,48 @@ def product_create(request):
             product.save()
 
             messages.success(request, f"{product.name} has been created.")
-            return redirect('product-list')
-    
+            return redirect('product-list', business_slug=business.slug)
+            
+            # elif business.business_type in ('cafe', 'restaurant'):
+            #     messages.info(request, "🚀 Cafe & Restaurant features launching soon! For now, this business is in view-only mode.")
+            #     return redirect('product-list', business_slug=business.slug)
+            # else:
+            #     # Fallback for unknown types
+            #     messages.error(request, "Unsupported business type.")
+            #     return redirect('product-list', business_slug=business.slug)
     else:
-        form = ProductForm(user=owner)
+        form = ProductForm(business=business)
         
     context = {'form': form}
     return render(request, 'Product/product_create.html', context)
 
 @login_required(login_url='login')
-def product_detail(request, username, product_slug):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
+def product_detail(request, business_slug, product_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
     
-    product = get_object_or_404(Product, user=owner, slug=product_slug)
+    product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     context = {'product': product}
     return render(request, 'Product/product_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('update') # dev
-def product_update(request, username, product_slug):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
+@permission_required('read_only') # dev
+def product_update(request, business_slug, product_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
         
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-        
-    product = get_object_or_404(Product, user=owner, slug=product_slug)
+    product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product, user=owner)
+        form = ProductForm(request.POST, instance=product, business=business)
         
         if form.is_valid():
             product = form.save(commit=False)
-            product.user = owner
-            product.created_by = request.user
             product.name = product.name.title()
             product.save()
             messages.success(request, f"{product.name} has been updated.")
-            return redirect('product-list')
+            return redirect('product-list', business_slug=business.slug)
     else:
-        form = ProductForm(instance=product, user=owner)
+        form = ProductForm(instance=product, business=business)
         
     context = {'form': form, 'product': product}
     return render(request, 'Product/product_update.html', context)
@@ -180,54 +182,52 @@ def product_update(request, username, product_slug):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def product_delete(request, username, product_slug):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
+def product_delete(request, business_slug, product_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
         
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-        
-    product = get_object_or_404(Product, user=owner, slug=product_slug)
+    product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     if request.method == 'POST':
         
         if product.material:
             messages.warning(request, f"This product is linked to inventory. Delete the stock record instead.")
-            return redirect('product-list')
+            return redirect('product-list', business_slug=business.slug)
 
         product.delete()
         messages.success(request, f"{product.name} has been deleted.")
-        return redirect('product-list')
+        return redirect('product-list', business_slug=business.slug)
     
     context = {'product': product}
     return render(request, 'Product/product_delete.html', context)
 
 @login_required(login_url='login')  
-def restore_batch_product(request):
-    owner = get_owner(request.user)
-    Product.objects.filter(user=owner).update(prepared_quantity=F('default_quantity'))
+@permission_required('staff_add') # staff
+@permission_required('add') # dev
+def restore_batch_product(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    Product.objects.filter(business=business).update(prepared_quantity=F('default_quantity'))
     messages.success(request, 'All products has been restored successfully.')
-    return redirect('product-list')
+    return redirect('product-list', business_slug=business.slug)
 
 @login_required(login_url='login')
 @permission_required('staff_add') # staff
 @permission_required('add') # dev
-def restore_product_quantity(request, product_id):
-    owner = get_owner(request.user)
-    product = get_object_or_404(Product, user=owner, id=product_id)
+def restore_product_quantity(request, business_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
+    product = get_object_or_404(Product, business=business, id=product_id)
     product.restore_product_quantity()
     product.save()
     messages.success(request, f'{product.name} has been restored successfully.')
-    return redirect(f"{reverse('product-list')}?{request.META.get('QUERY_STRING', '')}")
+    return redirect(f"{redirect('product-list', business_slug=business.slug)}?{request.META.get('QUERY_STRING', '')}")
     
 
 @login_required(login_url='login')
 @permission_required('add') # dev
-def add_product_to_preset(request):
+def add_product_to_preset(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
     sale = request.session.get('sale', {})
-    owner = get_owner(request.user)
+
     if request.method == 'POST':
         product_checkbox = request.POST.get('product_checkbox')
         product_name = request.POST.get('product_name')
@@ -238,13 +238,22 @@ def add_product_to_preset(request):
         elif not product_checkbox and product_name:
             messages.warning(request, "You forgot to click the checkbox.")
         
-        else:
+        elif not product_checkbox and not product_name:
             messages.warning(request, "Please add a preset title and don't forget to click the checkbox.")
             
         if product_checkbox and product_name:
-            preset, _ = ProductPreset.objects.get_or_create(user=owner, name=product_name, is_active=True, created_by=request.user)
+            preset, _ = ProductPreset.objects.get_or_create(
+                business=business,
+                user=business.user,
+                name=product_name.title(),
+                defaults={
+                'is_active':True, 
+                'created_by':request.user
+                
+            })
+            
             for product_id, data in sale.items():
-                product = get_object_or_404(Product, id=product_id)
+                product = get_object_or_404(Product, business=business, id=product_id)
                 quantity = data.get('quantity', 0)
                 cost_price = data.get('cost_price', 0)
                 
@@ -258,11 +267,12 @@ def add_product_to_preset(request):
 )
             messages.success(request, f"{product_name} has been added to preset.")  
 
-    return redirect('view-sale')
+    return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
-def list_product_preset(request):
-    presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).order_by('-created_at')
+def list_product_preset(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).filter(business=business).order_by('-created_at')
     
     pagination = Paginator(presets, 5)
     page = request.GET.get('page')
@@ -272,13 +282,10 @@ def list_product_preset(request):
     return render(request, 'Product/list_product_preset.html', context)
 
 @login_required(login_url='login')
-def detail_product_preset(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-    else:
-        owner = get_owner(request.user)
-        
-    preset = get_object_or_404(ProductPreset, user=owner, id=preset_id)
+def detail_product_preset(request, business_slug, preset_id, preset_slug):
+    business = get_business_for_user(request.user, business_slug)
+    
+    preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
     preset_items = preset.product_preset_items.select_related('product')
     items = []
 
@@ -287,6 +294,7 @@ def detail_product_preset(request, username, preset_id):
         if item.product:
             id = item.product.id
             name = item.product.name
+            supplier_name = item.supplier_name
             quantity = item.quantity
             selling_price = item.product.selling_price
             cost_price = Decimal(item.cost_price)
@@ -296,6 +304,7 @@ def detail_product_preset(request, username, preset_id):
             continue
         
         items.append({
+            'supplier_name': supplier_name,
             'id': id,
             'name': name,
             'quantity': quantity,
@@ -311,16 +320,10 @@ def detail_product_preset(request, username, preset_id):
     return render(request, 'Product/detail_product_preset.html', context)
 
 @login_required(login_url='login')
-def edit_product_preset(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
+def edit_product_preset(request, business_slug, preset_id, preset_slug):
+    business = get_business_for_user(request.user, business_slug)
         
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-        
-    preset = get_object_or_404(ProductPreset, user=owner, id=preset_id)
+    preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
     preset_items = preset.product_preset_items.select_related('product')
 
     if request.method == 'POST':
@@ -344,76 +347,72 @@ def edit_product_preset(request, username, preset_id):
                 item.save()
                 messages.success(request, f"The quantity has been updated.")
             
-        return redirect('product-preset-list')
+        return redirect('product-preset-list', business_slug=business.slug)
     
     context = {'preset': preset, 'preset_items': preset_items, 'section': 'product'}
     return render(request, 'Product/edit_product_preset.html', context)
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def delete_product_preset(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
-    preset = get_object_or_404(ProductPreset, user=owner, id=preset_id)
+def delete_product_preset(request, business_slug, preset_slug, preset_id):
+    business = get_business_for_user(request.user, business_slug)
+    preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
     
     if request.method == 'POST':
         preset.delete()
         messages.success(request, f"{preset.name} has been deleted.")
-        return redirect('product-preset-list')
+        return redirect('product-preset-list', business_slug=business.slug)
     
     context = {'preset': preset, 'section': 'product'}
     return render(request, 'Product/delete_product_preset.html', context)
 
 @login_required(login_url='login')
-def product_add_preset_to_sale(request, username, preset_id):
-    if request.user.role == 'developer':
-        owner = get_object_or_404(User, username=username)
-        
-        if owner != request.user:
-            return render(request, 'core/no_access.html', status=403)
-    else:
-        owner = get_owner(request.user)
+def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
+    business = get_business_for_user(request.user, business_slug)
         
     sale = request.session.get('sale', {})
-    preset = get_object_or_404(ProductPreset, user=owner, id=preset_id, is_active=True)
+    preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
     preset_items = preset.product_preset_items.select_related('product')
+    
+    added_count = 0
+    failed_count = 0
     
     for item in preset_items:
         product = item.product
         
         if not product:
+            failed_count += 1
             continue
             
-        else:
-            id = item.product.id
-            name = item.product.name
-            
-            quantity = item.quantity
-            product_key = str(product.id)
-            existing_qty = sale.get(product_key, {}).get('quantity', 0) + quantity
+        id = item.product.id
+        name = item.product.name
+        quantity = item.quantity
+        product_key = str(product.id)
+        existing_qty = sale.get(product_key, {}).get('quantity', 0) + quantity
 
-            if product_key in sale:
-                if product.prepared_quantity >= existing_qty:
-                    sale[product_key]['quantity'] = existing_qty
-                    messages.success(request, f"{product.name}'s quantity has increased.")
-                else:
-                    messages.warning(request, f"{product.name} - quantity limit reached.")
+        if product_key in sale:
+            if product.prepared_quantity >= existing_qty:
+                sale[product_key]['quantity'] = existing_qty
+                added_count += 1
             else:
-                sale[product_key] = {
-                    'id': id,
-                    'name': name,
-                    'quantity': quantity,
-                    'cost_price': str(item.cost_price),
-                    'unsold_quantity': 0,
-                }
-                messages.success(request, f"{preset.name} has been added to sale.")
-            
+                failed_count += 1
+        else:
+            sale[product_key] = {
+                'id': id,
+                'name': name,
+                'quantity': quantity,
+                'cost_price': str(item.cost_price),
+                'selling_price': str(item.product.selling_price)
+            }
+            added_count += 1
+    
+    # Show ONE summary message
+    if added_count > 0:
+        messages.success(request, f"{preset.name} - {added_count} product(s) added to sale.")
+    if failed_count > 0:
+        messages.warning(request, f"{failed_count} product(s) couldn't be added (quantity limit).")
+    
     request.session['sale'] = sale
     request.session.modified = True
             
-    return redirect(f"{reverse('product-preset-list')}?{request.META.get('QUERY_STRING', '')}")
+    return redirect(f"{reverse('product-preset-list', kwargs={'business_slug': business.slug})}?{request.META.get('QUERY_STRING', '')}")
