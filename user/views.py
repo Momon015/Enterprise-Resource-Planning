@@ -226,7 +226,7 @@ def user_login(request):
     page = 'login'
     
     if request.method == 'POST':
-        username = request.POST.get('username')
+        username = request.POST.get('username').lower().strip()
         password = request.POST.get('password')
 
         try:

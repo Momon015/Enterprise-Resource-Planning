@@ -117,6 +117,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <td>
                   <div class="cell-primary">{{ employee.name|capfirst }}</div>
+                  <div class="cell-sub">#{{ forloop.counter }}</div> 
                   {% comment %} <div class="cell-sub">#{{ employee.id }}</div> {% endcomment %}
                 </td>
                 <td class="sl-text-center sl-fw-semibold" style="color:var(--accent);">
@@ -130,9 +131,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="action-btn" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'employee-delete' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="action-btn action-btn--danger" title="Remove">
+                    {% if request.user.role == 'owner' %}
+                    <a href="{% url 'employee-delete' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="action-btn action-btn--danger" title="Remove" onclick="return confirm('Are you sure you want to delete this employee?');">
                       <i class="bi bi-trash3"></i>
                     </a>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

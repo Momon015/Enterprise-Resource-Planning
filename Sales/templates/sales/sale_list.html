@@ -167,8 +167,8 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 <th>Reference</th>
-                <th class="sl-text-end">Qty</th>
-                <th class="sl-text-end">Items</th>
+                <th class="sl-text-end col-mobile-hidden">Qty</th>
+                <th class="sl-text-end col-mobile-hidden">Items</th>
                 <th class="sl-text-end">Revenue</th>
                 <th class="sl-text-center">Action</th>
               </tr>
@@ -186,13 +186,15 @@ document.addEventListener("DOMContentLoaded", function () {
                    <div class="cell-sub">#{{ forloop.revcounter }}</div> 
                 </td>
 
-                <td class="sl-text-end">
+                <td class="sl-text-end col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ sale.quantity_item }}</span>
                 </td>
 
-                <td class="sl-text-end">
+
+                <td class="sl-text-end col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ sale.line_count }}</span>
                 </td>
+
 
                 <td class="sl-text-end sl-fw-semibold sl-text-success">
                   ₱{{ sale.total_revenue|floatformat:2|intcomma }}

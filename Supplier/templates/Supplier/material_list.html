@@ -118,12 +118,12 @@ document.addEventListener("DOMContentLoaded", function () {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Category</th>
-                <th class="sl-text-center">Unit</th>
+                <th>Name</th>
+                <th class="col-mobile-hidden">Category</th>
+                <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center">Quantity</th>
                 <th class="sl-text-end">Price</th>
-                <th class="sl-text-end">Actions</th>
+                <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -133,13 +133,15 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ material.name }}</div>
                   <span class="cell-sub">{{ material.supplier.name|default:'No supplier' }}</span>
                 </td>
-                <td>
-                  <span class="cell-sub">{{ material.category.name|default:"No category" }}</span>
+                <td class="col-mobile-hidden">
+                  <span class="cell-primary">{{ material.category.name|default:"No category" }}</span>
                 </td>
 
-                <td class="sl-text-center">
+
+                <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ material.get_unit_display }}</span>
                 </td>
+
                 <td class="sl-text-center sl-fw-semibold">{{ material.quantity }}</td>
                 <td class="sl-text-end sl-fw-semibold">₱{{ material.price|floatformat:2 }}</td>
                 <td class="sl-text-end">
@@ -156,10 +158,12 @@ document.addEventListener("DOMContentLoaded", function () {
                        class="action-btn" title="Edit material">
                       <i class="bi bi-pencil"></i>
                     </a>
+                    {% if request.user.role == 'owner' %}
                     <a href="{% url 'material-delete' id=material.id slug=material.slug business_slug=material.business.slug %}?next={{ request.path }}"
-                       class="action-btn action-btn--danger" title="Delete material">
+                       class="action-btn action-btn--danger" title="Delete material" onclick="return confirm('Are you sure you want to delete this material?');">
                       <i class="bi bi-trash3"></i>
                     </a>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

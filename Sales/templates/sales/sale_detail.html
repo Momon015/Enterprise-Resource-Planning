@@ -17,10 +17,14 @@
       <p class="page-subtitle">{{ sale.created_at|date:"F d, Y" }} at {{ sale.created_at|date:"h:i A" }}</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+      <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Sales
+      </a>
+      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
+
   </div>
 
   <div class="two-col-layout">
@@ -174,16 +178,15 @@
         <div class="card-header">
           <span class="card-header-title">
             <i class="bi bi-lightning"></i>
-            Actions
+            Action
           </span>
         </div>
         <div class="card-body">
           <div class="btn-grid">
-
-            <a href="{% url 'sale-list' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
+            {% comment %} <a href="{% url 'sale-list' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-arrow-left-circle"></i> Back to Sales
-            </a>
-
+            </a> {% endcomment %}
+            
             <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Sale
             </a>

@@ -134,12 +134,13 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th class="sl-text-end">Revenue</th>
-                <th class="sl-text-end">Waste Cost</th>
-                <th class="sl-text-end">Material Cost</th>
-                <th class="sl-text-end">Labor Cost</th>
-                <th class="sl-text-end">Expense Cost</th>
-                <th class="sl-text-end">Net Profit</th>
+                <th class="sl-text-end mobile-center">Revenue</th>
+                <th class="sl-text-end col-mobile-hidden">Waste Cost</th>
+                <th class="sl-text-end col-mobile-hidden">Material Cost</th>
+                <th class="sl-text-end col-mobile-hidden">Labor Cost</th>
+                <th class="sl-text-end col-mobile-hidden">Expense Cost</th>
+                <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
+                <th class="sl-text-end mobile-center">Net Profit</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
@@ -150,38 +151,50 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ summary.date|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ summary.date|date:"l" }}</div>
                 </td>
-                <td class="sl-text-end">
+                <td class="sl-text-end mobile-center">
                   <span class="sl-fw-semibold" style="color:var(--success);">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span>
                 </td>
-                <td class="sl-text-end">
+                <td class="sl-text-end col-mobile-hidden">
                   {% if summary.total_waste_cost %}
                     <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
-                <td class="sl-text-end">
+                <td class="sl-text-end col-mobile-hidden">
                   {% if summary.total_cost %}
                     <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
-                <td class="sl-text-end">
+
+                <td class="sl-text-end col-mobile-hidden">
                   {% if summary.total_salary_cost %}
                     <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
-                <td class="sl-text-end">
+
+                <td class="sl-text-end col-mobile-hidden">
                   {% if summary.total_expense_cost %}
                     <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_expense_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
                 </td>
-                <td class="sl-text-end">
+
+                <!-- Mobile Only -->
+                <!-- Total Cost -->
+
+                <td class="sl-text-end col-mobile-only mobile-center">
+                  <span class="sl-fw-semibold" style="color:var(--danger);">
+                    ₱{{ summary.total_waste_cost|add:summary.total_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}
+                  </span>
+                </td>
+
+                <td class="sl-text-end mobile-center">
                   <span class="sl-fw-semibold" style="{% if summary.net_profit < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">
                     ₱{{ summary.net_profit|floatformat:2|intcomma }}
                   </span>

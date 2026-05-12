@@ -62,9 +62,9 @@ document.addEventListener("DOMContentLoaded", function () {
           <table class="data-table">
             <thead>
               <tr>
+                <th class="col-mobile-hidden">Date</th>
                 <th>Name</th>
-                <th>Category</th>
-                <th>Created</th>
+                {% comment %} <th class="col-mobile-hidden">Category</th> {% endcomment %}
                 <th class="sl-text-end">Default Amount</th>
                 <th class="sl-text-end">Actions</th>
               </tr>
@@ -72,16 +72,20 @@ document.addEventListener("DOMContentLoaded", function () {
             <tbody>
               {% for misc in page_obj %}
               <tr>
+                <td class="col-mobile-hidden">
+                  <div class="cell-primary">{{ misc.created_at|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{ misc.created_at|date:"l" }}</div>
+                </td>
                 <td>
                   <div class="cell-primary">{{ misc.name|capfirst }}</div>
+                  <div class="cell-sub">{{ misc.category.name|default:"No category" }}</div>
                 </td>
-                <td>
+                {% comment %} <td class="col-mobile-hidden">
                   <span class="cell-sub">{{ misc.category.name|default:"No category" }}</span>
-                </td>
-                <td>
-                  <div class="cell-sub">{{ misc.created_at|date:"M d, Y" }}</div>
-                </td>
-                <td class="sl-text-end sl-fw-semibold">₱{{ misc.amount|floatformat:2|intcomma }}</td>
+                </td> {% endcomment %}
+
+                <td class="sl-text-end sl-fw-semibold mobile-center">₱{{ misc.amount|floatformat:2|intcomma }}</td>
+
                 <td class="sl-text-end">
                   <div class="table-actions">
                     <a href="{% url 'misc-expense-detail' misc_expense_id=misc.id business_slug=current_business.slug %}"
@@ -92,10 +96,12 @@ document.addEventListener("DOMContentLoaded", function () {
                        class="action-btn" title="Edit template">
                       <i class="bi bi-pencil"></i>
                     </a>
+                    {% if request.user.role == 'owner' %}
                     <a href="{% url 'misc-expense-delete' misc_expense_id=misc.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--danger" title="Delete template">
+                       class="action-btn action-btn--danger" title="Delete template" onclick="return confirm('Are you sure you want to delete this template?');">
                       <i class="bi bi-trash3"></i>
                     </a>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

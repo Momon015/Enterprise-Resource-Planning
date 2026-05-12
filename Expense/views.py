@@ -683,7 +683,7 @@ def employee_update(request, business_slug, employee_id, slug):
         if form.is_valid():
             obj = form.save(commit=False)
             obj.save()
-            messages.success(request, f"{obj.name}'s details has been updated.")
+            messages.success(request, f"{obj.name}'s daily rate has been updated.")
             return redirect('employee-list', business_slug=business.slug)
         else:
             print(form.errors)
@@ -945,7 +945,7 @@ def waste_material_create(request, business_slug):
                 else:
                 
                     messages.error(request, "No valid items were processed.")
-                return redirect('expense-waste-list')
+                return redirect('expense-waste-list', business_slug=business.slug)
             
             if invalid_items:
                 messages.warning(request, f"Some items were skipped: {', '.join(invalid_items)}")

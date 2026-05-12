@@ -145,8 +145,8 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th class='sl-text-center'>Salary Cost</th>
-                <th class="sl-text-center">Expense Cost</th>
+                <th class='sl-text-center col-mobile-hidden'>Salary Cost</th>
+                <th class="sl-text-center col-mobile-hidden">Expense Cost</th>
                 <th class="sl-text-center">Total Cost</th>
                 <th class="sl-text-center">Actions</th>
               </tr>
@@ -159,20 +159,22 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
                 {% if record.total_shift %}
-                <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--danger);">
                   ₱{{ record.total_shift|floatformat:2|intcomma }}
                 </td>
                 {% else %}
-                <td class="sl-text-center sl-fw-semibold" style="color:var(--muted);">₱0.00</td>
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--muted);">₱0.00</td>
                 {% endif %}
 
+
                 {% if record.total_amount %}
-                <td class="sl-text-center sl-fw-semibold" style="color:var(--danger);">
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--danger);">
                   ₱{{ record.total_amount|floatformat:2|intcomma }}
                 </td>
                 {% else %}
-                <td class="sl-text-center sl-fw-semibold" style="color:var(--muted);">₱0.00</td>
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--muted);">₱0.00</td>
                 {% endif %}
+
 
                 <td class="sl-text-center sl-fw-semibold sl-fw-bold" style="color:var(--danger);">
                   ₱{{ record.total_amount|add:record.total_shift|floatformat:2|intcomma }}

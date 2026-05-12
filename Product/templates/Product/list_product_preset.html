@@ -37,10 +37,10 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">Saved product groups you can quickly add to a sale.</p>
     </div>
     <div class="page-header-right">
-      <div class="header-stat accent">
+      {% comment %} <div class="header-stat accent">
         <i class="bi bi-bookmark-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> preset{{ page_obj.paginator.count|pluralize }}
-      </div>
+      </div> {% endcomment %}
       <a href="{% url 'view-sale' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm">
         <i class="bi bi-receipt"></i> View Sales Record
       </a>
@@ -49,6 +49,36 @@ document.addEventListener("DOMContentLoaded", function () {
       </a>
     </div>
   </div>
+
+    <!-- FILTER DRAWER -->
+  <details class="filter-card" {% if request.GET.search %}open{% endif %}>
+    <summary>
+      <i class="bi bi-sliders"></i>
+      <span>Advanced filters</span>
+      {% if request.GET.search %}
+        <span class="filter-badge">Active</span>
+      {% endif %}
+    </summary>
+    <div class="filter-body">
+      <form method="get" id="filterForm" autocomplete="off">
+        <div class="d-flex gap-2 align-items-center w-100">
+          <div class="flex-grow-1">
+            <div class="input-group">
+              <span class="input-group-icon"><i class="bi bi-search"></i></span>
+              <input type="search" name="search" class="form-control"
+                    placeholder="Search preset name..."
+                    value="{{ request.GET.search|default:'' }}">
+            </div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="submit">
+            <i class="bi bi-funnel"></i> Filter
+          </button>
+          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+        </div>
+      </form>
+    </div>
+  </details>
+
 
   <div class="two-col-layout">
 
@@ -60,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="card-header">
           <div class="sd-card-header-left">
             <div class="sd-header-icon">
-              <i class="bi bi-bookmark"></i>
+              <i class="bi bi-bookmark-fill"></i>
             </div>
             <div>
               <div class="card-header-title">All Presets</div>
@@ -78,16 +108,21 @@ document.addEventListener("DOMContentLoaded", function () {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Preset Name</th>
+                {% comment %} <th>Date</th> {% endcomment %}
+                <th>Name</th>
                 <th class="sl-text-center">Items</th>
-                <th class="sl-text-center">Created</th>
-                <th class="sl-text-end">Actions</th>
+                <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {% for preset in page_obj %}
               <tr>
+                {% comment %} <!-- Date -->
+                <td>
+                  <span class="cell-primary">{{ preset.created_at|date:"M d, Y" }}</span>
+                  <span class="cell-sub">{{ preset.created_at|date:"l" }}</span>
+                </td> {% endcomment %}
 
                 <!-- NAME -->
                 <td>
@@ -102,15 +137,9 @@ document.addEventListener("DOMContentLoaded", function () {
                   </span>
                 </td>
 
-                <!-- CREATED -->
-                <td class="sl-text-center">
-                  <span class="cell-sub">{{ preset.created_at|date:"M d, Y" }}</span>
-                </td>
-
                 <!-- ACTIONS -->
-                <td class="sl-text-end">
+                <td class="sl-text-end mobile-center">
                   <div class="table-actions">
-
                     <!-- ADD -->
                     <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
                        class="action-btn" title="Add to sale">
@@ -128,14 +157,14 @@ document.addEventListener("DOMContentLoaded", function () {
                        class="action-btn" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
-
+                    {% if request.user.role == 'owner' %}
                     <!-- DELETE -->
                     <a href="{% url 'product-delete-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--danger" title="Delete preset">
+                       class="action-btn action-btn--danger" title="Delete preset" onclick="return confirm('Are you sure you want to delete this preset?');">
                        {% comment %} onclick="return confirm('Delete this preset?')"> {% endcomment %}
                       <i class="bi bi-trash"></i>
                     </a>
-
+                    {% endif %}
                   </div>
                 </td>
               </tr>

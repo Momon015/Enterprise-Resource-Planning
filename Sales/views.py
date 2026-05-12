@@ -238,11 +238,7 @@ def view_sale(request, business_slug):
             total_selling_price = Decimal(selling_price) * quantity
             total_revenue += total_selling_price
             
-            material = product.material.supplier
-            if material:
-                supplier_name = material.name
-            else:
-                supplier_name = 'No supplier'
+
             
             # preset = product.product_preset_items.first()
             # if preset:
@@ -251,7 +247,7 @@ def view_sale(request, business_slug):
             #     supplier_name = 'No supplier'
 
             items.append({
-                'supplier': supplier_name,
+                'supplier': product.material.supplier.name if product.material.supplier else 'No supplier',
                 'id': product.id,
                 'name': product.name,
                 'selling_price': selling_price,

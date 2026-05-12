@@ -16,6 +16,20 @@ function changeValue(fieldId, delta, isInteger = false) {
 </script>
 
 <div class="mf-page-wrapper">
+  
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">CATALOG &gt; NEW</div>
+      <h1 class="page-title">New Product</h1>
+      <p class="page-subtitle">Add a product to your catalog.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to products
+      </a>
+    </div>
+  </div>
+
   <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 
 

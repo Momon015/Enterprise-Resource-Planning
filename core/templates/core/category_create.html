@@ -24,6 +24,21 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <div class="mf-page-wrapper">
+  
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SETTINGS &gt; NEW</div>
+      <h1 class="page-title">New Category</h1>
+      <p class="page-subtitle">Create a new category for items, products, or expenses.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to categories
+      </a>
+    </div>
+  </div>
+
+
   <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->

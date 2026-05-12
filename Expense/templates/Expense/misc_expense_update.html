@@ -3,6 +3,20 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
+  
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">TEMPLATES &gt; EDIT</div>
+      <h1 class="page-title">Edit Template</h1>
+      <p class="page-subtitle">Update this expense template's defaults.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to templates
+      </a>
+    </div>
+  </div>
+
   <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 
     <!-- LEFT: FORM -->

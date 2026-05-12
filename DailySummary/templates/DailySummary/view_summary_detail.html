@@ -72,8 +72,8 @@
                 <tr>
                   <th>Product</th>
                   <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-center">Unit Cost</th>
-                  <th class="sl-text-end">Unit Price</th>
+                  <th class="sl-text-center col-mobile-hidden">Unit Cost</th>
+                  <th class="sl-text-end mobile-center">Unit Price</th>
                   <th class="sl-text-end">Revenue</th>
                 </tr>
               </thead>
@@ -85,8 +85,8 @@
                     {% comment %} <div class="cell-sub">{{ item.id|default:"—" }}</div> {% endcomment %}
                   </td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-center">₱{{ item.cost_price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-center col-mobile-hidden">₱{{ item.cost_price|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-end mobile-center">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.net_sale_value|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}
@@ -120,8 +120,8 @@
                   <th>Item</th>
                   <th class="sl-text-center">Quantity</th>
                   <th class="sl-text-center">Unit Cost</th>
-                  <th class="sl-text-end">Discount</th>
-                  <th class="sl-text-end">Total</th>
+                  <th class="sl-text-end mobile-center">Discount</th>
+                  <th class="sl-text-end">Cost</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,7 +133,7 @@
                   </td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
                   <td class="sl-text-center sl-fw-semibold">₱{{ item.price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold">₱{{ item.discount|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-end sl-fw-semibold mobile-center">₱{{ item.discount|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}

@@ -619,19 +619,6 @@ input[type=number] {
   border: 1px solid var(--accent-border);
 }
 
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .page-header-right {
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-
 /* ══════════════════════════════════════════
    POS CARDS
 ══════════════════════════════════════════ */
@@ -2723,10 +2710,21 @@ details.filter-card summary:hover {
   color: var(--text);
 }
 
-
 /* ══════════════════════════════════════════
    RESPONSIVE ADJUSTMENTS
 ══════════════════════════════════════════ */
+
+/* Default: hide on desktop */
+.col-mobile-only {
+  display: none;
+}
+
+/* Show only on mobile */
+@media (max-width: 767px) {
+  .col-mobile-only {
+    display: table-cell !important;
+  }
+}
 
 @media (max-width: 767px) {
   .col-mobile-hidden {
@@ -2734,21 +2732,6 @@ details.filter-card summary:hover {
   }
 }
 
-@media (max-width: 991px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .page-header-right {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  
-  .pos-table td {
-    padding: 0.75rem 0.55rem;
-  }
-}
 
 @media (max-width: 576px) {
   .pos-table {
@@ -2832,19 +2815,252 @@ details.filter-card summary:hover {
   color: #fff;
 }
 
+.sidebar-inline-toggle {
+  display: none;
+}
+
+.sidebar-mobile-header {
+  display: contents;   /* on desktop, just flow normally — no row layout */
+}
+
+
 /* ══════════════════════════════════════════
    MOBILE RESPONSIVE — GLOBAL OVERRIDES
+   All mobile rules consolidated here
+   Order: largest viewport first → smallest
 ══════════════════════════════════════════ */
+
+/* Mobile top bar (hidden on desktop) */
+.sidebar-mobile-bar { display: none; }
 
 /* ── Tablet & below (≤991px) ── */
 @media (max-width: 991px) {
-  /* Tighten page paddings */
-  .page-wrapper,
+  /* Page paddings */
+  .page-wrapper {
+    padding: 1rem 0.85rem;
+  }
   .mf-page-wrapper {
     padding: 1rem 0.85rem;
   }
 
-  /* Page titles down a notch */
+  /* Stack .mf-layout columns on mobile (overrides inline grid-template-columns) */
+  .mf-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+
+
+
+  /* Compact mobile sidebar so footer + account fit on screen */
+  .sidebar-nav__link {
+    padding: 0.45rem 0.75rem;
+  }
+  .sidebar-section {
+    padding: 0.6rem 0 0.2rem;
+  }
+  .sidebar-section-label {
+    font-size: 0.6rem;
+  }
+  .sidebar-footer {
+    padding: 0.5rem 0.5rem;
+  }
+  .sidebar-new-sale {
+    padding: 0.55rem;
+    font-size: 0.85rem;
+  }
+
+
+  .sidebar-mobile-header {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.1rem 0.1rem 0.1rem 3.5rem;   /* left padding clears the absolute hamburger */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+
+  /* Separator between the mobile bar and the page header */
+  .page-header,
+  .sl-page-header,
+  .sd-page-header {
+    padding-top: 0;
+    margin-top: 3.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .page-header-left {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  .page-breadcrumb {
+    margin-top: 0;
+  }
+
+  /* Mobile sidebar header — hamburger + brand side by side */
+  .sidebar-mobile-header {
+    display: flex !important;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Reset inline-toggle margin since wrapper handles spacing */
+  .sidebar-inline-toggle {
+    margin: 0 !important;
+    flex-shrink: 0;
+  }
+
+
+
+  /* Reset brand padding/margin since wrapper handles spacing */
+  .sidebar-brand {
+    padding: 0 !important;
+    margin: 0 0 0 3rem !important;
+    flex: 1;
+    min-width: 0;
+    border-bottom: none !important;
+  }
+
+
+  /* A bit of space between the hamburger row and the page header */
+  .page-header,
+  .sl-page-header,
+  .sd-page-header {
+    padding-top: 0.7rem;
+  }
+
+
+  /* Sidebar's internal brand — show on mobile, styled to match the mobile bar look */
+  .sidebar-brand {
+    padding: 1rem !important;
+    gap: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .sidebar-brand__icon {
+    display: none !important;
+  }
+  .sidebar-brand__name {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+  }
+  .sidebar-brand__badge {
+    font-size: 0.55rem !important;
+    padding: 0.15rem 0.35rem !important;
+    margin-left: 0.25rem;
+  }
+  .sidebar-brand__sub {
+    font-size: 0.6rem !important;
+    margin-top: 0.15rem !important;
+    color: rgba(255,255,255,0.5) !important;
+    white-space: nowrap;
+  }
+
+
+  /* Inline hamburger inside sidebar */
+  .sidebar-inline-toggle {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f1117;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    cursor: pointer;
+  }
+
+
+
+
+  /* Push sidebar content down so it clears the mobile bar */
+  .sidebar {
+    padding-top: 0;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    height: 100dvh;
+  }
+
+  /* Hide mobile bar when sidebar is open — sidebar shows its own header */
+  .sidebar-overlay.open ~ .sidebar-mobile-bar {
+    display: none;
+  }
+
+
+
+  /* Lock body scroll when sidebar is open */
+  body.sidebar-open {
+    overflow: hidden;
+  }
+
+  /* Mobile top bar — hamburger + brand at top of every page */
+  .sidebar-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1001;
+  }
+  #sidebarToggle {
+    position: static;
+    flex-shrink: 0;
+    background: #0f1117;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+  .sidebar-mobile-brand-wrap {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .sidebar-mobile-brand {
+    font-family: var(--font-sans, sans-serif);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #0f1117;
+    letter-spacing: -0.01em;
+  }
+  .sidebar-mobile-brand__sub {
+    font-size: 0.62rem;
+    color: #6b7280;
+    margin-top: 0.15rem;
+    letter-spacing: 0.01em;
+  }
+  .sidebar-mobile-brand__badge {
+    display: inline-block;
+    background: #2d6a4f;
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    margin-left: 0.2rem;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+  }
+
+  /* When sidebar is open, mobile-bar brand turns white (sits on dark sidebar) */
+  .sidebar-overlay.open ~ .sidebar-mobile-bar .sidebar-mobile-brand {
+    color: #fff;
+  }
+  .sidebar-overlay.open ~ .sidebar-mobile-bar .sidebar-mobile-brand__sub {
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* Page titles */
   .page-title { font-size: 1.25rem; }
   .page-subtitle { font-size: 0.82rem; }
   .sl-page-title,
@@ -2857,7 +3073,7 @@ details.filter-card summary:hover {
     width: 100%;
   }
 
-  /* Cards a touch smaller */
+  /* Cards */
   .card-body { padding: 1rem; }
   .card-header { padding: 0.75rem 1rem; }
 
@@ -2865,50 +3081,120 @@ details.filter-card summary:hover {
   .container-fluid.py-3.py-lg-4 {
     padding: 1rem 0.85rem !important;
   }
+
+  /* Footer */
+  footer {
+    margin-left: 0;
+    padding: 1rem 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  /* Prevent stray wide elements from causing horizontal page scroll */
+  body {
+    overflow-x: hidden;
+  }
 }
 
 /* ── Phones (≤767px) ── */
 @media (max-width: 767px) {
-  /* Page header — stack vertically */
+  /* Page header — title left, buttons right */
   .page-header,
   .sl-page-header,
   .sd-page-header {
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
-    gap: 0.65rem;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+  }
+
+  /* Advanced filter — mobile stacked layout */
+  .filter-body > form > .d-flex {
+    flex-wrap: wrap !important;
+    align-items: stretch !important;
+  }
+  /* every direct child takes full width by default */
+  .filter-body > form > .d-flex > .flex-grow-1,
+  .filter-body > form > .d-flex > div {
+    flex: 1 1 100% !important;
+    width: 100%;
+  }
+  /* category dropdown fills row */
+  .filter-body > form > .d-flex > div > select {
+    width: 100% !important;
+  }
+  /* Filter + Reset share one row, 50/50 */
+  .filter-body > form > .d-flex > .btn {
+    flex: 1 1 calc(50% - 0.25rem) !important;
+  }
+
+
+
+
+  /* Utility: center on mobile only */
+  .mobile-center {
+    text-align: center !important;
+  }
+
+  .page-header-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .page-header-right {
+    flex-direction: column;
+    align-items: stretch;
+    width: auto;
+    flex-shrink: 0;
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+  }
+
+  .page-header-right .btn {
+    justify-content: center;
+    white-space: nowrap;
+    width: auto;
   }
 
   /* Smaller card paddings */
   .card-body { padding: 0.85rem; }
-  .card-header { padding: 0.7rem 0.85rem; }
+  .card-header { padding: 0.7rem 0.85rem; flex-wrap: wrap; gap: 0.5rem; }
   .card-header-title { font-size: 0.88rem; }
   .card-header-sub { font-size: 0.72rem; }
 
-  /* Card header row stacks if it has right-side content */
-  .card-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  /* Header icons smaller */
   .sd-header-icon {
     width: 36px;
     height: 36px;
     font-size: 1rem;
   }
 
-  /* Tables — horizontal scroll fallback */
+  /* Tables — horizontal scroll */
   .table-responsive,
   .table-card {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  table.data-table,
+  table.data-table thead th,
+  .pos-table thead th,
+  .table thead th {
+    white-space: nowrap;
+  }
+  table.data-table tbody td:first-child,
+  table.data-table thead th:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 2;
+    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.06);
+  }
+  table.data-table {
+    min-width: 0 !important;
+  }
   .pos-table,
   .table {
     font-size: 0.82rem;
-    min-width: 560px;
+    min-width: 640px;
   }
+
   table.data-table thead th,
   .pos-table thead th {
     padding: 0.5rem 0.55rem;
@@ -2923,14 +3209,12 @@ details.filter-card summary:hover {
     padding-bottom: 0.55rem;
   }
 
-  /* Form action buttons stack */
+  /* Form actions stack */
   .mf-form-actions {
     flex-direction: column-reverse;
     gap: 0.5rem;
   }
-  .mf-form-actions .btn {
-    width: 100%;
-  }
+  .mf-form-actions .btn { width: 100%; }
 
   /* Filter actions stack */
   .filter-actions {
@@ -2938,11 +3222,9 @@ details.filter-card summary:hover {
     flex-wrap: wrap;
   }
   .filter-actions .btn,
-  .filter-actions .btn-group {
-    flex: 1;
-  }
+  .filter-actions .btn-group { flex: 1; }
 
-  /* Quick range — keep 2-col but smaller */
+  /* Quick range */
   .quick-range-grid { gap: 0.4rem; }
   .quick-range-btn {
     padding: 0.5rem 0.5rem;
@@ -2958,9 +3240,7 @@ details.filter-card summary:hover {
   .table-actions { gap: 0.3rem; }
 
   /* Empty state */
-  .empty-state {
-    padding: 3rem 1.25rem;
-  }
+  .empty-state { padding: 3rem 1.25rem; }
   .empty-icon {
     width: 64px;
     height: 64px;
@@ -2970,7 +3250,7 @@ details.filter-card summary:hover {
   .empty-title { font-size: 1.05rem; }
   .empty-sub { font-size: 0.85rem; }
 
-  /* Header stat chips wrap */
+  /* Header stat chips */
   .header-stat {
     font-size: 0.78rem;
     padding: 0.4rem 0.7rem;
@@ -2988,9 +3268,9 @@ details.filter-card summary:hover {
     width: 100%;
   }
 
-  /* Stats grids */
+  /* Stats grids — beat inline style on dashboard */
   .sd-stats-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr !important;
   }
 
   /* Pagination compact */
@@ -3003,7 +3283,9 @@ details.filter-card summary:hover {
 
 /* ── Small phones (≤540px) ── */
 @media (max-width: 540px) {
-  .page-wrapper,
+  .page-wrapper {
+    padding: 0.85rem 0.65rem;
+  }
   .mf-page-wrapper {
     padding: 0.85rem 0.65rem;
   }
@@ -3011,22 +3293,17 @@ details.filter-card summary:hover {
   .page-title { font-size: 1.1rem; }
   .page-subtitle { font-size: 0.78rem; }
 
-  /* Breadcrumb wraps */
   .page-breadcrumb {
     flex-wrap: wrap;
     font-size: 0.62rem;
   }
 
-  /* Stack any 2-col grid to 1 */
-  .sd-stats-row,
   .quick-range-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
-  /* Card body even tighter */
   .card-body { padding: 0.75rem; }
 
-  /* Summary blocks tighter */
   .sd-summary-block,
   .sl-summary-row {
     padding: 0.65rem;
@@ -3037,38 +3314,22 @@ details.filter-card summary:hover {
   }
   .sd-total-amount { font-size: 1.4rem; }
 
-  /* Buttons full-width when grouped vertically */
   .btn-grid .btn,
   .btn-block { width: 100%; }
 
-  /* Receipt items stack name + total */
   .receipt-line {
     flex-direction: column;
     gap: 0.2rem;
   }
 
-  /* POS stepper a little smaller */
   .qty-stepper { transform: scale(0.95); }
 
-  /* Header stats wrap full-width */
-  .page-header-right {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
-  .header-stat {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  /* Created-by avatar smaller */
   .created-by-avatar {
     width: 32px;
     height: 32px;
     font-size: 0.7rem;
   }
 
-  /* Pricing-sized totals */
   .total-grand { font-size: 1.2rem; }
 }
 
@@ -3080,17 +3341,6 @@ details.filter-card summary:hover {
   .btn-confirm { font-size: 0.85rem; padding: 0.75rem; }
   .action-btn { width: 28px; height: 28px; }
 }
-
-/* ── Footer cleanup on mobile ── */
-@media (max-width: 991px) {
-  footer {
-    margin-left: 0;
-    padding: 1rem 0.75rem;
-    font-size: 0.72rem;
-  }
-}
-
-
 
 /* ══════════════════════════════════════════
    ADD NEXT TEMPLATE CSS BELOW

@@ -1,28 +1,46 @@
 <!-- MOBILE OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- MOBILE TOGGLE -->
-<button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle"
-        style="display:none; position:fixed; top:1rem; left:1rem; z-index:1001; background:#0f1117; color:#fff; border:none; padding:0.4rem 0.6rem; border-radius:6px;">
-  <i class="bi bi-list fs-5"></i>
-</button>
+<!-- MOBILE TOGGLE + BRAND -->
+<div class="sidebar-mobile-bar" id="sidebarMobileBar">
+  <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle">
+    <i class="bi bi-list fs-5"></i>
+  </button>
+  <div class="sidebar-mobile-brand-wrap">
+    <div class="sidebar-mobile-brand">
+      Swift <span class="sidebar-mobile-brand__badge">ERP</span>
+    </div>
+    <div class="sidebar-mobile-brand__sub">Enterprise Resource Planning</div>
+  </div>
+</div>
+
+
 
 <nav class="sidebar" id="sidebar">
 
-  <!-- BRAND -->
-  <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login'  %}{% endif %}">
-    <div class="sidebar-brand__icon">
-      <i class="bi bi-graph-up-arrow"></i>
-    </div>
-    <div>
-      <div class="sidebar-brand__name">
-        Swift <span class="sidebar-brand__badge">SaaS ERP</span>
+  <!-- MOBILE-ONLY TOP ROW (hamburger + brand side by side) -->
+  <div class="sidebar-mobile-header">
+    <button class="sidebar-inline-toggle" type="button" id="sidebarInlineToggle">
+      <i class="bi bi-list fs-5"></i>
+    </button>
+
+    <!-- BRAND -->
+    <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login'  %}{% endif %}">
+      <div class="sidebar-brand__icon">
+        <i class="bi bi-graph-up-arrow"></i>
       </div>
-      <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
-    </div>
-  </a>
+      <div>
+        <div class="sidebar-brand__name">
+          Swift <span class="sidebar-brand__badge">ERP</span>
+        </div>
+        <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
+      </div>
+    </a>
+  </div>
+  <!-- end .sidebar-mobile-header -->
 
   <!-- CURRENT BUSINESS SECTION -->
+
 <div class="sidebar-section" style="margin-bottom: 1.5rem;">
   <div class="sidebar-section-label" style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;">
     Current Business
@@ -270,13 +288,16 @@ document.addEventListener('click', function() {
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('sidebarOverlay');
 const toggle = document.getElementById('sidebarToggle');
+const inlineToggle = document.getElementById('sidebarInlineToggle');
 
-toggle.addEventListener('click', function() {
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('open');
-});
-overlay.addEventListener('click', function() {
-  sidebar.classList.remove('open');
-  overlay.classList.remove('open');
-});
+const setSidebarOpen = (open) => {
+  sidebar.classList.toggle('open', open);
+  overlay.classList.toggle('open', open);
+  document.body.classList.toggle('sidebar-open', open);
+};
+
+toggle.addEventListener('click', () => setSidebarOpen(!sidebar.classList.contains('open')));
+overlay.addEventListener('click', () => setSidebarOpen(false));
+inlineToggle.addEventListener('click', () => setSidebarOpen(false));
+
 </script>

@@ -48,6 +48,12 @@ def view_inventory_stock(request, business_slug):
     
     form = StockFilterForm(request.GET or None, business=business)
     categories = form.fields['category'].queryset
+    
+    all_stocks = stocks.count()
+    in_stock = stocks.filter(quantity__gte=50).count()
+    low_stock = stocks.filter(Q(quantity__lte=49) & Q(quantity__gte=1)).count()
+    out_of_stock = stocks.filter(quantity=0).count()
+    
     if form.is_valid():
         search = form.cleaned_data.get('search')
         category = form.cleaned_data.get('category')
@@ -85,10 +91,14 @@ def view_inventory_stock(request, business_slug):
     
     context = {
                'page_obj': page_obj, 
-               'section': 'inventory', 
+               'section': 'inventory',
                'grand_total_value': grand_total_value,
                'multi_unit_types': MULTI_UNIT_TYPES, 
                'most_stock_category_name': most_stock_category_name,
+               'out_of_stock': out_of_stock,
+               'low_stock': low_stock,
+               'in_stock': in_stock,
+               'all_stocks': all_stocks,
                'categories': categories
             }
     

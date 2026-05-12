@@ -111,35 +111,46 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th>Date Added</th>
                 <th>Name</th>
                 <th class="sl-text-center">Items</th>
-                <th class="sl-text-end">Actions</th>
+                {% if request.user.role == 'owner' %}
+                <th class="sl-text-end mobile-center">Actions</th>
+                {% else %}
+                <th class="sl-text-end mobile-center">Action</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
               {% for supplier in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-sub">{{ supplier.created_at|date:"M d, Y" }}</div>
+                  <div class="cell-primary">{{ supplier.created_at|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ supplier.created_at|date:"l" }}</div>
                 </td>
 
                 <td>
                   <div class="cell-primary">{{ supplier.name|capfirst }}</div>
+                  <div class="cell-sub">#{{ forloop.counter }}</div>
                 </td>
 
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ supplier.materials.count }}</span>
                 </td>
 
-                <td class="sl-text-end">
+                <td class="sl-text-end mobile-center">
+                  {% if request.role == 'owner' %}
                   <div class="table-actions">
+                    {% else %}
+                    <div class="btn-group">
+                    {% endif %}
                     <a href="{% url 'supplier-update' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn" title="Edit supplier">
                       <i class="bi bi-pencil"></i>
                     </a>
+                    {% if request.user.role == 'owner' %}
                     <a href="{% url 'supplier-delete' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--danger" title="Delete supplier">
+                       class="action-btn action-btn--danger" title="Delete supplier" onclick="return confirm('Are you sure you want to delete this supplier?');">
                       <i class="bi bi-trash3"></i>
                     </a>
+                    {% endif %}
                   </div>
                 </td>
                </tr>

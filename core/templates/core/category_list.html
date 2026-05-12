@@ -137,9 +137,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn action-btn--danger" title="Delete">
+                    {% if request.user.role == 'owner' %}
+                    <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn action-btn--danger" title="Delete" onclick="return confirm('Are you sure you want to delete this category?');">
                       <i class="bi bi-trash"></i>
                     </a>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

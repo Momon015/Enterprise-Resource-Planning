@@ -2,6 +2,20 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
+  
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">EMPLOYEES &gt; EDIT</div>
+      <h1 class="page-title">Edit Employee</h1>
+      <p class="page-subtitle">Update details for {{ employee.name }}.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to employees
+      </a>
+    </div>
+  </div>
+
   <div class="mf-layout">
 
     <!-- LEFT: FORM -->

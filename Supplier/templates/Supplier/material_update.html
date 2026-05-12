@@ -1,6 +1,24 @@
 {% extends "main.html" %}
 {% block content %}
 
+<!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING</div>
+      <h1 class="page-title">Supplier Items</h1>
+      <p class="page-subtitle">Record your daily supplier purchases.</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-box-seam"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
+      </div>
+      <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-file-text"></i> Purchase Record
+      </a>
+    </div>
+  </div>
+
 <div class="mf-page-wrapper">
   <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 

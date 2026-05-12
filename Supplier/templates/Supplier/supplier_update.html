@@ -24,6 +24,20 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <div class="mf-page-wrapper">
+  
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">PURCHASING &gt; EDIT</div>
+      <h1 class="page-title">Edit Supplier</h1>
+      <p class="page-subtitle">Update this supplier's details.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to suppliers
+      </a>
+    </div>
+  </div>
+
   <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->

@@ -57,7 +57,12 @@ def product_list(request, business_slug):
     categories = form.fields['category'].queryset
     
     stock_filter = request.GET.get('stock')
+    all_products = products.count()
+    in_stock = products.filter(prepared_quantity__gte=50).count()
+    low_stock = products.filter(Q(prepared_quantity__lte=49) & Q(prepared_quantity__gte=1)).count()
     out_of_stock = products.filter(prepared_quantity=0).count()
+    
+    
 
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -78,7 +83,6 @@ def product_list(request, business_slug):
             
         if stock_filter == 'high':
             products = products.filter(prepared_quantity__gte=50)
-            
         elif stock_filter == 'low':
             products = products.filter(Q(prepared_quantity__lte=49) & Q(prepared_quantity__gte=1))
         elif stock_filter == 'none':
@@ -98,6 +102,9 @@ def product_list(request, business_slug):
         "form": form,
         "categories": categories,
         "out_of_stock": out_of_stock,
+        'low_stock': low_stock,
+        'in_stock': in_stock,
+        'all_products': all_products,
         'multi_unit_types': MULTI_UNIT_TYPES,
         'section': 'product',
     }
