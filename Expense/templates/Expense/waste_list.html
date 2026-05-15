@@ -64,8 +64,8 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
     <div class="page-header-right">
 
-      <div class="header-stat">
-        <i class="bi bi-trash2"></i>
+      <div class="header-stat accent">
+        <i class="bi bi-file-earmark-text"></i>
         <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
       </div>
 
@@ -178,7 +178,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}" class="action-btn" title="View detail">
+                    <a href="{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}"
+                      class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>

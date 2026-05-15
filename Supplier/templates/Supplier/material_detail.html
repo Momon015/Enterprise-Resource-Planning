@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- ACTIONS -->
           <div class="btn-grid">
             <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-basket"></i> Add to Cart
+              <i class="bi bi-plus"></i> Add to Cart
             </a>
             <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil"></i> Edit
@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sl-quick-title">Actions</div>
           <div class="btn-grid">
             <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-basket"></i> Add to Cart
+              <i class="bi bi-plus"></i> Add to Cart
             </a>
             <a href="{% url 'material-update' slug=material.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Material

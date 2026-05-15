@@ -52,8 +52,8 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
-        <i class="bi bi-boxes"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> material{{ page_obj.paginator.count|pluralize }}
+        <i class="bi bi-box-seam"></i>
+        <strong>{{ page_obj.paginator.count }}</strong> stock{{ page_obj.paginator.count|pluralize }}
       </div>
       <div class="header-stat accent">
         <i class="bi bi-tag"></i>
@@ -181,7 +181,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     {% if request.user.role == 'owner' %}
                       <a href="{% url 'inventory-stock-delete' stock_id=stock.id business_slug=current_business.slug %}"
                         class="btn btn-sm"
-                        style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;" onclick="return confirm('Are you sure you want to delete this material?');">
+                        style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
                         <i class="bi bi-trash"></i> Remove
                         
                       </a>

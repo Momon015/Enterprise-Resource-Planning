@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
     <div class="page-header-right">
       <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-clipboard-check"></i> Purchase Record
+        <i class="bi bi-file-text"></i> Purchase Record
       </a>
       <a href="{% url 'material-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to supplier
@@ -46,39 +46,40 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
   </div>
 
-  <!-- FILTER DRAWER (kept) -->
-  <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
-    <summary>
-      <i class="bi bi-sliders"></i>
-      <span>Advanced filters</span>
-      {% if request.GET.search or request.GET.category %}
-        <span class="filter-badge">Active</span>
-      {% endif %}
-    </summary>
-    <div class="filter-body">
-      <form method="get" id="filterForm" autocomplete="off">
-        <div class="d-flex gap-2 align-items-center w-100">
-          <div class="flex-grow-1">
-            <div class="input-group">
-              <span class="input-group-icon"><i class="bi bi-search"></i></span>
-              <input type="search" name="search" class="form-control"
-                    placeholder="Search preset name..."
-                    value="{{ request.GET.search|default:'' }}">
-            </div>
-          </div>
-          <button class="btn btn-outline-primary btn-sm" type="submit">
-            <i class="bi bi-funnel"></i> Filter
-          </button>
-          <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
-        </div>
-      </form>
-    </div>
-  </details>
-
   <div class="two-col-layout">
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
+
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search preset name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+            </div>
+          </form>
+        </div>
+      </details>
+
       <div class="card table-card">
 
         <!-- HEADER -->
@@ -115,7 +116,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 <!-- NAME -->
                 <td>
                   <div class="cell-primary">{{ preset.name }}</div>
-                  <div class="cell-sub">#{{ forloop.counter }}</div>
                 </td>
 
                 <!-- ITEM COUNT -->
@@ -130,26 +130,26 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="table-actions">
                     <!-- ADD -->
                     <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
-                       class="action-btn" title="Add to purchase">
+                       class="action-btn action-btn--add" title="Add to purchase">
                       <i class="bi bi-plus-lg"></i>
                     </a>
 
                     <!-- VIEW -->
                     <a href="{% url 'material-preset-detail' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
-                       class="action-btn" title="View details">
+                       class="action-btn action-btn--view" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
 
                     <!-- EDIT -->
                     <a href="{% url 'material-edit-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
-                       class="action-btn" title="Edit preset">
+                       class="action-btn action-btn--edit" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
 
                     {% if request.user.role == 'owner' %}
                     <!-- DELETE -->
                     <a href="{% url 'material-delete-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--danger" title="Delete preset" onclick="return confirm('Are you sure you want to delete this preset?');">
+                       class="action-btn action-btn--danger" title="Delete preset">
                       <i class="bi bi-trash3"></i>
                     </a>
                     {% endif %}
@@ -165,7 +165,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <h3 class="empty-title">No presets yet</h3>
             <p class="empty-text">Create a preset from your current purchase to reuse recurring orders.</p>
             <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-              <i class="bi bi-clipboard-check"></i> Go to purchase screen
+              <i class="bi bi-file-text"></i> Go to purchase screen
             </a>
           </div>
           {% endif %}

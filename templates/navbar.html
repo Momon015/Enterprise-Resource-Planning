@@ -1,14 +1,15 @@
+{% load static %}
 <!-- MOBILE OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <!-- MOBILE TOGGLE + BRAND -->
 <div class="sidebar-mobile-bar" id="sidebarMobileBar">
-  <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle">
-    <i class="bi bi-list fs-5"></i>
+  <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle" aria-label="Open menu">
+    <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
   </button>
   <div class="sidebar-mobile-brand-wrap">
     <div class="sidebar-mobile-brand">
-      Swift <span class="sidebar-mobile-brand__badge">ERP</span>
+      Swift ERP <!-- <span class="sidebar-mobile-brand__badge"></span> -->
     </div>
     <div class="sidebar-mobile-brand__sub">Enterprise Resource Planning</div>
   </div>
@@ -20,31 +21,36 @@
 
   <!-- MOBILE-ONLY TOP ROW (hamburger + brand side by side) -->
   <div class="sidebar-mobile-header">
-    <button class="sidebar-inline-toggle" type="button" id="sidebarInlineToggle">
-      <i class="bi bi-list fs-5"></i>
+    <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle" aria-label="Open menu">
+      <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
     </button>
 
     <!-- BRAND -->
     <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login'  %}{% endif %}">
       <div class="sidebar-brand__icon">
-        <i class="bi bi-graph-up-arrow"></i>
+        <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
       </div>
       <div>
         <div class="sidebar-brand__name">
-          Swift <span class="sidebar-brand__badge">ERP</span>
+          Swift ERP <!-- <span class="sidebar-brand__badge"></span> -->
         </div>
         <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
       </div>
     </a>
-  </div>
+  </div> 
   <!-- end .sidebar-mobile-header -->
 
   <!-- CURRENT BUSINESS SECTION -->
 
 <div class="sidebar-section" style="margin-bottom: 1.5rem;">
   <div class="sidebar-section-label" style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;">
+    {% if request.user.role == 'owner' %}
     Current Business
+    {% else %}
+    Business Name
+    {% endif %}
   </div>
+
   
   {% if request.user.role == 'owner' and user_businesses|length > 1 %}
     <!-- Owner with multiple businesses: Dropdown -->
@@ -78,26 +84,25 @@
       align-items: center;
       gap: 0.375rem;
     ">
-      <div style="
-        width: 24px;
-        height: 24px;
-        background: #2d6a4f;
-        border-radius: 0.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      ">
-        {% if current_business.business_type == 'cafe' %}
-          <i class="bi bi-cup-hot-fill" style="color: white; font-size: 0.75rem;"></i>
-        {% elif current_business.business_type == 'restaurant' %}
-          <i class="bi bi-egg-fried" style="color: white; font-size: 0.75rem;"></i>
-        {% elif current_business.business_type == 'retail' %}
-          <i class="bi bi-shop" style="color: white; font-size: 0.75rem;"></i>
-        {% else %}
-          <i class="bi bi-building" style="color: white; font-size: 0.75rem;"></i>
-        {% endif %}
-      </div>
+    <div style="
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    ">
+      {% if current_business.business_type == 'cafe' %}
+        <img src="{% static 'images/business-types/cafe.png' %}" alt="Cafe" style="width:100%;height:100%;object-fit:contain;">
+      {% elif current_business.business_type == 'restaurant' %}
+        <img src="{% static 'images/business-types/restaurant.png' %}" alt="Restaurant" style="width:100%;height:100%;object-fit:contain;">
+      {% elif current_business.business_type == 'retail' %}
+        <img src="{% static 'images/business-types/retail.png' %}" alt="Retail" style="width:100%;height:100%;object-fit:contain;">
+      {% else %}
+        <img src="{% static 'images/business-types/default.png' %}" alt="Business" style="width:100%;height:100%;object-fit:contain;">
+      {% endif %}
+  </div>
+
       <div style="flex: 1; min-width: 0;">
         <div style="color: #f9fafb; font-weight: 500; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> 
           {{ current_business.business_name }}

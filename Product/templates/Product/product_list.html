@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="header-stat accent">
         <i class="bi bi-box-seam"></i>
         <strong>{{ page_obj.paginator.count|default:0 }}</strong>
-        item{{ page_obj.paginator.count|pluralize }}
+        product{{ page_obj.paginator.count|pluralize }}
       </div>
       {% comment %} {% if out_of_stock %}
       <div class="header-stat danger">
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
       {% endif %} {% endcomment %}
       <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-receipt"></i> Sales Record
+        <i class="bi bi-file-text"></i> Sales Record
       </a>
     </div>
   </div>
@@ -187,22 +187,21 @@ document.addEventListener("DOMContentLoaded", function () {
                   
                   <div class="table-actions">
                     <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                       class="action-btn" title="Add to sale">
-                      <i class="bi bi-basket"></i>
+                       class="action-btn action-btn--add" title="Add to sale">
+                      <i class="bi bi-plus"></i>
                     </a>
                     <a href="{% url 'product-detail' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                       class="action-btn" title="View detail">
+                       class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                     <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                       class="action-btn" title="Edit product">
+                       class="action-btn action-btn--edit" title="Edit product">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
                         <a href="{% url 'product-delete' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                           class="action-btn action-btn--danger" 
-                          title="Delete product"
-                          onclick="return confirm('Are you sure you want to delete this product?');">
+                          title="Delete product">
                           <i class="bi bi-trash3"></i>
                         </a>
                     {% endif %}
@@ -224,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endif %}
             </p>
             {% comment %} <a href="{% url 'product-create' %}" class="btn btn-primary btn-sm">
-              <i class="bi bi-plus-circle"></i> Add your first product
+              <i class="bi bi-plus-circle"></i> Create your first product
             </a> {% endcomment %}
           </div>
           {% endif %}
@@ -312,7 +311,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
               <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Add product
+                <i class="bi bi-plus-circle"></i> Create product
               </a>
               <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-bookmark-fill"></i> Presets

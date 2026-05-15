@@ -73,6 +73,7 @@ class ProductFilterForm(forms.Form):
         
         self.fields['category'].queryset = Category.objects.filter(category_type='product', business=business)
        
-
+class ProductPresetFilterForm(forms.Form):
+    search = forms.CharField(required=False)
         
         

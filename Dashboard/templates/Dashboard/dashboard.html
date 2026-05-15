@@ -67,9 +67,9 @@
     </div>
 
     <!-- NET PROFIT -->
-    <div class="sd-stat-box" style="{% if net_profit >= 0 %}background:var(--success-light); border-color:var(--success-border);{% else %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
+    <div class="sd-stat-box" style="{% if net_profit > 0 %}background:var(--success-light); border-color:var(--success);{% else %}var(--muted){% endif %}">
       <div class="sd-stat-label">Net Profit</div>
-      <div class="sd-stat-value" style="{% if net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
+      <div class="sd-stat-value" style="{% if net_profit > 0 %}color:var(--success);{% else %}color:var(--muted);{% endif %}">
         ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
       </div>
     </div>

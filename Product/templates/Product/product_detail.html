@@ -229,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="card-body">
           <div class="btn-grid">
             <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-cart-plus"></i> Add to Sale
+              <i class="bi bi-plus"></i> Add to Sale
             </a>
             <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Product

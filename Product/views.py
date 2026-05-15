@@ -21,7 +21,7 @@ from django.core.paginator import Paginator
 
 from core.models import Category
 from Product.models import Product, ProductPreset, ProductPresetItem
-from Product.forms import ProductForm, ProductFilterForm
+from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm
 
 from user.models import User
 
@@ -280,6 +280,15 @@ def add_product_to_preset(request, business_slug):
 def list_product_preset(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).filter(business=business).order_by('-created_at')
+    
+    form = ProductPresetFilterForm(request.GET or None)
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        
+        if search:
+            presets = presets.filter(name__icontains=search)
+    
     
     pagination = Paginator(presets, 5)
     page = request.GET.get('page')

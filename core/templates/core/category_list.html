@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <strong>{{ page_obj.paginator.count }}</strong> categor{{ page_obj.paginator.count|pluralize:"y,ies" }}
       </div>
       <a href="{% url 'category-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-circle"></i> Add Category
+        <i class="bi bi-plus-circle"></i> Create Category
       </a>
     </div>
   </div>
@@ -134,11 +134,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn" title="Edit">
+                    <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      class="action-btn action-btn--edit" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                    <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}" class="action-btn action-btn--danger" title="Delete" onclick="return confirm('Are you sure you want to delete this category?');">
+                    <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      class="action-btn action-btn--danger" title="Delete">
                       <i class="bi bi-trash"></i>
                     </a>
                     {% endif %}
@@ -161,7 +163,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   </p>
                   {% comment %} {% if not request.GET.search %}
                   <a href="{% url 'category-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> Add Category
+                    <i class="bi bi-plus-circle"></i> Create Category
                   </a>
                   {% endif %} {% endcomment %}
               </div>

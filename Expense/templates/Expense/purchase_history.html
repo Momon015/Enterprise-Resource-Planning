@@ -71,8 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">Supplier purchase receipts recorded into inventory levels</p>
     </div>
     <div class="page-header-right">
-      <div class="header-stat">
-        <i class="bi bi-receipt"></i>
+      <div class="header-stat accent">
+        <i class="bi bi-file-earmark-text"></i>
         <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
       </div>
       <div class="header-stat danger">
@@ -197,7 +197,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}?{{ request.GET.urlencode }}" 
-                       class="action-btn" title="View Detail">
+                       class="action-btn action-btn--view" title="View Detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>

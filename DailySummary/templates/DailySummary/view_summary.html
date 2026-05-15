@@ -201,7 +201,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}" class="action-btn" title="View detail">
+                    <a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}" 
+                      class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
                   </div>

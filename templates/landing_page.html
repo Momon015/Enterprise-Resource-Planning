@@ -62,22 +62,26 @@
     }
 
     .lp-brand {
-      display: flex; align-items: center; gap: 0.6rem;
+      display: flex; align-items: center; gap: 0.3rem;
       text-decoration: none;
     }
 
     .lp-brand-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--accent); color: #fff;
+      width: 45px; height: 45px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.05rem;
-      box-shadow: 0 4px 14px rgba(45,106,79,0.3);
+      flex-shrink: 0;
     }
+    .lp-brand-icon img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+
 
     .lp-brand-name {
       font-size: 1rem; font-weight: 800;
       color: var(--text); letter-spacing: -0.02em;
+      margin-left: -0.6rem;
     }
+
 
     .lp-brand-name em { color: var(--accent); font-style: normal; }
 
@@ -252,21 +256,82 @@
       overflow: hidden;
     }
 
+    /* Mock — brand tagline */
+    .lp-mock-brand-text-wrap { display: flex; flex-direction: column; min-width: 0; }
+    .lp-mock-brand-sub {
+      font-size: 0.42rem;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.01em;
+      margin-top: 0.05rem;
+      white-space: nowrap;
+    }
+
+    /* Mock — current business block */
+    .lp-mock-business {
+      display: flex; align-items: center; gap: 0.2rem;
+      margin: 0.15rem 0.4rem 0.4rem;
+      padding: 0.3rem 0.35rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 4px;
+    }
+    .lp-mock-business-icon {
+      width: 14px; height: 14px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .lp-mock-business-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .lp-mock-business-text { display: flex; flex-direction: column; min-width: 0; }
+    .lp-mock-business-name { font-size: 0.55rem; font-weight: 600; color: #fff; line-height: 1.1; }
+    .lp-mock-business-type { font-size: 0.42rem; color: rgba(255,255,255,0.5); text-align: left; }
+
+    /* Mock — sidebar footer */
+    .lp-mock-sidebar { display: flex; flex-direction: column; }
+    .lp-mock-footer {
+      margin-top: auto;
+      padding: 0.3rem 0.4rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .lp-mock-new-sale {
+      background: var(--accent); color: #fff;
+      font-size: 0.55rem; font-weight: 600;
+      padding: 0.35rem; text-align: center;
+      border-radius: 4px; margin-bottom: 0.3rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.2rem;
+    }
+    .lp-mock-account {
+      display: flex; align-items: center; gap: 0.25rem;
+      padding: 0.15rem 0.25rem;
+      font-size: 0.55rem; color: rgba(255,255,255,0.7);
+    }
+    .lp-mock-account-avatar {
+      width: 14px; height: 14px;
+      background: var(--accent); color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.45rem; font-weight: 700;
+    }
+
+
     .lp-mock-brand {
-      display: flex; align-items: center; gap: 0.4rem;
+      display: flex;
+      align-items: center; 
+      gap: 0.25rem;
       padding: 0.25rem 0.4rem 0.625rem;
     }
 
     .lp-mock-brand-icon {
-      width: 20px; height: 20px; border-radius: 5px;
-      background: var(--accent); color: #fff;
+      width: 20px; height: 20px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.6rem;
+      flex-shrink: 0;
+    }
+    .lp-mock-brand-icon img {
+      width: 100%; height: 100%; object-fit: contain;
     }
 
-    .lp-mock-brand-text { font-size: 0.6rem; font-weight: 700; color: #fff; }
+    .lp-mock-brand-text { font-size: 0.6rem; font-weight: 700; color: #fff; text-align: left; }
 
-    .lp-mock-section { font-size: 0.45rem; font-weight: 700; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.5rem 0.4rem 0.2rem; }
+    .lp-mock-section { font-size: 0.45rem; font-weight: 700; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.5rem 0.4rem 0.2rem; text-align: left; }
 
     .lp-mock-item {
       display: flex; align-items: center; gap: 0.35rem;
@@ -604,11 +669,15 @@
     }
 
     .lp-footer-brand-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--accent); color: #fff;
+      width: 36px; height: 36px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; margin-bottom: 0.75rem;
+      margin-bottom: 0.75rem;
+      flex-shrink: 0;
     }
+    .lp-footer-brand-icon img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+
 
     .lp-footer-brand-name {
       font-size: 1rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 0.5rem;
@@ -1066,10 +1135,13 @@
 
 <nav class="lp-nav">
   <a class="lp-brand" href="#">
-    <div class="lp-brand-icon"><i class="bi bi-layers-fill"></i></div>
+    <div class="lp-brand-icon">
+      <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+    </div>
     <div class="lp-brand-name">Swift <em>ERP</em></div>
     <span class="lp-brand-badge">SaaS</span>
   </a>
+
 
   <ul class="lp-nav-links">
     <li><a href="#features">Features</a></li>
@@ -1145,9 +1217,26 @@
         <!-- Sidebar -->
         <div class="lp-mock-sidebar">
           <div class="lp-mock-brand">
-            <div class="lp-mock-brand-icon"><i class="bi bi-layers-fill"></i></div>
-            <div class="lp-mock-brand-text">Swift ERP</div>
+            <div class="lp-mock-brand-icon">
+              <img src="{% static 'images/logo.png' %}" alt="">
+            </div>
+            <div class="lp-mock-brand-text-wrap">
+              <div class="lp-mock-brand-text">Swift ERP</div>
+              <div class="lp-mock-brand-sub">Enterprise Resource Planning</div>
+            </div>
           </div>
+
+          <div class="lp-mock-section">Current Business</div>
+          <div class="lp-mock-business">
+            <div class="lp-mock-business-icon">
+              <img src="{% static 'images/business-types/retail.png' %}" alt="">
+            </div>
+            <div class="lp-mock-business-text">
+              <div class="lp-mock-business-name">Owner1 Store</div>
+              <div class="lp-mock-business-type">Retail</div>
+            </div>
+          </div>
+
           <div class="lp-mock-section">Main</div>
           <div class="lp-mock-item active"><i class="bi bi-speedometer2"></i> Dashboard</div>
           <div class="lp-mock-item"><i class="bi bi-calendar-check"></i> Summary</div>
@@ -1161,8 +1250,17 @@
           <div class="lp-mock-item"><i class="bi bi-building"></i> Suppliers</div>
           <div class="lp-mock-item"><i class="bi bi-box"></i> Inventory</div>
           <div class="lp-mock-section">HR</div>
-          <div class="lp-mock-item"><i class="bi bi-people"></i> Employees</div>
+          <div class="lp-mock-item"><i class="bi bi-people"></i> Employees &amp; Payroll</div>
+
+          <div class="lp-mock-footer">
+            <div class="lp-mock-new-sale"><i class="bi bi-plus-lg"></i> New Sale</div>
+            <div class="lp-mock-account">
+              <div class="lp-mock-account-avatar">o</div>
+              <div class="lp-mock-account-name">owner1</div>
+            </div>
+          </div>
         </div>
+
         <!-- Main -->
         <div class="lp-mock-main">
             <div class="lp-mock-header">
@@ -1208,23 +1306,129 @@
             <!-- BOTTOM: CHART + RIGHT PANEL -->
             <div style="display:grid; grid-template-columns: 1fr 90px; gap:0.4rem; margin-top:0.4rem;">
 
-                <!-- LEFT: REVENUE TREND -->
-                <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.4rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-                    <div style="font-size:0.5rem; font-weight:700; color:var(--text);">Revenue Trend</div>
-                    <div style="font-size:0.42rem; color:var(--muted);">Last 30 days</div>
-                </div>
-                <!-- Simplified line chart using CSS -->
-                <div style="height:32px; display:flex; align-items:flex-end; gap:1px; padding: 0 2px;">
-                    {% for i in "1111111111111111111111111111" %}
-                    <div style="flex:1; background:var(--accent); opacity:0.15; border-radius:1px; height:2px;"></div>
-                    {% endfor %}
-                    <div style="flex:1; background:var(--accent); border-radius:1px; height:20px;"></div>
-                    <div style="flex:1; background:var(--accent); border-radius:1px; height:14px;"></div>
-                </div>
-                <div style="font-size:0.4rem; color:var(--muted); margin-top:0.2rem; display:flex; justify-content:space-between;">
-                    <span>Mar 03</span><span>Mar 15</span><span>Mar 30</span>
-                </div>
+                <!-- LEFT COLUMN: Revenue Trend + Comparison stacked -->
+                <div style="display:flex; flex-direction:column; gap:0.4rem;">
+
+                  <!-- Revenue Trend card -->
+                  <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.4rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                      <div style="font-size:0.5rem; font-weight:700; color:var(--text);">Revenue Trend</div>
+                      <div style="font-size:0.42rem; color:var(--muted);">Last 30 days</div>
+                    </div>
+                    <!-- Simplified line chart using CSS -->
+                    <div style="height:32px; display:flex; align-items:flex-end; gap:1px; padding: 0 2px;">
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:4px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:7px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:5px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:9px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:6px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:11px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:8px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:13px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:10px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:15px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:12px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:17px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:14px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:19px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:16px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:21px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:18px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:23px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:20px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:25px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:22px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:26px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:24px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:28px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:25px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:30px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:27px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:30px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:20px;"></div>
+                      <div style="flex:1; background:var(--accent); border-radius:1px; height:14px;"></div>
+                    </div>
+
+                    <div style="font-size:0.4rem; color:var(--muted); margin-top:0.2rem; display:flex; justify-content:space-between;">
+                      <span>Mar 01</span><span>Mar 15</span><span>Mar 30</span>
+                    </div>
+                  </div>
+
+                  <!-- Comparison card -->
+                  <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.4rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                      <div style="display:flex; align-items:center; gap:0.3rem;">
+                        <div style="font-size:0.5rem; font-weight:700; color:var(--text);">Comparison</div>
+                        <div style="display:flex; gap:2px; background:#f3f4f6; padding:1px; border-radius:3px;">
+                          <div style="background:transparent; color:var(--muted); font-size:0.42rem; padding:2px 6px; border-radius:2px; font-weight:600;">Monthly</div>
+                          <div style="background:transparent; color:var(--muted); font-size:0.42rem; padding:2px 6px; border-radius:2px; font-weight:600;">Weekly</div>
+                        </div>
+                      </div>
+                      <div style="font-size:0.42rem; color:var(--muted);">April vs May</div>
+                    </div>
+
+                    <!-- Bar chart: April (purple) vs May (green) -->
+                    <div style="height:36px; display:flex; align-items:flex-end; gap:6px; padding:0 4px;">
+                      <div style="flex:1; display:flex; gap:1px; align-items:flex-end; height:100%;">
+                        <div style="flex:1; background:#a78bfa; height:2px; border-radius:1px;"></div>
+                        <div style="flex:1; background:#10b981; height:32px; border-radius:1px;"></div>
+                      </div>
+                      <div style="flex:1; display:flex; gap:1px; align-items:flex-end; height:100%;">
+                        <div style="flex:1; background:#a78bfa; height:2px; border-radius:1px;"></div>
+                        <div style="flex:1; background:#10b981; height:8px; border-radius:1px;"></div>
+                      </div>
+                      <div style="flex:1; display:flex; gap:1px; align-items:flex-end; height:100%;">
+                        <div style="flex:1; background:#a78bfa; height:2px; border-radius:1px;"></div>
+                        <div style="flex:1; background:#10b981; height:2px; border-radius:1px;"></div>
+                      </div>
+                      <div style="flex:1; display:flex; gap:1px; align-items:flex-end; height:100%;">
+                        <div style="flex:1; background:#a78bfa; height:2px; border-radius:1px;"></div>
+                        <div style="flex:1; background:#10b981; height:7px; border-radius:1px;"></div>
+                      </div>
+                      <div style="flex:1; display:flex; gap:1px; align-items:flex-end; height:100%;">
+                        <div style="flex:1; background:#a78bfa; height:2px; border-radius:1px;"></div>
+                        <div style="flex:1; background:#10b981; height:18px; border-radius:1px;"></div>
+                      </div>
+                    </div>
+
+                    <!-- Category labels -->
+                    <div style="display:flex; gap:6px; padding:0 4px; font-size:0.36rem; color:var(--muted); margin: 0.15rem 0 0.35rem;">
+                      <div style="flex:1; text-align:center;">Rev</div>
+                      <div style="flex:1; text-align:center;">Mat</div>
+                      <div style="flex:1; text-align:center;">Waste</div>
+                      <div style="flex:1; text-align:center;">Exp</div>
+                      <div style="flex:1; text-align:center;">Net</div>
+                    </div>
+
+                    <!-- April / May summary cards -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.3rem;">
+                      <div style="background:#fafafa; border:1px solid var(--border); border-radius:4px; padding:0.3rem;">
+                        <div style="font-size:0.4rem; color:var(--muted); font-weight:700; letter-spacing:0.05em; margin-bottom:0.2rem;">APRIL</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Revenue</span><span style="color:#10b981; font-weight:600;">₱0.00</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Total Costs</span><span style="color:#ef4444; font-weight:600;">₱0.00</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Net Profit</span><span style="color:#10b981; font-weight:600;">₱0.00</span>
+                        </div>
+                      </div>
+                      <div style="background:#fafafa; border:1px solid var(--border); border-radius:4px; padding:0.3rem;">
+                        <div style="font-size:0.4rem; color:var(--muted); font-weight:700; letter-spacing:0.05em; margin-bottom:0.2rem;">MAY</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Revenue</span><span style="color:#10b981; font-weight:600;">₱6,180</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Total Costs</span><span style="color:#ef4444; font-weight:600;">₱2,687</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.42rem; color:var(--muted); padding:1px 0;">
+                          <span>Net Profit</span><span style="color:#10b981; font-weight:600;">₱3,493</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
                 <!-- RIGHT PANEL -->
@@ -1248,31 +1452,45 @@
 
                   <!-- DAY SUMMARY -->
                   <div style="background:#0f1117; border-radius:6px; padding:0.4rem; flex:1;">
-                   <div style="font-size:0.45rem; font-weight:700; color:#fff; margin-bottom:0.25rem;">Day Summary</div>
-                     <div style="font-size:0.38rem; color:rgba(255,255,255,0.4); margin-bottom:0.1rem;">NET PROFIT</div>
-                       <div style="font-size:0.6rem; font-weight:800; color:#22c55e; margin-bottom:0.3rem;">₱745</div>
-                         <div style="display:flex; flex-direction:column; gap:0.15rem;">
-                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
-                                <span style="color:rgba(255,255,255,0.5);">Sales</span>
-                                <span style="color:#fff;">4</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
-                                <span style="color:rgba(255,255,255,0.5);">Purchases</span>
-                                <span style="color:#fff;">2</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
-                                <span style="color:rgba(255,255,255,0.5);">Waste</span>
-                                <span style="color:#fff;">1</span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
-                                <span style="color:rgba(255,255,255,0.5);">Staff on Shift</span>
-                                <span style="color:#fff;">2</span>
-                            </div>
+                    <div style="font-size:0.45rem; font-weight:700; color:#fff; margin-bottom:0.25rem; text-align:center;">Day Summary</div>
+
+                    <!-- NET PROFIT highlight -->
+                    <div style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:4px; padding:0.3rem; margin-bottom:0.3rem; text-align:center;">
+                      <div style="font-size:0.36rem; color:rgba(255,255,255,0.5); letter-spacing:0.05em; font-weight:700; margin-bottom:0.1rem;">NET PROFIT</div>
+                      <div style="font-size:0.65rem; font-weight:800; color:#22c55e;">₱745</div>
+                    </div>
+
+                    <!-- TODAY'S RECORDS sub-card -->
+                    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:0.3rem;">
+                      <div style="font-size:0.36rem; font-weight:700; color:rgba(255,255,255,0.4); letter-spacing:0.05em; margin-bottom:0.2rem;">TODAY'S RECORDS</div>
+                      <div style="display:flex; flex-direction:column; gap:0.15rem;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                          <span style="color:rgba(255,255,255,0.5);">Sales</span>
+                          <span style="color:#fff;">4</span>
                         </div>
-                   </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                          <span style="color:rgba(255,255,255,0.5);">Purchases</span>
+                          <span style="color:#fff;">2</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                          <span style="color:rgba(255,255,255,0.5);">Waste</span>
+                          <span style="color:#ef4444;">1</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                          <span style="color:rgba(255,255,255,0.5);">Expenses</span>
+                          <span style="color:#ef4444;">1</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.4rem;">
+                          <span style="color:rgba(255,255,255,0.5);">Staff on Shift</span>
+                          <span style="color:#fff;">2</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                 </div>
             </div>
+
         </div>
 
       </div>
@@ -1706,7 +1924,14 @@
   <div class="lp-footer-grid">
 
     <div>
-      <div class="lp-footer-brand-icon"><i class="bi bi-layers-fill"></i></div>
+      <a class="lp-brand" href="#">
+        <div class="lp-brand-icon">
+          <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+        </div>
+        <div class="lp-brand-name">Swift <em>ERP</em></div>
+        <span class="lp-brand-badge">SaaS</span>
+      </a>
+
       <div class="lp-footer-brand-name">Swift ERP</div>
       <div class="lp-footer-brand-desc">An all-in-one ERP solution for small business owners. Manage sales, inventory, expenses, and your team from one dashboard.</div>
     </div>

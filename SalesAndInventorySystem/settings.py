@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    'https://interpretation-width-playstation-freeze.trycloudflare.com'   
+    'https://officially-alaska-warned-hats.trycloudflare.com'   
     ]
 
 # Application definition

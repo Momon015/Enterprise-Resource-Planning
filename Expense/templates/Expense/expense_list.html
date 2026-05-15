@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
-        <i class="bi bi-receipt"></i>
+        <i class="bi bi-file-earmark-text"></i>
         <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
       </div>
       <div class="header-stat danger">
@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="btn-group">
                     {% comment %} {% if record.first_expense_id %} {% endcomment %}
                     <a href="{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}" 
-                      class="action-btn" title="View Detail">
+                      class="action-btn action-btn--view" title="View Detail">
                       <i class="bi bi-eye"></i>
                     </a>
                     {% comment %} {% else %}

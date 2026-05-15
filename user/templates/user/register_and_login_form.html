@@ -75,17 +75,21 @@
       padding: 2rem 2rem 0;
     }
     .auth-brand-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
-      background: var(--accent);
+      width: 80px;
+      height: 80px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 0.875rem;
-      box-shadow: 0 8px 28px rgba(59, 130, 246, 0.3);
       animation: authIconPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
     }
+
+.auth-brand-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
     .auth-brand-icon i { font-size: 1.5rem; color: #fff; }
     .auth-brand-name {
       font-size: 1.3rem;
@@ -174,7 +178,7 @@
 
         <div class="auth-brand">
           <div class="auth-brand-icon">
-            <i class="bi bi-layers-fill"></i>
+            <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
           </div>
           <div class="auth-brand-name">Swift <span>ERP</span></div>
           <div class="auth-brand-tagline">Enterprise Resource Planning</div>

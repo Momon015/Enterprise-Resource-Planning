@@ -47,8 +47,8 @@ class Stock(TimeStampModel):
         if self.material:
             self.name = self.material.name
         
-        if self.material and self.material.supplier:
-            self.supplier = self.material.supplier.name
+        if not self.supplier:
+            self.supplier = self.material.supplier.name if self.material.supplier else 'No supplier'
             
         if self.material:
             self.unit = self.material.get_unit_display()
