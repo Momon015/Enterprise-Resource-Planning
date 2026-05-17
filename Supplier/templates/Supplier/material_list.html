@@ -78,9 +78,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="input-group">
                   <span class="input-group-icon"><i class="bi bi-search"></i></span>
                   <input type="search" name="search" class="form-control"
-                        placeholder="Search preset name..."
+                        placeholder="Search material name..."
                         value="{{ request.GET.search|default:'' }}">
                 </div>
+              </div>
+              <div>
+                <select name="category" class="form-select form-select-sm" style="width:auto;">
+                  <option value="">All categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                      {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
