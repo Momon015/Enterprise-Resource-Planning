@@ -235,6 +235,7 @@
   </ul>
 </div>
 
+{% if request.user.role == 'owner '%}
   <!-- HR -->
   <div class="sidebar-section">
     <div class="sidebar-section-label">HR</div>
@@ -250,6 +251,8 @@
       </li>
     </ul>
   </div>
+
+{% endif %}
 
   <!-- FOOTER -->
   <div class="sidebar-footer">
