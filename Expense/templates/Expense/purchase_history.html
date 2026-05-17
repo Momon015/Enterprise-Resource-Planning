@@ -162,9 +162,9 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 <th>Reference</th>
-                <th class="sl-text-center">Qty</th>
-                <th class="sl-text-center">Lines</th>
-                <th class="sl-text-end">Total Cost</th>
+                <th class="sl-text-center col-mobile-hidden">Qty</th>
+                <th class="sl-text-center col-mobile-hidden">Lines</th>
+                <th class="sl-text-end mobile-center">Total Cost</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
@@ -172,25 +172,25 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for purchase in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ purchase.created_at|date:"M d, Y" }}</div>
+                  {{ purchase.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ purchase.created_at|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ purchase.created_at|date:"l" }}</div>
                 </td>
 
                 <td>
                   <div class="cell-primary">{{ purchase.reference|default:"No reference" }}</div>
                     
-                  <div class="cell-sub">#{{ forloop.revcounter }} </div>
+                  <div class="cell-sub col-mobile-hidden">#{{ forloop.revcounter }} </div>
                 </td>
 
-                <td class="sl-text-center">
+                <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ purchase.total_quantity_items }}</span>
                 </td>
 
-                <td class="sl-text-center">
+                <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ purchase.line_count }}</span>
                 </td>
 
-                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                <td class="sl-text-end sl-fw-semibold sl-text-danger mobile-center">
                   ₱{{ purchase.total_cost|floatformat:2|intcomma }}
                 </td>
 

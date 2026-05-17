@@ -2,18 +2,34 @@
 <!-- MOBILE OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- MOBILE TOGGLE + BRAND -->
+<!-- MOBILE TOP BAR (logo toggle + brand + right icons) -->
 <div class="sidebar-mobile-bar" id="sidebarMobileBar">
-  <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle" aria-label="Open menu">
-    <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
+  <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
+    {% comment %} <img src="{% static 'images/hamburger-icon.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo"> {% endcomment %}
+    <i class='bi bi-list'></i>
   </button>
+
+  {% comment %} <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
+    <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
+  </button> {% endcomment %}
+
   <div class="sidebar-mobile-brand-wrap">
-    <div class="sidebar-mobile-brand">
-      Swift ERP <!-- <span class="sidebar-mobile-brand__badge"></span> -->
-    </div>
+    <div class="sidebar-mobile-brand">Swift ERP</div>
     <div class="sidebar-mobile-brand__sub">Enterprise Resource Planning</div>
   </div>
+
+  <div class="sidebar-mobile-actions">
+    <button type="button" class="mb-icon-btn" aria-label="Notifications">
+      <i class="bi bi-bell mb-icon-bell"></i>
+      <span class="mb-icon-dot"></span>
+    </button>
+    <a href="{% if user.is_authenticated %}{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}{% else %}{% url 'login' %}{% endif %}"
+       class="mb-avatar" aria-label="Profile">
+      {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
+    </a>
+  </div>
 </div>
+
 
 
 
@@ -279,6 +295,50 @@
 
 </nav>
 
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-bottom-nav" aria-label="Primary navigation">
+  {% if request.user.role == 'owner' %}
+  <a href="{% url 'dashboard' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'dashboard' %}is-active{% endif %}">
+    <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+  </a>
+  <a href="{% url 'view-summary' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'summary' %}is-active{% endif %}">
+    <i class="bi bi-calendar-check"></i><span>Summary</span>
+  </a>
+  <a href="{% url 'sale-list' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'sale' %}is-active{% endif %}">
+    <i class="bi bi-cash-coin"></i><span>Sales</span>
+  </a>
+  <a href="{% url 'purchase-list' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'purchase' %}is-active{% endif %}">
+    <i class="bi bi-receipt"></i><span>Purchases</span>
+  </a>
+  <button type="button" class="mb-nav-item mb-nav-more" id="mobileMoreBtn" aria-label="More">
+    <i class="bi bi-three-dots"></i><span>More</span>
+  </button>
+  {% else %}
+  <a href="{% url 'product-list' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'product' %}is-active{% endif %}">
+    <i class="bi bi-basket"></i><span>Products</span>
+  </a>
+  <a href="{% url 'material-list' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'supplier' %}is-active{% endif %}">
+    <i class="bi bi-building"></i><span>Suppliers</span>
+  </a>
+  <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'inventory' %}is-active{% endif %}">
+    <i class="bi bi-box"></i><span>Inventory</span>
+  </a>
+  <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}"
+     class="mb-nav-item {% if section == 'waste' %}is-active{% endif %}">
+    <i class="bi bi-recycle"></i><span>Waste &amp; Loss</span>
+  </a>
+  {% endif %}
+</nav>
+
+
+
 <script>
 // Account dropdown
 document.getElementById('accountToggle').addEventListener('click', function(e) {
@@ -300,6 +360,25 @@ const setSidebarOpen = (open) => {
   overlay.classList.toggle('open', open);
   document.body.classList.toggle('sidebar-open', open);
 };
+
+const moreBtn = document.getElementById('mobileMoreBtn');
+if (moreBtn) {
+  moreBtn.addEventListener('click', () => setSidebarOpen(true));
+}
+
+let lastScroll = 0;
+const bar = document.getElementById('sidebarMobileBar');
+
+window.addEventListener('scroll', () => {
+  const currentScroll = window.pageYOffset;
+  if (currentScroll > lastScroll && currentScroll > 100) {
+    bar.classList.add('is-hidden');
+  } else {
+    bar.classList.remove('is-hidden');
+  }
+  lastScroll = currentScroll;
+});
+
 
 toggle.addEventListener('click', () => setSidebarOpen(!sidebar.classList.contains('open')));
 overlay.addEventListener('click', () => setSidebarOpen(false));

@@ -148,7 +148,8 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for summary in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ summary.date|date:"M d, Y" }}</div>
+                  <div class="cell-primary">
+                    {{ summary.date|date:"M d" }}<span class="col-mobile-hidden">, {{ summary.date|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ summary.date|date:"l" }}</div>
                 </td>
                 <td class="sl-text-end mobile-center">

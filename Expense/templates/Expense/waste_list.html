@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
 
                 <td>
-                  <div class="cell-primary">{{ waste.date|date:"M d, Y" }}</div>
+                  {{ waste.date|date:"M d" }}<span class="col-mobile-hidden">, {{ waste.date|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ waste.date|date:"l" }}</div>
                 </td>
 

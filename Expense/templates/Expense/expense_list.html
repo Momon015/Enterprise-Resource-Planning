@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for record in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ record.date|date:"M d, Y" }}</div>
+                  {{ record.date|date:"M d" }}<span class="col-mobile-hidden">, {{ record.date|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
                 {% if record.total_shift %}

@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th>Reference</th>
                 <th class="sl-text-end col-mobile-hidden">Qty</th>
                 <th class="sl-text-end col-mobile-hidden">Items</th>
-                <th class="sl-text-end">Revenue</th>
+                <th class="sl-text-end mobile-center">Revenue</th>
                 <th class="sl-text-center">Action</th>
               </tr>
             </thead>
@@ -177,13 +177,13 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for sale in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ sale.created_at|date:"M d, Y" }}</div>
+                  {{ sale.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ sale.created_at|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ sale.created_at|date:"l" }}</div>
                 </td>
 
                 <td>
                   <div class="cell-primary">{{ sale.reference|default:"No reference" }}</div>
-                   <div class="cell-sub">#{{ forloop.revcounter }}</div> 
+                   <div class="cell-sub col-mobile-hidden">#{{ forloop.revcounter }}</div> 
                 </td>
 
                 <td class="sl-text-end col-mobile-hidden">
@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
 
-                <td class="sl-text-end sl-fw-semibold sl-text-success">
+                <td class="sl-text-end sl-fw-semibold sl-text-success mobile-center">
                   ₱{{ sale.total_revenue|floatformat:2|intcomma }}
                 </td>
                 <td class="sl-text-center">

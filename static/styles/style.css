@@ -175,7 +175,7 @@ input[type=number] {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: -0.5rem; /* EDIT MYSELF */
+  margin-left: -0.8rem; /* EDIT MYSELF was -0.5rem */
 }
 
 .sidebar-brand__badge {
@@ -2877,7 +2877,7 @@ details.filter-card summary:hover {
   .sl-page-header,
   .sd-page-header {
     padding-top: 0;
-    margin-top: 3.5rem;
+    /* margin-top: 3.5rem; */
     border-top: 1px solid rgba(0, 0, 0, 0.08);
   }
 
@@ -2943,7 +2943,7 @@ details.filter-card summary:hover {
     margin-top: 0.15rem !important;
     color: rgba(255,255,255,0.5) !important;
     white-space: nowrap;
-    margin-left: -0.5rem;
+    margin-left: -0.8rem;     /* EDIT MYSELF was -0.5rem */
   }
 
 
@@ -2975,15 +2975,17 @@ details.filter-card summary:hover {
   }
 
   /* Hide mobile bar when sidebar is open — sidebar shows its own header */
-  .sidebar-mobile-bar {
-    transition: opacity 0.15s ease 0.15s;  /* 300ms delay — sidebar is fully out by then */
-  }
+  /* .sidebar-mobile-bar {
+    transition: opacity 0.1s 0.1s;
+  } */
 
   .sidebar-overlay.open ~ .sidebar-mobile-bar {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.1s ease 0s;     /* fast hide on open */
+    /* When opening: disappear INSTANTLY, no delay */
+    transition: opacity 0s 0s;
   }
+
 
 
 
@@ -3015,11 +3017,11 @@ details.filter-card summary:hover {
   }
 
   .sidebar-mobile-toggle__logo {
-    width: 45px;
-    height: 45px;
+    width: 45px !important;
+    height: 45px !important;
     object-fit: contain;
     display: block;
-    margin-left: -0.5rem;  /*  EDIT MYSELF  */
+    margin-left: -0.1rem;  /*  EDIT MYSELF  */
   }
 
   .sidebar-mobile-brand-wrap {
@@ -3404,7 +3406,7 @@ details.filter-card summary:hover {
     gap: 0.55rem;
     text-decoration: none;
     color: var(--text);
-    margin-left: -0.5rem;  /*  EDIT MYSELF  */
+    margin-left: -0.8rem;  /*  EDIT MYSELF  was -0.5rem */ 
   }
 
   .sidebar-mobile-brand-wrap {
@@ -3440,8 +3442,283 @@ details.filter-card summary:hover {
     margin-top: 0.1rem;
     letter-spacing: 0.01em;
     white-space: nowrap;
-    margin-left: -0.5rem;       /*  EDIT MYSELF  */
+    margin-left: -0.8rem;       /*  EDIT MYSELF  was -0.5rem  */
   }
+
+
+/*  EDIT MYSELF  */
+
+@media (min-width: 992px) {
+  nav.sidebar .sidebar-brand .sidebar-brand__sub {
+    margin-left: -0.5rem !important;
+  }
+}
+
+/*  EDIT MYSELF  */
+
+/* ══════════════════════════════════════════════════════
+   MOBILE TOP BAR — dark, matches sidebar
+══════════════════════════════════════════════════════ */
+.sidebar-mobile-bar { display: none; }
+
+@media (max-width: 991px) {
+  .sidebar-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: fixed;       
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    padding: 0.5rem 1rem;
+    height: 56px;
+    background: linear-gradient(180deg, #0f1117 0%, #131620 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    transition: opacity 0s 0.25s;
+  }
+
+  .sidebar-overlay.open ~ .sidebar-mobile-bar {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0s 0s;
+  }
+
+  /* Hamburger / logo toggle (left) */
+  .sidebar-mobile-toggle {
+    flex-shrink: 0;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 40px;
+    height: 40px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    color: #fff !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sidebar-mobile-toggle i { color: #fff; font-size: 1.4rem; }
+  .sidebar-mobile-toggle__logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* EDIT MYSELF */
+  .sidebar-mobile-toggle {
+    padding: 0 1rem 0 0 !important;  /* push icon right */
+  }
+
+
+
+  /* Brand text wrap */
+  .sidebar-mobile-brand-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.15;
+    margin-left: -0.2rem;
+  }
+  .sidebar-mobile-brand {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff !important;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-mobile-brand__sub {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.55) !important;
+    margin-top: 0.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Right side actions container */
+  .sidebar-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  /* Notification bell */
+  .mb-icon-btn {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: #fff !important;
+    font-size: 1.15rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast);
+  }
+  .mb-icon-btn:hover,
+  .mb-icon-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .mb-icon-bell { margin: 0; }
+  .mb-icon-dot {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    background: var(--danger);
+    border: 2px solid #0f1117;
+    border-radius: 50%;
+  }
+
+  /* Avatar */
+  .mb-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent) !important;
+    color: #fff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mb-avatar:hover,
+  .mb-avatar:focus,
+  .mb-avatar:active {
+    background: var(--accent-hover) !important;
+    color: #fff !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   MOBILE BOTTOM NAV — dark, matches sidebar
+══════════════════════════════════════════════════════ */
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 991px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 900;
+    background: linear-gradient(180deg, #0f1117 0%, #131620 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+    padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+    justify-content: space-around;
+    align-items: stretch;
+  }
+
+  .mb-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0.35rem 0.2rem;
+    background: none;
+    border: 0;
+    border-radius: 8px;
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.68rem;
+    font-weight: 600;
+    min-height: 48px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+  .mb-nav-item i { font-size: 1.15rem; }
+  .mb-nav-item.is-active {
+    background: rgba(45, 106, 79, 0.2);
+    color: #6ee7b7;
+  }
+  .mb-nav-item.is-active i { transform: scale(1.05); }
+  .mb-nav-item:active {
+    transform: scale(0.96);
+    transition: transform 0.1s;
+  }
+
+  /* Page content gets pushed above the bottom bar */
+  .page-wrapper,
+  .mf-page-wrapper {
+    padding-bottom: 5rem;
+  }
+
+  /* Hide bottom nav when sidebar drawer is open */
+  .sidebar-overlay.open ~ .mobile-bottom-nav {
+    display: none;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   UTILITY — mobile-only visibility (works on buttons/links)
+══════════════════════════════════════════════════════ */
+.mobile-only { display: none; }
+
+@media (max-width: 767px) {
+  .mobile-only { display: flex !important; }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   DESKTOP SIDEBAR TAGLINE — pull text closer to logo
+══════════════════════════════════════════════════════ */
+@media (min-width: 992px) {
+  .sidebar-brand__sub {
+    margin-left: -0.5rem;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   TABLE — shrink ID/reference cells on very narrow screens
+══════════════════════════════════════════════════════ */
+@media (max-width: 540px) {
+  .cell-primary {
+    font-size: 0.82rem;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   increase the padding on the top
+══════════════════════════════════════════════════════ */
+
+@media (max-width: 991px) {
+  .page-wrapper {
+    padding-top: 4rem;  /* roughly 64px, clears the bar with breathing room */
+  }
+}
+
+  .sidebar-mobile-bar {
+    transition: transform 0.3s ease;
+  }
+  .sidebar-mobile-bar.is-hidden {
+    transform: translateY(-100%);
+  }
+
 
 
 /* ══════════════════════════════════════════

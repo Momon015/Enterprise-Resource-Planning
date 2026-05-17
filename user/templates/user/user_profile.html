@@ -194,6 +194,9 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-lock-fill"></i> Change Password
             </a>
+            <a href="{% url 'logout' %}" class="btn btn-outline-secondary btn-sm btn-block col-mobile-only">
+              <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
             <a href="{% url 'user-deactivate' user_id=user.id slug=user.slug %}" class="btn btn-sm btn-block"
               style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
               <i class="bi bi-person-slash"></i> Deactivate Account
