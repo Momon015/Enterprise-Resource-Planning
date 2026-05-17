@@ -175,7 +175,7 @@ input[type=number] {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: -0.8rem; /* EDIT MYSELF was -0.5rem */
+  margin-left: -0.5rem; /* EDIT MYSELF */
 }
 
 .sidebar-brand__badge {
@@ -2943,7 +2943,7 @@ details.filter-card summary:hover {
     margin-top: 0.15rem !important;
     color: rgba(255,255,255,0.5) !important;
     white-space: nowrap;
-    margin-left: -0.8rem;     /* EDIT MYSELF was -0.5rem */
+    margin-left: -0.5rem;     /* EDIT MYSELF */
   }
 
 
@@ -3406,7 +3406,7 @@ details.filter-card summary:hover {
     gap: 0.55rem;
     text-decoration: none;
     color: var(--text);
-    margin-left: -0.8rem;  /*  EDIT MYSELF  was -0.5rem */ 
+    margin-left: -0.5rem;  /*  EDIT MYSELF */ 
   }
 
   .sidebar-mobile-brand-wrap {
@@ -3442,7 +3442,7 @@ details.filter-card summary:hover {
     margin-top: 0.1rem;
     letter-spacing: 0.01em;
     white-space: nowrap;
-    margin-left: -0.8rem;       /*  EDIT MYSELF  was -0.5rem  */
+    margin-left: -0.5rem;       /* EDIT MYSELF */
   }
 
 
