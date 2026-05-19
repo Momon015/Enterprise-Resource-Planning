@@ -343,48 +343,61 @@
 
 
 <script>
-// Account dropdown
-document.getElementById('accountToggle').addEventListener('click', function(e) {
-  e.stopPropagation();
-  this.classList.toggle('open');
-});
-document.addEventListener('click', function() {
-  document.getElementById('accountToggle').classList.remove('open');
-});
-
-// Mobile sidebar
-const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('sidebarOverlay');
-const toggle = document.getElementById('sidebarToggle');
-const inlineToggle = document.getElementById('sidebarInlineToggle');
-
-const setSidebarOpen = (open) => {
-  sidebar.classList.toggle('open', open);
-  overlay.classList.toggle('open', open);
-  document.body.classList.toggle('sidebar-open', open);
-};
-
-const moreBtn = document.getElementById('mobileMoreBtn');
-if (moreBtn) {
-  moreBtn.addEventListener('click', () => setSidebarOpen(true));
-}
-
-let lastScroll = 0;
-const bar = document.getElementById('sidebarMobileBar');
-
-window.addEventListener('scroll', () => {
-  const currentScroll = window.pageYOffset;
-  if (currentScroll > lastScroll && currentScroll > 100) {
-    bar.classList.add('is-hidden');
-  } else {
-    bar.classList.remove('is-hidden');
+document.addEventListener("DOMContentLoaded", function () {
+  // Account dropdown
+  const accountToggle = document.getElementById('accountToggle');
+  if (accountToggle) {
+    accountToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      this.classList.toggle('open');
+    });
+    document.addEventListener('click', function() {
+      accountToggle.classList.remove('open');
+    });
   }
-  lastScroll = currentScroll;
+
+  // Mobile sidebar
+  const sidebar       = document.getElementById('sidebar');
+  const overlay       = document.getElementById('sidebarOverlay');
+  const toggle        = document.getElementById('sidebarToggle');
+  const inlineToggle  = document.getElementById('sidebarInlineToggle');
+  const moreBtn       = document.getElementById('mobileMoreBtn');
+  const bar           = document.getElementById('sidebarMobileBar');
+
+  const setSidebarOpen = (open) => {
+    if (sidebar) sidebar.classList.toggle('open', open);
+    if (overlay) overlay.classList.toggle('open', open);
+    document.body.classList.toggle('sidebar-open', open);
+  };
+
+  if (moreBtn) {
+    moreBtn.addEventListener('click', () => setSidebarOpen(true));
+  }
+
+  if (toggle) {
+    toggle.addEventListener('click', () => setSidebarOpen(!sidebar?.classList.contains('open')));
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', () => setSidebarOpen(false));
+  }
+
+  if (inlineToggle) {
+    inlineToggle.addEventListener('click', () => setSidebarOpen(false));
+  }
+
+  if (bar) {
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+      const currentScroll = window.pageYOffset;
+      if (currentScroll > lastScroll && currentScroll > 100) {
+        bar.classList.add('is-hidden');
+      } else {
+        bar.classList.remove('is-hidden');
+      }
+      lastScroll = currentScroll;
+    });
+  }
 });
-
-
-toggle.addEventListener('click', () => setSidebarOpen(!sidebar.classList.contains('open')));
-overlay.addEventListener('click', () => setSidebarOpen(false));
-inlineToggle.addEventListener('click', () => setSidebarOpen(false));
-
 </script>
+

@@ -1,6 +1,8 @@
 {% extends "main.html" %}
 {% block content %}
 
+<div class="mf-page-wrapper">
+
 <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
@@ -9,17 +11,20 @@
       <p class="page-subtitle">Record your daily supplier purchases.</p>
     </div>
     <div class="page-header-right">
-      <div class="header-stat accent">
+      {% comment %} <div class="header-stat accent">
         <i class="bi bi-box-seam"></i>
         <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
-      </div>
+      </div> {% endcomment %}
+      <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to supplier
+      </a>
       <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-file-text"></i> Purchase Record
       </a>
+      
     </div>
   </div>
 
-<div class="mf-page-wrapper">
   <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 
     <!-- LEFT: UPDATE FORM -->

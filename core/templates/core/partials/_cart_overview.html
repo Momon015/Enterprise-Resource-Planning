@@ -1,0 +1,25 @@
+<div id="cart-overview" hx-swap-oob="true" class="sd-summary-block highlight">
+  <div class="sd-summary-block-label">Today's {{ type }}</div>
+
+  <div class="sd-info-row">
+    <span class="sd-info-label"><i class="bi bi-bag-check sl-me-1"></i> {{ name }}</span>
+    <span class="sd-info-value">{{ cart_items|default:0 }} item{{cart_items|pluralize}}</span>
+  </div>
+
+  <div class="sd-info-row">
+    <span class="sd-info-label"><i class="bi bi-stack sl-me-1"></i> Total quantity</span>
+    <span class="sd-info-value">{{ cart_count|default:0 }}</span>
+  </div>
+
+  <div class="sd-info-row">
+    <span class="sd-info-label"><i class="bi bi-cash-stack sl-me-1"></i> Total {{ total_name }}</span>
+    <span class="sd-info-value" style="color:var(--accent);">₱{{ total|floatformat:2|default:"0.00" }}</span>
+  </div>
+</div>
+
+
+
+
+
+
+

@@ -47,6 +47,8 @@ from user.models import User
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
+from django.contrib.messages import get_messages
+
 # logging
 import logging
 
@@ -181,6 +183,26 @@ def clear_cart(request, business_slug):
     request.session['cart'] = {}
     request.session.modified = True
     messages.success(request, "All items has been removed.")
+    
+    
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'core/partials/_cart_response.html', {
+            'cart_count':     0,
+            'cart_items':     0,
+            'total':          Decimal('0'),
+            'cart_url':       'view-cart',
+            'icon':           'bi-file-text',
+            'label':          'Purchase Record',
+            'clear_sessions': 'clear-cart',
+            'name':           'Materials',
+            'total_name':     'cost',
+            'type':           'purchase',
+            'messages':       get_messages(request),
+        })
+    
+    
+    
+    
     return redirect('material-list', business_slug=business.slug)
 
 """clearing cart just in case there's a bug """
@@ -220,6 +242,32 @@ def add_to_cart(request, business_slug, id):
     else:
          messages.warning(request, f"{material.name} -  quantity limit reached.")
 
+    # save the session
+    request.session['cart'] = cart
+    request.session.modified = True
+    
+    # htmx 
+    if request.headers.get('HX-Request') == 'true':
+        # compute total for the overview partial
+        total = sum(Decimal(str(item['price'])) * item['quantity']
+                for item in cart.values()        
+        )
+        
+        return render(request, 'core/partials/_cart_response.html', {
+            'cart_count': sum(item['quantity'] for item in cart.values()),
+            'cart_items': len(cart),
+            'messages':   get_messages(request),
+            'total': total,
+            'cart_url': 'view-cart',
+            'icon': 'bi-file-text',
+            'label': 'Purchase Record',
+            'clear_sessions': 'clear-cart',
+            'name': 'Materials',
+            'total_name': 'cost',
+            'type': 'purchase',
+        }) 
+        
+    # fallback if htmx didn't work
     """
     Query with parameters, this allows to add items in the
     purchase without resetting the pagination page.
@@ -238,11 +286,7 @@ def add_to_cart(request, business_slug, id):
     
     # LOGGING: add to cart
     logger.debug(f"Current Session Cart: {request.session.get('cart')}")
-    
-    # save the session
-    request.session['cart'] = cart
-    request.session.modified = True
-    
+        
     # return redirect('material-list')
     """
     request.META['QUERY_STRING'] is the raw query string sent by the browser.

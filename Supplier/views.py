@@ -53,7 +53,7 @@ def material_list(request, business_slug):
                 'quantity': data.get('quantity', 0),
                 'price': material.price,
                 'line_total': line_total,
-                'unit': material.unit
+                'unit': material.unit,
             })
             
     form = MaterialFilterForm(request.GET or None, business=business)
@@ -103,14 +103,20 @@ def material_list(request, business_slug):
     context = {
         'categories': categories, 
         'page_obj': page_obj, 
-        'cart_items': cart_items,
         'total': total,
         'suppliers': suppliers,
         'categories_count': categories_count,
         'top_categories': top_categories,
         'section': 'supplier',
-        'business': business
-          
+
+        #htmx
+        'cart_count': sum(item['quantity'] for item in cart.values()),
+        'clear_sessions': 'clear-cart',
+        'cart_items': len(cart),
+        'name': 'Materials',
+        'total_name': 'cost',
+        'type': 'purchase',
+    
         }
     
     return render(request, 'Supplier/material_list.html', context)

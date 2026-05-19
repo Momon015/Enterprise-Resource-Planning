@@ -20,21 +20,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("start_date") || params.get("end_date") || params.get("select_month")) {
-      filterDetails.setAttribute("open", "");
-    }
-    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-    const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-  }
-
-  // ✅ MOVE HERE
+  // Date / month input cross-clearing (page-specific)
   const monthInput = document.querySelector('input[name="select_month"]');
   const startDateInput = document.querySelector('input[name="start_date"]');
   const endDateInput = document.querySelector('input[name="end_date"]');
@@ -54,7 +40,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (monthInput) monthInput.value = "";
     });
   });
-
 });
 </script>
 

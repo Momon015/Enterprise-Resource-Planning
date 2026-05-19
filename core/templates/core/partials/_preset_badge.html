@@ -1,0 +1,27 @@
+<a id="preset-badge"
+   href="{% url cart_url business_slug=current_business.slug %}"
+   class="btn btn-outline-secondary btn-sm position-relative">
+  <i class="bi {{ icon }}"></i>
+  {{ label }}
+  {% if cart_count %}
+    <span class="badge bg-danger position-absolute top-0 start-100 translate-middle">
+      {{ cart_count }}
+    </span>
+  {% endif %}
+</a>
+
+{% if messages %}
+<div id="messages" hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">
+{% for msg in messages %}
+  <div class="toast-message toast-{{ msg.tags }}">
+    {% if msg.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+    {% elif msg.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+    {% elif msg.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+    {% elif msg.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+    {% endif %}
+    {{ msg }}
+  </div>
+{% endfor %}
+
+</div>
+{% endif %}

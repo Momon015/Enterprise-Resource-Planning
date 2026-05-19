@@ -48,6 +48,7 @@ from decimal import Decimal
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 from user.models import User
+from django.contrib.messages import get_messages
 
 # logging
 import logging
@@ -60,7 +61,23 @@ def clear_sale(request, business_slug):
     request.session['sale'] = {}
     request.session.modified = True
     messages.success(request, 'All items has been removed.')
-    return redirect('view-sale', business_slug=business.slug)
+    
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'core/partials/_cart_response.html', {
+            'cart_count':     0,
+            'cart_items':     0,
+            'total':          Decimal('0'),
+            'cart_url':       'view-sale',
+            'icon':           'bi-file-text',
+            'label':          'Sales Record',
+            'clear_sessions': 'clear-sale',
+            'name':           'Products',
+            'total_name':     'sales',
+            'type':           'sales',
+            'messages':       get_messages(request),
+        })
+    
+    return redirect('product-list', business_slug=business.slug)
 
 @login_required(login_url='login')
 @permission_required('staff_view')
@@ -200,6 +217,27 @@ def add_to_sales(request, product_id, business_slug):
     request.session['sale'] = sale
     request.session.modified = True
     
+    # HTMX
+    if request.headers.get('HX-Request') == 'true':
+        total = sum(Decimal(str(item['selling_price'])) * item['quantity']
+                for item in sale.values()        
+        )
+
+        return render(request, 'core/partials/_cart_response.html', {
+            'label': 'Sales Record',
+            'icon': 'bi-file-text',
+            'total': total,
+            'messages': get_messages(request),
+            'cart_items': len(sale),
+            'cart_count': sum(item['quantity'] for item in sale.values()),
+            'cart_url': 'view-sale',
+            'clear_sessions': 'clear-sale',
+            'name': 'Products',
+            'total_name': 'sales',
+            'type': 'sales',
+            
+        })
+    
     query_string = request.META.get('QUERY_STRING', '')
     url = reverse('product-list', kwargs={'business_slug': business.slug})
     return redirect(f"{url}?{query_string}" if query_string else url)
@@ -266,11 +304,12 @@ def view_sale(request, business_slug):
     context = {
         'items': items, 
         'total_revenue': total_revenue, 
-        'total_cost_price': total_cost_price, 
+        'total_cost_price': total_cost_price,
+        'section': 'sale'
         # 'employees': employees, 
         # 'selected_employee_ids': selected_employee_ids, 
         # 'total_salary_cost': total_salary_cost,
-        'section': 'sale'
+
         }
     
     return render(request, 'Sales/view_sale.html', context)

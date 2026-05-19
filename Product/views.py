@@ -33,8 +33,16 @@ from core.utils.owner import get_owner, permission_required, get_queryset_for_us
 
 @login_required(login_url='login')
 def product_list(request, business_slug):
+    sale = request.session.get('sale', {})
+    total = 0
+    
     business = get_business_for_user(request.user, business_slug)
     
+    if sale:
+        for data in sale.values():
+            price = Decimal(data['selling_price']) * data['quantity']
+            total += price
+
     form = ProductFilterForm(request.GET or None, business=business)
     
     """
@@ -63,7 +71,6 @@ def product_list(request, business_slug):
     out_of_stock = products.filter(prepared_quantity=0).count()
     
     
-
     if form.is_valid():
         search = form.cleaned_data.get('search')
         category = form.cleaned_data.get('category')
@@ -89,7 +96,7 @@ def product_list(request, business_slug):
             products = products.filter(prepared_quantity=0)
     
 
-    paginator = Paginator(products, 10)
+    paginator = Paginator(products, 8)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     
@@ -107,6 +114,15 @@ def product_list(request, business_slug):
         'all_products': all_products,
         'multi_unit_types': MULTI_UNIT_TYPES,
         'section': 'product',
+        
+        #htmx
+        'cart_items': len(sale),
+        'cart_count': sum(item['quantity'] for item in sale.values()),
+        'clear_sessions': 'clear-sale',
+        'total': total,
+        'name': 'Products',
+        'total_name': 'sales',
+        'type': 'sales',
     }
 
     return render(request, 'Product/product_list.html', context)

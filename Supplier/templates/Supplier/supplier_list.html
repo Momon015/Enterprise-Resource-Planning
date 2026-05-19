@@ -18,24 +18,6 @@
 </div>
 {% endif %}
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("search")) {
-      filterDetails.setAttribute("open", "");
-    }
-    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-    const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-  }
-});
-
-</script>
 
 
 
