@@ -43,7 +43,7 @@
         <strong>{{ out_of_stock }}</strong> out of stock 
       </div>
       {% endif %} {% endcomment %}
-      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-file-text"></i> Sales Record
         {% if cart_count %}
           <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">

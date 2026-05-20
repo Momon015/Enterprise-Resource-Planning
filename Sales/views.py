@@ -62,6 +62,7 @@ def clear_sale(request, business_slug):
     request.session.modified = True
     messages.success(request, 'All items has been removed.')
     
+    # HTMX
     if request.headers.get('HX-Request') == 'true':
         return render(request, 'core/partials/_cart_response.html', {
             'cart_count':     0,

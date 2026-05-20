@@ -29,6 +29,9 @@ from decimal import Decimal
 from django.db.models import Q, F
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
+
+from django.contrib.messages import get_messages
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -294,6 +297,8 @@ def add_product_to_preset(request, business_slug):
 
 @login_required(login_url='login')
 def list_product_preset(request, business_slug):
+    sale = request.session.get('sale', {})
+    
     business = get_business_for_user(request.user, business_slug)
     presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).filter(business=business).order_by('-created_at')
     
@@ -310,7 +315,18 @@ def list_product_preset(request, business_slug):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'presets': page_obj.object_list, 'page_obj': page_obj, 'section': 'product'}
+    context = {
+        'page_obj': page_obj, 
+        'section': 'product',
+        
+        # HTMX
+        'label': 'Sales Record',
+        'messages': get_messages(request),
+        'cart_items': len(sale),
+        'cart_count': sum(product['quantity'] for product in sale.values()),
+        'cart_url': 'view-sale',
+        
+    }
     return render(request, 'Product/list_product_preset.html', context)
 
 @login_required(login_url='login')
@@ -446,5 +462,18 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
     
     request.session['sale'] = sale
     request.session.modified = True
-            
+    
+    
+    # HTMX 
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'core/partials/_preset_response.html', {
+            'label': 'Sales Record',
+            'messages': get_messages(request),
+            'cart_items': len(sale),
+            'cart_count': sum(product['quantity'] for product in sale.values()),
+            'cart_url': 'view-sale',
+            'preset': preset,
+        })
+    
+    # fallback 
     return redirect(f"{reverse('product-preset-list', kwargs={'business_slug': business.slug})}?{request.META.get('QUERY_STRING', '')}")

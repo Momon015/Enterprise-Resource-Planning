@@ -3719,7 +3719,7 @@ details.filter-card summary:hover {
     transform: translateY(-100%);
   }
 
-#cart-badge {
+#cart-badge, #preset-badge {
   position: relative;
 }
 

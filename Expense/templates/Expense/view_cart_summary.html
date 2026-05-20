@@ -4,8 +4,8 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
@@ -16,8 +16,8 @@
       {{ message }}
     </div>
   {% endfor %}
-</div>
 {% endif %}
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {

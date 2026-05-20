@@ -32,8 +32,8 @@ function stepDiscount(id, delta) {
 </script>
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
@@ -44,8 +44,8 @@ function stepDiscount(id, delta) {
       {{ message }}
     </div>
   {% endfor %}
-</div>
 {% endif %}
+</div>
 
 <div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
 
@@ -275,7 +275,7 @@ function stepDiscount(id, delta) {
     <div class="empty-title">No items yet</div>
     <p class="empty-sub">Browse the supplier list and add items to start recording this purchase.</p>
     <a href="{% url 'material-list' business_slug=current_business.slug  %}" class="btn-add-product">
-      <i class="bi bi-plus-circle"></i> Create item
+      <i class="bi bi-plus-circle"></i> Add item
     </a>
   </div>
   {% endif %}
