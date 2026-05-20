@@ -2,9 +2,10 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
-<div class="toast-container" aria-live="polite" aria-atomic="true">
-  {% for message in messages %}
+
+<div id='messages' hx-swap-oob='true' class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
       {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
@@ -13,9 +14,10 @@
       {% endif %}
       {{ message }}
     </div>
-  {% endfor %}
+   {% endfor %}
+  {% endif %}
 </div>
-{% endif %}
+
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -41,8 +43,14 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-bookmark-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> preset{{ page_obj.paginator.count|pluralize }}
       </div> {% endcomment %}
-      <a href="{% url 'view-sale' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-file-text"></i> View Sales Record
+      <a id='preset-badge' href="{% url 'view-sale' business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+         class="btn btn-primary btn-sm">
+        <i class="bi bi-file-text"></i> Sales Record
+        {% if cart_count %}
+          <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
+            {{ cart_count }}
+          </span>
+        {% endif %}
       </a>
       <a href="{% url 'product-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to products
@@ -140,10 +148,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end mobile-center">
                   <div class="table-actions">
                     <!-- ADD -->
-                    <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
+                    <button hx-post="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
+                            hx-target="#preset-badge"
+                            hx-swap="outerHTML"
+                            class="action-btn action-btn--add" title="Add to sale">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+
+                    {% comment %} <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
                        class="action-btn action-btn--add" title="Add to sale">
                       <i class="bi bi-plus-lg"></i>
-                    </a>
+                    </a>  {% endcomment %}
 
                     <!-- VIEW -->
                     <a href="{% url 'product-preset-detail' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"

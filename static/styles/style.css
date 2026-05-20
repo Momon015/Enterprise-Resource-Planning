@@ -3719,6 +3719,22 @@ details.filter-card summary:hover {
     transform: translateY(-100%);
   }
 
+#cart-badge, #preset-badge {
+  position: relative;
+}
+
+.sd-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 1rem;
+}
+
+.sd-info-grid .sd-info-row {
+  /* override default row styling so they don't get dashed dividers */
+  padding: 0.3rem 0;
+  border-top: none !important;
+  margin-top: 0 !important;
+}
 
 
 /* ══════════════════════════════════════════

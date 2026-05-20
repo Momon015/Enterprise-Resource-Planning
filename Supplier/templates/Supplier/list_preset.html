@@ -2,8 +2,8 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
+<div id='messages' hx-swap-oob='true' class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
-<div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
@@ -14,8 +14,8 @@
       {{ message }}
     </div>
   {% endfor %}
-</div>
 {% endif %}
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -37,9 +37,17 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">Saved item groups you can quickly add to a purchase.</p>
     </div>
     <div class="page-header-right">
-      <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary btn-sm">
+      {% include 'core/partials/_preset_badge.html' %} <!-- it's the same thing below -->
+
+      {% comment %} <a id='preset-badge' href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+         class="btn btn-primary btn-sm">
         <i class="bi bi-file-text"></i> Purchase Record
-      </a>
+        {% if cart_count %}
+          <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
+            {{ cart_count }}
+          </span>
+        {% endif %}
+      </a> {% endcomment %}
       <a href="{% url 'material-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to supplier
       </a>
@@ -129,10 +137,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end mobile-center">
                   <div class="table-actions">
                     <!-- ADD -->
-                    <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
+                    <button hx-post="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
+                            hx-target="#preset-badge"
+                            hx-swap="outerHTML"
+                            class="action-btn action-btn--add" title="Add to purchase">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+
+                    {% comment %} <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
                        class="action-btn action-btn--add" title="Add to purchase">
                       <i class="bi bi-plus-lg"></i>
-                    </a>
+                    </a> {% endcomment %}
 
                     <!-- VIEW -->
                     <a href="{% url 'material-preset-detail' slug=preset.slug id=preset.id business_slug=current_business.slug %}"

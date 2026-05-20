@@ -63,12 +63,20 @@ import logging
 def view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
-    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
-    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business)
-    wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business)
-    expenses = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
-    shifts = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
-    
+    # Base querysets — unfiltered, used for year-wide aggregates (e.g. "best month")
+    all_sales     = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
+    all_purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business)
+    all_wastes    = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business)
+    all_expenses  = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
+    all_shifts    = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
+
+    # Working copies — these get filtered below for the daily summary table
+    sales     = all_sales
+    purchases = all_purchases
+    wastes    = all_wastes
+    expenses  = all_expenses
+    shifts    = all_shifts
+
     grand_net_profit = 0
     grand_total_cost = 0
     grand_total_revenue = 0
@@ -110,8 +118,10 @@ def view_summary(request, business_slug):
             sales = sales.filter(date__month=parsed_month)
             purchases = purchases.filter(purchase_date__month=parsed_month)
             wastes = wastes.filter(date__month=parsed_month)
-            shifts = shifts.filter(date__range=(start_date, end_date))
-        
+            expenses = expenses.filter(date__month=parsed_month)
+            shifts = shifts.filter(date__month=parsed_month)
+
+            
         if period == 'last_week':
             if iso_week == 1:
                 last_year = iso_year - 1
@@ -158,8 +168,6 @@ def view_summary(request, business_slug):
         make the filter accurate. I decided to 
         remove it completely in this view summary.
         """
-        
-
         
     summary = {}
     for s in sales_by_date:
@@ -257,21 +265,30 @@ def view_summary(request, business_slug):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    # most profitable of the month
-    rev_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_revenue'))}
-    cost_by_month = {p['purchase_date__month']: p['total'] for p in purchases.filter(purchase_date__year=now.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
-    waste_by_cost = {w['date__month']: w['total'] for w in wastes.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_cost'))}
-    expense_by_cost = {e['date__month']: e['total'] for e in expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_amount'))}
-    salary_by_month = {s['date__month']: s['total'] for s in sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_salary_cost'))}
     
-    all_months = set(list(rev_by_month) + list(cost_by_month) + list(waste_by_cost) + list(expense_by_cost) + list(salary_by_month))
+    # so the user's filters above don't skew the "best month" result.
+    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_revenue'))}
+    cost_by_month    = {p['purchase_date__month']: p['total'] for p in all_purchases.filter(purchase_date__year=now.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
+    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_cost'))}
+    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_amount'))}
+    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(date__year=now.year).values('date__month').annotate(total=Sum('amount'))}
+
+    all_months = set(rev_by_month) | set(cost_by_month) | set(waste_by_month) | set(expense_by_month) | set(salary_by_month)
+
     best_month_name = 'N/A'
-    best_month_profit = 0
+    best_month_profit = 0   # months with negative profit won't beat 0 — kept N/A
     for m in all_months:
-        profit = (rev_by_month.get(m) or 0) - (cost_by_month.get(m) or 0) - (waste_by_cost.get(m) or 0) - (expense_by_cost.get(m) or 0) - (salary_by_month.get(m) or 0)
+        profit = (
+            (rev_by_month.get(m)     or 0)
+            - (cost_by_month.get(m)    or 0)
+            - (waste_by_month.get(m)   or 0)
+            - (expense_by_month.get(m) or 0)
+            - (salary_by_month.get(m)  or 0)
+        )
         if profit > best_month_profit:
             best_month_profit = profit
             best_month_name = calendar.month_name[m]
+
 
     context = {
         'summary_list': sorted_list,

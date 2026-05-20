@@ -3,9 +3,10 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
-<div class="toast-container" aria-live="polite" aria-atomic="true">
-  {% for message in messages %}
+
+<div id='messages' hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
       {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
@@ -14,27 +15,11 @@
       {% endif %}
       {{ message }}
     </div>
-  {% endfor %}
+    {% endfor %}
+  {% endif %}
 </div>
-{% endif %}
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("search") || params.get("category")) {
-      filterDetails.setAttribute("open", "");
-    }
-    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-    const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-  }
-});
-</script>
 
 
 <div class="page-wrapper">
@@ -58,9 +43,15 @@ document.addEventListener("DOMContentLoaded", function () {
         <strong>{{ out_of_stock }}</strong> out of stock 
       </div>
       {% endif %} {% endcomment %}
-      <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-file-text"></i> Sales Record
+        {% if cart_count %}
+          <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
+            {{ cart_count }}
+          </span>
+        {% endif %}
       </a>
+
     </div>
   </div>
 
@@ -186,10 +177,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-center mobile-center">
                   
                   <div class="table-actions">
-                    <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                    <button hx-post="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                            hx-target="#cart-badge"
+                            hx-swap="outerHTML"
+                            class="action-btn action-btn--add" title="Add to sale">
+                      <i class="bi bi-plus"></i>
+                    </button> 
+                    {% comment %} <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--add" title="Add to sale">
                       <i class="bi bi-plus"></i>
-                    </a>
+                    </a> {% endcomment %}
+                    
                     <a href="{% url 'product-detail' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
@@ -277,35 +275,9 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body">
+          {% include 'core/partials/_cart_overview.html' %}
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Availability</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total products</span>
-              <span class="sd-info-value" style="color:var(--accent);">{{ all_products|default:0 }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">In stock</span>
-              <span class="sd-info-value" style="color:var(--success);">{{ in_stock|default:0 }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Low stock</span>
-              <span class="sd-info-value" style="color:var(--warning);">{{ low_stock|default:0 }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Out of stock</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">What to review today</div>
-            <ul class="mf-guide-list">
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Check low-stock items and reorder if needed.</li>
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Verify prices on new or changed items.</li>
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Remove items you no longer sell.</li>
-            </ul>
-          </div>
+          <hr class="sl-quick-divider">
 
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
@@ -319,43 +291,83 @@ document.addEventListener("DOMContentLoaded", function () {
               <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
+
+              {% include 'core/partials/_cart_clear.html' %}
+
             </div>
           </div>
 
-          <hr class="sl-quick-divider">
-          <div class="sl-quick-label">Filter by stock</div>
-          <div class="quick-range-grid">
-            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=high"
-              class="quick-range-btn {% if request.GET.stock == 'high' %}active{% endif %}"
-              style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
-              <i class="bi bi-box-seam"></i> In Stock
-            </a>
-            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=low"
-              class="quick-range-btn {% if request.GET.stock == 'low' %}active{% endif %}"
-              style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
-              <i class="bi bi-exclamation-triangle"></i> Low Stock
-            </a>
-            <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=none"
-              class="quick-range-btn {% if request.GET.stock == 'none' %}active{% endif %}"
-              style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger);{% endif %}">
-              <i class="bi bi-slash-circle"></i> Out of Stock
-            </a>
-            <a href="{% url 'product-list' business_slug=current_business.slug %}"
-              class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.cat %}active{% endif %}">
-              <i class="bi bi-grid"></i> All
-            </a>
 
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Availability</div>
+            {% comment %} <div class="sd-info-grid"> {% endcomment %}
+              {% comment %} <div class="sd-info-row">
+                <span class="sd-info-label">Total</span>
+                <span class="sd-info-value" style="color:var(--accent);">{{ all_products|default:0 }}</span>
+              </div> {% endcomment %}
 
+              <div class="sd-info-row">
+                <span class="sd-info-label">In stock</span>
+                <span class="sd-info-value" style="color:var(--success);">{{ in_stock|default:0 }}</span>
+              </div>
+
+              <div class="sd-info-row">
+                <span class="sd-info-label">Low stock</span>
+                <span class="sd-info-value" style="color:var(--warning);">{{ low_stock|default:0 }}</span>
+              </div>
+
+              <div class="sd-info-row">
+                <span class="sd-info-label">Out of stock</span>
+                <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
+              </div>
+            {% comment %} </div> {% endcomment %}
           </div>
 
-          <div class="sd-note-box" style="margin-top:0.75rem;">
+          <div class="sd-summary-block">
+           <div class="sd-summary-block-label">Filter by status</div>
+            <div class="quick-range-grid">
+             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=high"
+               class="quick-range-btn {% if request.GET.stock == 'high' %}active{% endif %}"
+               style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
+               <i class="bi bi-box-seam"></i> In Stock
+             </a>
+             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=low"
+               class="quick-range-btn {% if request.GET.stock == 'low' %}active{% endif %}"
+               style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
+               <i class="bi bi-exclamation-triangle"></i> Low Stock
+             </a>
+             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=none"
+               class="quick-range-btn {% if request.GET.stock == 'none' %}active{% endif %}"
+               style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger);{% endif %}">
+               <i class="bi bi-slash-circle"></i> Out of Stock
+             </a>
+             <a href="{% url 'product-list' business_slug=current_business.slug %}"
+               class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.cat %}active{% endif %}">
+               <i class="bi bi-grid"></i> All
+             </a>
+           </div>
+         </div>
+
+          {% comment %} <div class="sd-summary-block">
+            <div class="sd-summary-block-label">What to review today</div>
+            <ul class="mf-guide-list">
+              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Check low-stock items and reorder if needed.</li>
+              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Verify prices on new or changed items.</li>
+              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Remove items you no longer sell.</li>
+            </ul>
+          </div> {% endcomment %}
+
+
+
+
+          {% comment %} <div class="sd-note-box" style="margin-top:0.75rem;">
 
             <i class="bi bi-megaphone"></i>
             <div>
               <div class="mf-tip-title">Merchandising tip</div>
               <div class="mf-tip-text">Highlight best sellers so cashiers can find and suggest them quickly.</div>
             </div>
-          </div>
+          </div>  {% endcomment %}
 
         </div>
       </div>

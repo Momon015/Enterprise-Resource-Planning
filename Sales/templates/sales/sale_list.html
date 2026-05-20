@@ -4,49 +4,23 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
   {% for message in messages %}
-  <div class="toast-message toast-{{ message.tags }}">
-    {% if message.tags == "error" %}
-      <i class="bi bi-exclamation-circle-fill me-2"></i>
-    {% elif message.tags == "success" %}
-      <i class="bi bi-check-circle-fill me-2"></i>
-    {% elif message.tags == "info" %}
-      <i class="bi bi-info-circle-fill me-2"></i>
-    {% elif message.tags == "warning" %}
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-    {% endif %}
-    {{ message }}
-  </div>
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
   {% endfor %}
-</div>
 {% endif %}
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-    const params = new URLSearchParams(window.location.search);
-
-    // Search disabled
-    /*
-    if (params.get("search") || params.get("start_date") || params.get("end_date") || params.get("select_month")) {
-      filterDetails.setAttribute("open", "");
-    }
-    */
-    if (params.get("start_date") || params.get("end_date") || params.get("select_month")) {
-      filterDetails.setAttribute("open", "");
-    }
-
-    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-    const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-  }
-
   const monthInput = document.querySelector('input[name="select_month"]');
   const startDateInput = document.querySelector('input[name="start_date"]');
   const endDateInput = document.querySelector('input[name="end_date"]');
@@ -274,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
-            <i class="bi bi-lightning"></i>
+            {% comment %} <i class="bi bi-lightning"></i> {% endcomment %}
             Quick Actions
           </span>
         </div>

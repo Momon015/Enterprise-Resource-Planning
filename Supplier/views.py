@@ -30,6 +30,10 @@ from user.models import User
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
 
+from django.contrib.messages import get_messages
+
+# Create your views here
+
 @login_required(login_url='login')
 def material_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -53,7 +57,7 @@ def material_list(request, business_slug):
                 'quantity': data.get('quantity', 0),
                 'price': material.price,
                 'line_total': line_total,
-                'unit': material.unit
+                'unit': material.unit,
             })
             
     form = MaterialFilterForm(request.GET or None, business=business)
@@ -103,14 +107,20 @@ def material_list(request, business_slug):
     context = {
         'categories': categories, 
         'page_obj': page_obj, 
-        'cart_items': cart_items,
         'total': total,
         'suppliers': suppliers,
         'categories_count': categories_count,
         'top_categories': top_categories,
         'section': 'supplier',
-        'business': business
-          
+
+        # HTMX
+        'cart_count': sum(item['quantity'] for item in cart.values()),
+        'clear_sessions': 'clear-cart',
+        'cart_items': len(cart),
+        'name': 'Materials',
+        'total_name': 'cost',
+        'type': 'purchase',
+    
         }
     
     return render(request, 'Supplier/material_list.html', context)
@@ -293,6 +303,17 @@ def adding_preset_to_cart(request, preset_id, business_slug):
 
     request.session['cart'] = cart
     request.session.modified = True
+    
+    
+    # HTMX
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'core/partials/_preset_response.html', {
+            'cart_url': 'view-cart',
+            'label': 'Purchase Record',
+            'cart_count': sum(item['quantity'] for item in cart.values()),
+            'cart_items': len(cart),
+            'messages': get_messages(request)
+        })
 
     # This allows to stay which page the user currently in after adding.
     query_string = request.META.get('QUERY_STRING', '')
@@ -301,6 +322,8 @@ def adding_preset_to_cart(request, preset_id, business_slug):
     
 @login_required(login_url='login')
 def preset_list(request, business_slug):
+    cart = request.session.get('cart', {})
+    
     business = get_business_for_user(request.user, business_slug)
     
     presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).filter(business=business).order_by('-created_at')
@@ -317,7 +340,17 @@ def preset_list(request, business_slug):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    context = {'page_obj': presets, 'page_obj': page_obj, 'section': 'supplier'}
+    context = {
+        'page_obj': page_obj, 
+        'section': 'supplier',
+        
+        # HTMX
+        'cart_url': 'view-cart',
+        'label': 'Purchase Record',
+        'cart_count': sum(item['quantity'] for item in cart.values()),
+        'cart_items': len(cart),
+        'messages': get_messages(request)
+    }
     return render(request, 'Supplier/list_preset.html', context)
 
 @login_required(login_url='login')

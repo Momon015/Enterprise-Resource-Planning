@@ -16,8 +16,8 @@ function toggleCostInput(itemId) {
 </script>
 
 <!-- FLASH MESSAGES -->
-{% if messages %}
 <div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
@@ -28,8 +28,8 @@ function toggleCostInput(itemId) {
       {{ message }}
     </div>
   {% endfor %}
-</div>
 {% endif %}
+</div>
 
 <div class="container-fluid py-3 py-lg-4">
 
@@ -204,7 +204,7 @@ function toggleCostInput(itemId) {
           </div>
 
           <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="btn-clear">
-            <i class="bi bi-trash3"></i> Clear all items
+            <i class="bi bi-trash3"></i> Clear session
           </a>
           <a href="{% url 'view-session-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Sales
@@ -285,7 +285,7 @@ function toggleCostInput(itemId) {
     <div class="empty-title">No products yet</div>
     <p class="empty-sub">Browse the product list and add items to start recording today's sales.</p>
     <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-add-product">
-      <i class="bi bi-plus-circle"></i> Create product
+      <i class="bi bi-plus-circle"></i> Add product
     </a>
   </div>
   {% endif %}

@@ -3,8 +3,10 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
+
+<div id='messages' hx-swap-oob='true' class="toast-container" aria-live="polite" aria-atomic="true">
+  
 {% if messages %}
-<div class="toast-container" aria-live="polite" aria-atomic="true">
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
@@ -15,26 +17,8 @@
       {{ message }}
     </div>
   {% endfor %}
-</div>
 {% endif %}
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-
-  const filterDetails = document.querySelector("details");
-  if (filterDetails) {
-    const filterForm = filterDetails.querySelector("#filterForm");
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("search") || params.get("category")) {
-      filterDetails.setAttribute("open", "");
-    }
-    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
-    const resetBtn = filterForm.querySelector("a.btn-light");
-    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
-  }
-});
-</script>
+</div>
 
 
 <div class="page-wrapper">
@@ -51,8 +35,13 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-box-seam"></i>
         <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
+      <a id='cart-badge' href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-file-text"></i> Purchase Record
+        {% if cart_count %}
+          <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
+            {{ cart_count }}
+          </span>
+        {% endif %}
       </a>
     </div>
   </div>
@@ -146,10 +135,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end sl-fw-semibold">₱{{ material.price|floatformat:2 }}</td>
                 <td class="sl-text-end">
                   <div class="table-actions">
-                    <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                    <button hx-post="{% url 'add-to-cart' business_slug=current_business.slug id=material.id %}"
+                            hx-target="#cart-badge"
+                            hx-swap="outerHTML"
+                            class="action-btn action-btn--add" title="Add to cart">
+                      <i class="bi bi-plus"></i>
+                    </button>
+
+                    {% comment %} <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--add" title="Add to cart">
                       <i class="bi bi-plus"></i>
-                    </a>
+                    </a> {% endcomment %}
+
                     <a href="{% url 'material-detail' id=material.id slug=material.slug business_slug=material.business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--view" title="View details">
                       <i class="bi bi-eye"></i>
@@ -237,17 +234,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="card-body">
 
           <!-- CART SUMMARY -->
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Today's Cart</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-collection sl-me-1"></i> Items</span>
-              <span class="sd-info-value">{{ cart_items|length|default:0 }} item{{ cart_items|length|pluralize }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-cash-stack sl-me-1"></i> Total cost</span>
-              <span class="sd-info-value" style="color:var(--accent);">₱{{ total|floatformat:2|default:"0.00" }}</span>
-            </div>
-          </div>
+          {% include 'core/partials/_cart_overview.html' %}
 
           <!-- QUICK LINKS -->
           <div class="sd-summary-block">
@@ -271,18 +258,15 @@ document.addEventListener("DOMContentLoaded", function () {
                   <i class="bi bi-plus-circle"></i> Create supplier
                 </a>
               {% endif %}
-              {% if cart_items %}
-              <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn btn-sm btn-block"
-                 style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
-                <i class="bi bi-trash3"></i> Clear cart
-              </a>
-              {% endif %}
+
+              {% include 'core/partials/_cart_clear.html' %}
+
             </div>
           </div>
 
           <hr class="sl-quick-divider">
           {% if categories_count > 1 %}
-          <div class="sl-quick-label">Filter by category</div>
+          <div class="sd-summary-block-label">Filter by category</div>
           <div class="quick-range-grid">
             
             {% for cat in top_categories %}
