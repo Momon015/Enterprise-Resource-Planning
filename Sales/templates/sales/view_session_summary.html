@@ -133,10 +133,12 @@
         <div style="padding: 1.25rem;">
           <div class="action-info-box">
             <i class="bi bi-info-circle"></i>
-            <p>Confirm this sale to update inventory cost, stock, and employee salary usage.</p>
+            <p style="font-size: 14px;">
+              Once confirmed, stock is deducted and revenue is recorded. This can't be undone.
+            </p>
           </div>
           <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-secondary-action">
-            <i class="bi bi-pencil-square"></i> Edit product items
+            <i class="bi bi-pencil-square"></i> Edit session
           </a>
           <a href="{% url 'sale-confirm-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Sales

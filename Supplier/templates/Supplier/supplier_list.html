@@ -32,11 +32,11 @@
     </div>
     {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
-        <i class="bi bi-building-fill"></i>
+        <i class="bi bi-building"></i>
         <strong>{{ page_obj.paginator.count }}</strong> supplier{{ page_obj.paginator.count|pluralize }}
       </div>
       <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-circle"></i> Create Supplier
+        <i class="bi bi-plus-circle"></i> Create supplier
       </a>
     </div> {% endcomment %}
   </div>
@@ -109,7 +109,8 @@
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ supplier.name|capfirst }}</div>
+                  <div class="cell-primary">{{ supplier.name|title }}</div>
+                  <div class="cell-sub">by {{ supplier.created_by|default:"System"|capfirst }}</div>
                 </td>
 
                 <td class="sl-text-center">
@@ -213,10 +214,10 @@
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
               <a href="{% url 'supplier-create' business_slug=current_business.slug  %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create Supplier
+                <i class="bi bi-plus-circle"></i> Create supplier
               </a>
-              <a href="{% url 'material-list' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-box-seam"></i> View Items
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-box-seam"></i> Inventory
               </a>
             </div>
           </div>

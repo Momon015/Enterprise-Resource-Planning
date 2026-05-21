@@ -15,7 +15,7 @@ class MaterialFilterForm(forms.Form):
         business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        qs = Category.objects.filter(category_type='item', business=business)
+        qs = Category.objects.filter(category_type='material', business=business)
         self.fields['category'].queryset = qs
         
 class MaterialForm(ModelForm):
@@ -27,12 +27,12 @@ class MaterialForm(ModelForm):
         business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        self.fields['category'].empty_label = 'No category'
-        self.fields['category'].queryset = Category.objects.filter(category_type='item', business=business)
+        self.fields['category'].empty_label = None
+        self.fields['category'].queryset = Category.objects.filter(category_type='material', business=business)
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         
         self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
-        self.fields['supplier'].empty_label = 'No supplier'
+        self.fields['supplier'].empty_label = None
         
         self.fields['piece_per_unit'].label = 'Pieces per Unit'
         
@@ -44,7 +44,13 @@ class SupplierForm(ModelForm):
     class Meta:
         model = Supplier
         fields = ['name']
-            
+        
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name').strip()
+        if name.lower() == 'no supplier':
+            raise forms.ValidationError('"No Supplier" is a reserved name. Please choose a different one.')
+        return name
 
 class SupplierFilterForm(forms.Form):
     search = forms.CharField(max_length=100, required=False)   

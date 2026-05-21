@@ -27,7 +27,7 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">SETTINGS</div>
       <h1 class="page-title">Categories</h1>
-      <p class="page-subtitle">Manage category names and types for your items, products, and expenses.</p>
+      <p class="page-subtitle">Manage category names and types for your materials, products, and expenses.</p>
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
@@ -103,12 +103,12 @@
               {% for category in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ category.name|capfirst }}</div>
-                  <div class="cell-sub">by {{category.created_by|capfirst}}</div>
+                  <div class="cell-primary">{{ category.name|title }}</div>
+                  <div class="cell-sub">by {{category.created_by|default:"System"|capfirst}}</div>
                 </td>
                 <td class="sl-text-center">
-                  {% if category.category_type == 'item' %}
-                    <span class="status-badge status-success">Item</span>
+                  {% if category.category_type == 'material' %}
+                    <span class="status-badge status-success">Material</span>
                   {% elif category.category_type == 'product' %}
                     <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
                   {% elif category.category_type == 'expense' %}
@@ -204,7 +204,7 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Category Types</div>
             <div class="sd-info-row">
-              <span class="status-badge status-success">Item</span>
+              <span class="status-badge status-success">Material</span>
               <span class="sd-info-value">Market purchases &amp; stock</span>
             </div>
             <div class="sd-info-row">
@@ -220,10 +220,10 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>
             <div class="quick-range-grid">
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=item"
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material"
                 class="quick-range-btn {% if request.GET.category_type == 'item' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'item' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
-                <i class="bi bi-shop"></i> Item
+                <i class="bi bi-box-seam"></i> Material
               </a>
               <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product"
                 class="quick-range-btn {% if request.GET.category_type == 'product' %}active{% endif %}"

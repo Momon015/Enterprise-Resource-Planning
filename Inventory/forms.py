@@ -16,7 +16,7 @@ class StockFilterForm(forms.Form):
         business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
-        qs = Category.objects.filter(category_type='item', business=business)
+        qs = Category.objects.filter(category_type='material', business=business)
         self.fields['category'].queryset = qs
         
 class StockForm(ModelForm):
@@ -28,7 +28,7 @@ class StockForm(ModelForm):
         super().__init__(*args, **kwargs)
         
         self.fields['category'].empty_label = None
-        self.fields['category'].queryset = Category.objects.filter(category_type='item')
+        self.fields['category'].queryset = Category.objects.filter(category_type='material')
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
         
         for field in self.fields.values():

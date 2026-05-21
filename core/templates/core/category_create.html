@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="page-header-left">
       <div class="page-breadcrumb">SETTINGS &gt; NEW</div>
       <h1 class="page-title">New Category</h1>
-      <p class="page-subtitle">Create a new category for items, products, or expenses.</p>
+      <p class="page-subtitle">Create a new category for materials, products, or expenses.</p>
     </div>
     <div class="page-header-right">
       <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
@@ -117,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="sd-summary-block">
           <div class="mf-guide-title">Category Type</div>
           <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Item</strong> — for supplier purchases and stock.</li>
+            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Material</strong> — for supplier purchases and stock.</li>
             <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Product</strong> — for items you sell to customers.</li>
             <li><i class="bi bi-info-circle" style="color:var(--info);"></i> <strong>Expense</strong> — for misc expenses like VAT, permits.</li>
             {% comment %} RESTAURANT PHASE — material category

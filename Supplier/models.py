@@ -19,6 +19,11 @@ class Supplier(TimeStampModel, SlugModel):
         return self.name
     
     def save(self, *args, **kwargs): 
+        # Reserve for 'No supplier'
+        if slugify(self.name) == 'no-supplier' and self.slug != 'no-supplier':
+            from django.core.exceptions import ValidationError
+            raise ValidationError('"No Supplier" is reserved for the system default.')
+        
         base_slug = slugify(self.name)  # or whatever name field
         slug = base_slug
         counter = 1
@@ -31,6 +36,13 @@ class Supplier(TimeStampModel, SlugModel):
         self.slug = slug
         
         super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        if self.name.lower() == 'no supplier':
+            from django.core.exceptions import ValidationError
+            raise ValidationError("The 'No Supplier' fallback cannot be deleted.")
+        super().delete(*args, **kwargs)
+
 
 class Material(TimeStampModel, SlugModel):
     # RETAIL — sellable units (sold as-is to customer)
@@ -101,7 +113,7 @@ class MaterialPreset(TimeStampModel, SlugModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_material_presets', null=True, blank=True)
     
     class Meta:
-        unique_together = ('user', 'name', 'slug')
+        unique_together = ('business', 'name')
         
     def save(self, *args, **kwargs):
         base_slug = slugify(self.name)  # or whatever name field

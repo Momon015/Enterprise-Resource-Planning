@@ -20,14 +20,14 @@ class SlugModel(models.Model):
 
 class Category(SlugModel):
     CATEGORY_TYPE_CHOICES = (
-        ('item', 'Item'),
+        # ('item', 'Item'),
         ('product', 'Product'),
         ('expense', 'Expense'),
         ('material', 'Material')
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100)
-    category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='item') # which app
+    category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='material') # which app
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='categories', null=True, blank=True)
     
@@ -38,6 +38,11 @@ class Category(SlugModel):
         return f"Category: {self.category_type} - {self.name}"
     
     def save(self, *args, **kwargs):
+        # Reserve "No Category"
+        if slugify(self.name) == 'no-category' and self.slug != 'no-category':
+            from django.core.exceptions import ValidationError
+            raise ValidationError('"No Category" is reserved for the system default.')
+        
         base_slug = slugify(self.name)  # or whatever name field
         slug = base_slug
         counter = 1
@@ -50,6 +55,14 @@ class Category(SlugModel):
         self.slug = slug
         
         super().save(*args, **kwargs)
+        
+    def delete(self, *args, **kwargs):
+        if slugify(self.name) == 'no-category':
+            from django.core.exceptions import ValidationError
+            raise ValidationError("The 'No Category' fallback cannot be deleted.")
+        super().delete(*args, **kwargs)
+
+
     
 class StatusModel(SlugModel, TimeStampModel):
     STATUS_CHOICES = [

@@ -27,7 +27,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">PURCHASING</div>
-      <h1 class="page-title">Supplier Items</h1>
+      <h1 class="page-title">Supplier</h1>
       <p class="page-subtitle">Record your daily supplier purchases.</p>
     </div>
     <div class="page-header-right">
@@ -96,7 +96,7 @@
       <div class="card table-card">
         <div class="card-header">
           <div class="card-header-left-group">
-            <span class="card-header-title">Supplier Items</span>
+            <span class="card-header-title">Supplier</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
           </div>
           <span class="card-header-sub">Prices, units, and quantities</span>
@@ -241,17 +241,17 @@
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
               <a href="{% url 'material-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create item
+                <i class="bi bi-plus-circle"></i> Create material
               </a>
               <a href="{% url 'material-preset-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-bookmark-fill"></i> Presets
               </a>
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=item" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
               {% if suppliers %}
                 <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-building-fill"></i> Suppliers
+                  <i class="bi bi-building"></i> Supplier
                 </a>
               {% else %}
                 <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">

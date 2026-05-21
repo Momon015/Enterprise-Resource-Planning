@@ -53,13 +53,13 @@ class Product(SlugModel, TimeStampModel):
 
 class ProductPreset(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_presets')
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='product_presets', null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_product_presets', null=True, blank=True)
     
     class Meta:
-        unique_together = ('user', 'name', 'slug')
+        unique_together = ('business', 'name')
         
     def save(self, *args, **kwargs):
         base_slug = slugify(self.name)  # or whatever name field

@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pos-card-header">
           <span class="pos-card-title">
             <i class="bi bi-basket3 me-1"></i>
-            Supplier Items
+            Supplier
           </span>
           <span style="font-size:.8rem; color:var(--muted);">Items, quantities and cost per line</span>
         </div>
@@ -158,10 +158,12 @@ document.addEventListener("DOMContentLoaded", function () {
         <div style="padding:1.25rem;">
           <div class="action-info-box">
             <i class="bi bi-info-circle"></i>
-            <p>Confirm this purchase to update inventory cost and stock.</p>
+            <p style="font-size: 14px;">
+              Once confirmed, materials are added to inventory and the total cost is locked in. This can't be undone.
+            </p>
           </div>
           <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-secondary-action">
-            <i class="bi bi-pencil-square"></i> Edit purchase items
+            <i class="bi bi-pencil-square"></i> Edit session
           </a>
           <a href="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Purchase

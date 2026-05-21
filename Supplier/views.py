@@ -32,6 +32,8 @@ from core.utils.owner import permission_required, get_queryset_for_user, get_bus
 
 from django.contrib.messages import get_messages
 
+from django.core.exceptions import ValidationError
+
 # Create your views here
 
 @login_required(login_url='login')
@@ -76,7 +78,8 @@ def material_list(request, business_slug):
     # top 3 categories
     top_categories = categories.annotate(
         material_count=Count('materials')
-    ).order_by('-material_count')[:3]  
+    ).exclude(name='No category') \
+    .order_by('-material_count')[:3]
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -460,9 +463,14 @@ def supplier_create(request, business_slug):
             supplier.created_by = request.user
             supplier.business = business
             supplier.name = supplier.name.title()
-            supplier.save()
+            try:
+                supplier.save()
+            except ValidationError as e:
+                messages.warning(request, e.messages[0])
+                return redirect('supplier-list', business_slug=business.slug)
+            
             messages.success(request, f"{supplier.name} successfully created.")
-            return redirect('material-list', business_slug=business.slug)
+            return redirect('supplier-list', business_slug=business.slug)
     else:
         form = SupplierForm()
         
@@ -486,12 +494,16 @@ def supplier_update(request, business_slug, supplier_id, slug):
         form = SupplierForm(request.POST, instance=supplier)
         
         if form.is_valid():
+            if supplier.slug == 'no-supplier':
+                messages.warning(request, '"No Supplier" is a system default and cannot be edited — it holds materials that have no supplier assigned.')
+                return redirect('supplier-list', business_slug=business.slug)
+            
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
             supplier.save()
             messages.success(request, f"{supplier.name} successfully updated.")
             query_string = request.META.get('QUERY_STRING', '')
-            url = reverse('material-list', kwargs={'business_slug': business.slug})
+            url = reverse('supplier-list', kwargs={'business_slug': business.slug})
             return redirect(f"{url}?{query_string}" if query_string else url)
         else:
             print(form.errors)
@@ -509,9 +521,13 @@ def supplier_delete(request, business_slug, supplier_id, slug):
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
     
     if request.method == 'POST':
+        if supplier.slug == 'no-supplier':
+            messages.warning(request, '"No Supplier" is a system default and cannot be deleted — it holds materials that have no supplier assigned.')
+            return redirect('supplier-list', business_slug=business.slug)
+            
         supplier.delete()
         messages.success(request, f"{supplier.name} successfully deleted.")
-        return redirect('material-list', business_slug=business.slug)
+        return redirect('supplier-list', business_slug=business.slug)
     
     context = {'supplier': supplier, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_delete.html', context)

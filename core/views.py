@@ -75,8 +75,8 @@ def category_list(request, business_slug):
         categories = categories.filter(category_type='product')
         section = 'product'
 
-    elif category_type == 'item':
-        categories = categories.filter(category_type='item')
+    elif category_type == 'material':
+        categories = categories.filter(category_type='material')
         section = 'supplier'
     
     elif category_type == 'expense':
@@ -107,7 +107,12 @@ def category_create(request, business_slug):
                 category.business = business
                 category.created_by = request.user
                 category.name = category.name.title()
-                category.save()
+                try:
+                    category.save()
+                except ValidationError as e:
+                    messages.warning(request, e.messages[0])
+                    return redirect('category-list', business_slug=business.slug)
+ 
                 messages.success(request, f"{category.name} has successfully created.")
                 return redirect('category-list', business_slug=business.slug)
     else:
@@ -125,6 +130,9 @@ def category_update(request, business_slug, category_id, slug):
         form = CategoryForm(request.POST, instance=category)
         
         if form.is_valid():
+            if category.slug == 'no-category' or category.slug.startswith('no-category-'):
+                messages.warning(request, '"No Category" is a system default and cannot be edited — it holds materials and products without a category.')
+                return redirect('category-list', business_slug=business.slug)
             obj = form.save(commit=False)
             obj.name = obj.name.title()
             obj.save()
@@ -146,6 +154,10 @@ def category_delete(request, business_slug, category_id, slug):
     category = get_object_or_404(Category, business=business, id=category_id, slug=slug)
     
     if request.method == 'POST':
+        if category.slug == 'no-category' or category.slug.startswith('no-category-'):
+            messages.warning(request, '"No Category" is a system default and cannot be deleted — it holds materials and products without a category.')
+            return redirect('category-list', business_slug=business.slug)
+        
         category.delete()
         messages.success(request, f"{category.name} has successfully deleted.")
         return redirect('category-list', business_slug=business.slug)
