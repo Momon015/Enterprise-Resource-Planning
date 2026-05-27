@@ -4705,6 +4705,15 @@ details.filter-card summary:hover {
   .cev-help__desc { font-size: 0.78rem; }
 }
 
+.trial-badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
 
 
 

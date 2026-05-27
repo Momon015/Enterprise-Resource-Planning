@@ -113,6 +113,25 @@
               {% endfor %}
             </form>
 
+            {% if item.plan.is_trial %}
+              <div class="trial-badge">
+                <i class="bi bi-clock-fill"></i>
+                Trial — {{ item.plan.trial_days_remaining }} day(s) left
+              </div>
+            {% elif not sub.trial_used and item.plan.plan == 'free' %}
+              <form method="POST" action="{% url 'subscription-start-trial' business_slug=business.slug %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
+                <button type="submit" name="plan" value="premium" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-lightning-charge"></i> Start Premium Trial
+                </button>
+                <button type="submit" name="plan" value="pro" class="btn btn-sm btn-primary">
+                  <i class="bi bi-lightning-charge-fill"></i> Start Pro Trial
+                </button>
+              </form>
+            {% endif %}
+
+
             <!-- USAGE TABLE -->
             <div class="sd-section-label">Usage</div>
             <table class="data-table">

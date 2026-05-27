@@ -342,6 +342,8 @@ class BusinessPlan(models.Model):
     is_active     = models.BooleanField(default=True)
     started_at    = models.DateTimeField(auto_now_add=True)
     expires_at    = models.DateTimeField(null=True, blank=True)
+    is_trial = models.BooleanField(default=False, db_index=True)
+
 
     def __str__(self):
         return f"{self.business.business_name} — {self.get_plan_display()}"
@@ -524,10 +526,10 @@ class BusinessPlan(models.Model):
     def upgrade_to(self, plan, billing_cycle=None, days=None):
         if plan not in ('standard', 'premium', 'pro'):
             raise ValueError(f"Cannot upgrade to '{plan}'.")
-
         with transaction.atomic():
             self.plan = plan
             self.is_active = True
+            self.is_trial = False   # paid, not trial
             self.expires_at = (
                 timezone.now() + timedelta(days=days) if days else None
             )
@@ -544,17 +546,26 @@ class BusinessPlan(models.Model):
                 model.objects.filter(
                     user=biz.user, business=biz, is_locked=True,
                 ).update(is_locked=False, locked_at=None)
-
+                
     def downgrade_to_free(self):
         with transaction.atomic():
             self.plan = 'free'
+            self.is_trial = False
             self.expires_at = None
-            self.save(update_fields=['plan', 'expires_at'])
+            self.save(update_fields=['plan', 'is_trial', 'expires_at'])
 
             free = PLAN_LIMITS['free']
             for model in _lockable_models():
                 cap_key = LOCKABLE_LIMIT_KEYS[model.__name__]
                 self._cap_locked(model, free[cap_key])
+                
+    @property
+    def trial_days_remaining(self):
+        if not self.is_trial or not self.expires_at:
+            return None
+        delta = self.expires_at - timezone.now()
+        return max(0, delta.days)
+
 
     def start_trial(self, plan, days=14):
         if plan not in ('premium', 'pro'):
@@ -568,10 +579,12 @@ class BusinessPlan(models.Model):
         with transaction.atomic():
             self.plan = plan
             self.is_active = True
+            self.is_trial = True
             self.expires_at = timezone.now() + timedelta(days=days)
             self.save()
             sub.trial_used = True
             sub.save(update_fields=['trial_used'])
+
 
     def set_active_items(self, model, keep_active_ids):
         key = LOCKABLE_LIMIT_KEYS.get(model.__name__)

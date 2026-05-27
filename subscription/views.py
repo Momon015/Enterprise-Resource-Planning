@@ -217,6 +217,13 @@ def change_business_plan(request, business_slug):
         messages.info(request, f"{target_biz.business_name} is already on {new_plan.title()}.")
         return redirect('subscription-settings', business_slug=business.slug)
 
+    # Trial switching — Premium ↔ Pro without resetting expiry
+    if target_bp.is_trial and new_plan in ('premium', 'pro'):
+        target_bp.plan = new_plan
+        target_bp.save(update_fields=['plan'])
+        messages.success(request, f"Switched {target_biz.business_name} trial to {new_plan.title()}.")
+        return redirect('subscription-settings', business_slug=business.slug)
+
     try:
         if new_plan == 'free':
             target_bp.downgrade_to_free()
@@ -229,7 +236,39 @@ def change_business_plan(request, business_slug):
 
     return redirect('subscription-settings', business_slug=business.slug)
 
+@login_required(login_url='login')
+@require_POST
+def start_business_trial(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    target_biz_id = request.POST.get('target_business_id')
+    plan = request.POST.get('plan')
 
+    if plan not in ('premium', 'pro'):
+        messages.error(request, 'Invalid trial plan.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    from user.models import BusinessProfile
+    try:
+        target_biz = request.user.business_profiles.get(id=target_biz_id)
+    except BusinessProfile.DoesNotExist:
+        messages.error(request, 'Business not found.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    target_bp = getattr(target_biz, 'plan', None)
+    if target_bp is None:
+        messages.error(request, 'No plan record for this business.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    try:
+        target_bp.start_trial(plan, days=14)
+        messages.success(
+            request,
+            f"14-day {plan.title()} trial started for {target_biz.business_name}!"
+        )
+    except (ValueError, ValidationError) as e:
+        messages.error(request, str(e))
+
+    return redirect('subscription-settings', business_slug=business.slug)
 
 @login_required(login_url='login')
 @require_POST

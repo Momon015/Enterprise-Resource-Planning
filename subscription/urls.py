@@ -13,5 +13,7 @@ urlpatterns = [
     path('settings/manage/<str:model_key>/', views.manage_active, name='subscription-manage-active'),
     path('settings/pricing/', views.pricing, name='subscription-pricing'),
     path('settings/contact/', views.contact, name='subscription-contact'),
+    
+    path('settings/start-trial/', views.start_business_trial, name='subscription-start-trial'),
 
 ]
