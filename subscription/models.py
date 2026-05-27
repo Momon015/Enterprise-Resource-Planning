@@ -369,6 +369,23 @@ class BusinessPlan(models.Model):
             return False
         return timezone.now() > self.expires_at
 
+    def has_dashboard(self):
+        """PRO-only feature."""
+        return self.limits().get('dashboard')
+
+    def has_weekly_summary(self):
+        """Weekly summary filter - Pro only"""
+        return 'weekly' in (self.limits().get('daily_summary') or '')
+    
+    def has_daily_summary(self):
+        """Daily summary — Premium and Pro."""
+        return 'daily' in (self.limits().get('daily_summary') or '')
+
+    def has_monthly_summary(self):
+        """Monthly summary — Premium and Pro."""
+        return 'monthly' in (self.limits().get('daily_summary') or '')
+    
+    
     def limits(self):
         return PLAN_LIMITS.get(self.plan, PLAN_LIMITS['free'])
     
@@ -413,15 +430,6 @@ class BusinessPlan(models.Model):
     def can_add_expense(self):
         from Expense.models import Expense
         return self._can_add('max_expenses', self._this_month_count(Expense.objects))
-
-
-    @property
-    def has_dashboard(self):
-        return self.limits()['dashboard']
-
-    @property
-    def summary_access(self):
-        return self.limits()['daily_summary']
 
     @property
     def is_free(self):     return self.plan == 'free'

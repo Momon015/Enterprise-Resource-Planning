@@ -311,14 +311,17 @@ document.addEventListener("DOMContentLoaded", function () {
                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week"
-               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-              <i class="bi bi-clock-history"></i> Last week
-            </a>
-            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=week"
-               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-              <i class="bi bi-calendar-week"></i> This week
-            </a>
+            {% if current_business.plan.has_weekly_summary %}
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week"
+                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> Last week
+              </a>
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=week"
+                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+                <i class="bi bi-calendar-week"></i> This week
+              </a>
+            {% endif %}
+
             <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=month"
                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month

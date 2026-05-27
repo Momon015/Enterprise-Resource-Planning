@@ -102,3 +102,45 @@ def capacity_required(capacity_key):
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator
+
+def feature_required(feature_check):
+    """
+    Gate a view by a per-plan feature.
+    Usage:
+        @feature_required('has_dashboard')
+        def dashboard(request, business_slug): ...
+
+    feature_check is the name of a method on BusinessPlan (no args) that
+    returns True/False — has_dashboard, has_weekly_summary, etc.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            business_slug = kwargs.get('business_slug')
+            if not business_slug:
+                return view_func(request, *args, **kwargs)
+
+            business = get_business_for_user(request.user, business_slug)
+            bp = getattr(business, 'plan', None)
+            target = _resolve_target(request.user, 'product')
+
+            if bp is None:
+                messages.warning(request, 'No plan found for this business.')
+                return redirect(target, business_slug=business.slug)
+
+            check = getattr(bp, feature_check, None)
+            if not callable(check):
+                messages.error(request, f"Unknown feature check '{feature_check}'.")
+                return redirect(target, business_slug=business.slug)
+
+            if not check():
+                messages.warning(
+                    request,
+                    f"This feature requires a higher plan. Upgrade this business to unlock it."
+                )
+                return redirect(target, business_slug=business.slug)
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+

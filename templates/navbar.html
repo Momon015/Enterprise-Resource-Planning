@@ -141,15 +141,15 @@
     <div class="sidebar-section-label">Main</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
-        
+        {% if current_business.plan.has_dashboard %}
         <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' business_slug=current_business.slug %}">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
-        
         </a>
+        {% endif %}
       </li>
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' business_slug=current_business.slug %}?next={{request.path}}">

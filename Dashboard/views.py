@@ -49,12 +49,16 @@ import calendar
 # logging
 import logging
 
+from subscription.decorators import feature_required
 
 # Create your views here.
 
+
+
 @login_required(login_url='login')
 @permission_required('staff_view')
-@permission_required('read_only') # dev
+@permission_required('read_only')
+@feature_required('has_dashboard')
 def dashboard(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     today = timezone.localdate()

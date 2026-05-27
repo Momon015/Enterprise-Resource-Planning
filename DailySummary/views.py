@@ -95,6 +95,10 @@ def view_summary(request, business_slug):
     form = SummaryFilterForm(request.GET or None)
     
     period = request.GET.get('period', '')
+    # Strip weekly filter for plans that don't include it
+    if period in ('week', 'last_week') and not getattr(business.plan, 'has_weekly_summary', lambda: False)():
+        period = ''   # silently ignore it
+
     now = timezone.now()
     iso_year, iso_week, iso_weekday = now.isocalendar()
 
