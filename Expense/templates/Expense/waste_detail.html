@@ -97,6 +97,7 @@
               <span class="sd-info-label">Items Wasted</span>
               <span class="sd-info-value">{{ waste_items|length }}</span>
             </div>
+            {% if request.user.role == 'owner' %}
             <div class="sd-info-row">
               <span class="sd-info-label">Logged by</span>
               <span class="sd-info-value">
@@ -107,6 +108,7 @@
                 {% endif %}
               </span>
             </div>
+            {% endif %}
             <div class="sd-info-row">
               <span class="sd-info-label">Recorded at</span>
               <span class="sd-info-value">{{ waste.created_at|date:"M d, Y g:i A" }}</span>

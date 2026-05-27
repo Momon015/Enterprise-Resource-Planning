@@ -154,7 +154,7 @@
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' business_slug=current_business.slug %}?next={{request.path}}">
           <i class="bi bi-calendar-check"></i>
-          <span>Summary</span>
+          <span>Reports</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
@@ -197,7 +197,7 @@
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' business_slug=current_business.slug %}">
           <i class="bi bi-recycle"></i>
-          <span>Waste & Loss</span>
+          <span>Waste</span>
           {% if request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
@@ -226,14 +226,14 @@
       {% else %}
         <span class="sidebar-nav__link text-muted" style="cursor: not-allowed;" title="Select a business first">
           <i class="bi bi-building"></i>
-          <span>Supplier</span>
+          <span>Suppliers</span>
         </a>
       {% endif %}
     </li>
     <li class="sidebar-nav__item">
       <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
         <i class="bi bi-box"></i>
-        <span>Inventory</span>
+        <span>Stock</span>
       </a>
     </li>
   </ul>
@@ -247,7 +247,7 @@
       <li class="sidebar-nav__item">
         <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' business_slug=current_business.slug %}?next={{request.path}}">
           <i class="bi bi-people"></i>
-          <span>Employees & Payroll</span>
+          <span>Employees</span>
           {% if request.user.role == 'staff'%}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}

@@ -45,7 +45,7 @@ from django.db.models import Sum, Avg, Max, OuterRef, Subquery
 
 from user.models import User
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
 
 from django.contrib.messages import get_messages
 
@@ -64,7 +64,8 @@ logger = logging.getLogger('Expense')
 def purchase_history(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-created_at')
-    
+    # show their own records if staff
+    purchases = filter_to_own_if_staff(request.user, purchases)
     # forms
     form = PurchaseFilterForm(request.GET or None)
     
@@ -166,7 +167,7 @@ def purchase_history(request, business_slug):
     return render(request, 'Expense/purchase_history.html', context)
 
 @login_required(login_url='login')
-@permission_required('staff_view')
+# @permission_required('staff_view')
 @permission_required('read_only') # dev
 def purchase_detail(request, business_slug, purchase_id):
     business = get_business_for_user(request.user, business_slug)
@@ -839,6 +840,8 @@ def waste_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     stocks = get_queryset_for_user(request.user, Stock.objects.all()).filter(business=business).order_by('-created_at')
     wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business).order_by('-date')
+    
+    wastes = filter_to_own_if_staff(request.user, wastes)
     
     total_waste_cost = wastes.aggregate(waste_cost=Sum(F('waste_items__price') * F('waste_items__quantity')))['waste_cost'] or 0
     max_waste = wastes.aggregate(max=Max('total_cost'))['max'] or 0 

@@ -157,7 +157,7 @@
           </div>
 
           <!-- Created By -->
-          {% if purchase.created_by %}
+          {% if purchase.created_by and request.user.role == 'owner' %}
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Recorded By</div>
             <div class="created-by-info">

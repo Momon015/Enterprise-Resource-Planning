@@ -74,3 +74,11 @@ def get_business_for_user(user, business_slug):
     owner = get_owner(user)
     business = get_object_or_404(BusinessProfile, user=owner, slug=business_slug)
     return business 
+
+
+def filter_to_own_if_staff(user, queryset, owned_by_field='created_by'):
+    """For transactional records — staff sees only ones they personally created.
+    Owner/dev see everything. Use AFTER get_queryset_for_user."""
+    if user.role == 'staff':
+        return queryset.filter(**{owned_by_field: user})
+    return queryset

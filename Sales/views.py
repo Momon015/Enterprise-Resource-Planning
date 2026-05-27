@@ -45,7 +45,7 @@ from django.db.models import Sum, Avg, Max, Q, F
 
 from decimal import Decimal
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
 
 from user.models import User
 from django.contrib.messages import get_messages
@@ -88,8 +88,10 @@ def clear_sale(request, business_slug):
 def sale_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business).order_by('-reference')
+    # for staff to see their own records
+    sales = filter_to_own_if_staff(request.user, sales) 
     form = SaleFilterForm(request.GET or None)
-
+    
     now = timezone.now()
     month = now.month
     today = now.day
@@ -176,7 +178,7 @@ def sale_list(request, business_slug):
     return render(request, 'Sales/sale_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('staff_view')
+# @permission_required('staff_view')
 @permission_required('read_only') # dev
 def sale_detail(request, sale_id, business_slug):
     business = get_business_for_user(request.user, business_slug)

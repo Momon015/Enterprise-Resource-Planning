@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Items</th>
+                <th>Quantity</th>
                 <th class="sl-text-center">Total Loss</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
@@ -153,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td>
                   <div class="cell-primary">{{ waste.waste_items.count }} waste{% if waste.waste_items.count %}{{ waste.waste_items.count|pluralize }}{% endif %}</div>
-                  <div class="cell-sub">by {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst|default:"-" }}</div>
+                  <div class="cell-sub">{% if request.user.role == 'owner' %}by {{ waste.created_by.username|capfirst|default:"-" }}{% endif %}</div>
                 </td>
 
 

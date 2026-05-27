@@ -150,7 +150,8 @@
           </div>
 
           <!-- Created By -->
-          {% if sale.created_by %}
+
+          {% if sale.created_by and request.user.role == 'owner' %}
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Recorded By</div>
             <div class="created-by-info">
@@ -172,6 +173,7 @@
             </div>
           </div>
           {% endif %}
+
 
           <!-- Note -->
           <div class="sd-note-box">
