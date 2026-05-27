@@ -187,11 +187,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'user-edit-profile' slug=user.slug user_id=user.id %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Profile
             </a>
-            {% if request.user.role == 'owner' %}
+            {% comment %} {% if request.user.role == 'owner' %}
             <a href="{% url 'business-profile-detail' business_id=business.id slug=business.slug %}" class="btn btn-outline-primary btn-sm btn-block">
               <i class="bi bi-shop"></i> Business Profile
             </a>
-            {% endif %}
+            {% endif %} {% endcomment %}
             <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-lock-fill"></i> Change Password
             </a>

@@ -98,11 +98,15 @@
             </thead>
             <tbody>
               {% for employee in page_obj %}
-              <tr>
+              <tr class="{% if employee.is_locked %}is-locked{% endif %}">
                 <td>
                   <div class="cell-primary">{{ employee.name|capfirst }}</div>
                   {% comment %} <div class="cell-sub">#{{ employee.id }}</div> {% endcomment %}
+                    {% if employee.is_locked %}
+                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                    {% endif %}
                 </td>
+
                 <td class="sl-text-center sl-fw-semibold" style="color:var(--accent);">
                   ₱{{ employee.daily_rate|floatformat:2|intcomma }}
                 </td>

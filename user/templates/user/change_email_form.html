@@ -1,0 +1,117 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper" style="max-width:1200px;">
+
+  {% comment %} <div class="mobile-back-row">
+    <a href="{% url 'settings' %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i><span>Back</span>
+    </a>
+  </div> {% endcomment %}
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACCOUNT <i class="bi bi-chevron-right"></i> EDIT</div>
+      <h1 class="page-title">Email</h1>
+      <p class="page-subtitle">We'll send a verification code to your new email address.</p>
+    </div>
+  </div>
+
+  <div class="cev-grid">
+
+    <!-- LEFT: steps + security -->
+    <div class="col-mobile-hidden">
+      <div class="cev-card cev-steps">
+        <div class="cev-step cev-active">
+          <div class="cev-step__num"><i class="bi bi-envelope"></i></div>
+          <div class="cev-step__body">
+            <div class="cev-step__title">1. Enter new email</div>
+            <div class="cev-step__desc">Provide the email you want to switch to.</div>
+          </div>
+        </div>
+        <div class="cev-step">
+          <div class="cev-step__num"><i class="bi bi-shield-lock"></i></div>
+          <div class="cev-step__body">
+            <div class="cev-step__title">2. Verify with code</div>
+            <div class="cev-step__desc">Enter the 6-digit code we'll send to that email.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cev-security">
+        <div class="cev-security__title"><i class="bi bi-shield-check"></i> Security first</div>
+        <div class="cev-security__desc">We require your password to confirm it's really you.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: form card -->
+    <div>
+      <div class="cev-card cev-verify">
+        <div class="cev-verify__top">
+          <div class="cev-verify__heading">
+            <div class="cev-verify__icon"><i class="bi bi-envelope-fill"></i></div>
+            <div>
+              <div class="cev-verify__title">Change Email</div>
+              <div class="cev-verify__sub">Verify with password and a code</div>
+            </div>
+          </div>
+        </div>
+
+        <form method="POST" autocomplete="off" novalidate style="margin-top:1.5rem;">
+          {% csrf_token %}
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                 style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;">
+
+          <div class="mf-field-group">
+            <label class="mf-form-label">Current email</label>
+            <input type="email" class="form-control" value="{{ request.user.email }}" disabled>
+          </div>
+
+          <div class="mf-field-group" style="margin-top:1rem;">
+            <label class="mf-form-label" for="new_email">
+              New email <span class="mf-required">*</span>
+            </label>
+            <input type="email" name="new_email" id="new_email" class="form-control"
+                   placeholder="you@example.com" required>
+            <small class="mf-form-help">The verification code will be sent here.</small>
+          </div>
+
+          <div class="mf-field-group" style="margin-top:1rem;">
+            <label class="mf-form-label" for="current_password">
+              Current password <span class="mf-required">*</span>
+            </label>
+            <input type="password" name="current_password" id="current_password"
+                   class="form-control" placeholder="Enter your password" required>
+            <small class="mf-form-help">Confirms it's really you.</small>
+          </div>
+
+          <hr style="margin:1.5rem 0;">
+
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'settings' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-send-fill"></i> Send code
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -36,6 +36,9 @@ from django.contrib.auth.hashers import make_password
 from Expense.models import Employee
 
 from django.utils.text import slugify
+from django.core.cache import cache
+
+import datetime
 
 # Create your views here.
 
@@ -51,8 +54,13 @@ def landing(request):
 
 def register_form(request):
     page = 'register-form'
-    
+
     if request.method == 'POST':
+        
+        # Honeypot — silently drop bot submissions
+        if request.POST.get('website'):
+            return redirect('login')
+        
         # MANAGER: CLEANING UNVERIFIED USERS
         User.cleanup.unverified_users(minutes=5) # override the 1 hr 
         
@@ -80,9 +88,21 @@ def register_form(request):
                             user__username=owner_username,
                             business_name=owner_business,
                         )
+                        
+                        # Enforce owner's staff cap before creating a staff user
+                        owner_sub = getattr(business.user, 'subscription', None)
+                        if owner_sub and not owner_sub.can_add_staff(business.user, business):
+                            limit = owner_sub.limits().get('max_staff')
+                            messages.error(request,
+                                f"{owner_username}'s {owner_sub.get_plan_display()} plan allows only "
+                                f"{limit} staff account(s). Ask the owner to upgrade."
+                            )
+                            return redirect('register-form')
+                        
                         request.session['business_id'] = str(business.id)
                         user.role = 'staff'
                         user.owner = business.user
+                        
                     else:
                         user.role = 'owner'
                     user.save()  # single write
@@ -133,6 +153,7 @@ def verify_otp(request):
         messages.error(request, f"The OTP has been expired. Please request for a new OTP.")
         return redirect('expired-otp')
     
+
     print('otp_obj', otp_obj)
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', None)
@@ -224,8 +245,13 @@ def verify_otp_expired(request):
 def user_login(request):
     user = None
     page = 'login'
-    
+
     if request.method == 'POST':
+        
+        # Honeypot — silently drop bot submissions
+        if request.POST.get('website'):
+            return redirect('login')   # or 'register-form'
+
         username = request.POST.get('username').lower().strip()
         password = request.POST.get('password')
 
@@ -289,6 +315,11 @@ def user_edit_profile(request, user_id, slug):
             return render(request, 'core/no_access.html', status=403)
         
     if request.method == 'POST':
+        
+        # Honeypot
+        if request.POST.get('website'):
+            return redirect('user-profile', slug=user.slug, user_id=user_id)
+        
         form = UpdateUserForm(request.POST, instance=user)
     
         if form.is_valid():
@@ -313,6 +344,11 @@ def user_edit_profile(request, user_id, slug):
 @login_required(login_url='login')
 def user_edit_password(request):
     if request.method == 'POST':
+        
+        # Honeypot
+        if request.POST.get('website'):
+            return redirect('user-profile', slug=user.slug, user_id=request.user.id)
+        
         form = StyledPasswordChangeForm(user=request.user, data=request.POST)
         
         if form.is_valid():
@@ -370,31 +406,65 @@ def user_logout(request):
 
 def business_list(request):
     user = request.user
-    
     businesses = BusinessProfile.objects.filter(user=user)
     
     context = {'businesses': businesses}
     return render(request, 'user/business_list.html', context)
     
-
+@login_required(login_url='login')
 def business_profile_create(request):
+    from subscription.models import BUNDLE_COUNT
+    
+    sub = request.user.subscription
+    current_count = request.user.business_profiles.count()
+    cap = BUNDLE_COUNT[sub.bundle]
+    at_cap = current_count >= cap
+    
+    rate_key = f'biz_create:{request.user.id}'
+    rate_limited = cache.get(rate_key) is not None
+    
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST)
+        
+        if at_cap:
+            messages.info(
+                request,
+                f"You've reached your limit of {cap} business(es). Contact support to add more."
+            )
+            return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
+
+        # If rate-limited, require the soft "confirm human" checkbox
+        if rate_limited and not request.POST.get('confirm_human'):
+            messages.warning(
+                request,
+                "Please wait a moment before adding another business. "
+                "Confirm you're human and try again."
+            )
+            context = {'form': form, 'show_human_check': True}
+            return render(request, 'user/business_profile_create.html', context)
         
         if form.is_valid():
             profile = form.save(commit=False)
             profile.user = request.user
             profile.save()
-            messages.success(request, f"Your business profile has been created successfully.")
+            # Set 60s cooldown so this user can't spam creates
+            cache.set(rate_key, True, timeout=60)
+            messages.success(request, "Your business profile has been created successfully.")
             return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
         else:
-            messages.error(request, f"Cafe and Restaurant are coming soon.")
+            messages.error(request, "Cafe and Restaurant are coming soon.")
             return redirect('business-profile-create')
 
     else:
         form = BusinessProfileForm()
-        
-    context = {'form': form}
+
+    context = {
+        'form': form,
+        'show_human_check': rate_limited,
+        'at_cap': at_cap,
+        'cap': cap,
+        'current_count': current_count,
+    }
     return render(request, 'user/business_profile_create.html', context)
 
 @login_required(login_url='login')
@@ -425,3 +495,102 @@ def business_profile_update(request, business_id, slug):
     context = {'form': form, 'business': business, 'section': 'user', 'current_user': current_user}
     return render(request, 'user/business_profile_update.html', context)
 
+@login_required(login_url='login')
+def settings(request):
+    
+    return render(request, 'user/settings.html')
+
+
+@login_required(login_url='login')
+def change_email_form(request):
+    if request.method == 'POST':
+        # Honeypot
+        if request.POST.get('website'):
+            return redirect('change-email-form')
+
+        new_email = request.POST.get('new_email', '').strip().lower()
+        current_password = request.POST.get('current_password', '')
+
+        # Verify current password (confirms it's really the user)
+        user = authenticate(username=request.user.username, password=current_password)
+        if user is None:
+            messages.error(request, "Incorrect password.")
+            return redirect('change-email-form')
+
+        if not new_email:
+            messages.error(request, "Please enter a new email address.")
+            return redirect('change-email-form')
+
+        if new_email == (request.user.email or '').lower():
+            messages.error(request, "That's already your current email.")
+            return redirect('change-email-form')
+
+        if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
+            messages.error(request, "That email is already in use.")
+            return redirect('change-email-form')
+
+        # Generate and send OTP to the NEW email
+        try:
+            with transaction.atomic():
+                EmailOTP.objects.filter(user=request.user, is_verified=False).delete()
+                otp = EmailOTP.generate_otp()
+                otp_obj = EmailOTP.objects.create(user=request.user, otp=otp)
+                send_email(new_email, otp)
+        except Exception:
+            messages.error(request, "Couldn't send verification email. Please try again.")
+            return redirect('change-email-form')
+
+        request.session['change_email_pending'] = new_email
+        request.session['change_email_otp_id'] = otp_obj.id
+        messages.success(request, f"Verification code sent to {new_email}.")
+        return redirect('change-email-verify')
+
+    return render(request, 'user/change_email_form.html')
+
+
+@login_required(login_url='login')
+def change_email_verify(request):
+    pending_email = request.session.get('change_email_pending')
+    otp_id = request.session.get('change_email_otp_id')
+
+    if not pending_email or not otp_id:
+        messages.error(request, "Please start the change email process again.")
+        return redirect('change-email-form')
+
+    try:
+        otp_obj = EmailOTP.objects.get(id=otp_id, user=request.user, is_verified=False)
+    except EmailOTP.DoesNotExist:
+        for k in ('change_email_pending', 'change_email_otp_id'):
+            request.session.pop(k, None)
+        messages.error(request, "Verification code is no longer valid.")
+        return redirect('change-email-form')
+
+    if otp_obj.is_expired():
+        otp_obj.delete()
+        for k in ('change_email_pending', 'change_email_otp_id'):
+            request.session.pop(k, None)
+        messages.error(request, "Verification code expired. Please try again.")
+        return redirect('change-email-form')
+
+    if request.method == 'POST':
+        entered = request.POST.get('otp', '').strip()
+        if entered == otp_obj.otp:
+            with transaction.atomic():
+                request.user.email = pending_email
+                request.user.save(update_fields=['email'])
+                otp_obj.is_verified = True
+                otp_obj.save(update_fields=['is_verified'])
+
+            for k in ('change_email_pending', 'change_email_otp_id'):
+                request.session.pop(k, None)
+            messages.success(request, "Email updated successfully.")
+            return redirect('settings')
+        else:
+            messages.error(request, "Invalid code. Please try again.")
+            
+    
+    context = {
+        'pending_email': pending_email,
+        'expires_at_iso': otp_obj.expires_at.isoformat() if hasattr(otp_obj, 'expires_at') else (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat(),
+    }
+    return render(request, 'user/change_email_verify.html', context)

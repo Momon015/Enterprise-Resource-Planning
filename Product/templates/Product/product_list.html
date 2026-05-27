@@ -130,7 +130,7 @@
             </thead>
             <tbody>
               {% for product in page_obj %}
-              <tr>
+              <tr class="{% if product.is_locked %}is-locked{% endif %}">
                 {% comment %} <td>
                   <div class="cell-primary">{{ product.created_at|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ product.created_at|date:"l" }}</div>
@@ -138,6 +138,9 @@
                 <td>
                   <div class="cell-primary">{{ product.name|capfirst }}</div>
                   <span class="cell-sub">{{ product.material.supplier|default:"No supplier" }}</span>
+                  {% if product.is_locked %}
+                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                    {% endif %}
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">

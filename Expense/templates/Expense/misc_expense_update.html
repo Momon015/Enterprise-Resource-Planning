@@ -1,10 +1,23 @@
 {% extends "main.html" %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
 {% load humanize %}
 {% block content %}
 
 <div class="mf-page-wrapper">
+
+  <div class="mobile-back-row">
+  <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
   
-  <div class="page-header">
+  <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">TEMPLATES &gt; EDIT</div>
       <h1 class="page-title">Edit Template</h1>
@@ -19,9 +32,16 @@
 
   <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
 
+      <div class="mobile-back-row">
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+          <i class="bi bi-chevron-left"></i>
+          <span>Back</span>
+        </a>
+      </div>
+
     <!-- LEFT: FORM -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header col-mobile-hidden">
         <div class="sd-card-header-left">
           <div class="sd-header-icon">
             <i class="bi bi-pencil-square"></i>
@@ -116,7 +136,7 @@
           {% endif %}
 
           <div class="mf-form-actions">
-            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light col-mobile-hidden">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>

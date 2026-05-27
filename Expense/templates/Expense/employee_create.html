@@ -1,7 +1,24 @@
 {% extends "main.html" %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
 {% block content %}
 
+
 <div class="mf-page-wrapper">
+  
+  <div class="mobile-back-row">
+  <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="mobile-back" aria-label="Back">
+    <i class="bi bi-chevron-left"></i>
+  </a>
+  <div class="mobile-back-context">
+    <div class="mobile-back-context__primary">{{ PRIMARY_TEXT }}</div>
+    <div class="mobile-back-context__sub">{{ SUB_TEXT }}</div>
+  </div>
+</div>
   
   <div class="page-header">
     <div class="page-header-left">
@@ -9,7 +26,7 @@
       <h1 class="page-title">New Employee</h1>
       <p class="page-subtitle">Add a new employee with their daily rate.</p>
     </div>
-    <div class="page-header-right">
+    <div class="page-header-right col-mobile-hidden">
       <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Back to employees
       </a>

@@ -1,0 +1,77 @@
+{% extends 'main.html' %}
+{% block content %}
+<div class="page-wrapper" style="max-width:720px;">
+
+  <div class="mobile-back-row">
+    <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
+      <i class="bi bi-arrow-left"></i><span>Back</span>
+    </a>
+  </div>
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SUBSCRIPTION</div>
+      <h1 class="page-title">Contact Support</h1>
+      <p class="page-subtitle">Tell us what you need — plan changes, billing questions, technical issues.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% endif %}
+
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div class="settings-card__header-icon tone-account">
+        <i class="bi bi-envelope-paper-fill"></i>
+      </div>
+      <h2 class="settings-card__title">Send us a message</h2>
+      <span class="settings-card__subtitle">We typically reply within 24 hours</span>
+    </div>
+
+    <div class="card-body">
+      <form method="POST" autocomplete="off" novalidate>
+        {% csrf_token %}
+        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+               style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;">
+
+        <div class="mf-field-group">
+          <label class="mf-form-label">Your name</label>
+          <input type="text" class="form-control" value="{{ request.user.name|default:request.user.username }}" disabled>
+        </div>
+
+        <div class="mf-field-group" style="margin-top:1rem;">
+          <label class="mf-form-label">Reply-to email</label>
+          <input type="email" class="form-control" value="{{ request.user.email }}" disabled>
+        </div>
+
+        <div class="mf-field-group" style="margin-top:1rem;">
+          <label class="mf-form-label">Business</label>
+          <input type="text" class="form-control" value="{{ business.business_name }}" disabled>
+        </div>
+
+        <div class="mf-field-group" style="margin-top:1rem;">
+          <label class="mf-form-label" for="subject">Subject <span class="mf-required">*</span></label>
+          <input type="text" name="subject" id="subject" class="form-control"
+                 placeholder="e.g. Upgrade my Owner1 Cafe to Pro" required maxlength="120">
+        </div>
+
+        <div class="mf-field-group" style="margin-top:1rem;">
+          <label class="mf-form-label" for="message">Message <span class="mf-required">*</span></label>
+          <textarea name="message" id="message" class="form-control" rows="6"
+                    placeholder="Describe what you need…" required maxlength="2000"></textarea>
+        </div>
+
+        <hr style="margin:1.5rem 0;">
+
+        <div class="d-flex justify-content-end gap-2">
+          <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send-fill"></i> Send message
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

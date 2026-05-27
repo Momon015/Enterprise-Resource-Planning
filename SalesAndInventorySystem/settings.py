@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    
+    'https://commissioners-floppy-completely-pixels.trycloudflare.com'
     ]
 
 # Application definition
@@ -141,6 +141,7 @@ INSTALLED_APPS = [
     
     'user.apps.UserConfig',
     'core.apps.CoreConfig',
+    'subscription.apps.SubscriptionConfig',
     
     'django.contrib.humanize', 
 ]
@@ -153,8 +154,14 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    
+    'subscription.middleware.SubscriptionExpiryMiddleWare', 
+    
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    
+
 ]
 
 ROOT_URLCONF = 'SalesAndInventorySystem.urls'

@@ -1,0 +1,22 @@
+{% if request.user.is_authenticated and request.user.role == 'owner' and current_business %}
+  {% with bp=current_business.plan %}
+    {% if bp and bp.has_locked_items %}
+      <div class="locked-banner">
+        <div class="locked-banner__icon">
+          <i class="bi bi-lock-fill"></i>
+        </div>
+        <div class="locked-banner__body">
+          <div class="locked-banner__title">This business has locked items</div>
+          <div class="locked-banner__text">
+            <strong>{{ current_business.business_name }}</strong> is on
+            <strong>{{ bp.get_plan_display }}</strong>, which limits how many items can stay active.
+            Pick which to keep or upgrade this business to unlock them all.
+          </div>
+        </div>
+        <a href="{% url 'subscription-settings' business_slug=current_business.slug %}" class="locked-banner__cta">
+          <i class="bi bi-arrow-up-right"></i> Manage
+        </a>
+      </div>
+    {% endif %}
+  {% endwith %}
+{% endif %}

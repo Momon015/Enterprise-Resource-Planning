@@ -49,6 +49,8 @@ from core.utils.owner import get_owner, permission_required, get_queryset_for_us
 
 from django.contrib.messages import get_messages
 
+from subscription.decorators import capacity_required
+
 # logging
 import logging
 
@@ -57,7 +59,7 @@ import logging
 logger = logging.getLogger('Expense')
 
 @login_required(login_url='login')
-@permission_required('staff_view')
+# @permission_required('staff_view')
 @permission_required('read_only') # dev
 def purchase_history(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -391,7 +393,8 @@ def view_cart_summary(request, business_slug):
     return render(request, 'Expense/view_cart_summary.html', context)
 
 @login_required(login_url='login')
-@permission_required('update')
+@capacity_required('purchase')
+@permission_required('update') # dev
 def confirm_purchase_summary(request, business_slug):
     cart = request.session.get('cart', {})
     lines = request.session.get('lines', 0)
@@ -536,6 +539,7 @@ def confirm_purchase_summary(request, business_slug):
     return redirect('view-purchase-summary', business_slug=business.slug, purchase_id=purchase.id)
 
 @login_required(login_url='login')
+@permission_required('view') # dev
 def view_purchase_summary(request, business_slug, purchase_id):
     business = get_business_for_user(request.user, business_slug)
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
@@ -920,6 +924,7 @@ def waste_product_create(request, business_slug):
     return render(request, 'Expense/waste_create.html', context)
 
 @login_required(login_url='login')
+@capacity_required('waste')
 @permission_required('add') # dev
 def waste_material_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -1016,6 +1021,7 @@ def waste_material_detail(request, business_slug, waste_id):
 
 
 @login_required(login_url='login')
+@capacity_required('expense')
 @permission_required('staff_view')
 @permission_required('read_only') # dev
 def expense_create(request, business_slug):

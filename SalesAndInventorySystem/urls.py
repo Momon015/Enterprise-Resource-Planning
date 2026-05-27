@@ -34,6 +34,7 @@ urlpatterns = [
         path('summary/', include('DailySummary.urls')),
         path('dashboard/', include('Dashboard.urls')),
         path('supplier/', include('Supplier.urls')),
+        path('subscription/', include('subscription.urls')),
     ])),
     
     

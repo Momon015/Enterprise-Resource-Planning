@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from user.models import BusinessProfile
+from user.models import BusinessProfile, User
 
 from core.models import Category
 
@@ -38,3 +38,32 @@ def create_business_defaults(sender, instance, created, **kwargs):
             category_type=category_type,
             
         )
+        
+@receiver(post_save, sender=User)
+def create_user_subscription(sender, instance, created, **kwargs):
+    if not created:
+        return
+    
+    if instance.role != 'owner':  # staff/dev don't need their own subscription
+        return
+    
+    from subscription.models import Subscription
+    Subscription.create_free(instance)
+    
+    
+
+@receiver(post_save, sender=BusinessProfile)
+def create_business_plan(sender, instance, created, **kwargs):
+    """Auto-create a Free BusinessPlan for every new BusinessProfile.
+    Owner can upgrade individual businesses via subscription settings later."""
+    if not created:
+        return 
+    
+    from subscription.models import BusinessPlan
+    BusinessPlan.objects.get_or_create(
+        business=instance,
+        defaults={
+            'plan': 'free',
+            'is_active': True,
+        },
+    )

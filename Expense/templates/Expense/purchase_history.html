@@ -139,25 +139,25 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Reference</th>
+                <th class='sl-text-center'>Reference</th>
                 <th class="sl-text-center col-mobile-hidden">Qty</th>
                 <th class="sl-text-center col-mobile-hidden">Lines</th>
                 <th class="sl-text-end mobile-center">Total Cost</th>
-                <th class="sl-text-center">Action</th>
+                {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
             <tbody>
               {% for purchase in page_obj %}
-              <tr>
+              <tr class="row-link" onclick="window.location='{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}?{{ request.GET.urlencode }}'">
                 <td>
                   {{ purchase.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ purchase.created_at|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ purchase.created_at|date:"l" }}</div>
                 </td>
 
-                <td>
+                <td class='sl-text-center'>
                   <div class="cell-primary">{{ purchase.reference|default:"No reference" }}</div>
                     
-                  <div class="cell-sub col-mobile-hidden">#{{ forloop.revcounter }} </div>
+                  {% comment %} <div class="cell-sub col-mobile-hidden">#{{ forloop.revcounter }} </div> {% endcomment %}
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
@@ -175,8 +175,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}?{{ request.GET.urlencode }}" 
-                       class="action-btn action-btn--view" title="View Detail">
-                      <i class="bi bi-eye"></i>
+                       class="row-chevron" title="View Detail">
+                      <i class="bi bi-chevron-right"></i>
                     </a>
                   </div>
                 </td>

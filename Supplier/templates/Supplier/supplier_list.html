@@ -102,10 +102,13 @@
             </thead>
             <tbody>
               {% for supplier in page_obj %}
-              <tr>
+              <tr class="{% if supplier.is_locked %}is-locked{% endif %}">
                 <td>
                   <div class="cell-primary">{{ supplier.created_at|date:"M d, Y" }}</div>
                   <div class="cell-sub">{{ supplier.created_at|date:"l" }}</div>
+                  {% if supplier.is_locked %}
+                    <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                  {% endif %}
                 </td>
 
                 <td>

@@ -1,15 +1,28 @@
 {% extends 'main.html' %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
 {% load humanize %}
 {% block content %}
 
 <div class="page-wrapper">
 
+  <div class="mobile-back-row">
+  <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
+
   <!-- PAGE HEADER -->
-  <div class="page-header">
+  <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">
         <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="breadcrumb-link">PURCHASES</a>
-        <i class="bi bi-file-text"></i>
+        <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
       <h1 class="page-title">Purchase Record</h1>
@@ -52,7 +65,7 @@
               <div class="sd-stat-label">Reference</div>
               <div class="sd-stat-value">{{ purchase.reference|default:"No reference" }}</div>
             </div>
-            <div class="sd-stat-box">
+            <div class="sd-stat-box col-mobile-hidden">
               <div class="sd-stat-label">Line Items</div>
               <div class="sd-stat-value">{{ purchase_items|length }}</div>
             </div>
@@ -192,7 +205,7 @@
         <div class="card-body">
           <div class="btn-grid">
             <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-arrow-left-circle"></i> Back to Purchases
+              <i class="bi bi-arrow-left"></i> Back to Purchases
             </a>
             <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Purchase

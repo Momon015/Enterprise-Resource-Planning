@@ -50,6 +50,8 @@ from core.utils.owner import get_owner, permission_required, get_queryset_for_us
 from user.models import User
 from django.contrib.messages import get_messages
 
+from subscription.decorators import capacity_required
+
 # logging
 import logging
 
@@ -81,11 +83,11 @@ def clear_sale(request, business_slug):
     return redirect('product-list', business_slug=business.slug)
 
 @login_required(login_url='login')
-@permission_required('staff_view')
+# @permission_required('staff_view')
 @permission_required('read_only') # dev
 def sale_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business).order_by('-date')
+    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business).order_by('-reference')
     form = SaleFilterForm(request.GET or None)
 
     now = timezone.now()
@@ -187,7 +189,7 @@ def sale_detail(request, sale_id, business_slug):
     return render(request, 'Sales/sale_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('add')
+@permission_required('add') # dev
 def add_to_sales(request, product_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
@@ -368,7 +370,8 @@ def view_session_summary(request, business_slug):
     return render(request, 'Sales/view_session_summary.html', context)
 
 @login_required(login_url='login')
-@permission_required('update')
+@capacity_required('sale')
+@permission_required('update') # dev
 def confirm_view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
@@ -600,7 +603,7 @@ def edit_unsold_quantity(request, product_id, business_slug):
     return redirect('view-sale', business_slug=business.slug)
 
 @login_required(login_url='login')
-@permission_required('delete')
+@permission_required('delete') # dev
 def delete_view_sale_quantity(request, product_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     

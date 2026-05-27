@@ -1,14 +1,28 @@
 {% extends 'main.html' %}
 {% load humanize %}
 {% block content %}
+{% block locked_banner %}{% endblock %}
 
 <div class="page-wrapper">
+
+  {% comment %} <div class="mobile-back-row">
+    <a href="{% url 'view-summary' business_slug=current_business.slug %}"
+      class="mobile-back" aria-label="Back">
+      <i class="bi bi-chevron-left"></i>
+    </a>
+      <div class="mobile-back-context">
+        <div class="mobile-back-context__primary">{{ sales.first.date|date:"F d, Y" }}</div>
+        <div class="mobile-back-context__sub">{{ sales.first.date|date:"l" }}</div>
+      </div>
+      
+  </div> {% endcomment %}
 
   <!-- PAGE HEADER -->
   <div class="sd-page-header">
     <div>
+      <div class="page-breadcrumb">REPORTS</div>
       <h4 class="sd-page-title">
-        <i class="bi bi-calendar2-check"></i>
+        {% comment %} <i class="bi bi-calendar2-check"></i> {% endcomment %}
         Summary Detail
       </h4>
       <p class="sd-page-breadcrumb">
@@ -19,8 +33,8 @@
       </p>
     </div>
     <div>
-      <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-        <i class="bi bi-arrow-left sl-me-1"></i> Back to summary
+      <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm col-mobile-hidden">
+        <i class="bi bi-arrow-left"></i> Back to summary
       </a>
     </div>
   </div>
@@ -36,10 +50,16 @@
           <div class="sd-stat-label">Revenue</div>
           <div class="sd-stat-value" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
         </div>
-        <div class="sd-stat-box">
+        <div class="sd-stat-box col-mobile-hidden">
           <div class="sd-stat-label">Purchase Cost</div>
           <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
         </div>
+        <!-- MOBILE ONLY -->
+        <div class="sd-stat-box col-mobile-only">
+          <div class="sd-stat-label ">Exp & Mat Cost</div>
+          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|add:total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        </div>
+
         <div class="sd-stat-box">
           <div class="sd-stat-label">Waste Cost</div>
           <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
@@ -48,7 +68,7 @@
           <div class="sd-stat-label">Labor Cost</div>
           <div class="sd-stat-value" style="color:var(--muted);">₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</div>
         </div>
-        <div class="sd-stat-box">
+        <div class="sd-stat-box col-mobile-hidden">
           <div class="sd-stat-label">Expense Cost</div>
           <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
         </div>

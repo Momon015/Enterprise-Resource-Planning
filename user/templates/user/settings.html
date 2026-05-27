@@ -1,0 +1,181 @@
+{% extends 'main.html' %}
+
+{% block title %}Settings — Swift ERP{% endblock %}
+
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="toast-message toast-{{ message.tags }}">
+        {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+        {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+        {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {% endif %}
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACCOUNT</div>
+      <h1 class="page-title">Settings</h1>
+      <p class="page-subtitle">Manage your account, businesses, and subscription.</p>
+    </div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div class="settings-card__header-icon tone-account">
+        <i class="bi bi-person-fill"></i>
+      </div>
+      <h2 class="settings-card__title">Account</h2>
+      <span class="settings-card__subtitle">{{ request.user.username }}</span>
+    </div>
+
+    <a href="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}" class="settings-row">
+      <div class="settings-row__icon"><i class="bi bi-pencil-square"></i></div>
+      <div class="settings-row__body">
+        <div class="settings-row__title">Edit Profile</div>
+        <div class="settings-row__desc">Update your name, username, and contact info</div>
+      </div>
+      <i class="bi bi-chevron-right settings-row__arrow"></i>
+    </a>
+
+    <a href="{% url 'change-email-form' %}" class="settings-row">
+      <div class="settings-row__icon"><i class="bi bi-envelope-fill"></i></div>
+      <div class="settings-row__body">
+        <div class="settings-row__title">Change Email</div>
+        <div class="settings-row__desc">Verify a new email address with OTP</div>
+      </div>
+      <i class="bi bi-chevron-right settings-row__arrow"></i>
+    </a>
+
+
+    <a href="{% url 'user-edit-password' %}" class="settings-row">
+      <div class="settings-row__icon"><i class="bi bi-key-fill"></i></div>
+      <div class="settings-row__body">
+        <div class="settings-row__title">Change Password</div>
+        <div class="settings-row__desc">Update the password used to sign in</div>
+      </div>
+      <i class="bi bi-chevron-right settings-row__arrow"></i>
+    </a>
+  </div>
+
+  <!-- BUSINESS (owner only) -->
+  {% if request.user.role == 'owner' %}
+    <div class="settings-card">
+      <div class="settings-card__header">
+        <div class="settings-card__header-icon tone-business">
+          <i class="bi bi-shop"></i>
+        </div>
+        <h2 class="settings-card__title">Business</h2>
+        {% if current_business %}
+          <span class="settings-card__subtitle">{{ current_business.business_name }}</span>
+        {% endif %}
+      </div>
+
+      <a href="{% url 'business-profile-create' %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-plus-circle-fill"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">Create New Business</div>
+          <div class="settings-row__desc">Add another business under your account</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+
+      {% if current_business %}
+        <a href="{% url 'business-profile-update' business_id=current_business.id slug=current_business.slug %}" class="settings-row">
+          <div class="settings-row__icon"><i class="bi bi-pencil-square"></i></div>
+          <div class="settings-row__body">
+            <div class="settings-row__title">Edit Current Business</div>
+            <div class="settings-row__desc">Update name, type, address, and contact</div>
+          </div>
+          <i class="bi bi-chevron-right settings-row__arrow"></i>
+        </a>
+      {% endif %}
+
+      <a href="{% url 'business-list' %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-list-ul"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">View All Businesses</div>
+          <div class="settings-row__desc">Browse and switch between your businesses</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+    </div>
+  {% endif %}
+
+  <!-- SUBSCRIPTION & BILLING (owner only) -->
+  {% if request.user.role == 'owner' and current_business %}
+    <div class="settings-card">
+      <div class="settings-card__header">
+        <div class="settings-card__header-icon tone-billing">
+          <i class="bi bi-credit-card-2-front-fill"></i>
+        </div>
+        <h2 class="settings-card__title">Subscription &amp; Billing</h2>
+      </div>
+
+      <a href="{% url 'subscription-settings' business_slug=current_business.slug %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-stars"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">
+            View Subscription
+            {% with bp=current_business.plan %}
+              {% if bp %}
+                <span class="settings-row__badge tone-{{ bp.plan }}">{{ bp.get_plan_display }}</span>
+              {% endif %}
+            {% endwith %}
+          </div>
+          <div class="settings-row__desc">Plan, usage, and billing for each of your businesses</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+
+      <a href="{% url 'subscription-pricing' business_slug=current_business.slug %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-tag-fill"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">Pricing</div>
+          <div class="settings-row__desc">Compare plans and bundle options</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+
+      <a href="{% url 'subscription-contact' business_slug=current_business.slug %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-headset"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">Contact Support</div>
+          <div class="settings-row__desc">Get help with upgrades, billing, or technical issues</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+    </div>
+  {% endif %}
+
+  <!-- DANGER ZONE -->
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div class="settings-card__header-icon tone-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <h2 class="settings-card__title">Danger Zone</h2>
+    </div>
+
+    <a href="{% url 'user-deactivate' user_id=request.user.id slug=request.user.slug %}" class="settings-row settings-row--danger">
+      <div class="settings-row__icon"><i class="bi bi-person-x-fill"></i></div>
+      <div class="settings-row__body">
+        <div class="settings-row__title">Deactivate Account</div>
+        <div class="settings-row__desc">Permanently remove your account and all associated data</div>
+      </div>
+      <i class="bi bi-chevron-right settings-row__arrow"></i>
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}

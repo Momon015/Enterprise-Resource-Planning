@@ -120,10 +120,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             <tbody>
               {% for preset in page_obj %}
-              <tr>
+              <tr class="{% if preset.is_locked %}is-locked{% endif %}">
                 <!-- NAME -->
                 <td>
                   <div class="cell-primary">{{ preset.name }}</div>
+                  {% if preset.is_locked %}
+                    <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                  {% endif %}
                 </td>
 
                 <!-- ITEM COUNT -->

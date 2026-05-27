@@ -32,6 +32,8 @@ from core.utils.owner import get_owner, permission_required, get_queryset_for_us
 
 from django.contrib.messages import get_messages
 
+from subscription.decorators import capacity_required
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -131,6 +133,7 @@ def product_list(request, business_slug):
     return render(request, 'Product/product_list.html', context)
 
 @login_required(login_url='login')
+@capacity_required('product')
 @permission_required('add') # dev
 def product_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -249,6 +252,7 @@ def restore_product_quantity(request, business_slug, product_id):
     
 
 @login_required(login_url='login')
+@capacity_required('product_preset')
 @permission_required('add') # dev
 def add_product_to_preset(request, business_slug):
     business = get_business_for_user(request.user, business_slug)

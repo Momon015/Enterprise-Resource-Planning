@@ -1,0 +1,191 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper" style="max-width:1200px;">
+
+  {% comment %} <div class="mobile-back-row">
+    <a href="{% url 'change-email-form' %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i><span>Back</span>
+    </a>
+  </div> {% endcomment %}
+
+  <div class="page-header ">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACCOUNT <i class="bi bi-chevron-right" style="font-size:0.6rem; margin:0 0.25rem;"></i> EDIT</div>
+      <h1 class="page-title">Verify</h1>
+      <p class="page-subtitle">Check your inbox at <strong>{{ pending_email }}</strong> for a verification code.</p>
+    </div>
+  </div>
+
+  <!-- Dismissible success banner -->
+  <div class="cev-alert col-mobile-hidden" id="sentBanner">
+    <div class="cev-alert__left">
+      <div class="cev-alert__icon"><i class="bi bi-check-lg"></i></div>
+      <div>
+        <div class="cev-alert__title">Verification code sent to {{ pending_email }}.</div>
+        <div class="cev-alert__sub">The code will expire in 5 minutes.</div>
+      </div>
+    </div>
+    <button type="button" class="cev-alert__close" onclick="document.getElementById('sentBanner').remove()">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <div class="cev-grid">
+
+    <!-- LEFT: steps + security -->
+    <div class="col-mobile-hidden">
+      <div class="cev-card cev-steps">
+        <div class="cev-step cev-completed">
+          <div class="cev-step__num"><i class="bi bi-check2"></i></div>
+          <div class="cev-step__body">
+            <div class="cev-step__title">Email entered</div>
+            <div class="cev-step__desc">{{ pending_email }}</div>
+          </div>
+          <span class="cev-step__badge cev-step__badge--success">Completed</span>
+        </div>
+        <div class="cev-step cev-active">
+          <div class="cev-step__num">2</div>
+          <div class="cev-step__body">
+            <div class="cev-step__title">Enter verification code</div>
+            <div class="cev-step__desc">6-digit code, expires in 5 minutes.</div>
+          </div>
+          <span class="cev-step__badge cev-step__badge--primary">In progress</span>
+        </div>
+      </div>
+
+      <div class="cev-security">
+        <div class="cev-security__title"><i class="bi bi-shield-lock"></i> Don't share this code</div>
+        <div class="cev-security__desc">Swift ERP staff will never ask for it.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: verify card -->
+    <div>
+      <div class="cev-card cev-verify">
+        <div class="cev-verify__top">
+          <div class="cev-verify__heading">
+            <div class="cev-verify__icon"><i class="bi bi-shield-check"></i></div>
+            <div>
+              <div class="cev-verify__title">Enter verification code</div>
+              <div class="cev-verify__sub">We sent a 6-digit code to {{ pending_email }}.</div>
+            </div>
+          </div>
+          <span class="cev-timer" id="countdownPill" data-expires="{{ expires_at_iso }}">
+            <i class="bi bi-clock"></i> Expires in <span id="countdownTime">--:--</span>
+          </span>
+        </div>
+
+        <form method="POST" autocomplete="off" novalidate id="verifyForm">
+          {% csrf_token %}
+          <input type="hidden" name="otp" id="otpFull">
+
+          <div class="cev-otp-wrap">
+            <div class="cev-otp-label">Enter the 6-digit code we sent to your email.</div>
+            <div class="cev-otp-group">
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" autofocus>
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+              <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+            </div>
+          </div>
+
+          <div class="cev-footer">
+            <span style="color:var(--muted); font-size:0.9rem;">
+              Didn't get the code?
+              <a href="{% url 'change-email-form' %}" class="cev-resend">
+                <i class="bi bi-arrow-clockwise"></i> Resend code
+              </a>
+            </span>
+            <div class="d-flex gap-2">
+              <a href="{% url 'change-email-form' %}" class="btn btn-light">Back</a>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check2-circle"></i> Verify Code
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Need help footer -->
+  <div class="cev-card cev-help col-mobile-hidden">
+    <div style="display:flex; gap:1rem; align-items:center;">
+      <div style="width:42px; height:42px; border-radius:50%; background:rgba(59,130,246,0.12); color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:1.1rem;">
+        <i class="bi bi-info-circle"></i>
+      </div>
+      <div>
+        <div class="cev-help__title">Need help?</div>
+        <div class="cev-help__desc">If you're having trouble accessing your email, you can cancel this change and try again.</div>
+      </div>
+    </div>
+    <form method="POST" action="{% url 'change-email-form' %}" style="margin:0;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-primary">Cancel Change</button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const boxes = document.querySelectorAll('.cev-otp-input');
+  const hidden = document.getElementById('otpFull');
+  const form = document.getElementById('verifyForm');
+
+  function sync(){ hidden.value = Array.from(boxes).map(b => b.value).join(''); }
+
+  boxes.forEach((box, i) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/\D/g, '');
+      if (box.value && i < boxes.length - 1) boxes[i+1].focus();
+      sync();
+      if (hidden.value.length === 6) form.submit();
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && i > 0) boxes[i-1].focus();
+    });
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData.getData('text') || '').replace(/\D/g,'').slice(0,6);
+      [...text].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
+      sync();
+      if (text.length === 6) form.submit();
+    });
+  });
+
+  const pill = document.getElementById('countdownPill');
+  if (pill) {
+    const target = new Date(pill.dataset.expires).getTime();
+    const out = document.getElementById('countdownTime');
+    function tick(){
+      const diff = Math.max(0, target - Date.now());
+      const m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
+      out.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if (diff <= 0) pill.classList.add('cev-timer--expired');
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+})();
+</script>
+{% endblock %}

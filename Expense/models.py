@@ -161,6 +161,8 @@ class Employee(TimeStampModel, SlugModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='employees', null=True, blank=True)
     name = models.CharField(max_length=255)
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     objects = EmployeeQuerySet.as_manager()
     

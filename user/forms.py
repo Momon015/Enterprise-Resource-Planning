@@ -24,6 +24,19 @@ class BaseUserForm(ModelForm):
     role = forms.ChoiceField(choices=ROLE_CHOICES, required=True)
     
 class RegisterForm(UserCreationForm):
+    
+    # Honeypot - must be empty for real users
+    # website = forms.CharField(
+    #     required=False,
+    #     label='',
+    #     widget=forms.TextInput(attrs={
+    #         'tabindex': '-1',
+    #         'autocomplete': 'off',
+    #         'aria-hidden': 'true',
+    #         'style': 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;',
+    #     }),
+    # )
+    
     # password1 = forms.CharField(
     #     label='Password',
     #     widget=forms.PasswordInput,
@@ -77,10 +90,18 @@ class RegisterForm(UserCreationForm):
                 raise ValidationError(f"This email is already taken.")
         return email
     
+    # def clean_website(self):
+    #     val = self.cleaned_data.get('website', '')
+    #     if val:
+    #         # bot caught - silently reject. Don't reveal anything.
+    #         raise forms.ValidationError('')
+    #     return val
+        
+    
 class UpdateUserForm(ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'birthday', 'phone_number']
+        fields = ['username', 'first_name', 'last_name', 'birthday', 'phone_number']
         
         widgets = {
             'birthday': forms.DateInput(

@@ -1,4 +1,11 @@
 {% extends "main.html" %}
+
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
 {% load humanize %}
 {% block content %}
 
@@ -26,8 +33,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <div class="page-wrapper">
 
+  <div class="mobile-back-row">
+  <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
+
   <!-- PAGE HEADER -->
-  <div class="page-header">
+  <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">EXPENSES / TEMPLATES</div>
       <h1 class="page-title">{{ misc_expense.name|capfirst }}</h1>

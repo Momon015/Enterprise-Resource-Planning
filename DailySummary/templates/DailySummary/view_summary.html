@@ -127,12 +127,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-end col-mobile-hidden">Expense Cost</th>
                 <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
                 <th class="sl-text-end mobile-center">Net Profit</th>
-                <th class="sl-text-center">Action</th>
+                {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
             <tbody>
               {% for summary in page_obj %}
-              <tr>
+              <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}'">
                 <td>
                   <div class="cell-primary">
                     {{ summary.date|date:"M d" }}<span class="col-mobile-hidden">, {{ summary.date|date:"Y" }}</span></div>
@@ -189,8 +189,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}" 
-                      class="action-btn action-btn--view" title="View detail">
-                      <i class="bi bi-eye"></i>
+                      class="row-chevron" title="View detail">
+                      <i class="bi bi-chevron-right"></i>
                     </a>
                   </div>
                 </td>

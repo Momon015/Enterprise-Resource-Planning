@@ -133,12 +133,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class='sl-text-center col-mobile-hidden'>Salary Cost</th>
                 <th class="sl-text-center col-mobile-hidden">Expense Cost</th>
                 <th class="sl-text-center">Total Cost</th>
-                <th class="sl-text-center">Actions</th>
+                {% comment %} <th class="sl-text-center">Actions</th> {% endcomment %}
               </tr>
             </thead>
             <tbody>
               {% for record in page_obj %}
-              <tr>
+              <tr class="row-link" onclick="window.location='{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}'">
                 <td>
                   {{ record.date|date:"M d" }}<span class="col-mobile-hidden">, {{ record.date|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
@@ -169,8 +169,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="btn-group">
                     {% comment %} {% if record.first_expense_id %} {% endcomment %}
                     <a href="{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}" 
-                      class="action-btn action-btn--view" title="View Detail">
-                      <i class="bi bi-eye"></i>
+                      class="row-chevron" title="View Detail">
+                       <i class="bi bi-chevron-right"></i>
                     </a>
                     {% comment %} {% else %}
                     <span class="sl-text-muted">—</span> {% endcomment %}

@@ -33,6 +33,7 @@ from user.models import User
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
+from subscription.decorators import capacity_required
 # Create your views here.
 
 @login_required(login_url='login')

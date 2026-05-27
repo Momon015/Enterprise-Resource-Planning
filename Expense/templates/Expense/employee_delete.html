@@ -1,10 +1,23 @@
 {% extends "main.html" %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-wrapper">
+  
+  <div class="mobile-back-row">
+  <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
 
   <!-- PAGE HEADER -->
-  <div class="sl-page-header">
+  <div class="sl-page-header col-mobile-hidden">
     <div>
       <h4 class="sl-page-title" style="color:var(--danger);">
         <i class="bi bi-trash"></i>

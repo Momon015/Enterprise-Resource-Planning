@@ -24,7 +24,8 @@
       <span class="mb-icon-dot"></span>
     </button>
     <a href="{% if user.is_authenticated %}{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}{% else %}{% url 'login' %}{% endif %}"
-       class="mb-avatar" aria-label="Profile">
+       class="mb-avatar{% if request.user.is_authenticated and request.user.role == 'owner' %}{% with sub=request.user.subscription %}{% if sub %} mb-avatar--plan-{{ sub.plan }}{% endif %}{% endwith %}{% endif %}"
+       aria-label="Profile">
       {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
     </a>
   </div>
@@ -136,15 +137,18 @@
 
   <!-- MAIN MODULES -->
   <div class="sidebar-section">
+    
     <div class="sidebar-section-label">Main</div>
     <ul class="sidebar-nav">
       <li class="sidebar-nav__item">
+        
         <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' business_slug=current_business.slug %}">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
           {% if request.user.role == 'staff' or request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
+        
         </a>
       </li>
       <li class="sidebar-nav__item">
@@ -176,7 +180,7 @@
         <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' business_slug=current_business.slug %}">
           <i class="bi bi-cash-coin"></i>
           <span>Sales</span>
-          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
+          {% if request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -185,7 +189,7 @@
         <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' business_slug=current_business.slug %}">
           <i class="bi bi-receipt"></i>
           <span>Purchases</span>
-          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
+          {% if request.user.role == 'developer' %}
             <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
           {% endif %}
         </a>
@@ -235,7 +239,7 @@
   </ul>
 </div>
 
-{% if request.user.role == 'owner '%}
+{% if request.user.role == 'owner' %}
   <!-- HR -->
   <div class="sidebar-section">
     <div class="sidebar-section-label">HR</div>
@@ -269,9 +273,20 @@
           <i class="bi bi-person"></i>
         {% endif %}
       </div>
-      <span class="sidebar-account__name">
-        {% if user.is_authenticated %}{{ user.username }}{% else %}Account{% endif %}
-      </span>
+      <div class="sidebar-account__text-wrap">
+        <span class="sidebar-account__name">
+          {% if user.is_authenticated %}{{ user.username }}{% else %}Account{% endif %}
+        </span>
+        {% if request.user.is_authenticated and request.user.role == 'owner' %}
+          {% with sub=request.user.subscription %}
+            {% if sub %}
+              <span class="sidebar-account__plan plan-{{ sub.plan }}">
+                {{ sub.get_plan_display }}{% if sub.is_founder %} · Founder{% endif %}{% if sub.is_lifetime %} · Lifetime{% endif %}
+              </span>
+            {% endif %}
+          {% endwith %}
+        {% endif %}
+      </div>
       <i class="bi bi-chevron-up" style="font-size:0.65rem; color:rgba(255,255,255,0.3);"></i>
 
       <div class="sidebar-dropdown" id="accountDropdown">
@@ -279,7 +294,7 @@
           <a class="sidebar-dropdown__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
             <i class="bi bi-person-circle"></i> Profile
           </a>
-          <a class="sidebar-dropdown__item" href="#">
+          <a class="sidebar-dropdown__item" href="{% url 'settings' %}">
             <i class="bi bi-gear"></i> Settings
           </a>
           <div class="sidebar-dropdown__divider"></div>

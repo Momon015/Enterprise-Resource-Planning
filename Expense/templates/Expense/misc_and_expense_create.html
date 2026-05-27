@@ -1,4 +1,10 @@
 {% extends "main.html" %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
 {% load humanize %}
 {% block content %}
 
@@ -71,12 +77,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
 {% if form %}
 {# ── MISC EXPENSE CREATE: create a reusable template ── #}
-<div class="mf-page-wrapper">
+<div class="page-wrapper">
+
+  <div class="mobile-back-row">
+  <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
   <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
 
     <!-- LEFT: FORM -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header col-mobile-hidden">
         <div class="sd-card-header-left">
           <div class="sd-header-icon">
             <i class="bi bi-bookmark-plus"></i>
@@ -243,7 +257,15 @@ document.addEventListener("DOMContentLoaded", function () {
 {# ── EXPENSE CREATE: log actual expense from templates ── #}
 <div class="page-wrapper">
 
-  <div class="page-header">
+  <div class="mobile-back-row">
+  <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
+
+  <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">EXPENSES</div>
       <h1 class="page-title">Log Expense</h1>
@@ -280,11 +302,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 <tr>
                   <th style="width:2.5rem; text-align:center;">
                     <input type="checkbox" class="expense-cb" id="checkAll" title="Select all"
-                           onchange="document.querySelectorAll('.expense-cb:not(#checkAll)').forEach(c => { c.checked = this.checked; c.closest('tr').classList.toggle('row-selected', this.checked); }); document.getElementById('selectedCount').textContent = this.checked ? '{{ misc_expenses|length }} selected' : '0 selected'; document.getElementById('selectedCount').style.display = this.checked ? 'inline-flex' : 'none';">
+                          onchange="document.querySelectorAll('.expense-cb:not(#checkAll)').forEach(c => { c.checked = this.checked; c.closest('tr').classList.toggle('row-selected', this.checked); }); document.getElementById('selectedCount').textContent = this.checked ? '{{ misc_expenses|length }} selected' : '0 selected'; document.getElementById('selectedCount').style.display = this.checked ? 'inline-flex' : 'none';">
                   </th>
                   <th>Expense</th>
-                  <th>Category</th>
-                  <th class="sl-text-end">Default</th>
+                  <th class="sl-text-end mobile-center">Default</th>
                   <th class="sl-text-end">Actual Amount</th>
                 </tr>
               </thead>
@@ -293,33 +314,32 @@ document.addEventListener("DOMContentLoaded", function () {
                 <tr>
                   <td style="text-align:center;">
                     <input type="checkbox" name="misc_expense" value="{{ misc.id }}"
-                           class="expense-cb" id="misc_{{ misc.id }}">
+                          class="expense-cb" id="misc_{{ misc.id }}">
                   </td>
                   <td>
                     <label for="misc_{{ misc.id }}" style="cursor:pointer; margin:0;">
                       <div class="cell-primary">{{ misc.name|capfirst }}</div>
+                      <div class="cell-sub">{{ misc.category.name|default:"No category" }}</div>
                     </label>
                   </td>
-                  <td>
-                    <span class="cell-sub">{{ misc.category.name|default:"No category" }}</span>
-                  </td>
-                  <td class="sl-text-end">
+                  <td class="sl-text-end mobile-center">
                     <span class="sl-fw-semibold">₱{{ misc.amount|floatformat:2|intcomma }}</span>
                   </td>
                   <td class="sl-text-end">
                     <div class="mf-peso-wrap" style="justify-content:flex-end;">
                       <span class="mf-peso-prefix">₱</span>
                       <input type="number" name="amount_{{ misc.id }}"
-                             class="form-control" style="width:120px; text-align:right;"
-                             step="0.01" min="0"
-                             value="{{ misc.amount|floatformat:2 }}"
-                             placeholder="0.00">
+                            class="form-control" style="width:120px; text-align:right;"
+                            step="0.01" min="0"
+                            value="{{ misc.amount|floatformat:2 }}"
+                            placeholder="0.00">
                     </div>
                   </td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
+
           </div>
 
           <!-- DATE + SUBMIT -->

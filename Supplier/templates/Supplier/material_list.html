@@ -117,10 +117,13 @@
             </thead>
             <tbody>
               {% for material in page_obj %}
-              <tr>
+              <tr class="{% if material.is_locked %}is-locked{% endif %}">
                 <td>
                   <div class="cell-primary">{{ material.name }}</div>
                   <span class="cell-sub">{{ material.supplier.name|default:'No supplier' }}</span>
+                  {% if material.is_locked %}
+                  <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                  {% endif %}
                 </td>
                 <td class="col-mobile-hidden">
                   <span class="cell-primary">{{ material.category.name|default:"No category" }}</span>

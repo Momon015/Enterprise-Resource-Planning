@@ -223,6 +223,21 @@
                   {% endif %}
                 </div>
                 {% endfor %}
+                
+                {% if show_human_check %}
+                  <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" name="confirm_human" id="confirmHuman" required>
+                    <label class="form-check-label small text-muted" for="confirmHuman">
+                      I confirm I'm a human, not a bot.
+                    </label>
+                  </div>
+                {% endif %}
+
+                {% if at_cap %}
+                  <div class="alert alert-info small mt-3">
+                    You currently have {{ current_count }}/{{ cap }} businesses. Contact support to add more.
+                  </div>
+                {% endif %}
 
                 <div class="mf-form-actions" style="margin-top:1.5rem;">
                   {% comment %} <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-outline-secondary">Cancel</a> {% endcomment %}

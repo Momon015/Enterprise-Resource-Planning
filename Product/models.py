@@ -18,6 +18,8 @@ class Product(SlugModel, TimeStampModel):
     unit = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_products')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['name']
@@ -57,6 +59,8 @@ class ProductPreset(TimeStampModel, SlugModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='product_presets', null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_product_presets', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ('business', 'name')

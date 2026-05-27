@@ -34,6 +34,8 @@ from django.contrib.messages import get_messages
 
 from django.core.exceptions import ValidationError
 
+from subscription.decorators import capacity_required
+
 # Create your views here
 
 @login_required(login_url='login')
@@ -129,7 +131,8 @@ def material_list(request, business_slug):
     return render(request, 'Supplier/material_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('create')
+@capacity_required('material')
+@permission_required('create') # dev
 def material_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
@@ -208,7 +211,8 @@ def material_delete(request, slug, id, business_slug):
     return render(request, 'Supplier/material_delete.html', context)
 
 @login_required(login_url='login')
-@permission_required('add')
+@capacity_required('material_preset')
+@permission_required('add') # dev
 def save_items(request, business_slug):
     cart = request.session.get('cart', {})
     
@@ -450,7 +454,8 @@ def supplier_list(request, business_slug):
     return render(request, 'Supplier/supplier_list.html', context)
 
 @login_required(login_url='login')
-@permission_required('add')
+@capacity_required('supplier')
+@permission_required('add') # dev
 def supplier_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
@@ -485,7 +490,7 @@ def supplier_create(request, business_slug):
 #     return render(request, 'Supplier/supplier_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('update')
+@permission_required('update') # dev
 def supplier_update(request, business_slug, supplier_id, slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)

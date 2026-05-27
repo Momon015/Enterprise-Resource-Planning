@@ -1,0 +1,471 @@
+{% extends 'main.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+/* ═══════════════════════════════════════════════
+   PRICING (shared by landing + in-app pricing)
+═══════════════════════════════════════════════ */
+
+.btn-lp {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 1.1rem; border-radius: 8px;
+  font-size: 0.875rem; font-weight: 600;
+  text-decoration: none; cursor: pointer; border: none;
+  transition: all 0.15s; font-family: var(--font);
+}
+.btn-accent {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 4px 14px rgba(45,106,79,0.25);
+}
+.btn-accent:hover {
+  background: var(--accent-hover); color: #fff;
+  transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,106,79,0.3);
+}
+.btn-outline {
+  background: transparent; color: var(--accent);
+  border: 1.5px solid var(--accent-border);
+}
+.btn-outline:hover {
+  background: var(--accent-light); border-color: var(--accent); color: var(--accent);
+}
+
+.lp-section-label {
+  font-size: 0.75rem; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+}
+.lp-section-title {
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 800; letter-spacing: -0.025em;
+  color: var(--text); margin-bottom: 0.75rem; line-height: 1.2;
+}
+.lp-section-sub {
+  font-size: 1rem; color: var(--muted);
+  max-width: 520px; line-height: 1.7; margin-bottom: 3rem;
+}
+
+/* Toggles wrapper */
+.lp-pricing-toggles {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 1rem; margin-bottom: 2.5rem;
+}
+.lp-pricing-toggles .lp-billing-toggle { margin-bottom: 0; }
+
+/* Business-count toggle (pill group) */
+.lp-business-toggle {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.25rem;
+  gap: 0.15rem;
+}
+.lp-business-toggle-btn {
+  border: none; background: transparent;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.825rem; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+  border-radius: 99px;
+  transition: all 0.2s;
+  font-family: var(--font);
+}
+.lp-business-toggle-btn:hover:not(.active) { color: var(--text); }
+.lp-business-toggle-btn.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+@media (max-width: 500px) {
+  .lp-business-toggle-btn { padding: 0.5rem 0.7rem; font-size: 0.75rem; }
+}
+
+/* Billing toggle (Monthly/Yearly switch) */
+.lp-billing-toggle {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.75rem; margin-bottom: 2.5rem;
+}
+.lp-billing-label {
+  font-size: 0.9rem; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.lp-billing-save-badge {
+  font-size: 0.7rem; font-weight: 700;
+  background: #dcfce7; color: #16a34a;
+  padding: 0.2rem 0.5rem; border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+.lp-toggle-btn {
+  width: 44px; height: 24px;
+  border-radius: 99px; border: none;
+  background: var(--border);
+  position: relative; cursor: pointer;
+  transition: background 0.25s; padding: 0;
+}
+.lp-toggle-btn.active { background: #3b82f6; }
+.lp-toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%; background: #fff;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.lp-toggle-btn.active .lp-toggle-knob { transform: translateX(20px); }
+
+.lp-pricing-yearly-note {
+  font-size: 0.775rem; color: var(--muted);
+  margin-bottom: 0.5rem; margin-top: -0.25rem;
+}
+.lp-save-tag {
+  display: inline-block;
+  background: #dcfce7; color: #16a34a;
+  font-size: 0.7rem; font-weight: 700;
+  padding: 0.15rem 0.45rem; border-radius: 99px;
+}
+
+/* Pricing grid */
+.lp-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 3rem auto 0;
+  align-items: start;
+}
+.lp-pricing-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem 1.75rem;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.lp-pricing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+}
+.lp-pricing-featured {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+  transform: translateY(-8px);
+}
+.lp-pricing-featured:hover { transform: translateY(-12px); }
+
+.lp-pricing-badge {
+  display: inline-block;
+  background: #3b82f6; color: #fff;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  margin-bottom: 1rem;
+}
+.lp-pricing-name {
+  font-size: 1.125rem; font-weight: 700;
+  color: var(--text); margin-bottom: 0.35rem;
+}
+.lp-pricing-price {
+  font-size: 2.5rem; font-weight: 800;
+  color: var(--text); line-height: 1;
+  margin-bottom: 0.5rem;
+}
+.lp-pricing-price span {
+  font-size: 1rem; font-weight: 500;
+  color: var(--muted);
+}
+.lp-pricing-desc {
+  font-size: 0.8375rem; color: var(--muted);
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.25rem;
+}
+.lp-pricing-features {
+  list-style: none; padding: 0; margin: 0 0 1.75rem;
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.lp-pricing-features li {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8375rem; color: var(--text);
+}
+.lp-pricing-features li i {
+  color: #22c55e; font-size: 0.875rem; flex-shrink: 0;
+}
+.lp-pricing-no { color: var(--muted) !important; }
+.lp-pricing-no i { color: var(--muted) !important; }
+
+@media (max-width: 1024px) {
+  .lp-pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 700px;
+  }
+}
+@media (max-width: 600px) {
+  .lp-pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+  .lp-pricing-featured { transform: none; order: -1; }
+}
+
+.lp-pricing-terms {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  max-width: 680px; margin: 2rem auto 0;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.875rem 1.125rem;
+  font-size: 0.8rem; color: var(--muted);
+  line-height: 1.6;
+}
+.lp-pricing-terms i {
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin-top: 2px; flex-shrink: 0;
+}
+.lp-pricing-terms strong { color: var(--text); }
+.lp-terms-link {
+  color: var(--accent);
+  text-decoration: none; font-weight: 600;
+}
+.lp-terms-link:hover { text-decoration: underline; }
+
+</style>
+
+<div class="page-wrapper" style="max-width:1200px;">
+
+  <div class="mobile-back-row">
+    <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i><span>Back</span>
+    </a>
+  </div>
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SUBSCRIPTION</div>
+      <h1 class="page-title">Pricing</h1>
+      <p class="page-subtitle">Pick a plan for each business. Contact support to upgrade or downgrade.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% endif %}
+
+  <!-- Toggles -->
+  <div class="lp-pricing-toggles" style="margin-bottom:1.5rem;">
+    <div class="lp-business-toggle" role="tablist" aria-label="Business count">
+      <button class="lp-business-toggle-btn {% if current_bundle == 'single' %}active{% endif %}" data-biz="single" type="button">1 Business</button>
+      <button class="lp-business-toggle-btn {% if current_bundle == 'dual' %}active{% endif %}" data-biz="dual" type="button">2 Businesses</button>
+      <button class="lp-business-toggle-btn {% if current_bundle == 'triple' %}active{% endif %}" data-biz="triple" type="button">3 Businesses</button>
+    </div>
+
+    <div class="lp-billing-toggle">
+      <span class="lp-billing-label" id="labelMonthly">Monthly</span>
+      <button class="lp-toggle-btn" id="billingToggle" aria-pressed="false">
+        <span class="lp-toggle-knob"></span>
+      </button>
+      <span class="lp-billing-label" id="labelYearly">
+        Yearly <span class="lp-billing-save-badge">Save up to 17%</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Pricing grid (copy from landing, with current-plan badge + Contact CTA) -->
+  <div class="lp-pricing-grid">
+    {% for plan_data in pricing_plans %}{# placeholder loop — see below #}{% endfor %}
+
+    <!-- FREE -->
+    <div class="lp-pricing-card" data-plan="free">
+      {% if current_plan == 'free' %}<div class="lp-pricing-badge" style="background:var(--accent);">CURRENT PLAN</div>{% endif %}
+      <div class="lp-pricing-name">Free</div>
+      <div class="lp-pricing-price"><span class="price-value">₱0</span><span class="price-suffix">/forever</span></div>
+      <div class="lp-pricing-desc">Try out Swift ERP with no commitment.</div>
+      <ul class="lp-pricing-features">
+        <li><i class="bi bi-check-lg"></i> Up to 3 businesses</li>
+        <li><i class="bi bi-check-lg"></i> Solo owner (no staff)</li>
+        <li><i class="bi bi-check-lg"></i> 10 products &amp; 10 materials</li>
+        <li><i class="bi bi-check-lg"></i> 2 suppliers</li>
+        <li><i class="bi bi-check-lg"></i> 10 sales/purchases/waste per month</li>
+        <li><i class="bi bi-check-lg"></i> 5 expense records per month</li>
+        <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+        <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
+      </ul>
+      {% if current_plan == 'free' %}
+        <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
+      {% else %}
+        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
+      {% endif %}
+    </div>
+
+    <!-- STANDARD -->
+    <div class="lp-pricing-card" data-plan="standard">
+      {% if current_plan == 'standard' %}<div class="lp-pricing-badge" style="background:var(--accent);">CURRENT PLAN</div>{% endif %}
+      <div class="lp-pricing-name">Standard</div>
+      <div class="lp-pricing-price"><span class="price-value">₱300</span><span class="price-suffix">/mo</span></div>
+      <div class="lp-pricing-yearly-note" style="display:none;"><span class="price-total">₱3,600</span> billed yearly</div>
+      <div class="lp-pricing-desc">We won't squeeze small owners — Standard stays affordable.</div>
+      <ul class="lp-pricing-features">
+        <li><i class="bi bi-check-lg"></i> 1 staff account</li>
+        <li><i class="bi bi-check-lg"></i> 30 products &amp; 30 materials</li>
+        <li><i class="bi bi-check-lg"></i> 5 suppliers</li>
+        <li><i class="bi bi-check-lg"></i> 30 sales/purchases per month</li>
+        <li><i class="bi bi-check-lg"></i> 30 waste &amp; 30 expenses per month</li>
+        <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+      </ul>
+      {% if current_plan == 'standard' %}
+        <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
+      {% else %}
+        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
+      {% endif %}
+    </div>
+
+    <!-- PREMIUM -->
+    <div class="lp-pricing-card lp-pricing-featured" data-plan="premium">
+      {% if current_plan == 'premium' %}
+        <div class="lp-pricing-badge" style="background:var(--accent);">CURRENT PLAN</div>
+      {% else %}
+        <div class="lp-pricing-badge">Most Popular</div>
+      {% endif %}
+      <div class="lp-pricing-name">Premium</div>
+      <div class="lp-pricing-price"><span class="price-value">₱1,299</span><span class="price-suffix">/mo</span></div>
+      <div class="lp-pricing-yearly-note" style="display:none;">
+       <span class="price-total">₱13,188</span> billed yearly &nbsp;<span class="lp-save-tag">Save <span class="price-save">₱2,400</span></span>
+      </div>
+      <div class="lp-pricing-desc">For growing shops that need more room.</div>
+      <ul class="lp-pricing-features">
+        <li><i class="bi bi-check-lg"></i> 5 staff accounts</li>
+        <li><i class="bi bi-check-lg"></i> Unlimited products &amp; materials</li>
+        <li><i class="bi bi-check-lg"></i> 10 suppliers</li>
+        <li><i class="bi bi-check-lg"></i> Unlimited sales/purchases/waste/expenses</li>
+        <li><i class="bi bi-check-lg"></i> Monthly + daily summaries</li>
+        <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
+      </ul>
+      {% if current_plan == 'premium' %}
+        <button class="btn-lp btn-accent" disabled style="opacity:0.5;">Current plan</button>
+      {% else %}
+        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-accent" style="justify-content:center;">Contact support</a>
+      {% endif %}
+    </div>
+
+    <!-- PRO -->
+    <div class="lp-pricing-card" data-plan="pro">
+      {% if current_plan == 'pro' %}<div class="lp-pricing-badge" style="background:var(--accent);">CURRENT PLAN</div>{% endif %}
+      <div class="lp-pricing-name">Pro</div>
+      <div class="lp-pricing-price"><span class="price-value">₱1,499</span><span class="price-suffix">/mo</span></div>
+      <div class="lp-pricing-yearly-note" style="display:none;">
+       <span class="price-total">₱14,880</span> billed yearly &nbsp;<span class="lp-save-tag">Save <span class="price-save">₱3,108</span></span>
+      </div>
+      <div class="lp-pricing-desc">For multi-store or staffed operations.</div>
+      <ul class="lp-pricing-features">
+        <li><i class="bi bi-check-lg"></i> 10 staff accounts</li>
+        <li><i class="bi bi-check-lg"></i> Unlimited products &amp; materials</li>
+        <li><i class="bi bi-check-lg"></i> Unlimited suppliers</li>
+        <li><i class="bi bi-check-lg"></i> Unlimited sales/purchases/waste/expenses</li>
+        <li><i class="bi bi-check-lg"></i> Full dashboard</li>
+        <li><i class="bi bi-check-lg"></i> Daily + weekly + monthly summaries</li>
+      </ul>
+      {% if current_plan == 'pro' %}
+        <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
+      {% else %}
+        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="lp-pricing-terms" style="margin-top:1.5rem;">
+    <i class="bi bi-info-circle"></i>
+    <div>
+      <strong>Yearly billing terms:</strong> Pay annually upfront or in monthly installments at the discounted rate.
+      If you cancel a yearly plan early, the remaining balance is recalculated at the standard monthly rate — any difference becomes due upon cancellation.
+      <a href="{% url 'subscription-contact' business_slug=business.slug %}">Questions? Contact us.</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const PRICING = {
+    free:     { mo:{s:0,d:0,t:0},          yrMo:{s:0,d:0,t:0},          yrTotal:{s:0,d:0,t:0},          save:{s:0,d:0,t:0} },
+    standard: { mo:{s:300,d:450,t:600},    yrMo:{s:300,d:450,t:600},    yrTotal:{s:3600,d:5400,t:7200}, save:{s:0,d:0,t:0} },
+    premium:  { mo:{s:1299,d:1899,t:2499}, yrMo:{s:1099,d:1614,t:2125}, yrTotal:{s:13188,d:19370,t:25500}, save:{s:2400,d:3418,t:4488} },
+    pro:      { mo:{s:1499,d:2199,t:2899}, yrMo:{s:1240,d:1808,t:2406}, yrTotal:{s:14880,d:21696,t:28875}, save:{s:3108,d:4692,t:5913} }
+  };
+  const BIZ_KEY = { single:'s', dual:'d', triple:'t' };
+
+  // Initial state from server-passed context
+  let currentBilling = 'monthly';
+  let currentBiz = '{{ current_bundle|default:"single" }}';
+
+  const peso = n => '₱' + n.toLocaleString('en-PH');
+
+  function updatePricing() {
+    const isYearly = currentBilling === 'yearly';
+    const k = BIZ_KEY[currentBiz] || 's';
+
+    document.querySelectorAll('.lp-pricing-card[data-plan]').forEach(card => {
+      const plan = card.dataset.plan;
+      const data = PRICING[plan];
+      if (!data) return;
+      if (plan === 'free') return;  // Free stays static
+
+      const priceEl  = card.querySelector('.price-value');
+      const suffixEl = card.querySelector('.price-suffix');
+      const noteEl   = card.querySelector('.lp-pricing-yearly-note');
+      const totalEl  = card.querySelector('.price-total');
+      const saveEl   = card.querySelector('.price-save');
+      const saveTag  = card.querySelector('.lp-save-tag');
+
+      if (isYearly) {
+        priceEl.textContent  = peso(data.yrMo[k]);
+        suffixEl.textContent = '/mo';
+        if (noteEl) {
+          noteEl.style.display = '';
+          if (totalEl) totalEl.textContent = peso(data.yrTotal[k]);
+          if (saveEl && saveTag) {
+            if (data.save[k] > 0) {
+              saveEl.textContent = peso(data.save[k]);
+              saveTag.style.display = '';
+            } else {
+              saveTag.style.display = 'none';
+            }
+          }
+        }
+      } else {
+        priceEl.textContent  = peso(data.mo[k]);
+        suffixEl.textContent = '/mo';
+        if (noteEl) noteEl.style.display = 'none';
+      }
+    });
+  }
+
+  // Billing toggle (Monthly ↔ Yearly)
+  const billingToggle = document.getElementById('billingToggle');
+  const labelM = document.getElementById('labelMonthly');
+  const labelY = document.getElementById('labelYearly');
+  if (billingToggle) {
+    billingToggle.addEventListener('click', function () {
+      const isYearly = this.classList.toggle('active');
+      this.setAttribute('aria-pressed', isYearly);
+      currentBilling = isYearly ? 'yearly' : 'monthly';
+      if (labelM) labelM.style.opacity = isYearly ? '0.5' : '1';
+      if (labelY) labelY.style.opacity = isYearly ? '1' : '0.5';
+      updatePricing();
+    });
+  }
+
+  // Business-count toggle (1/2/3)
+  document.querySelectorAll('.lp-business-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.lp-business-toggle-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      currentBiz = this.dataset.biz;
+      updatePricing();
+    });
+  });
+
+  updatePricing();  // initial render with server-passed bundle
+})();
+</script>
+
+{% endblock %}

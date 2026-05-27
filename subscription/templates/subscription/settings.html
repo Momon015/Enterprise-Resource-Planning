@@ -1,0 +1,265 @@
+{% extends 'main.html' %}
+{% load humanize %}
+
+{% block title %}Subscription — {{ business.business_name }}{% endblock %}
+
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="toast-message toast-{{ message.tags }}">
+        {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+        {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+        {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+        {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {% endif %}
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SETTINGS</div>
+      <h1 class="page-title">Subscription</h1>
+      <p class="page-subtitle">Each business has its own plan. Total bill = sum across all businesses.</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-building"></i>
+        <strong>{{ business_count }}</strong> / {{ bundle_count }} businesses
+      </div>
+      {% if sub.is_founder %}
+        <div class="header-stat accent">
+          <i class="bi bi-award-fill"></i> Founder
+        </div>
+      {% endif %}
+      {% if sub.is_lifetime %}
+        <div class="header-stat accent">
+          <i class="bi bi-infinity"></i> Lifetime
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: BILLING + PER-BUSINESS CARDS -->
+    <div class="left-panel">
+
+      <!-- TOTAL BILLING -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-credit-card-2-front-fill"></i> Total Billing
+            </span>
+          </div>
+          <span class="card-header-sub">Across all your businesses</span>
+        </div>
+        <div class="card-body">
+          <div class="sd-stats-row">
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Monthly</div>
+              <div class="sd-stat-value green">₱{{ total_monthly|floatformat:2|intcomma }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Yearly (paid upfront)</div>
+              <div class="sd-stat-value green">₱{{ total_yearly|floatformat:2|intcomma }}</div>
+            </div>
+            <div class="sd-stat-box">
+              <div class="sd-stat-label">Billing cycle</div>
+              <div class="sd-stat-value">{{ sub.get_billing_cycle_display }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PER-BUSINESS CARDS -->
+      {% for item in businesses %}
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left-group">
+              <span class="card-header-title">
+                <i class="bi bi-shop"></i> {{ item.business.business_name }}
+              </span>
+              <span class="sl-badge sl-badge-light">{{ item.business.get_business_type_display }}</span>
+            </div>
+            <span class="status-badge status-success">{{ item.plan.get_plan_display }}</span>
+          </div>
+          <div class="card-body">
+
+            <!-- PLAN PICKER -->
+            <div class="sd-section-label">Choose plan for this business</div>
+            <form method="post" action="{% url 'subscription-change-plan' business_slug=business.slug %}"
+                  style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+              {% csrf_token %}
+              <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
+              {% for opt in plan_options %}
+                <button type="submit"
+                        name="new_plan"
+                        value="{{ opt.key }}"
+                        class="btn btn-sm {% if item.plan.plan == opt.key %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                        {% if item.plan.plan == opt.key %}disabled{% endif %}>
+                  {{ opt.name }}
+                  {% if opt.monthly_per_biz %}
+                    <small style="opacity:0.7;">· ₱{{ opt.monthly_per_biz|floatformat:0|intcomma }}/mo</small>
+                  {% endif %}
+                </button>
+              {% endfor %}
+            </form>
+
+            <!-- USAGE TABLE -->
+            <div class="sd-section-label">Usage</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th class="sl-text-center">Used</th>
+                  <th class="sl-text-center">Limit</th>
+                  <th class="sl-text-center">Locked</th>
+                  <th class="sl-text-end">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in item.usage_rows %}
+                  <tr>
+                    <td><div class="cell-primary">{{ row.label }}</div></td>
+                    <td class="sl-text-center sl-fw-semibold">{{ row.used }}</td>
+                    <td class="sl-text-center">
+                      {% if row.limit is None %}
+                        <span class="sl-badge sl-badge-light">Unlimited</span>
+                      {% else %}
+                        {{ row.limit }}
+                      {% endif %}
+                    </td>
+                    <td class="sl-text-center">
+                      {% if row.locked %}
+                        <span class="locked-badge"><i class="bi bi-lock-fill"></i> {{ row.locked }}</span>
+                      {% else %}
+                        <span class="sl-text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="sl-text-end">
+                      {% if row.limit is None %}
+                        <span class="status-badge status-success">OK</span>
+                      {% else %}
+                        {% if row.used >= row.limit %}
+                          <span class="status-badge status-danger">At limit</span>
+                        {% elif row.used >= row.limit|add:"-2" %}
+                          <span class="status-badge status-warning">Near limit</span>
+                        {% else %}
+                          <span class="status-badge status-success">OK</span>
+                        {% endif %}
+                        {% if row.locked or row.used >= row.limit %}
+                          <a href="{% url 'subscription-manage-active' business_slug=item.business.slug model_key=row.key %}"
+                             class="action-btn" style="display:inline-flex; margin-left:0.4rem;"
+                             title="Manage which {{ row.label|lower }} stay active">
+                            <i class="bi bi-pencil-square"></i>
+                          </a>
+                        {% endif %}
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty-state">
+          <div class="empty-icon"><i class="bi bi-shop"></i></div>
+          <h3 class="empty-title">No businesses yet</h3>
+          <p class="empty-sub">Create a business profile to assign a plan.</p>
+        </div>
+      {% endfor %}
+
+    </div>
+
+    <!-- RIGHT: ACCOUNT-LEVEL ACTIONS -->
+    <div class="right-panel">
+
+      <div class="card">
+        <div class="card-header dark">
+          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle-fill"></i> Account
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="sd-info-row">
+            <span class="sd-info-label">Bundle slots</span>
+            <span class="sd-info-value">{{ business_count }} / {{ bundle_count }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Started</span>
+            <span class="sd-info-value">{{ sub.started_at|date:"M d, Y" }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Trial</span>
+            <span class="sd-info-value">{% if sub.trial_used %}Used{% else %}Available{% endif %}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-arrow-up-circle-fill"></i> Need more slots?
+            </span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="action-info-box">
+            <i class="bi bi-info-circle-fill"></i>
+            <p>To add more businesses beyond your current bundle ({{ bundle_count }}), please contact support.</p>
+          </div>
+          <div class="btn-grid">
+            <a href="{% url 'subscription-pricing' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-eye"></i> View pricing
+            </a>
+            <a href="{% url 'subscription-contact' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-envelope-fill"></i> Contact support
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {% if not sub.is_founder and not sub.is_lifetime %}
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left-group">
+              <span class="card-header-title">
+                <i class="bi bi-award-fill"></i> Founder Code
+              </span>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="sl-quick-label" style="margin-bottom: 0.75rem;">
+              Got an invite code? Lock in lifetime pricing.
+            </p>
+            <form method="post" action="{% url 'subscription-claim-founder' business_slug=business.slug %}">
+              {% csrf_token %}
+              <input type="text" name="founder_code" class="preset-input"
+                     placeholder="Enter founder code"
+                     autocomplete="off" required>
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="bi bi-unlock-fill"></i> Claim
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}

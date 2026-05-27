@@ -1,0 +1,288 @@
+{% extends 'main.html' %}
+{% load humanize %}
+
+{% block title %}Manage {{ model_label }} — Subscription{% endblock %}
+
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="toast-message toast-{{ message.tags }}">
+        {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+        {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+        {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {% endif %}
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="breadcrumb-link">SUBSCRIPTION</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>MANAGE</span>
+      </div>
+      <h1 class="page-title">Choose active {{ model_label|lower }}</h1>
+      <p class="page-subtitle">
+        Your <strong>{{ sub.get_plan_display }}</strong> plan allows up to
+        <strong>{{ cap }}</strong> active {{ model_label|lower }}.
+        Pick which to keep unlocked — the rest will be locked.
+      </p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+      <button type="button" id="reset-btn" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-counterclockwise"></i> Reset
+      </button>
+    </div>
+  </div>
+
+  <form method="post" id="manage-active-form" action="{% url 'subscription-manage-active' business_slug=business.slug model_key=model_key %}">
+    {% csrf_token %}
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left-group">
+          <span class="card-header-title">
+            <i class="bi bi-check2-square"></i> {{ model_label }}
+          </span>
+          <span class="sl-badge sl-badge-light">{{ total_items }} total</span>
+        </div>
+        <span class="card-header-sub">
+          Selected: <strong id="selected-count">0</strong> / <strong>{{ cap }}</strong>
+        </span>
+      </div>
+
+      <div class="table-responsive">
+        {% if page_obj and page_obj.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:42px;">
+                  <input type="checkbox" id="select-all" title="Select all on this page">
+                </th>
+                <th>Name</th>
+                <th>Last updated</th>
+                <th class="sl-text-end">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in page_obj %}
+                <tr>
+                  <td>
+                    <input type="checkbox"
+                           class="item-check"
+                           name="keep_ids"
+                           value="{{ item.id }}">
+                  </td>
+                  <td>
+                    <div class="cell-primary">{{ item.name }}</div>
+                  </td>
+                  <td>
+                    <span class="cell-sub">{{ item.updated_at|date:"M d, Y" }}</span>
+                  </td>
+                  <td class="sl-text-end">
+                    {% if item.is_locked %}
+                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                    {% else %}
+                      <span class="status-badge status-success">Active</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+            <h3 class="empty-title">No {{ model_label|lower }} yet</h3>
+            <p class="empty-sub">Nothing to manage.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- PAGINATION -->
+      {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+
+              {% for p in page_obj.paginator.page_range %}
+                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                  <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+              {% endfor %}
+
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+      {% endif %}
+
+      {% if page_obj and page_obj.object_list %}
+        <div class="card-body" style="border-top: 1px solid var(--border-light);">
+          <div class="action-info-box">
+            <i class="bi bi-info-circle-fill"></i>
+            <p>
+              Selections are saved as you navigate pages.
+              You may select up to <strong>{{ cap }}</strong> items total across all pages.
+              Items you uncheck will be <strong>locked</strong> — hidden from lists and disabled across the app.
+            </p>
+          </div>
+
+          <div class="mf-form-actions">
+            <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" id="save-btn">
+              <i class="bi bi-check2-circle"></i> Save selection
+            </button>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function() {
+  const MODEL_KEY = '{{ model_key }}';
+  const BIZ_SLUG = '{{ business.slug }}';
+  const CAP = {{ cap }};
+  const STORAGE_KEY = `manage_active_${BIZ_SLUG}_${MODEL_KEY}`;
+  const INITIAL_ACTIVE = {{ initial_active_ids|safe }};
+
+  function loadSelected() {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw === null) {
+      // First visit — seed with currently active items so the page reflects DB state
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ACTIVE));
+      return new Set(INITIAL_ACTIVE);
+    }
+    return new Set(JSON.parse(raw));
+  }
+
+  function saveSelected(set) {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(set)));
+  }
+
+  const selected = loadSelected();
+  const checks = document.querySelectorAll('.item-check');
+  const countEl = document.getElementById('selected-count');
+  const saveBtn = document.getElementById('save-btn');
+  const selAll = document.getElementById('select-all');
+  const resetBtn = document.getElementById('reset-btn');
+  const form = document.getElementById('manage-active-form');
+
+  // Restore checkbox state from sessionStorage for items on this page
+  checks.forEach(cb => {
+    const id = parseInt(cb.value, 10);
+    cb.checked = selected.has(id);
+  });
+
+  function updateState() {
+    if (countEl) countEl.textContent = selected.size;
+
+    // Color feedback
+    if (countEl) {
+      if (selected.size > CAP) countEl.style.color = 'var(--danger)';
+      else if (selected.size === CAP) countEl.style.color = 'var(--accent)';
+      else countEl.style.color = '';
+    }
+
+    // Disable unchecked boxes when at cap
+    checks.forEach(cb => {
+      cb.disabled = (!cb.checked && selected.size >= CAP);
+    });
+
+    // Disable save if over cap (shouldn't happen but defense)
+    if (saveBtn) saveBtn.disabled = selected.size > CAP;
+  }
+
+  // Track checkbox changes
+  checks.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = parseInt(cb.value, 10);
+      if (cb.checked) selected.add(id);
+      else selected.delete(id);
+      saveSelected(selected);
+      updateState();
+    });
+  });
+
+  // Select all on this page (within cap)
+  if (selAll) {
+    selAll.addEventListener('change', () => {
+      checks.forEach(cb => {
+        const id = parseInt(cb.value, 10);
+        if (selAll.checked && selected.size < CAP && !cb.checked) {
+          cb.checked = true;
+          selected.add(id);
+        } else if (!selAll.checked && cb.checked) {
+          cb.checked = false;
+          selected.delete(id);
+        }
+      });
+      saveSelected(selected);
+      updateState();
+    });
+  }
+
+  // Reset to DB state (currently active items)
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reset selections to your current active items?')) return;
+      sessionStorage.removeItem(STORAGE_KEY);
+      window.location.reload();
+    });
+  }
+
+  // On submit: inject hidden inputs for ALL selected IDs (across all pages)
+  if (form) {
+    form.addEventListener('submit', () => {
+      // Disable visible checkboxes so they don't double-submit
+      checks.forEach(cb => { cb.disabled = true; });
+
+      // Append hidden inputs for every selected ID from sessionStorage
+      Array.from(selected).forEach(id => {
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'keep_ids';
+        hidden.value = id;
+        form.appendChild(hidden);
+      });
+
+      // Clear sessionStorage — next visit starts fresh from server state
+      sessionStorage.removeItem(STORAGE_KEY);
+    });
+  }
+
+  updateState();
+})();
+</script>
+
+{% endblock %}

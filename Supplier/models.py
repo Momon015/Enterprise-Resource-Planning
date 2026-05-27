@@ -11,6 +11,8 @@ class Supplier(TimeStampModel, SlugModel):
     name = models.CharField(max_length=255)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_supplies', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='suppliers', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
@@ -82,6 +84,8 @@ class Material(TimeStampModel, SlugModel):
     piece_per_unit = models.PositiveBigIntegerField(default=1)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_materials', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
@@ -111,6 +115,8 @@ class MaterialPreset(TimeStampModel, SlugModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='presets', null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_material_presets', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ('business', 'name')
