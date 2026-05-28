@@ -1855,7 +1855,7 @@
           <div>
             <div class="lp-contact-label">Email</div>
             <div class="lp-contact-value">
-              <a href="mailto:swifterp.noreply@gmail.com">swifterp.noreply@gmail.com</a>
+              <a href="mailto:swifterp.support@gmail.com">swifterp.support@gmail.com</a>
             </div>
             <div class="lp-contact-note">For bug reports, feature requests, or general inquiries.</div>
           </div>
@@ -1892,7 +1892,7 @@
         <div class="lp-form-title">Send a message</div>
         <div class="lp-form-sub">Fill out the form and I'll get back to you as soon as possible.</div>
 
-        <form method="POST" action="mailto:swifterp.noreply@gmail.com">
+        <form method="POST" action="mailto:swifterp.support@gmail.com">
           <div class="lp-field">
             <label for="contact-name">Your name</label>
             <input type="text" id="contact-name" name="name" placeholder="e.g. Juan dela Cruz" required>
@@ -1957,7 +1957,7 @@
     <div>
       <div class="lp-footer-col-title">Contact</div>
       <ul class="lp-footer-links">
-        <li><a href="mailto:swifterp.noreply@gmail.com">swifterp.noreply@gmail.com</a></li>
+        <li><a href="mailto:swifterp.support@gmail.com">swifterp.support@gmail.com</a></li>
         <li><a href="tel:+639762049668">+63 976 204 9668</a></li>
 
       </ul>
@@ -1971,7 +1971,7 @@
       <a href="tel:+639123456789" class="lp-social-btn" title="Phone">
         <i class="bi bi-telephone-fill"></i>
       </a>
-      <a href="mailto:swifterp.noreply@gmail.com" class="lp-social-btn" title="Email">
+      <a href="mailto:swifterp.support@gmail.com" class="lp-social-btn" title="Email">
         <i class="bi bi-envelope-fill"></i>
       </a>
     </div>
@@ -2017,11 +2017,12 @@ document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 // Billing toggle
 // ── PRICING TOGGLES ──
 const PRICING = {
-  free:     { mo:{s:0,d:0,t:0},          yrMo:{s:0,d:0,t:0},          yrTotal:{s:0,d:0,t:0},          save:{s:0,d:0,t:0} },
-  standard: { mo:{s:300,d:450,t:600},    yrMo:{s:300,d:450,t:600},    yrTotal:{s:3600,d:5400,t:7200}, save:{s:0,d:0,t:0} },
-  premium:  { mo:{s:1299,d:1899,t:2499}, yrMo:{s:1099,d:1614,t:2125}, yrTotal:{s:13188,d:19370,t:25500}, save:{s:2400,d:3418,t:4488} },
-  pro:      { mo:{s:1499,d:2199,t:2899}, yrMo:{s:1240,d:1808,t:2406}, yrTotal:{s:14880,d:21696,t:28875}, save:{s:3108,d:4692,t:5913} }
+  free:     { mo:{s:0,d:0,t:0},          yrMo:{s:0,d:0,t:0},             yrTotal:{s:0,d:0,t:0},             save:{s:0,d:0,t:0} },
+  standard: { mo:{s:300,d:450,t:600},    yrMo:{s:300,d:450,t:600},       yrTotal:{s:3600,d:5400,t:7200},   save:{s:0,d:0,t:0} },
+  premium:  { mo:{s:1299,d:1899,t:2499}, yrMo:{s:1104,d:1614,t:2124},    yrTotal:{s:13248,d:19368,t:25488}, save:{s:2340,d:3420,t:4500} },
+  pro:      { mo:{s:1499,d:2199,t:2899}, yrMo:{s:1244,d:1825,t:2406},    yrTotal:{s:14928,d:21900,t:28872}, save:{s:3060,d:4488,t:5916} }
 };
+
 const BIZ_KEY = { single:'s', dual:'d', triple:'t' };
 let currentBilling = 'monthly';
 let currentBiz = 'single';

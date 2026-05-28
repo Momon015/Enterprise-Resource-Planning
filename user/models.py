@@ -128,15 +128,15 @@ class BusinessProfile(models.Model):
         ('retail', 'Retail'),
         ('cafe', 'Cafe'),
         ('restaurant', 'Restaurant'),
+        ('pharmacy', 'Drugstore'),
     )
-    
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')
     business_name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, max_length=255, db_index=True, null=True, blank=True)
     business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     address = models.TextField(null=True, blank=True, max_length=255)
-    
     
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -172,5 +172,10 @@ class BusinessProfile(models.Model):
     @property
     def is_restaurant(self):
         return self.business_type == 'restaurant'
+    
+    @property
+    def is_pharmacy(self):
+        return self.business_type == 'pharmacy'
+
     
 

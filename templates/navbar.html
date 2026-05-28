@@ -115,6 +115,8 @@
         <img src="{% static 'images/business-types/restaurant.png' %}" alt="Restaurant" style="width:100%;height:100%;object-fit:contain;">
       {% elif current_business.business_type == 'retail' %}
         <img src="{% static 'images/business-types/retail.png' %}" alt="Retail" style="width:100%;height:100%;object-fit:contain;">
+      {% elif current_business.business_type == 'pharmacy' %}
+        <img src="{% static 'images/business-types/pharmacy.png' %}" alt="Drugstore" style="width:100%;height:100%;object-fit:contain;">
       {% else %}
         <img src="{% static 'images/business-types/default.png' %}" alt="Business" style="width:100%;height:100%;object-fit:contain;">
       {% endif %}

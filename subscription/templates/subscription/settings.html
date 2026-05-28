@@ -67,10 +67,13 @@
               <div class="sd-stat-label">Monthly</div>
               <div class="sd-stat-value green">₱{{ total_monthly|floatformat:2|intcomma }}</div>
             </div>
+
             <div class="sd-stat-box">
               <div class="sd-stat-label">Yearly (paid upfront)</div>
               <div class="sd-stat-value green">₱{{ total_yearly|floatformat:2|intcomma }}</div>
+              <div class="sd-stat-sub">≈ ₱{{ total_yearly_monthly|floatformat:2|intcomma }}/mo effective</div>
             </div>
+
             <div class="sd-stat-box">
               <div class="sd-stat-label">Billing cycle</div>
               <div class="sd-stat-value">{{ sub.get_billing_cycle_display }}</div>
@@ -130,6 +133,21 @@
                 </button>
               </form>
             {% endif %}
+
+            {% if item.plan.plan != 'free' %}
+              {% if item.plan.pending_cancellation %}
+                <div class="alert alert-warning" style="margin-top:0.75rem;">
+                  <i class="bi bi-clock-history"></i> Cancellation pending — ends {{ item.plan.expires_at|date:"M d, Y" }}
+                </div>
+              {% else %}
+                <a href="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
+                  class="btn btn-sm btn-outline-danger" style="margin-top:0.5rem;">
+                  <i class="bi bi-x-circle"></i> Cancel subscription
+                </a>
+              {% endif %}
+            {% endif %}
+
+
 
 
             <!-- USAGE TABLE -->

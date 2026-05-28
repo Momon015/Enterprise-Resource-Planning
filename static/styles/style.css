@@ -4715,6 +4715,11 @@ details.filter-card summary:hover {
   font-weight: 600;
 }
 
+.sd-stat-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
 
 
 /* ══════════════════════════════════════════

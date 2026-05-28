@@ -280,7 +280,15 @@ def user_login(request):
             user_obj.reset_attempts()
             user_obj.last_login = timezone.now()
             user_obj.save(update_fields=['last_login'])
-            if user.role == 'owner':
+            
+            # No business yet → send owner to create one, staff to a safe page
+            if business is None:
+                if user.role == 'owner':
+                    return redirect('business-profile-create')
+                return redirect('login')
+
+            bp = getattr(business, 'plan', None)
+            if user.role == 'owner' and bp and bp.has_dashboard():
                 return redirect('dashboard', business_slug=business.slug)
             else:
                 return redirect('product-list', business_slug=business.slug)

@@ -30,8 +30,8 @@ urlpatterns = [
 
     
     # business profile
-    path('business/list/', views.business_list, name='business-list'),
-    path('business-profile/create/', views.business_profile_create, name='business-profile-create'),
-    path('business/<int:business_id>/<slug:slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
-    path('business/<int:business_id>/<slug:slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
+    path('settings/business/list/', views.business_list, name='business-list'),
+    path('settings/business-profile/create/', views.business_profile_create, name='business-profile-create'),
+    path('settings/business/<int:business_id>/<slug:slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
+    path('settings/business/<int:business_id>/<slug:slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
 ]

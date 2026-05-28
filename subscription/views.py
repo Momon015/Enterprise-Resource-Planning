@@ -9,6 +9,11 @@ from subscription.models import (
 )
 from core.utils.owner import get_business_for_user
 
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
+
+from decimal import Decimal, ROUND_HALF_UP
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -28,9 +33,6 @@ def pricing(request, business_slug):
 
 @login_required(login_url='login')
 def contact(request, business_slug):
-    from django.core.mail import EmailMultiAlternatives
-    from django.conf import settings
-    
     """In-app contact form — owner emails support."""
     business = get_business_for_user(request.user, business_slug)
     
@@ -176,16 +178,21 @@ def subscription_settings(request, business_slug):
             'has_dashboard': PLAN_LIMITS[plan_key]['dashboard'],
         })
 
+    yearly_total = sub.get_yearly_price()
+    yearly_as_monthly = (yearly_total / 12).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if yearly_total else Decimal('0')
+
     context = {
         'sub': sub,
         'business': business,
         'businesses': businesses_data,
         'plan_options': plan_options,
         'total_monthly': sub.get_monthly_price(),
-        'total_yearly': sub.get_yearly_price(),
+        'total_yearly': yearly_total,
+        'total_yearly_monthly': yearly_as_monthly,   # ← new
         'bundle_count': BUNDLE_COUNT.get(sub.bundle, 1),
         'business_count': owner.business_profiles.count(),
     }
+
     return render(request, 'subscription/settings.html', context)
 
 @login_required(login_url='login')
@@ -378,4 +385,117 @@ def manage_active(request, business_slug, model_key):
     }
     return render(request, 'subscription/manage_active.html', context)
 
+@login_required(login_url='login')
+def cancel_business_confirm(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    target_biz_id = request.POST.get('target_business_id') or request.GET.get('target_business_id')
 
+    from user.models import BusinessProfile
+    try:
+        target_biz = request.user.business_profiles.get(id=target_biz_id)
+    except (BusinessProfile.DoesNotExist, ValueError, TypeError):
+        messages.error(request, 'Business not found.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    target_bp = getattr(target_biz, 'plan', None)
+    sub = getattr(request.user, 'subscription', None)
+
+    if target_bp is None or sub is None:
+        messages.error(request, 'No active subscription found.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+
+    if target_bp.plan == 'free' or target_bp.pending_cancellation:
+        messages.info(request, "Nothing to cancel for this business.")
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    balance_due = target_bp.compute_balance_due() if (sub.billing_cycle == 'yearly' and sub.payment_method != 'upfront') else Decimal('0')
+    months_used = target_bp.months_used_on_plan()
+    cycle_end = target_bp.expires_at
+
+    if request.method == 'POST' and request.POST.get('confirm') == 'yes':
+        try:
+            invoice = target_bp.request_cancellation()
+        except (ValueError, ValidationError) as e:
+            messages.error(request, str(e))
+            return redirect('subscription-settings', business_slug=business.slug)
+
+        _send_cancellation_emails(request.user, target_biz, invoice)
+        messages.success(
+            request,
+            f"Cancellation confirmed. {target_biz.business_name} ends on {cycle_end.strftime('%b %d, %Y')}."
+        )
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    return render(request, 'subscription/cancel_confirm.html', {
+        'business': business,
+        'target_biz': target_biz,
+        'target_bp': target_bp,
+        'balance_due': balance_due,
+        'months_used': months_used,
+        'cycle_end': cycle_end,
+        'sub': sub,
+    })
+
+
+def _send_cancellation_emails(owner, target_biz, invoice):
+    support_email = getattr(settings, 'SUPPORT_EMAIL', settings.EMAIL_HOST_USER)
+    cycle_end_str = invoice.cycle_end_at.strftime('%b %d, %Y')
+    due_str = invoice.due_at.strftime('%b %d, %Y')
+
+    if invoice.amount_due > 0:
+        balance_line = (
+            f"Because yearly billing gave you a discounted rate, the {invoice.months_used} month(s) "
+            f"you used are recalculated at the standard monthly rate. The difference is "
+            f"₱{invoice.amount_due} — just the discount for those months, no penalty. "
+            f"You can settle it anytime before {due_str}.\n\n"
+        )
+    else:
+        balance_line = "No additional payment is required.\n\n"
+
+    owner_body = (
+        f"Hi {owner.username},\n\n"
+        f"Your cancellation for '{target_biz.business_name}' is confirmed.\n\n"
+        f"• Plan ends on: {cycle_end_str} (your data stays accessible until then)\n"
+        f"• Months used: {invoice.months_used}\n\n"
+        f"{balance_line}"
+        f"Thanks for giving Swift ERP a try. You're always welcome back.\n\n"
+        f"— Swift ERP"
+    )
+    try:
+        EmailMultiAlternatives(
+            subject=f"[Swift ERP] Cancellation confirmed — {target_biz.business_name}",
+            body=owner_body,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[owner.email] if owner.email else [],
+        ).send()
+    except Exception:
+        pass
+
+    support_body = (
+        f"Cancellation logged.\n\n"
+        f"Owner: {owner.username} ({owner.email})\n"
+        f"Business: {target_biz.business_name} (slug: {target_biz.slug})\n"
+        f"Plan: {invoice.plan_at_cancel.title()}\n"
+        f"Payment method: {getattr(owner.subscription, 'get_payment_method_display', lambda: 'n/a')()}\n"
+        f"Cycle ends: {cycle_end_str}\n"
+        f"Months used: {invoice.months_used}\n"
+        f"Balance due: ₱{invoice.amount_due} (status: {invoice.get_status_display()})\n"
+        f"Invoice ID: {invoice.id}\n"
+        + ("\n⚠ UPFRONT payer — likely owed a refund. Compute manually: "
+           "total_paid − (months_used × standard_monthly_rate).\n"
+           if invoice.status == 'waived' else "")
+    )
+    try:
+        EmailMultiAlternatives(
+            subject=f"[Swift ERP Admin] Cancellation — {target_biz.business_name}",
+            body=support_body,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[support_email],
+        ).send()
+    except Exception:
+        pass
+
+    
+
+    

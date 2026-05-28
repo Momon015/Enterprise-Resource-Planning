@@ -1,7 +1,7 @@
 from django.db import models, transaction
 from django.utils import timezone
 from datetime import timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN
 
 from user.models import User
 import secrets
@@ -128,6 +128,12 @@ REGULAR_EXTRA_FLAT = {
     'pro':      Decimal('700'),
 }
 
+PLAN_RANK = {'free': 0, 'standard': 1, 'premium': 2, 'pro': 3}
+
+def _floor_peso(value):
+    """Round down to whole peso (customer-friendly)."""
+    return value.quantize(Decimal('1'), rounding=ROUND_DOWN)
+
 
 def _extra_business_surcharge(plan, base_price, is_founder):
     if plan == 'free':
@@ -209,10 +215,16 @@ class FounderSlot(models.Model):
 # ── Subscription (Owner-level Billing Account) ───────────────────────────────
 
 class Subscription(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+    ('installment', 'Monthly installments'),
+    ('upfront',     'Yearly upfront'),
+]
+    
     """Owner-level billing account. Per-business plans live on BusinessPlan."""
     user          = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
     bundle        = models.CharField(max_length=20, choices=BUNDLE_CHOICES, default='triple')
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='installment')
     is_founder    = models.BooleanField(default=False)
     is_lifetime   = models.BooleanField(default=False)
     trial_used    = models.BooleanField(default=False)
@@ -271,46 +283,43 @@ class Subscription(models.Model):
 
     # ── Pricing (sums per-business plans) ────────────────────────────────────
 
-    def _plan_counts(self):
-        counts = {'standard': 0, 'premium': 0, 'pro': 0}
+    def _paid_plans_sorted(self):
+        """Plan keys for non-free businesses, highest tier first."""
+        plans = []
         for biz in self.user.business_profiles.all():
             bp = getattr(biz, 'plan', None)
-            if bp and bp.plan in counts:
-                counts[bp.plan] += 1
-        return counts
+            if bp and bp.plan in ('standard', 'premium', 'pro'):
+                plans.append(bp.plan)
+        plans.sort(key=lambda p: PLAN_RANK[p], reverse=True)
+        return plans
+
+    def _component_monthly(self, plan, is_first):
+        """Base price if this is the highest-tier business, else its surcharge."""
+        base_table = FOUNDER_BASE if self.is_founder else REGULAR_BASE
+        base = base_table[plan]
+        if is_first:
+            return base
+        return _extra_business_surcharge(plan, base, self.is_founder)
 
     def get_monthly_price(self):
         if self.is_lifetime:
             return Decimal('0')
-
-        base_table = FOUNDER_BASE if self.is_founder else REGULAR_BASE
         total = Decimal('0')
-        for plan, n in self._plan_counts().items():
-            if n == 0:
-                continue
-            base = base_table[plan]
-            total += base
-            if n > 1:
-                surcharge = _extra_business_surcharge(plan, base, self.is_founder)
-                total += surcharge * (n - 1)
+        for i, plan in enumerate(self._paid_plans_sorted()):
+            total += self._component_monthly(plan, is_first=(i == 0))
         return _peso(total)
 
     def get_yearly_price(self):
+        """Effective discounted per-month total × 12. Each component rounded down."""
         if self.is_lifetime:
             return Decimal('0')
-
-        base_table = FOUNDER_BASE if self.is_founder else REGULAR_BASE
-        total = Decimal('0')
-        for plan, n in self._plan_counts().items():
-            if n == 0:
-                continue
-            base = base_table[plan]
-            monthly_for_plan = base
-            if n > 1:
-                monthly_for_plan += _extra_business_surcharge(plan, base, self.is_founder) * (n - 1)
+        monthly_total = Decimal('0')
+        for i, plan in enumerate(self._paid_plans_sorted()):
+            component = self._component_monthly(plan, is_first=(i == 0))
             discount = Decimal('0') if self.is_founder else REGULAR_YEARLY_DISCOUNT.get(plan, Decimal('0'))
-            total += monthly_for_plan * 12 * (Decimal('1') - discount)
-        return _peso(total)
+            monthly_total += _floor_peso(component * (Decimal('1') - discount))
+        return _peso(monthly_total * 12)
+
 
     def get_total_price(self):
         return self.get_yearly_price() if self.billing_cycle == 'yearly' else self.get_monthly_price()
@@ -333,7 +342,7 @@ class Subscription(models.Model):
 
 class BusinessPlan(models.Model):
     """Per-business plan assignment."""
-    business      = models.OneToOneField(
+    business = models.OneToOneField(
         'user.BusinessProfile',
         on_delete=models.CASCADE,
         related_name='plan',
@@ -343,6 +352,7 @@ class BusinessPlan(models.Model):
     started_at    = models.DateTimeField(auto_now_add=True)
     expires_at    = models.DateTimeField(null=True, blank=True)
     is_trial = models.BooleanField(default=False, db_index=True)
+    pending_cancellation = models.BooleanField(default=False)
 
 
     def __str__(self):
@@ -618,3 +628,142 @@ class BusinessPlan(models.Model):
             qs.exclude(id__in=valid_ids).update(
                 is_locked=True, locked_at=timezone.now(),
             )
+            
+    def _yearly_monthly_rate(self):
+        sub = self._owner_sub()
+        if sub is None or self.plan not in ('standard', 'premium', 'pro'):
+            return Decimal('0')
+        base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
+        monthly = base_table[self.plan]
+        discount = Decimal('0') if sub.is_founder else REGULAR_YEARLY_DISCOUNT.get(self.plan, Decimal('0'))
+        return _floor_peso(monthly * (Decimal('1') - discount))
+
+
+    def _standard_monthly_rate(self):
+        """Standard (non-discounted) per-month rate for this plan tier."""
+        sub = self._owner_sub()
+        if sub is None or self.plan not in ('standard', 'premium', 'pro'):
+            return Decimal('0')
+        base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
+        return _peso(base_table[self.plan])
+
+    def months_used_on_plan(self):
+        if not self.started_at:
+            return 0
+        delta = timezone.now() - self.started_at
+        months = (delta.days + 29) // 30   # round up partial months
+        return max(1, months)
+
+    def compute_balance_due(self):
+        """
+        Cancelling a yearly (discounted) plan early: the months already used are
+        recalculated at the standard monthly rate. Owner simply pays back the
+        discount for those months — no penalty.
+        """
+        months = self.months_used_on_plan()
+        diff = self._standard_monthly_rate() - self._yearly_monthly_rate()
+        return _peso(max(Decimal('0'), diff * months))
+
+    def request_cancellation(self):
+        if self.pending_cancellation:
+            raise ValueError("This business already has a pending cancellation.")
+        sub = self._owner_sub()
+        if sub is None or sub.billing_cycle != 'yearly':
+            raise ValueError("Cancellation is only for yearly billing.")
+        if self.plan == 'free':
+            raise ValueError("Free plans don't need to be cancelled.")
+        if not self.expires_at:
+            raise ValueError("This business has no active billing cycle to cancel.")
+
+        months = self.months_used_on_plan()
+        due = timezone.now() + timedelta(days=30)
+
+        # Upfront payers → likely owed a refund, route to manual support (no auto-charge).
+        if sub.payment_method == 'upfront':
+            amount = Decimal('0')
+            status = 'waived'
+        else:
+            amount = self.compute_balance_due()
+            status = 'pending'
+
+        with transaction.atomic():
+            self.pending_cancellation = True
+            self.save(update_fields=['pending_cancellation'])
+            invoice = CancellationInvoice.objects.create(
+                business=self.business,
+                amount_due=amount,
+                plan_at_cancel=self.plan,
+                months_used=months,
+                cycle_end_at=self.expires_at,
+                due_at=due,
+                status=status,
+            )
+        return invoice
+
+
+
+    def request_cancellation(self):
+        if self.pending_cancellation:
+            raise ValueError("This business already has a pending cancellation.")
+        sub = self._owner_sub()
+        if sub is None:
+            raise ValueError("No subscription found.")
+        if self.plan == 'free':
+            raise ValueError("Free plans don't need to be cancelled.")
+        if not self.expires_at:
+            raise ValueError("This business has no active billing cycle to cancel.")
+
+        months = self.months_used_on_plan()
+        due = timezone.now() + timedelta(days=30)
+
+        # Determine the balance based on billing cycle + payment method.
+        if sub.billing_cycle == 'monthly':
+            amount, status = Decimal('0'), 'waived'          # standard rate, nothing to claw back
+        elif sub.payment_method == 'upfront':
+            amount, status = Decimal('0'), 'waived'           # likely a refund → manual support
+        else:
+            amount, status = self.compute_balance_due(), 'pending'  # yearly installment discount recalc
+
+        with transaction.atomic():
+            self.pending_cancellation = True
+            self.save(update_fields=['pending_cancellation'])
+            invoice = CancellationInvoice.objects.create(
+                business=self.business,
+                amount_due=amount,
+                plan_at_cancel=self.plan,
+                months_used=months,
+                cycle_end_at=self.expires_at,
+                due_at=due,
+                status=status,
+            )
+        return invoice
+
+        
+class CancellationInvoice(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid',    'Paid'),
+        ('overdue', 'Overdue'),
+        ('waived',  'Waived'),
+    ]
+    business      = models.ForeignKey('user.BusinessProfile', on_delete=models.CASCADE, related_name='cancellation_invoices')
+    amount_due    = models.DecimalField(max_digits=10, decimal_places=2)
+    plan_at_cancel = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    months_used   = models.PositiveIntegerField()
+    cycle_end_at  = models.DateTimeField()
+    due_at        = models.DateTimeField()
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+    reminder_day_15_sent = models.BooleanField(default=False)
+    reminder_day_30_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.business.business_name} — ₱{self.amount_due} ({self.get_status_display()})"
+
+    def is_overdue(self):
+        return self.status == 'pending' and timezone.now() > self.due_at
+
+
+
+        

@@ -1,0 +1,80 @@
+{% extends 'main.html' %}
+{% block content %}
+<div class="page-wrapper" style="max-width:680px; margin-left:auto; margin-right:auto;">
+
+  <div class="mobile-back-row">
+    <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i><span>Back</span>
+    </a>
+  </div>
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">SUBSCRIPTION</div>
+      <h1 class="page-title">Cancel {{ target_biz.business_name }}?</h1>
+      <p class="page-subtitle">Here's exactly what happens — no surprises.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% endif %}
+
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div class="settings-card__header-icon tone-account">
+        <i class="bi bi-info-circle-fill"></i>
+      </div>
+      <h2 class="settings-card__title">What happens when you cancel</h2>
+      <span class="settings-card__subtitle">
+        {{ target_bp.get_plan_display }} — {{ sub.get_billing_cycle_display }} billing
+      </span>
+    </div>
+
+    <div class="card-body">
+      <table class="data-table" style="margin-bottom:1rem;">
+        <tr><td>Business</td><td class="sl-text-end"><strong>{{ target_biz.business_name }}</strong></td></tr>
+        <tr><td>Current plan</td><td class="sl-text-end">{{ target_bp.get_plan_display }}</td></tr>
+        {% if balance_due > 0 %}
+        <tr><td>Months used</td><td class="sl-text-end">{{ months_used }}</td></tr>
+        {% endif %}
+        <tr><td>Access until</td><td class="sl-text-end">{{ cycle_end|date:"M d, Y" }}</td></tr>
+        {% if balance_due > 0 %}
+        <tr style="border-top:2px solid var(--border);">
+          <td><strong>Balance to settle</strong></td>
+          <td class="sl-text-end"><strong style="font-size:1.25rem;">₱{{ balance_due|floatformat:2 }}</strong></td>
+        </tr>
+        {% endif %}
+      </table>
+
+      <div class="alert alert-info">
+        <ul style="margin:0; padding-left:1.25rem;">
+          <li>{{ target_biz.business_name }} keeps working until <strong>{{ cycle_end|date:"M d, Y" }}</strong> — your data stays accessible.</li>
+          <li>After that, it switches to the Free plan automatically.</li>
+          {% if balance_due > 0 %}
+            <li>Because yearly gave you a discounted rate, the {{ months_used }} month(s) you used are recalculated at the standard rate. The difference is <strong>₱{{ balance_due|floatformat:2 }}</strong> — just the discount for those months, no penalty.</li>
+            <li>Settle it anytime within 30 days. We'll send a friendly reminder if it's still open.</li>
+          {% else %}
+            <li>No additional payment is required — you're all set.</li>
+            <li>Changed your mind later? You can re-subscribe anytime.</li>
+          {% endif %}
+
+        </ul>
+      </div>
+
+      <form method="POST" action="{% url 'subscription-cancel-confirm' business_slug=business.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="target_business_id" value="{{ target_biz.id }}">
+        <input type="hidden" name="confirm" value="yes">
+        <div class="mf-form-actions">
+          <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="btn btn-light">Keep my plan</a>
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Confirm cancellation of {{ target_biz.business_name }}?');">
+            <i class="bi bi-check2-circle"></i> Confirm cancellation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
