@@ -481,26 +481,6 @@ class BusinessPlan(models.Model):
         count = Supplier.objects.filter(business=self.business).count()
         return self._can_add('max_suppliers', count)
 
-    def can_add_sale(self):
-        from Sales.models import Sale
-        count = Sale.objects.filter(business=self.business).count()
-        return self._can_add('max_sales', count)
-
-    def can_add_purchase(self):
-        from Expense.models import Purchase
-        count = Purchase.objects.filter(business=self.business).count()
-        return self._can_add('max_purchases', count)
-
-    def can_add_waste(self):
-        from Expense.models import Waste
-        count = Waste.objects.filter(business=self.business).count()
-        return self._can_add('max_waste', count)
-
-    def can_add_expense(self):
-        from Expense.models import Expense
-        count = Expense.objects.filter(business=self.business).count()
-        return self._can_add('max_expenses', count)
-
     def can_add_product_preset(self):
         from Product.models import ProductPreset
         count = ProductPreset.objects.filter(business=self.business).count()
@@ -510,6 +490,22 @@ class BusinessPlan(models.Model):
         from Supplier.models import MaterialPreset
         count = MaterialPreset.objects.filter(business=self.business).count()
         return self._can_add('max_material_presets', count)
+    
+    def can_self_switch_to(self, target_plan):
+        """
+        Self-serve plan change allowed?
+        - Trial businesses: ONLY Premium ↔ Pro (no Standard/Free swaps mid-trial)
+        - Non-trial: downgrades only; upgrades need support
+        """
+        if target_plan == self.plan:
+            return False
+        if self.is_trial:
+            return target_plan in ('premium', 'pro')   # trial = premium/pro only
+        current_rank = PLAN_RANK.get(self.plan, 0)
+        target_rank = PLAN_RANK.get(target_plan, 0)
+        return target_rank < current_rank   # downgrade only
+
+        
 
     # ── Lock helpers ─────────────────────────────────────────────────────────
 
@@ -668,44 +664,6 @@ class BusinessPlan(models.Model):
         if self.pending_cancellation:
             raise ValueError("This business already has a pending cancellation.")
         sub = self._owner_sub()
-        if sub is None or sub.billing_cycle != 'yearly':
-            raise ValueError("Cancellation is only for yearly billing.")
-        if self.plan == 'free':
-            raise ValueError("Free plans don't need to be cancelled.")
-        if not self.expires_at:
-            raise ValueError("This business has no active billing cycle to cancel.")
-
-        months = self.months_used_on_plan()
-        due = timezone.now() + timedelta(days=30)
-
-        # Upfront payers → likely owed a refund, route to manual support (no auto-charge).
-        if sub.payment_method == 'upfront':
-            amount = Decimal('0')
-            status = 'waived'
-        else:
-            amount = self.compute_balance_due()
-            status = 'pending'
-
-        with transaction.atomic():
-            self.pending_cancellation = True
-            self.save(update_fields=['pending_cancellation'])
-            invoice = CancellationInvoice.objects.create(
-                business=self.business,
-                amount_due=amount,
-                plan_at_cancel=self.plan,
-                months_used=months,
-                cycle_end_at=self.expires_at,
-                due_at=due,
-                status=status,
-            )
-        return invoice
-
-
-
-    def request_cancellation(self):
-        if self.pending_cancellation:
-            raise ValueError("This business already has a pending cancellation.")
-        sub = self._owner_sub()
         if sub is None:
             raise ValueError("No subscription found.")
         if self.plan == 'free':
@@ -718,11 +676,11 @@ class BusinessPlan(models.Model):
 
         # Determine the balance based on billing cycle + payment method.
         if sub.billing_cycle == 'monthly':
-            amount, status = Decimal('0'), 'waived'          # standard rate, nothing to claw back
+            amount, status = Decimal('0'), 'waived'
         elif sub.payment_method == 'upfront':
-            amount, status = Decimal('0'), 'waived'           # likely a refund → manual support
+            amount, status = Decimal('0'), 'waived'
         else:
-            amount, status = self.compute_balance_due(), 'pending'  # yearly installment discount recalc
+            amount, status = self.compute_balance_due(), 'pending'
 
         with transaction.atomic():
             self.pending_cancellation = True

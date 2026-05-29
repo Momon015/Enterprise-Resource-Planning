@@ -111,6 +111,17 @@ def subscription_settings(request, business_slug):
         BusinessPlan, PLAN_CHOICES, BUNDLE_COUNT,
         FOUNDER_BASE, REGULAR_BASE, PLAN_LIMITS,
     )
+    
+    # Per-plan base pricing for the picker buttons (single-business price)
+    base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
+    plan_options = []
+    for plan_key, plan_label in PLAN_CHOICES:
+        plan_options.append({
+            'key': plan_key,
+            'name': plan_label,
+            'monthly_per_biz': base_table.get(plan_key, 0),
+            'has_dashboard': PLAN_LIMITS[plan_key]['dashboard'],
+        })
 
     # Build per-business cards
     businesses_data = []
@@ -160,22 +171,22 @@ def subscription_settings(request, business_slug):
         ]
         total_locked = sum(row['locked'] for row in usage_rows)
 
+        plan_choices = []
+        for plan_key, plan_label in PLAN_CHOICES:
+            plan_choices.append({
+                'key': plan_key,
+                'name': plan_label,
+                'monthly_per_biz': base_table.get(plan_key, 0),
+                'is_current': bp.plan == plan_key,
+                'disabled': not bp.can_self_switch_to(plan_key) and bp.plan != plan_key,
+            }) 
+        
         businesses_data.append({
             'business': biz,
             'plan': bp,
             'usage_rows': usage_rows,
             'total_locked': total_locked,
-        })
-
-    # Per-plan base pricing for the picker buttons (single-business price)
-    base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
-    plan_options = []
-    for plan_key, plan_label in PLAN_CHOICES:
-        plan_options.append({
-            'key': plan_key,
-            'name': plan_label,
-            'monthly_per_biz': base_table.get(plan_key, 0),
-            'has_dashboard': PLAN_LIMITS[plan_key]['dashboard'],
+            'plan_choices': plan_choices,
         })
 
     yearly_total = sub.get_yearly_price()
@@ -222,6 +233,14 @@ def change_business_plan(request, business_slug):
 
     if target_bp.plan == new_plan:
         messages.info(request, f"{target_biz.business_name} is already on {new_plan.title()}.")
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    # Block self-serve upgrades to paid plans (trial switches already handled above)
+    if not target_bp.can_self_switch_to(new_plan):
+        messages.warning(
+            request,
+            "Contact support to upgrade this business to a paid plan."
+        )
         return redirect('subscription-settings', business_slug=business.slug)
 
     # Trial switching — Premium ↔ Pro without resetting expiry

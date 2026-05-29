@@ -98,23 +98,25 @@
 
             <!-- PLAN PICKER -->
             <div class="sd-section-label">Choose plan for this business</div>
-            <form method="post" action="{% url 'subscription-change-plan' business_slug=business.slug %}"
-                  style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
-              {% csrf_token %}
-              <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
-              {% for opt in plan_options %}
-                <button type="submit"
-                        name="new_plan"
-                        value="{{ opt.key }}"
-                        class="btn btn-sm {% if item.plan.plan == opt.key %}btn-primary{% else %}btn-outline-secondary{% endif %}"
-                        {% if item.plan.plan == opt.key %}disabled{% endif %}>
-                  {{ opt.name }}
-                  {% if opt.monthly_per_biz %}
-                    <small style="opacity:0.7;">· ₱{{ opt.monthly_per_biz|floatformat:0|intcomma }}/mo</small>
-                  {% endif %}
-                </button>
-              {% endfor %}
-            </form>
+              <form method="post" action="{% url 'subscription-change-plan' business_slug=business.slug %}"
+                    style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                {% csrf_token %}
+                <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
+                {% for opt in item.plan_choices %}
+                  <button type="submit"
+                          name="new_plan"
+                          value="{{ opt.key }}"
+                          class="btn btn-sm {% if opt.is_current %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                          {% if opt.is_current or opt.disabled %}disabled{% endif %}
+                          {% if opt.disabled %}title="Contact support to upgrade"{% endif %}>
+                    {{ opt.name }}
+                    {% if opt.monthly_per_biz %}
+                      <small style="opacity:0.7;">· ₱{{ opt.monthly_per_biz|floatformat:0|intcomma }}/mo</small>
+                    {% endif %}
+                  </button>
+                {% endfor %}
+              </form>
+
 
             {% if item.plan.is_trial %}
               <div class="trial-badge">
