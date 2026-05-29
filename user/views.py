@@ -476,17 +476,17 @@ def business_profile_create(request):
     return render(request, 'user/business_profile_create.html', context)
 
 @login_required(login_url='login')
-def business_profile_detail(request, business_id, slug):
+def business_profile_detail(request, business_id, business_slug):
 
-    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=slug)
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
     
     context = {'business': business, 'section': 'user'}
     return render(request, 'user/business_profile_detail.html', context)
 
 @login_required(login_url='login')
-def business_profile_update(request, business_id, slug):
+def business_profile_update(request, business_slug, business_id):
     current_user = request.user
-    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=slug)
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
     
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST, instance=business)
@@ -504,7 +504,7 @@ def business_profile_update(request, business_id, slug):
     return render(request, 'user/business_profile_update.html', context)
 
 @login_required(login_url='login')
-def settings(request):
+def settings(request, business_slug):
     
     return render(request, 'user/settings.html')
 
@@ -588,11 +588,12 @@ def change_email_verify(request):
                 request.user.save(update_fields=['email'])
                 otp_obj.is_verified = True
                 otp_obj.save(update_fields=['is_verified'])
-
+                
+            business = request.user.business_profiles.first()
             for k in ('change_email_pending', 'change_email_otp_id'):
                 request.session.pop(k, None)
             messages.success(request, "Email updated successfully.")
-            return redirect('settings')
+            return redirect('settings', business_slug=business.slug)
         else:
             messages.error(request, "Invalid code. Please try again.")
             

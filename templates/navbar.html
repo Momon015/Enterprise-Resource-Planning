@@ -296,7 +296,7 @@
           <a class="sidebar-dropdown__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
             <i class="bi bi-person-circle"></i> Profile
           </a>
-          <a class="sidebar-dropdown__item" href="{% url 'settings' %}">
+          <a class="sidebar-dropdown__item" href="{% url 'settings' business_slug=current_business.slug %}">
             <i class="bi bi-gear"></i> Settings
           </a>
           <div class="sidebar-dropdown__divider"></div>

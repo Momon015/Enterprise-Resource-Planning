@@ -90,7 +90,7 @@
       </a>
 
       {% if current_business %}
-        <a href="{% url 'business-profile-update' business_id=current_business.id slug=current_business.slug %}" class="settings-row">
+        <a href="{% url 'business-profile-update' business_id=current_business.id business_slug=current_business.slug %}" class="settings-row">
           <div class="settings-row__icon"><i class="bi bi-pencil-square"></i></div>
           <div class="settings-row__body">
             <div class="settings-row__title">Edit Current Business</div>
@@ -108,7 +108,18 @@
         </div>
         <i class="bi bi-chevron-right settings-row__arrow"></i>
       </a>
+
+      <a href="{% url 'subscription-export' business_slug=current_business.slug %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-download"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">Export Data</div>
+          <div class="settings-row__desc">Download your business data as Excel or CSV</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+
     </div>
+
   {% endif %}
 
   <!-- SUBSCRIPTION & BILLING (owner only) -->

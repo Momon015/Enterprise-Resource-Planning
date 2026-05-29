@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -515,6 +516,32 @@ def _send_cancellation_emails(owner, target_biz, invoice):
     except Exception:
         pass
 
-    
 
-    
+@login_required(login_url='login')
+def export_data(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
+    # Owner-only — staff shouldn't export account-wide data
+    if request.user.role != 'owner':
+        messages.error(request, "Only the business owner can export data.")
+        return redirect('product-list', business_slug=business.slug)
+
+    fmt = request.GET.get('format')
+    if fmt in ('csv', 'xlsx'):
+        from core.utils.exports import export_csv_zip, export_excel
+        try:
+            if fmt == 'csv':
+                fname, data = export_csv_zip(business)
+                content_type = 'application/zip'
+            else:
+                fname, data = export_excel(business)
+                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        except ImportError:
+            messages.error(request, "Excel export needs the openpyxl library. Use CSV, or contact support.")
+            return redirect('subscription-export', business_slug=business.slug)
+
+        response = HttpResponse(data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return response
+
+    return render(request, 'subscription/export_data.html', {'business': business})

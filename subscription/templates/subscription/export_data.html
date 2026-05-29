@@ -1,0 +1,52 @@
+{% extends 'main.html' %}
+{% block content %}
+<div class="page-wrapper" style="max-width:680px; margin-left:auto; margin-right:auto;">
+
+  <div class="mobile-back-row">
+    <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i><span>Back</span>
+    </a>
+  </div>
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACCOUNT</div>
+      <h1 class="page-title">Export Data</h1>
+      <p class="page-subtitle">Download all data for <strong>{{ business.business_name }}</strong>.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% endif %}
+
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div class="settings-card__header-icon tone-account">
+        <i class="bi bi-download"></i>
+      </div>
+      <h2 class="settings-card__title">Choose a format</h2>
+      <span class="settings-card__subtitle">Products, materials, suppliers, staff, sales, purchases, waste, expenses</span>
+    </div>
+
+    <div class="card-body">
+      <div class="d-flex flex-column gap-3">
+        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=xlsx"
+           class="btn btn-primary">
+          <i class="bi bi-file-earmark-excel"></i> Download Excel (.xlsx)
+          <small style="opacity:0.8; display:block; font-weight:400;">One workbook, a tab per data type</small>
+        </a>
+        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=csv"
+           class="btn btn-outline-secondary">
+          <i class="bi bi-file-earmark-zip"></i> Download CSV (.zip)
+          <small style="opacity:0.8; display:block; font-weight:400;">One CSV file per data type, zipped</small>
+        </a>
+      </div>
+
+      <p class="text-muted mt-3" style="font-size:0.8rem;">
+        Exports reflect data as of right now. Locked items are included and flagged.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

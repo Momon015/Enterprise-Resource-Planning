@@ -6,7 +6,7 @@ from django.urls import path
 urlpatterns = [
     
     path('', views.landing, name='landing'),
-    path('settings/', views.settings, name='settings'),
+    path('<str:business_slug>/settings/', views.settings, name='settings'),
 
     
     path('register-form/', views.register_form, name='register-form'),
@@ -32,6 +32,6 @@ urlpatterns = [
     # business profile
     path('settings/business/list/', views.business_list, name='business-list'),
     path('settings/business-profile/create/', views.business_profile_create, name='business-profile-create'),
-    path('settings/business/<int:business_id>/<slug:slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
-    path('settings/business/<int:business_id>/<slug:slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
+    path('settings/business/<int:business_id>/<slug:business_slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
+    path('settings/business/<int:business_id>/<slug:business_slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
 ]
