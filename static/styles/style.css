@@ -4721,6 +4721,16 @@ details.filter-card summary:hover {
   margin-top: 0.2rem;
 }
 
+/* Pin every data row — real and blank — to one height */
+.summary-table tbody tr {
+  height: 72px;
+}
+.blank-row td {
+  height: 72px;
+  border: none;
+}
+
+
 
 /* ══════════════════════════════════════════
    ADD NEXT TEMPLATE CSS BELOW

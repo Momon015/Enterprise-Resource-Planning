@@ -337,12 +337,27 @@ def view_cart(request, business_slug):
             'item_discount': item_discount,
         })
         
+    paginator = Paginator(cart_items, 7)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
+    # How many filler rows to reach a full page
+    blank_rows = range(paginator.per_page - len(page_obj.object_list))
+    
     total_after_discount = max(subtotal - total_discount, 0)
     
     # LOGGING: View Cart 
     logger.debug(f" View Cart Sessions: {request.session.get('cart')}")
     
-    context = {'total_after_discount': total_after_discount, 'cart_items': cart_items, 'subtotal': subtotal, 'total_discount': total_discount, 'section': 'supplier'}
+    context = {
+        'total_after_discount': total_after_discount, 
+        'cart_items': cart_items,
+        'page_obj': page_obj,
+        'blank_rows': blank_rows,
+        'subtotal': subtotal, 
+        'total_discount': total_discount, 
+        'section': 'supplier'
+        }
     return render(request, 'Expense/view_cart.html', context)
 
 
@@ -570,8 +585,25 @@ def view_purchase_summary(request, business_slug, purchase_id):
             'item_discount': item_discount,
 
         })
+        
+    paginator = Paginator(cart_items, 6)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
+    # How many filler rows to reach a full page
+    blank_rows = range(paginator.per_page - len(page_obj.object_list))
+    
 
-    context = {'cart_items': cart_items, 'subtotal': subtotal, 'total_cost': purchase.total_cost, 'total_discount': total_discount, 'purchase': purchase}
+    context = {
+        'cart_items': cart_items,
+        'page_obj': page_obj,
+        'blank_rows': blank_rows,
+        'subtotal': subtotal, 
+        'total_cost': purchase.total_cost, 
+        'total_discount': total_discount, 
+        'purchase': purchase
+        }
+    
     return render(request, 'Expense/view_purchase_summary.html', context)
 
 @login_required(login_url='login')
@@ -587,7 +619,13 @@ def cart_remove_materials(request, business_slug, id):
         messages.success(request, f"{material.name} removed from the purchase record.")
          
     request.session.modified = True
-    return redirect('view-cart', business_slug=business.slug)
+    
+    page = request.GET.get('page', '')
+    url = reverse('view-cart', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
+
 
 @login_required(login_url='login')
 def edit_total_price(request, business_slug, material_id):
@@ -610,7 +648,11 @@ def edit_total_price(request, business_slug, material_id):
     request.session['cart'] = cart
     request.session.modified = True
     
-    return redirect('view-cart', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-cart', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 @login_required(login_url='login')
 def cart_edit_material(request, business_slug, id):
@@ -635,7 +677,11 @@ def cart_edit_material(request, business_slug, id):
         else:
              messages.warning(request, f"{material.name} - quantity limit reached.")
     
-    return redirect('view-cart', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-cart', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 @login_required(login_url='login')
 def cart_discount_material(request, business_slug):
@@ -650,7 +696,11 @@ def cart_discount_material(request, business_slug):
     request.session['cart'] = cart
     request.session.modified = True
     
-    return redirect('view-cart', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-cart', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 # @login_required(login_url='login')  
 # @permission_required('owner_only')

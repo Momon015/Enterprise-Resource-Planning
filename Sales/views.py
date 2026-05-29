@@ -306,10 +306,19 @@ def view_sale(request, business_slug):
     request.session['line_count'] = line_count
     request.session.modified = True
     
+    paginator = Paginator(items, 7)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
+    # How many filler rows to reach a full page
+    blank_rows = range(paginator.per_page - len(page_obj.object_list))
+    
     context = {
         'items': items, 
         'total_revenue': total_revenue, 
         'total_cost_price': total_cost_price,
+        'page_obj': page_obj,
+        'blank_rows': blank_rows,
         'section': 'sale'
         # 'employees': employees, 
         # 'selected_employee_ids': selected_employee_ids, 
@@ -499,10 +508,19 @@ def view_sale_summary(request, sale_id, business_slug):
             'total_cost_price_per_line': total_cost_price_per_line,
             'total_selling_price': total_selling_price,
         })
+        
+    paginator = Paginator(items, 6)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
+    # How many filler rows to reach a full page
+    blank_rows = range(paginator.per_page - len(page_obj.object_list))
 
     context = {
         'items': items, 
-        'sale': sale, 
+        'sale': sale,
+        'page_obj': page_obj,
+        'blank_rows': blank_rows,
         'total_cost_price': total_cost_price, 
         'total_revenue': total_revenue, 
         'total_salary_cost': total_salary_cost, 
@@ -552,15 +570,19 @@ def edit_view_sale_quantity(request, product_id, business_slug):
                 new_quantity = 1
                 
             sale[product_key]['quantity'] = new_quantity
-                
+            messages.success(request, f"{product.name}'s quantity has been updated.")
         else:
             messages.warning(request, f"{product.name} - Insufficient stock.")
     
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale', business_slug=business.slug)
-
+    page = request.GET.get('page', '')
+    url = reverse('view-sale', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
+    
 @login_required(login_url='login')
 def edit_total_selling_price(request, product_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -581,7 +603,11 @@ def edit_total_selling_price(request, product_id, business_slug):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-sale', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 @login_required(login_url='login')
 def edit_unsold_quantity(request, product_id, business_slug):
@@ -602,7 +628,11 @@ def edit_unsold_quantity(request, product_id, business_slug):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-sale', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 @login_required(login_url='login')
 @permission_required('delete') # dev
@@ -620,7 +650,11 @@ def delete_view_sale_quantity(request, product_id, business_slug):
     request.session['sale'] = sale
     request.session.modified = True
     
-    return redirect('view-sale', business_slug=business.slug)
+    page = request.GET.get('page', '')
+    url = reverse('view-sale', kwargs={'business_slug': business.slug})
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 
 
