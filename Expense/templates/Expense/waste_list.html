@@ -146,7 +146,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <tbody>
               {% for waste in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}'">
-                <td>
+                <td class="cell-primary">
                   {{ waste.date|date:"M d" }}<span class="col-mobile-hidden">, {{ waste.date|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ waste.date|date:"l" }}</div>
                 </td>

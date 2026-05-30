@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <tbody>
               {% for sale in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}'">
-                <td>
+                <td class="cell-primary">
                   {{ sale.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ sale.created_at|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ sale.created_at|date:"l" }}</div>
                 </td>

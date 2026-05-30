@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <tbody>
               {% for purchase in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}?{{ request.GET.urlencode }}'">
-                <td>
+                <td class="cell-primary">
                   {{ purchase.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ purchase.created_at|date:"Y" }}</span></div>
                   <div class="cell-sub">{{ purchase.created_at|date:"l" }}</div>
                 </td>
