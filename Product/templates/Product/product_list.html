@@ -122,6 +122,7 @@
               <tr>
                 {% comment %} <th>Date Added</th> {% endcomment %}
                 <th>Name</th>
+                <th>SKU / Barcode </th>
                 <th class="sl-text-center col-mobile-hidden">Category</th>
                 <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center col-mobile-hidden">Cost</th>
@@ -141,6 +142,16 @@
                 <td>
                   <div class="cell-primary">{{ product.name|capfirst }}</div>
                   <span class="cell-sub">{{ product.material.supplier|default:"No supplier" }}</span>
+                  {% if product.is_locked %}
+                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                  <div class="cell-primary">{{ product.sku|capfirst }}</div>
+                  {% if product.barcode %}
+                  <span class="cell-sub">{{ product.barcode|default:"-" }}</span>
+                  {% endif %}
                   {% if product.is_locked %}
                       <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                     {% endif %}

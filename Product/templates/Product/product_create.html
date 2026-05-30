@@ -74,6 +74,20 @@ function changeValue(fieldId, delta, isInteger = false) {
               {{ form.category }}
               {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
+            
+            <!-- barcode and SKU -->
+            <div class="form-group">
+                <label for="{{ form.sku.id_for_label }}">SKU</label>
+                {{ form.sku }}
+                <small class="form-text text-muted">Leave blank to auto-generate.</small>
+                {% if form.sku.errors %}<div class="text-danger">{{ form.sku.errors }}</div>{% endif %}
+              </div>
+
+              <div class="form-group">
+                <label for="{{ form.barcode.id_for_label }}">Barcode (optional)</label>
+                {{ form.barcode }}
+                {% if form.barcode.errors %}<div class="text-danger">{{ form.barcode.errors }}</div>{% endif %}
+            </div>
 
             {# Description — full width #}
             <div class="mf-field-group" style="grid-column: 1 / -1;">

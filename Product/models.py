@@ -13,6 +13,8 @@ class Product(SlugModel, TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     name = models.CharField(max_length=100)
+    sku = models.CharField(max_length=64, blank=True, db_index=True)
+    barcode = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     description = models.TextField(null=True, blank=True, max_length=500)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
@@ -26,17 +28,41 @@ class Product(SlugModel, TimeStampModel):
     locked_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     
+    
     objects = ActiveManager()
     all_objects = models.Manager()
     
     class Meta:
         ordering = ['name']
         unique_together = ('user', 'slug', 'business')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['business', 'sku'],
+                condition=models.Q(sku__gt=''),
+                name='unique_sku_per_business',
+            ),
+            models.UniqueConstraint(
+                fields=['business', 'barcode'],
+                condition=models.Q(barcode__isnull=False) & ~models.Q(barcode=''),
+                name='unique_barcode_per_business',
+            ),
+        ]
+
         
     def __str__(self):
         return self.name
     
     def save(self, *args, **kwargs):
+        if not self.sku and self.business:
+            last = Product.all_objects.filter(business=self.business).exclude(sku='').order_by('-id').first()
+            next_num = 1
+            if last and last.sku.startswith('PRD-'):
+                try:
+                    next_num = int(last.sku.rsplit('-', 1)[-1]) + 1
+                except (ValueError, IndexError):
+                    next_num = Product.all_objects.filter(business=self.business).count() + 1
+            self.sku = f"PRD-{next_num:04d}"
+        
         base_slug = slugify(self.name)  # or whatever name field
         slug = base_slug
         counter = 1
