@@ -45,6 +45,10 @@ class Supplier(TimeStampModel, SlugModel):
             raise ValidationError("The 'No Supplier' fallback cannot be deleted.")
         super().delete(*args, **kwargs)
 
+class ActiveManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 
 class Material(TimeStampModel, SlugModel):
     # RETAIL — sellable units (sold as-is to customer)
@@ -86,6 +90,10 @@ class Material(TimeStampModel, SlugModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
     is_locked = models.BooleanField(default=False, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    objects = ActiveManager()
+    all_objects = models.Manager()
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
@@ -100,7 +108,7 @@ class Material(TimeStampModel, SlugModel):
         counter = 1
         
         # include business in collision check
-        while Material.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+        while Material.all_objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
             slug = f"{base_slug}-{counter}"
             counter += 1
         

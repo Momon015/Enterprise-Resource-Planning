@@ -4,7 +4,7 @@
 
 <!-- FLASH MESSAGES -->
 
-<div id='messages' hx-swap-oob='true' class="toast-container" aria-live="polite" aria-atomic="true">
+<div class="toast-container" aria-live="polite" aria-atomic="true">
   
 {% if messages %}
   {% for message in messages %}
@@ -35,6 +35,9 @@
         <i class="bi bi-box-seam"></i>
         <strong>{{ page_obj.paginator.count }}</strong> item{{ page_obj.paginator.count|pluralize }}
       </div>
+      <a href="{% url 'archived-materials' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-archive-fill"></i> View Archived
+      </a>
       <a id='cart-badge' href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-file-text"></i> Purchase Record
         {% if cart_count %}
@@ -159,9 +162,9 @@
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                    <a href="{% url 'material-delete' id=material.id slug=material.slug business_slug=material.business.slug %}?next={{ request.path }}"
-                       class="action-btn action-btn--danger" title="Delete material">
-                      <i class="bi bi-trash3"></i>
+                    <a href="{% url 'material-archive' id=material.id slug=material.slug business_slug=material.business.slug %}?next={{ request.path }}"
+                       class="action-btn action-btn--warning"  title="Delete material">
+                      <i class="bi bi-archive-fill"></i>
                     </a>
                     {% endif %}
                   </div>

@@ -3392,6 +3392,14 @@ details.filter-card summary:hover {
   border-color: rgba(37,99,235,.25);
 }
 
+.action-btn--warning {
+  color: #d97706;
+  border-color: rgba(217,119,6,.25);
+  background: rgba(217,119,6,.08);
+}
+
+
+
 /* Hover styles — only on devices with real hover (desktop mouse) */
 @media (hover: hover) {
   .action-btn:hover {
@@ -3421,6 +3429,13 @@ details.filter-card summary:hover {
     border-color: rgba(37,99,235,.45);
     color: #1d4ed8;
   }
+
+  .action-btn--warning:hover {
+    background: rgba(217,119,6,.12);
+    border-color: rgba(217,119,6,.45);
+    color: #b45309;
+  }
+
 }
 
 

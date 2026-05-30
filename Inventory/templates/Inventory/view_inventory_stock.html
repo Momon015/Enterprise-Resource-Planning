@@ -157,7 +157,7 @@
                   
                   {% if stock.quantity == 0 %}
                     {% if request.user.role == 'owner' %}
-                      <a href="{% url 'inventory-stock-delete' stock_id=stock.id business_slug=current_business.slug %}"
+                      <a href="{% url 'inventory-stock-archive' stock_id=stock.id business_slug=current_business.slug %}"
                         class="btn btn-sm"
                         style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
                         <i class="bi bi-trash"></i> Remove

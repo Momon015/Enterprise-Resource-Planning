@@ -234,7 +234,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Product
             </a>
-            <a href="{% url 'product-delete' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block" style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
+            <a href="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block" style="border:1px solid var(--danger-border); color:var(--danger); background:var(--danger-light);">
               <i class="bi bi-trash"></i> Delete Product
             </a>
           </div>

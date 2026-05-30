@@ -38,12 +38,12 @@ def permission_required(action):
                         return redirect(referer)
                     else:
                         return redirect('product-list', business_slug=business_slug)
-                # if action == 'owner_only':
-                #     messages.error(request, "This section is only available to the account owner.")
-                #     if referer:
-                #         return redirect(referer)
-                #     else:
-                #         return redirect('product-list', business_slug=business_slug)
+                elif action == 'owner_only':
+                    messages.error(request, "This section is only available to the account owner.")
+                    if referer:
+                        return redirect(referer)
+                    else:
+                        return redirect('product-list', business_slug=business_slug)
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator

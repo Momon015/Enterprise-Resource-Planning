@@ -6,7 +6,7 @@ from django.urls import path
 urlpatterns = [
     
     path('view/stocks/list/', views.view_inventory_stock, name='view-inventory-stock'),
-    path('<int:stock_id>/stocks/delete/', views.inventory_stock_delete, name='inventory-stock-delete'),
+    path('<int:stock_id>/stocks/archive/', views.inventory_stock_archive, name='inventory-stock-archive'),
     
     
 ]

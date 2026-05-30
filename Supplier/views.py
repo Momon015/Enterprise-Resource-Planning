@@ -141,9 +141,25 @@ def material_create(request, business_slug):
         
         if form.is_valid():
             material = form.save(commit=False)
-            if Material.objects.filter(business=business, name__iexact=material.name, unit=material.unit).exists():
-                messages.warning(request, f"{material.name.title()} - {material.get_unit_display()} already exists.")
-                return redirect('material-list', business=business_slug)
+            existing = Material.all_objects.filter(
+                business=business,
+                name__iexact=material.name.title(),
+                unit=material.unit,
+            ).first()
+            
+            if existing:
+                if existing.is_active:
+                    messages.warning(request, f"{existing.name} already exists.")
+                    return redirect('material-list', business_slug=business.slug)
+                else:
+                    # Archived twin exists — offer restore instead of creating duplicate
+                    messages.info(
+                        request,
+                        f"{existing.name} exists in your archive. "
+                        f"<a href='{reverse('archived-materials', kwargs={'business_slug': business.slug})}'>Restore it</a> "
+                        f"instead of creating a duplicate."
+                    )
+                    return redirect('material-list', business_slug=business.slug)
             
             material.user = business.user
             material.created_by = request.user
@@ -198,17 +214,18 @@ def material_update(request,  slug, id, business_slug):
 @login_required(login_url='login')
 @permission_required('staff_delete')
 @permission_required('delete') # dev
-def material_delete(request, slug, id, business_slug):
+def material_archive(request, slug, id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     material = get_object_or_404(Material, business=business, slug=slug, id=id)
     
     if request.method == 'POST':
-        material.delete()
-        messages.success(request, f"{material.name} successfully deleted.")
+        material.is_active = False
+        material.save(update_fields=['is_active'])
+        messages.success(request, f"{material.name} archived. Linked product was archived too.")
         return redirect('material-list', business_slug=business.slug)
     
     context = {'material': material, 'section': 'supplier'}
-    return render(request, 'Supplier/material_delete.html', context)
+    return render(request, 'Supplier/material_archive.html', context)
 
 @login_required(login_url='login')
 @capacity_required('material_preset')
@@ -536,3 +553,27 @@ def supplier_delete(request, business_slug, supplier_id, slug):
     
     context = {'supplier': supplier, 'section': 'supplier'}
     return render(request, 'Supplier/supplier_delete.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')  # owner
+@permission_required('add') # dev
+def archived_materials(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    material = Material.all_objects.filter(business=business, is_active=False).order_by('-id')
+    return render(request, 'Supplier/archived_materials.html', {
+        'materials': material,
+        'business': business,
+        'section': 'supplier'
+    })
+
+@login_required(login_url='login')
+@permission_required('owner_only') # owner
+@permission_required('add') # dev 
+def restore_material(request, business_slug, material_id):
+    business = get_business_for_user(request.user, business_slug)
+    material = get_object_or_404(Material.all_objects, business=business, id=material_id, is_active=False)
+    if request.method == 'POST':
+        material.is_active = True
+        material.save(update_fields=['is_active'])
+        messages.success(request, f"Related product '{material.name}' was also restored.")
+    return redirect('archived-materials', business_slug=business.slug)

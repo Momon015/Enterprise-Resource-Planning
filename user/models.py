@@ -126,9 +126,9 @@ class EmailOTP(models.Model):
 class BusinessProfile(models.Model):
     BUSINESS_TYPE_CHOICE = (
         ('retail', 'Retail'),
-        ('cafe', 'Cafe'),
+        ('cafe', 'Coffee Shop'),
         ('restaurant', 'Restaurant'),
-        ('pharmacy', 'Drugstore'),
+        ('pharmacy', 'Pharmacy'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')

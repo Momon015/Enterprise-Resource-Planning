@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='businessprofile',
             name='business_type',
-            field=models.CharField(choices=[('retail', 'Retail'), ('cafe', 'Cafe'), ('restaurant', 'Restaurant'), ('pharmacy', 'Drugstore')], default='retail', max_length=255),
+            field=models.CharField(choices=[('retail', 'Retail'), ('cafe', 'Coffee Shop'), ('restaurant', 'Restaurant'), ('pharmacy', 'Pharmacy')], default='retail', max_length=255),
         ),
     ]

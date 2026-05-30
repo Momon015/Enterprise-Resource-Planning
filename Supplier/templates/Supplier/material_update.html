@@ -205,7 +205,7 @@
             <a href="{% url 'material-detail' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View Detail
             </a>
-            <a href="{% url 'material-delete' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-sm btn-block"
+            <a href="{% url 'material-archive' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-sm btn-block"
                style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
               <i class="bi bi-trash3 sl-me-1"></i> Delete Material
             </a>

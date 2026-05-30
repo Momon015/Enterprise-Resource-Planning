@@ -84,7 +84,7 @@ def view_inventory_stock(request, business_slug):
         
     grand_total_value = sum(stock.price * stock.quantity for stock in stocks)
     
-    pagination = Paginator(stocks, 9)
+    pagination = Paginator(stocks, 8)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -107,17 +107,19 @@ def view_inventory_stock(request, business_slug):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def inventory_stock_delete(request, business_slug, stock_id):
+def inventory_stock_archive(request, business_slug, stock_id):
     business = get_business_for_user(request.user, business_slug)
     
     stock = get_object_or_404(Stock, business=business, id=stock_id)
 
     if request.method == 'POST':
         if stock.material:
-            Product.objects.filter(business=business, material=stock.material).delete()
-            stock.delete()
-            messages.success(request, f"{stock.name} - both stock and product has been deleted.")
+            stock.material.is_active = False
+            stock.material.save(update_fields=['is_active'])
+            # signal cascades archive to linked Product
+            messages.success(request, f"{stock.name} archived. Stock and product hidden from active lists.")
         return redirect('view-inventory-stock', business_slug=business.slug)
+
     
     context = {'stock': stock, 'section': 'inventory'}
     return render(request, 'Inventory/inventory_stock_delete.html', context)

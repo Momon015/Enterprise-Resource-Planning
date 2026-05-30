@@ -6,11 +6,11 @@
   <!-- PAGE HEADER -->
   <div class="sl-page-header">
     <div>
-      <h4 class="sl-page-title" style="color:var(--danger);">
-        <i class="bi bi-trash"></i>
-        Delete Material
+      <h4 class="sl-page-title" style="color:var(--warning);">
+        <i class="bi bi-archive"></i>
+        Archive Material
       </h4>
-      <p class="sl-page-subtitle">You are about to permanently remove <strong>{{ material.name }}</strong>.</p>
+      <p class="sl-page-subtitle">You are about to archive <strong>{{ material.name }}</strong>. You can restore it anytime.</p>
     </div>
     <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Back to materials
@@ -19,17 +19,17 @@
 
   <div class="two-col-layout">
 
-    <!-- LEFT: DELETE CONFIRMATION -->
+    <!-- LEFT: ARCHIVE CONFIRMATION -->
     <div class="left-panel">
       <div class="card">
         <div class="card-header">
           <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-trash"></i>
+            <div class="sd-header-icon" style="background:var(--warning-light); color:var(--warning);">
+              <i class="bi bi-archive"></i>
             </div>
             <div>
               <div class="card-header-title">Material Details</div>
-              <div class="card-header-sub">Review before confirming deletion.</div>
+              <div class="card-header-sub">Review before archiving.</div>
             </div>
           </div>
           <span class="sl-badge sl-badge-light">ID: {{ material.id }}</span>
@@ -58,12 +58,12 @@
             </div>
           </div>
 
-          <!-- WARNING NOTE -->
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:#f0d0ce;">
-            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
+          <!-- INFO NOTE -->
+          <div class="sd-note-box" style="background:var(--warning-light); border-color:#ffe2b3;">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--warning);"></i>
             <div>
-              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">This cannot be undone once confirmed.</div>
+              <div class="sd-note-title" style="color:var(--warning);">This is reversible</div>
+              <div class="sd-note-text">{{ material.name }} will be hidden from your active list. Restore it anytime from <strong>Archived Materials</strong>.</div>
             </div>
           </div>
 
@@ -75,8 +75,8 @@
                 Cancel
               </a>
               <button type="submit" class="btn"
-                style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
-                <i class="bi bi-trash"></i> Confirm Delete
+                style="background:var(--warning); color:#fff; border-color:var(--warning); font-weight:600;">
+                <i class="bi bi-archive"></i> Confirm Archive
               </button>
             </div>
           </form>
@@ -85,24 +85,33 @@
       </div>
     </div>
 
-    <!-- RIGHT: DANGER PANEL -->
+    <!-- RIGHT: IMPACT PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header" style="background:#c0392b;">
+        <div class="card-header" style="background:var(--warning);">
           <span style="display:flex; align-items:center; gap:0.5rem; font-weight:600; font-size:0.9rem; color:#fff;">
-            <i class="bi bi-shield-exclamation"></i> Before you delete
+            <i class="bi bi-info-circle"></i> What happens when you archive
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- WARNING -->
-          <div class="sd-summary-block" style="background:var(--danger-light); border-color:#f0d0ce;">
-            <div class="sd-summary-block-label" style="color:var(--danger);">
-              <i class="bi bi-exclamation-triangle sl-me-1"></i> Warning
+          <!-- WHAT HAPPENS -->
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">
+              <i class="bi bi-eye-slash sl-me-1"></i> Hidden from active list
             </div>
             <p style="font-size:0.82rem; color:#6c757d; margin:0;">
-              Deleting <strong>{{ material.name }}</strong> will permanently remove it from the system.
-              Past purchase records that reference this material will remain but it cannot be reused.
+              <strong>{{ material.name }}</strong> won't appear in your material list or pickers. Linked product will also be archived.
+              Past purchase records that reference this material remain untouched.
+            </p>
+          </div>
+
+          <div class="sd-summary-block" style="background:#f0f9f1; border-color:#cdebd0;">
+            <div class="sd-summary-block-label" style="color:var(--success);">
+              <i class="bi bi-arrow-counterclockwise sl-me-1"></i> Restore anytime
+            </div>
+            <p style="font-size:0.82rem; color:#6c757d; margin:0;">
+              Go to <strong>Archived Materials</strong> from the material list and click Restore.
             </p>
           </div>
 

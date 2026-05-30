@@ -5,6 +5,10 @@ from user.models import User, BusinessProfile
 from Supplier.models import Material
 # Create your models here.
 
+class ActiveManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 class Product(SlugModel, TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
@@ -20,6 +24,10 @@ class Product(SlugModel, TimeStampModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     is_locked = models.BooleanField(default=False, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    objects = ActiveManager()
+    all_objects = models.Manager()
     
     class Meta:
         ordering = ['name']
@@ -34,7 +42,7 @@ class Product(SlugModel, TimeStampModel):
         counter = 1
         
         # include business in collision check
-        while Product.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
+        while Product.all_objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
             slug = f"{base_slug}-{counter}"
             counter += 1
         

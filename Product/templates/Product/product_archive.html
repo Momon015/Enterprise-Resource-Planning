@@ -10,10 +10,10 @@
       <div class="page-breadcrumb">
         <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCTS</a>
         <i class="bi bi-chevron-right"></i>
-        <span>DELETE</span>
+        <span>ARCHIVE</span>
       </div>
-      <h1 class="page-title" style="color: var(--danger);">Delete Product</h1>
-      <p class="page-subtitle">You are about to permanently remove <strong>{{ product.name }}</strong></p>
+      <h1 class="page-title" style="color: var(--warning);">Archive Product</h1>
+      <p class="page-subtitle">You are about to archive <strong>{{ product.name }}</strong>. You can restore it anytime.</p>
     </div>
     <div class="page-header-right">
       <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-back">
@@ -29,12 +29,12 @@
       <div class="card">
         <div class="card-header">
           <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background: var(--danger-light); color: var(--danger);">
+            <div class="sd-header-icon" style="background: var(--warning-light); color: var(--warning);">
               <i class="bi bi-box-seam"></i>
             </div>
             <div>
               <div class="card-header-title" style="margin: 0;">{{ product.name|capfirst }}</div>
-              <div class="card-header-sub" style="margin: 0;">Product to be deleted</div>
+              <div class="card-header-sub" style="margin: 0;">Product to be archived</div>
             </div>
           </div>
           <span class="sl-badge sl-badge-light">ID: {{ product.id }}</span>
@@ -58,13 +58,13 @@
             </div>
           </div>
 
-          <div class="sd-note-box" style="background: var(--danger-light); border-color: var(--danger-border);">
+          <div class="sd-note-box" style="background: var(--warning-light); border-color: #ffe2b3;">
             <div class="sd-note-icon">
-              <i class="bi bi-exclamation-triangle-fill" style="color: var(--danger);"></i>
+              <i class="bi bi-info-circle-fill" style="color: var(--warning);"></i>
             </div>
             <div>
-              <div class="sd-note-title" style="color: var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">This product will be removed from listings and stock tracking. Past sales records are preserved.</div>
+              <div class="sd-note-title" style="color: var(--warning);">This is reversible</div>
+              <div class="sd-note-text">This product will be hidden from listings and stock tracking. Past sales records are preserved. Restore anytime from Archived Products.</div>
             </div>
           </div>
 
@@ -72,8 +72,8 @@
             {% csrf_token %}
             <div class="mf-form-actions">
               <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn btn-danger">
-                <i class="bi bi-trash"></i> Confirm Delete
+              <button type="submit" class="btn" style="background: var(--warning); color:#fff; border-color: var(--warning); font-weight:600;">
+                <i class="bi bi-archive"></i> Confirm Archive
               </button>
             </div>
           </form>
@@ -85,25 +85,25 @@
     <!-- RIGHT: IMPACT PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header" style="background: var(--danger); border-bottom: none;">
+        <div class="card-header" style="background: var(--warning); border-bottom: none;">
           <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="bi bi-shield-exclamation"></i>
-            Deletion Impact
+            <i class="bi bi-info-circle"></i>
+            What happens when you archive
           </span>
         </div>
         <div class="card-body">
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color: var(--danger);">
-              <i class="bi bi-x-circle"></i> Will be removed
+            <div class="sd-summary-block-label" style="color: var(--warning);">
+              <i class="bi bi-eye-slash"></i> Will be hidden
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Product listing</span>
-              <span class="sd-info-value" style="color: var(--danger);">Deleted</span>
+              <span class="sd-info-value" style="color: var(--warning);">Hidden</span>
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Stock tracking</span>
-              <span class="sd-info-value" style="color: var(--danger);">Stopped</span>
+              <span class="sd-info-value" style="color: var(--warning);">Paused</span>
             </div>
           </div>
 
@@ -118,6 +118,10 @@
             <div class="sd-info-row">
               <span class="sd-info-label">Revenue records</span>
               <span class="sd-info-value" style="color: var(--success);">Kept</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Restore option</span>
+              <span class="sd-info-value" style="color: var(--success);">Anytime</span>
             </div>
           </div>
 

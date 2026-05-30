@@ -146,11 +146,23 @@ def product_create(request, business_slug):
             # if business.business_type == 'retail':
                 
             product = form.save(commit=False)
-            product.name = product.name.title()
-            if Product.objects.filter(business=business, name__iexact=product.name.title(), unit=product.unit).exists():
-                messages.warning(request, f"{product.name} is already exists. Please create another product name.")
-                return redirect('product-list', business_slug=business.slug)
+            existing = Product.all_objects.filter(
+                business=business,
+                name__iexact=product.name.title(),
+            ).first()
             
+            if existing:
+                if existing.is_active:
+                    messages.warning(request, f"{existing.name} already exists.")
+                    return redirect('product-list', business_slug=business.slug)
+                else:
+                    # Archived twin exists — offer restore instead of creating duplicate
+                    messages.info(
+                        request,
+                        f"{existing.name} exists in your archive."
+                    )
+                    return redirect('product-list', business_slug=business.slug)
+
             product.user = business.user
             product.name = product.name.title()
             product.business = business
@@ -211,23 +223,20 @@ def product_update(request, business_slug, product_slug, product_id):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-def product_delete(request, business_slug, product_slug, product_id):
+def product_archive(request, business_slug, product_slug, product_id):
     business = get_business_for_user(request.user, business_slug)
         
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     if request.method == 'POST':
         
-        if product.material:
-            messages.warning(request, f"This product is linked to inventory. Delete the stock record instead.")
-            return redirect('product-list', business_slug=business.slug)
-
-        product.delete()
-        messages.success(request, f"{product.name} has been deleted.")
+        product.is_active = False
+        product.save(update_fields=['is_active'])
+        messages.success(request, f"{product.name} has been archived. You can restore it anytime.")
         return redirect('product-list', business_slug=business.slug)
     
     context = {'product': product}
-    return render(request, 'Product/product_delete.html', context)
+    return render(request, 'Product/product_archive.html', context)
 
 @login_required(login_url='login')  
 @permission_required('staff_add') # staff
@@ -481,3 +490,33 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
     
     # fallback 
     return redirect(f"{reverse('product-preset-list', kwargs={'business_slug': business.slug})}?{request.META.get('QUERY_STRING', '')}")
+
+@login_required(login_url='login')
+@permission_required('owner_only')  # owner
+@permission_required('add') # dev
+def archived_products(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    products = Product.all_objects.filter(business=business, is_active=False).order_by('-id')
+    return render(request, 'Product/archived_products.html', {
+        'products': products,
+        'business': business,
+        'section': 'product'
+    })
+
+@login_required(login_url='login')
+@permission_required('owner_only') # owner
+@permission_required('add') # dev
+def restore_product(request, business_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
+    product = get_object_or_404(Product.all_objects, business=business, id=product_id, is_active=False)
+    
+    if request.method == 'POST':
+        if product.material and not product.material.is_active:
+            messages.warning(request,
+                f"Restore '{product.material.name}' first from supplier — this product is linked to it.")
+            return redirect('archived-products', business_slug=business.slug)
+        
+        product.is_active = True
+        product.save(update_fields=['is_active'])
+        messages.success(request, f"{product.name} restored.")
+    return redirect('archived-products', business_slug=business.slug)

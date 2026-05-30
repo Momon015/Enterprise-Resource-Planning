@@ -136,12 +136,14 @@ def subscription_settings(request, business_slug):
             {
                 'label': 'Products', 'key': 'product',
                 'used': Product.objects.filter(business=biz).count(),
+                'archived': Product.all_objects.filter(business=biz, is_active=False).count(),
                 'limit': limits['max_products'],
                 'locked': Product.objects.filter(business=biz, is_locked=True).count(),
             },
             {
                 'label': 'Materials', 'key': 'material',
                 'used': Material.objects.filter(business=biz).count(),
+                'archived': Material.all_objects.filter(business=biz, is_active=False).count(),
                 'limit': limits['max_materials'],
                 'locked': Material.objects.filter(business=biz, is_locked=True).count(),
             },

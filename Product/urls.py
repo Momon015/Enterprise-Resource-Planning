@@ -9,7 +9,7 @@ urlpatterns = [
     
     path('view/<str:product_id>/<slug:product_slug>/detail/', views.product_detail, name='product-detail'),
     path('view/<str:product_id>/<slug:product_slug>/update/', views.product_update, name='product-update'),
-    path('view/<str:product_id>/<slug:product_slug>/delete/', views.product_delete, name='product-delete'),
+    path('view/<str:product_id>/<slug:product_slug>/archive/', views.product_archive, name='product-archive'),
     
     path('add/product/preset/', views.add_product_to_preset, name='product-add-to-preset'),
     path('view/preset-list/', views.list_product_preset, name='product-preset-list'),
@@ -23,6 +23,10 @@ urlpatterns = [
     path('restore/<int:product_id>/quantity/', views.restore_product_quantity, name='product-restore-quantity'),
     path('restore/batch-quantity/', views.restore_batch_product, name='product-batch-restore-quantity'),
     
+    # archive
+    path('archived/', views.archived_products, name='archived-products'),
+    path('archived/<int:product_id>/restore/', views.restore_product, name='restore-product'),
+
 ]
 
 
