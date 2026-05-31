@@ -116,7 +116,7 @@ def material_list(request, business_slug):
         'suppliers': suppliers,
         'categories_count': categories_count,
         'top_categories': top_categories,
-        'section': 'supplier',
+        'section': 'material',
 
         # HTMX
         'cart_count': sum(item['quantity'] for item in cart.values()),
@@ -148,17 +148,12 @@ def material_create(request, business_slug):
             ).first()
             
             if existing:
-                if existing.is_active:
+                if existing.status != 'inactive':
                     messages.warning(request, f"{existing.name} already exists.")
                     return redirect('material-list', business_slug=business.slug)
                 else:
                     # Archived twin exists — offer restore instead of creating duplicate
-                    messages.info(
-                        request,
-                        f"{existing.name} exists in your archive. "
-                        f"<a href='{reverse('archived-materials', kwargs={'business_slug': business.slug})}'>Restore it</a> "
-                        f"instead of creating a duplicate."
-                    )
+                    messages.info(request,f"{existing.name} exists in your archive. ")
                     return redirect('material-list', business_slug=business.slug)
             
             material.user = business.user
@@ -171,7 +166,7 @@ def material_create(request, business_slug):
     else:
         form = MaterialForm(business=business)
         
-    context = {'form': form, 'section': 'supplier'}
+    context = {'form': form, 'section': 'material'}
     return render(request, 'Supplier/material_create.html', context)
 
 @login_required(login_url='login')
@@ -180,7 +175,7 @@ def material_detail(request, slug, id, business_slug):
     
     material = get_object_or_404(Material, business=business, slug=slug, id=id)
     
-    context = {'material': material, 'section': 'Supplier'}
+    context = {'material': material, 'section': 'material'}
     return render(request, 'Supplier/material_detail.html', context)
 
 @login_required(login_url='login')
@@ -202,13 +197,10 @@ def material_update(request,  slug, id, business_slug):
             messages.success(request, f"{material.name} successfully updated.")
             url = request.GET.get('next', 'material-list')
             return redirect(url, business_slug=business.slug)
-        else:
-            print(form.errors)
-        
     else:
         form = MaterialForm(instance=material, business=business)
         
-    context = {'form': form, 'material': material, 'section': 'supplier'}
+    context = {'form': form, 'material': material, 'section': 'material'}
     return render(request, 'Supplier/material_update.html', context)
 
 @login_required(login_url='login')
@@ -219,13 +211,37 @@ def material_archive(request, slug, id, business_slug):
     material = get_object_or_404(Material, business=business, slug=slug, id=id)
     
     if request.method == 'POST':
-        material.is_active = False
-        material.save(update_fields=['is_active'])
+        material.status = 'inactive'
+        material.save(update_fields=['status'])
         messages.success(request, f"{material.name} archived. Linked product was archived too.")
         return redirect('material-list', business_slug=business.slug)
     
-    context = {'material': material, 'section': 'supplier'}
+    context = {'material': material, 'section': 'material'}
     return render(request, 'Supplier/material_archive.html', context)
+
+@login_required(login_url='login')
+@permission_required('owner_only')  # owner
+@permission_required('add') # dev
+def archived_materials(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    material = Material.all_objects.filter(business=business, status='inactive').order_by('-id')
+    return render(request, 'Supplier/archived_materials.html', {
+        'materials': material,
+        'business': business,
+        'section': 'material'
+    })
+
+@login_required(login_url='login')
+@permission_required('owner_only') # owner
+@permission_required('add') # dev 
+def restore_material(request, business_slug, material_id):
+    business = get_business_for_user(request.user, business_slug)
+    material = get_object_or_404(Material.all_objects, business=business, id=material_id, status='inactive')
+    if request.method == 'POST':
+        material.status = 'active'
+        material.save(update_fields=['status'])
+        messages.success(request, f"{material.name} restored. Linked product was also restored.")
+    return redirect('archived-materials', business_slug=business.slug)
 
 @login_required(login_url='login')
 @capacity_required('material_preset')
@@ -336,7 +352,8 @@ def adding_preset_to_cart(request, preset_id, business_slug):
             'label': 'Purchase Record',
             'cart_count': sum(item['quantity'] for item in cart.values()),
             'cart_items': len(cart),
-            'messages': get_messages(request)
+            'messages': get_messages(request),
+            'section': 'material',
         })
 
     # This allows to stay which page the user currently in after adding.
@@ -366,7 +383,7 @@ def preset_list(request, business_slug):
     
     context = {
         'page_obj': page_obj, 
-        'section': 'supplier',
+        'section': 'material',
         
         # HTMX
         'cart_url': 'view-cart',
@@ -383,7 +400,7 @@ def preset_detail(request, business_slug, id, slug):
     
     preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
 
-    context = {'preset': preset, 'section': 'supplier'}
+    context = {'preset': preset, 'section': 'material'}
     return render(request, 'Supplier/detail_preset.html', context)
 
 @login_required(login_url='login')
@@ -433,7 +450,7 @@ def edit_preset(request, business_slug, id, slug):
         
         return redirect('material-preset-list', business_slug=business.slug)
       
-    context = {'preset': preset, 'items': save_items, 'section': 'supplier'}
+    context = {'preset': preset, 'items': save_items, 'section': 'material'}
     return render(request, 'Supplier/edit_preset.html', context)
 
 @login_required(login_url='login')
@@ -448,7 +465,7 @@ def delete_preset(request, business_slug, id, slug):
         messages.success(request, f"{preset.name} has been deleted.")
         return redirect('material-preset-list', business_slug=business.slug)
     
-    context = {'preset': preset, 'section': 'supplier'}
+    context = {'preset': preset, 'section': 'material'}
     return render(request, 'Supplier/delete_preset.html', context)
 
 @login_required(login_url='login')
@@ -477,7 +494,7 @@ def supplier_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
     if request.method == 'POST':
-        form = SupplierForm(request.POST)
+        form = SupplierForm(request.POST, request.FILES)
         
         if form.is_valid():
             supplier = form.save(commit=False)
@@ -512,14 +529,14 @@ def supplier_update(request, business_slug, supplier_id, slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
 
+    if supplier.slug == 'no-supplier':
+        messages.warning(request, '"No Supplier" is a system default and cannot be edited — it holds materials that have no supplier assigned.')
+        return redirect('supplier-list', business_slug=business.slug)
+
     if request.method == 'POST':
-        form = SupplierForm(request.POST, instance=supplier)
+        form = SupplierForm(request.POST, request.FILES, instance=supplier)
         
         if form.is_valid():
-            if supplier.slug == 'no-supplier':
-                messages.warning(request, '"No Supplier" is a system default and cannot be edited — it holds materials that have no supplier assigned.')
-                return redirect('supplier-list', business_slug=business.slug)
-            
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
             supplier.save()
@@ -527,8 +544,6 @@ def supplier_update(request, business_slug, supplier_id, slug):
             query_string = request.META.get('QUERY_STRING', '')
             url = reverse('supplier-list', kwargs={'business_slug': business.slug})
             return redirect(f"{url}?{query_string}" if query_string else url)
-        else:
-            print(form.errors)
     else:
         form = SupplierForm(instance=supplier)
         
@@ -538,30 +553,38 @@ def supplier_update(request, business_slug, supplier_id, slug):
 @login_required(login_url='login')
 @permission_required('staff_delete')
 @permission_required('delete') # dev
-def supplier_delete(request, business_slug, supplier_id, slug):
+def supplier_archive(request, business_slug, supplier_id, slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
     
-    if request.method == 'POST':
-        if supplier.slug == 'no-supplier':
-            messages.warning(request, '"No Supplier" is a system default and cannot be deleted — it holds materials that have no supplier assigned.')
-            return redirect('supplier-list', business_slug=business.slug)
-            
-        supplier.delete()
-        messages.success(request, f"{supplier.name} successfully deleted.")
+    if supplier.slug == 'no-supplier':
+        messages.warning(request, '"No Supplier" is a system default and cannot archived — it holds materials that have no supplier assigned.')
         return redirect('supplier-list', business_slug=business.slug)
     
-    context = {'supplier': supplier, 'section': 'supplier'}
-    return render(request, 'Supplier/supplier_delete.html', context)
+    if request.method == 'POST':
+        supplier.status = 'inactive'
+        try:
+            supplier.full_clean()        # ← triggers your clean() stock check
+        except ValidationError as e:
+            messages.warning(request, e.messages[0])
+            return redirect('supplier-list', business_slug=business.slug)
+        supplier.save(update_fields=['status'])
+        messages.success(request, f"{supplier.name} archived (status: inactive).")
+        return redirect('supplier-list', business_slug=business.slug)
+
+    return render(request, 'Supplier/supplier_archive.html', {'supplier': supplier})
+
+
+
 
 @login_required(login_url='login')
 @permission_required('owner_only')  # owner
 @permission_required('add') # dev
-def archived_materials(request, business_slug):
+def archived_suppliers(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    material = Material.all_objects.filter(business=business, is_active=False).order_by('-id')
-    return render(request, 'Supplier/archived_materials.html', {
-        'materials': material,
+    supplier = Supplier.all_objects.filter(business=business, status='inactive').order_by('-id')
+    return render(request, 'Supplier/archived_suppliers.html', {
+        'suppliers': supplier,
         'business': business,
         'section': 'supplier'
     })
@@ -569,11 +592,11 @@ def archived_materials(request, business_slug):
 @login_required(login_url='login')
 @permission_required('owner_only') # owner
 @permission_required('add') # dev 
-def restore_material(request, business_slug, material_id):
+def restore_supplier(request, business_slug, supplier_id):
     business = get_business_for_user(request.user, business_slug)
-    material = get_object_or_404(Material.all_objects, business=business, id=material_id, is_active=False)
+    supplier = get_object_or_404(Supplier.all_objects, business=business, id=supplier_id, status='inactive')
     if request.method == 'POST':
-        material.is_active = True
-        material.save(update_fields=['is_active'])
-        messages.success(request, f"Related product '{material.name}' was also restored.")
-    return redirect('archived-materials', business_slug=business.slug)
+        supplier.status = 'active'
+        supplier.save(update_fields=['status'])
+        messages.success(request, f"{supplier.name} restored. Linked product was also restored.")
+    return redirect('archived-suppliers', business_slug=business.slug)

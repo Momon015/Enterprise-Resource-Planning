@@ -39,8 +39,11 @@ from subscription.decorators import capacity_required
 @login_required(login_url='login')
 def view_inventory_stock(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    stocks = get_queryset_for_user(request.user, Stock.objects.all()).filter(business=business).order_by('-name')
-    
+    stocks = get_queryset_for_user(request.user, Stock.objects.all()) \
+        .filter(business=business) \
+        .exclude(material__status='inactive') \
+        .order_by('-name')
+
     most_stock_category_name = (stocks.values('material__category__name') \
     .annotate(total_count=Sum('material')).order_by('-total_count').first()
     )
@@ -105,21 +108,3 @@ def view_inventory_stock(request, business_slug):
     
     return render(request, 'Inventory/view_inventory_stock.html', context)
 
-@login_required(login_url='login')
-@permission_required('staff_delete')
-def inventory_stock_archive(request, business_slug, stock_id):
-    business = get_business_for_user(request.user, business_slug)
-    
-    stock = get_object_or_404(Stock, business=business, id=stock_id)
-
-    if request.method == 'POST':
-        if stock.material:
-            stock.material.is_active = False
-            stock.material.save(update_fields=['is_active'])
-            # signal cascades archive to linked Product
-            messages.success(request, f"{stock.name} archived. Stock and product hidden from active lists.")
-        return redirect('view-inventory-stock', business_slug=business.slug)
-
-    
-    context = {'stock': stock, 'section': 'inventory'}
-    return render(request, 'Inventory/inventory_stock_delete.html', context)

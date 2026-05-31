@@ -4,21 +4,18 @@ from django import forms
 from Product.models import Product, ProductPreset, ProductPresetItem
 from core.models import Category
 
+from core.utils.images import process_uploaded_image
 
 class ProductForm(ModelForm):
 
     class Meta:
         model = Product
-        fields = ['name', 'description', 'sku', 'barcode',
+        fields = ['name', 'description', 'image', 'barcode',
                   'prepared_quantity', 'selling_price', 'category']
 
         widgets = {
             'name': forms.TextInput(attrs={
                 'placeholder': 'e.g. Coke 1.5L',
-                'autocomplete': 'off',
-            }),
-            'sku': forms.TextInput(attrs={
-                'placeholder': 'Leave blank — we\'ll generate PRD-0001',
                 'autocomplete': 'off',
             }),
             'barcode': forms.TextInput(attrs={
@@ -39,7 +36,33 @@ class ProductForm(ModelForm):
                 'min': '1',
                 'inputmode': 'numeric',
             }),
+            
+            'image': forms.FileInput(attrs={
+                'accept': 'image/*',
+                'class': 'form-control',
+            }),
+
+            
+            # 'sku': forms.TextInput(attrs={
+            #     'placeholder': 'Leave blank — we\'ll generate PRD-0001',
+            #     'autocomplete': 'off',
+            # }),
         }
+        
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if not image:
+            return image  # field is optional
+        
+        # If image is an existing stored file (edit form, user didn't replace it),
+        # it won't have a content_type attribute. Skip processing.
+        if not hasattr(image, 'content_type'):
+            return image
+        
+        # Capture original filename BEFORE the helper renames it to a uuid
+        self.instance.image_original_name = image.name
+
+        return process_uploaded_image(image)
 
     def __init__(self, *args, **kwargs):
         business = kwargs.pop('business', None)
@@ -71,16 +94,17 @@ class ProductForm(ModelForm):
         # Friendlier labels
         self.fields['selling_price'].label = 'Unit Price'
         self.fields['prepared_quantity'].label = 'Quantity'
-        self.fields['sku'].label = 'SKU'
+        
+        # self.fields['sku'].label = 'SKU'
+        # self.fields['sku'].required = False
+        
         self.fields['barcode'].label = 'Barcode'
-        self.fields['sku'].required = False
         self.fields['barcode'].required = False
         
         # Apply form-control class without nuking existing widget attrs
         for field in self.fields.values():
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control').strip()
-
 
 class ProductFilterForm(forms.Form):
     search = forms.CharField(required=False)

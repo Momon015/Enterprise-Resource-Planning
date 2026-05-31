@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% load humanize %}
+{% load static %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -39,6 +40,11 @@
         <i class="bi bi-plus-circle"></i> Create supplier
       </a>
     </div> {% endcomment %}
+      <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-archive-fill"></i> View Archived
+      </a>
+
+
   </div>
 
   <div class="two-col-layout">
@@ -90,7 +96,6 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Date Added</th>
                 <th>Name</th>
                 <th class="sl-text-center">Items</th>
                 {% if request.user.role == 'owner' %}
@@ -104,16 +109,20 @@
               {% for supplier in page_obj %}
               <tr class="{% if supplier.is_locked %}is-locked{% endif %}">
                 <td>
-                  <div class="cell-primary">{{ supplier.created_at|date:"M d, Y" }}</div>
-                  <div class="cell-sub">{{ supplier.created_at|date:"l" }}</div>
-                  {% if supplier.is_locked %}
+                  <div class="list-name-cell">
+                      {% if supplier.image %}
+                        <img src="{{ supplier.image.url }}" alt="" class="list-thumb">
+                      {% else %}
+                        <img src="{% static 'images/no-image.png' %}" alt="No image" class="list-thumb">
+                      {% endif %}
+                      <div class="name-text">
+                        <strong>{{ supplier.name }}</strong>
+                        <small class="text-muted">{{ supplier.name|default:"No supplier" }}</small>
+                      </div>
+                  </div>
+                    {% if supplier.is_locked %}
                     <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                   {% endif %}
-                </td>
-
-                <td>
-                  <div class="cell-primary">{{ supplier.name|title }}</div>
-                  <div class="cell-sub">by {{ supplier.created_by|default:"System"|capfirst }}</div>
                 </td>
 
                 <td class="sl-text-center">
@@ -131,9 +140,9 @@
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                    <a href="{% url 'supplier-delete' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--danger" title="Delete supplier">
-                      <i class="bi bi-trash3"></i>
+                    <a href="{% url 'supplier-archive' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}"
+                       class="action-btn action-btn--warning" title="Delete supplier">
+                      <i class="bi bi-archive-fill"></i>
                     </a>
                     {% endif %}
                   </div>

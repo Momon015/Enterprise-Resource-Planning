@@ -54,7 +54,11 @@ def product_list(request, business_slug):
     The helper function allows to isolate the owner and the staffs for every client.
     """
     
-    products = get_queryset_for_user(request.user, Product.objects.all()).filter(business=business).order_by('name')
+    products = get_queryset_for_user(request.user, Product.objects.all()) \
+        .filter(business=business) \
+        .select_related('category', 'material__supplier') \
+        .order_by('name')
+
     
     # option 2
     # if request.user.role == 'developer':
@@ -139,7 +143,7 @@ def product_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
     if request.method == 'POST':
-        form = ProductForm(request.POST, business=business)
+        form = ProductForm(request.POST, request.FILES, business=business)
 
         if form.is_valid():
             
@@ -157,10 +161,7 @@ def product_create(request, business_slug):
                     return redirect('product-list', business_slug=business.slug)
                 else:
                     # Archived twin exists — offer restore instead of creating duplicate
-                    messages.info(
-                        request,
-                        f"{existing.name} exists in your archive."
-                    )
+                    messages.info(request,f"{existing.name} exists in your archive.")
                     return redirect('product-list', business_slug=business.slug)
 
             product.user = business.user
@@ -206,7 +207,7 @@ def product_update(request, business_slug, product_slug, product_id):
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product, business=business)
+        form = ProductForm(request.POST, request.FILES, instance=product, business=business)
         
         if form.is_valid():
             product = form.save(commit=False)
@@ -511,9 +512,9 @@ def restore_product(request, business_slug, product_id):
     product = get_object_or_404(Product.all_objects, business=business, id=product_id, is_active=False)
     
     if request.method == 'POST':
-        if product.material and not product.material.is_active:
+        if product.material and product.material.status == 'inactive':
             messages.warning(request,
-                f"Restore '{product.material.name}' first from supplier — this product is linked to it.")
+                f"Restore '{product.material.name}' first from materials — this product is linked to it.")
             return redirect('archived-products', business_slug=business.slug)
         
         product.is_active = True

@@ -9,10 +9,10 @@
       <div class="page-breadcrumb">
         <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="breadcrumb-link">SUPPLIERS</a>
         <i class="bi bi-chevron-right"></i>
-        <span>DELETE</span>
+        <span>ARCHIVE</span>
       </div>
-      <h1 class="page-title" style="color:var(--danger);">Delete Supplier</h1>
-      <p class="page-subtitle">You are about to permanently remove <strong>{{ supplier.name }}</strong>.</p>
+      <h1 class="page-title" style="color:var(--warning);">Archive Supplier</h1>
+      <p class="page-subtitle">You are about to archive <strong>{{ supplier.name }}</strong>. You can restore it anytime.</p>
     </div>
     <div class="page-header-right">
       <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn-back">
@@ -28,7 +28,7 @@
       <div class="card">
         <div class="card-header">
           <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
+            <div class="sd-header-icon" style="background:var(--warning-light); color:var(--warning);">
               <i class="bi bi-building"></i>
             </div>
             <div>
@@ -48,16 +48,32 @@
               <span class="sd-info-value">{{ supplier.materials.count }}</span>
             </div>
             <div class="sd-info-row">
+              <span class="sd-info-label">Contact</span>
+              <span class="sd-info-value">{{ supplier.contact_number|default:"—" }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Email</span>
+              <span class="sd-info-value">{{ supplier.email|default:"—" }}</span>
+            </div>
+            <div class="sd-info-row">
               <span class="sd-info-label">Date added</span>
               <span class="sd-info-value">{{ supplier.created_at|date:"M d, Y" }}</span>
             </div>
           </div>
 
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
-            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
+          <div class="sd-note-box" style="background:var(--warning-light); border-color:#ffe2b3;">
+            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--warning);"></i>
             <div>
-              <div class="sd-note-title" style="color:var(--danger);">This action is permanent</div>
-              <div class="sd-note-text">Materials linked to this supplier will lose their supplier reference. This cannot be undone.</div>
+              <div class="sd-note-title" style="color:var(--warning);">This is reversible</div>
+              <div class="sd-note-text">{{ supplier.name }} will be hidden from your active list. Linked materials and purchase history stay intact. Restore anytime from Archived Suppliers.</div>
+            </div>
+          </div>
+
+          <div class="sd-note-box" style="background:#fff3cd; border-color:#ffe2b3;">
+            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:#92400e;"></i>
+            <div>
+              <div class="sd-note-title" style="color:#92400e;">Stock check required</div>
+              <div class="sd-note-text">Archive will be blocked if any linked material still has stock on hand. Use up or waste the stock first.</div>
             </div>
           </div>
 
@@ -65,8 +81,8 @@
             {% csrf_token %}
             <div class="mf-form-actions">
               <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn" style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
-                <i class="bi bi-trash"></i> Confirm Delete
+              <button type="submit" class="btn" style="background:var(--warning); color:#fff; border-color:var(--warning); font-weight:600;">
+                <i class="bi bi-archive"></i> Confirm Archive
               </button>
             </div>
           </form>
@@ -75,37 +91,45 @@
       </div>
     </div>
 
-    <!-- RIGHT: DELETION IMPACT -->
+    <!-- RIGHT: IMPACT PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header" style="background:var(--danger); border-bottom:none;">
+        <div class="card-header" style="background:var(--warning); border-bottom:none;">
           <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-shield-exclamation"></i> Deletion Impact
+            <i class="bi bi-info-circle"></i> What happens when you archive
           </span>
         </div>
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color:var(--danger);">
-              <i class="bi bi-x-circle sl-me-1"></i> Will be removed
+            <div class="sd-summary-block-label" style="color:var(--warning);">
+              <i class="bi bi-eye-slash"></i> Will be hidden
             </div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Supplier</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ supplier.name|capfirst }}</span>
+              <span class="sd-info-label">Supplier list</span>
+              <span class="sd-info-value" style="color:var(--warning);">Hidden</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Material picker dropdowns</span>
+              <span class="sd-info-value" style="color:var(--warning);">Hidden</span>
             </div>
           </div>
 
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color:var(--warning);">
-              <i class="bi bi-exclamation-triangle sl-me-1"></i> Side effects
+            <div class="sd-summary-block-label" style="color:var(--success);">
+              <i class="bi bi-check-circle"></i> Will be preserved
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">Linked materials</span>
-              <span class="sd-info-value" style="color:var(--warning);">Lose supplier reference</span>
+              <span class="sd-info-value" style="color:var(--success);">Keep reference</span>
             </div>
             <div class="sd-info-row">
-              <span class="sd-info-label">Purchase history</span>
-              <span class="sd-info-value" style="color:var(--warning);">Records remain but unlinked</span>
+              <span class="sd-info-label">Past purchase records</span>
+              <span class="sd-info-value" style="color:var(--success);">Kept</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Restore option</span>
+              <span class="sd-info-value" style="color:var(--success);">Anytime</span>
             </div>
           </div>
 

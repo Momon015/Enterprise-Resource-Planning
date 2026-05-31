@@ -25,7 +25,7 @@ def _build_datasets(business):
          for p in products],
     ))
 
-    materials = Material.objects.filter(business=business, is_active=True).select_related('supplier', 'category')
+    materials = Material.objects.filter(business=business).select_related('supplier', 'category')
     datasets.append((
         'Materials',
         ['Name', 'Supplier', 'Category', 'Price', 'Quantity', 'Unit', 'Locked', 'Created'],

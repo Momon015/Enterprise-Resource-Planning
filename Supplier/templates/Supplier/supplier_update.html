@@ -17,12 +17,6 @@
 {% endif %}
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-});
-</script>
-
 <div class="mf-page-wrapper">
   
   <div class="page-header">
@@ -58,7 +52,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
 
       <div class="card-body">
-        <form method="POST" autocomplete="off" novalidate>
+        <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
           {% csrf_token %}
 
           <div class="mf-fields-grid">
@@ -72,6 +66,34 @@ document.addEventListener("DOMContentLoaded", function () {
               {{ form.name }}
               {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
             </div>
+
+            <div class="form-group">
+              <label class="mf-form-label">Supplier Image</label>
+
+              <div class="file-input-wrapper">
+
+                {# Hidden native input + styled label as button #}
+                <label for="{{ form.image.id_for_label }}" class="file-input-button">
+                  <i class="bi bi-cloud-arrow-up"></i>
+                  <span id="image-label-{{ form.image.id_for_label }}">
+                    {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
+                  </span>
+                </label>
+                {{ form.image }}
+
+                <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
+                  {% if form.instance.image %}
+                    Image uploaded
+                  {% else %}
+                    No file chosen
+                  {% endif %}
+                </span>
+
+                <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically.</small>
+                {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
+              </div>
+            </div>
+
 
           </div>
 
@@ -113,7 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         <div class="sd-summary-block">
           <div class="sd-summary-block-label">Danger Zone</div>
-          <a href="{% url 'supplier-delete' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}" class="btn btn-sm btn-block"
+          <a href="{% url 'supplier-archive' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}" class="btn btn-sm btn-block"
              style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); width:100%; text-align:center;">
             <i class="bi bi-trash sl-me-1"></i> Delete Supplier
           </a>
@@ -124,5 +146,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+
+(function() {
+  const fileInput = document.getElementById('{{ form.image.id_for_label }}');
+  if (!fileInput) return;
+
+  const label = document.getElementById('image-label-{{ form.image.id_for_label }}');
+  const filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
+
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) {
+      filename.textContent = 'No file chosen';
+      return;
+    }
+    label.textContent = 'Change image';
+    filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+  });
+})();
+</script>
 
 {% endblock %}

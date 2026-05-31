@@ -3438,8 +3438,6 @@ details.filter-card summary:hover {
 
 }
 
-
-
   /* Mobile top bar — new minimal version */
   .sidebar-mobile-brand {
     display: flex;
@@ -4745,6 +4743,103 @@ details.filter-card summary:hover {
   border: none;
 }
 
+/* Custom file input — hides native, styles label as button */
+.file-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-input-wrapper input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.file-input-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  background: var(--accent-light, #e9efff);
+  color: var(--accent, #2563eb);
+  border: 1px dashed var(--accent-border, rgba(37,99,235,.35));
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  width: fit-content;
+}
+
+.file-input-button:hover {
+  background: rgba(37,99,235,.12);
+  border-color: var(--accent, #2563eb);
+}
+
+.file-input-button:focus-within {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.file-input-filename {
+  font-size: 0.82rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.file-input-preview {
+  max-height: 120px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  display: none;
+}
+
+.file-input-preview.has-image {
+  display: block;
+}
+
+/* Inline thumbnail for list rows */
+.list-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.list-thumb-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.list-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.list-name-cell .name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
 
 
 /* ══════════════════════════════════════════

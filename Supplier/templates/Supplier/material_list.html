@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% load humanize %}
+{% load static %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -27,8 +28,8 @@
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">PURCHASING</div>
-      <h1 class="page-title">Supplier</h1>
-      <p class="page-subtitle">Record your daily supplier purchases.</p>
+      <h1 class="page-title">Materials</h1>
+      <p class="page-subtitle">Record your daily, weekly and monthly purchases.</p>
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
@@ -122,11 +123,16 @@
               {% for material in page_obj %}
               <tr class="{% if material.is_locked %}is-locked{% endif %}">
                 <td>
-                  <div class="cell-primary">{{ material.name }}</div>
-                  <span class="cell-sub">{{ material.supplier.name|default:'No supplier' }}</span>
+                  <div class="list-name-cell">
+
+                  <div class="name-text">
+                    <strong>{{ material.name }}</strong>
+                    <small class="text-muted">{{ material.supplier.name|default:"No supplier" }}</small>
+                  </div>
                   {% if material.is_locked %}
                   <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                   {% endif %}
+                  </div>
                 </td>
                 <td class="col-mobile-hidden">
                   <span class="cell-primary">{{ material.category.name|default:"No category" }}</span>
@@ -255,15 +261,6 @@
               <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-tags-fill"></i> Categories
               </a>
-              {% if suppliers %}
-                <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-building"></i> Supplier
-                </a>
-              {% else %}
-                <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-plus-circle"></i> Create supplier
-                </a>
-              {% endif %}
 
               {% include 'core/partials/_cart_clear.html' %}
 

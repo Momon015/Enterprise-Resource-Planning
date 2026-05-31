@@ -218,19 +218,20 @@
         <span>Products</span>
       </a>
     </li>
+
     <li class="sidebar-nav__item">
-      {% if current_business %}
-        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" 
+        <a class="sidebar-nav__link {% if section == 'material' %}is-active{% endif %}" 
            href="{% url 'material-list' business_slug=current_business.slug %}">
-          <i class="bi bi-building"></i>
-          <span>Supplier</span>
+          <i class="bi bi-box-seam"></i>
+          <span>Materials</span>
         </a>
-      {% else %}
-        <span class="sidebar-nav__link text-muted" style="cursor: not-allowed;" title="Select a business first">
+    </li>
+    <li class="sidebar-nav__item">
+        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" 
+           href="{% url 'supplier-list' business_slug=current_business.slug %}">
           <i class="bi bi-building"></i>
           <span>Suppliers</span>
         </a>
-      {% endif %}
     </li>
     <li class="sidebar-nav__item">
       <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">

@@ -2,20 +2,6 @@
 {% load humanize %}
 {% block content %}
 
-<script>
-function changeValue(fieldId, delta, isInteger = false) {
-  const input = document.getElementById(fieldId);
-  let value = parseFloat(input.value) || 0;
-  value += delta;
-  if (value < 0) value = 0;
-  if (isInteger) {
-    input.value = Math.round(value);
-  } else {
-    input.value = value.toFixed(2);
-  }
-}
-</script>
-
 <div class="mf-page-wrapper">
   
   <div class="page-header">
@@ -52,7 +38,7 @@ function changeValue(fieldId, delta, isInteger = false) {
       </div>
 
       <div class="card-body">
-        <form method="POST" autocomplete="off" novalidate>
+        <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
           {% csrf_token %}
 
           <div class="mf-fields-grid">
@@ -76,12 +62,39 @@ function changeValue(fieldId, delta, isInteger = false) {
               {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- barcode and SKU -->
-            <div class="form-group">
+            <!-- barcode and SKU/file upload -->
+            {% comment %} <div class="form-group">
                 <label for="{{ form.sku.id_for_label }}">SKU</label>
                 {{ form.sku }}
                 <small class="form-text text-muted">Leave blank to auto-generate.</small>
                 {% if form.sku.errors %}<div class="text-danger">{{ form.sku.errors }}</div>{% endif %}
+              </div> {% endcomment %}
+
+              <div class="form-group">
+                <label class="mf-form-label">Product Image</label>
+
+                <div class="file-input-wrapper">
+
+                  {# Hidden native input + styled label as button #}
+                  <label for="{{ form.image.id_for_label }}" class="file-input-button">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <span id="image-label-{{ form.image.id_for_label }}">
+                      {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
+                    </span>
+                  </label>
+                  {{ form.image }}
+
+                  <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
+                    {% if form.instance.image %}
+                      Image uploaded
+                    {% else %}
+                      No file chosen
+                    {% endif %}
+                  </span>
+
+                  <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically.</small>
+                  {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
+                </div>
               </div>
 
               <div class="form-group">
@@ -254,5 +267,37 @@ function changeValue(fieldId, delta, isInteger = false) {
 
   </div>
 </div>
+
+<script>
+function changeValue(fieldId, delta, isInteger = false) {
+  const input = document.getElementById(fieldId);
+  let value = parseFloat(input.value) || 0;
+  value += delta;
+  if (value < 0) value = 0;
+  if (isInteger) {
+    input.value = Math.round(value);
+  } else {
+    input.value = value.toFixed(2);
+  }
+}
+
+(function() {
+  const fileInput = document.getElementById('{{ form.image.id_for_label }}');
+  if (!fileInput) return;
+
+  const label = document.getElementById('image-label-{{ form.image.id_for_label }}');
+  const filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
+
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) {
+      filename.textContent = 'No file chosen';
+      return;
+    }
+    label.textContent = 'Change image';
+    filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+  });
+})();
+</script>
 
 {% endblock content %}

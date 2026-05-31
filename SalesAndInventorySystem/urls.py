@@ -19,6 +19,9 @@ from django.urls import path, include
 
 from user import views as user_views
 
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     # landing page
     path('', user_views.landing, name='landing'),
@@ -37,5 +40,7 @@ urlpatterns = [
         path('subscription/', include('subscription.urls')),
     ])),
     
-    
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

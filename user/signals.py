@@ -19,14 +19,14 @@ def create_business_defaults(sender, instance, created, **kwargs):
     from Supplier.models import Supplier
     from core.models import Category
 
-    # Default supplier
-    Supplier.objects.get_or_create(
-        user=instance.user,
-        business=instance,
-        slug='no-supplier',
-        name='No Supplier',
+    # # Default supplier
+    # Supplier.objects.get_or_create(
+    #     user=instance.user,
+    #     business=instance,
+    #     slug='no-supplier',
+    #     name='No Supplier',
         
-    )
+    # )
 
     # Default category — one per category type
     for category_type, _label in Category.CATEGORY_TYPE_CHOICES:

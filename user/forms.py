@@ -134,23 +134,28 @@ class BusinessProfileForm(ModelForm):
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         disabled_types = ['cafe', 'restaurant']
         choices = self.fields['business_type'].choices
         
         # Keep them but add "Coming Soon" label
         self.fields['business_type'].choices = [
-            (k, f"{v} (Coming Soon)") if k in disabled_types else (k, v) for k, v in choices
+            (k, f"{v} (Coming Soon)") if k in disabled_types else (k, v)
+            for k, v in choices
         ]
 
-        self.fields['business_type'].disabled = False
-    
+        # Lock on edit — prevents folder/path drift for uploads
+        # and avoids confusing vertical-aware feature gates.
+        if self.instance and self.instance.pk:
+            self.fields['business_type'].disabled = True
+            self.fields['business_type'].help_text = (
+                "Business type can't be changed after creation. "
+                "Contact support if you need to switch — or create a new business."
+            )
+
     def clean(self):
         cleaned_data = super().clean()
         business_type = cleaned_data.get('business_type')
-        
-        disabled_types = ['cafe', 'restaurant']
-        if business_type in disabled_types:
+        if business_type in ['cafe', 'restaurant']:
             raise forms.ValidationError(f"{business_type} is coming soon.")
-        
         return cleaned_data

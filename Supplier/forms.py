@@ -4,6 +4,9 @@ from django import forms
 from Supplier.models import Material, Supplier
 from core.models import Category
 
+from core.utils.images import process_uploaded_image
+
+# Create your forms here.
 
 class MaterialFilterForm(forms.Form):
     search = forms.CharField(required=False)
@@ -82,7 +85,7 @@ class MaterialForm(ModelForm):
 class SupplierForm(ModelForm):
     class Meta:
         model = Supplier
-        fields = ['name']
+        fields = ['name', 'image']
 
         widgets = {
             'name': forms.TextInput(attrs={
@@ -90,15 +93,30 @@ class SupplierForm(ModelForm):
                 'autocomplete': 'off',
                 'class': 'form-control',
             }),
+            'image': forms.FileInput(attrs={      # ← plain FileInput
+                'accept': 'image/*',
+                'class': 'form-control',
+            }),
         }
-
+        
     def clean_name(self):
         name = self.cleaned_data.get('name').strip()
         if name.lower() == 'no supplier':
             raise forms.ValidationError('"No Supplier" is a reserved name. Please choose a different one.')
         return name
 
-
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if not image:
+            return image
+        if not hasattr(image, 'content_type'):
+            return image
+        
+        # Capture original filename BEFORE the helper renames it to a uuid
+        self.instance.image_original_name = image.name
+        
+        return process_uploaded_image(image)
+    
 class SupplierFilterForm(forms.Form):
     search = forms.CharField(max_length=100, required=False)
 

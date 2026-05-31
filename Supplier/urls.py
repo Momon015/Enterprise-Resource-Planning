@@ -13,6 +13,10 @@ urlpatterns = [
     path('material/<str:id>/<slug:slug>/update/', views.material_update, name='material-update'),
     path('material/<str:id>/<slug:slug>/archive/', views.material_archive, name='material-archive'),
     
+    # archive
+    path('materials/archived/', views.archived_materials, name='archived-materials'),
+    path('materials/archived/<int:material_id>/restore/', views.restore_material, name='restore-material'),
+    
     # save items
     path('view-cart/save/preset/', views.save_items, name='material-save-items'),
     path('view/preset-list/', views.preset_list, name='material-preset-list'),
@@ -28,10 +32,10 @@ urlpatterns = [
     path('view/supplier-create/', views.supplier_create, name='supplier-create'),
     # path('supplier/view/<int:supplier_id>/', views.supplier_detail, name='detail')
     path('supplier/<int:supplier_id>/<str:slug>/view/supplier-update/', views.supplier_update, name='supplier-update'),
-    path('supplier/<int:supplier_id>/<str:slug>/view/supplier-delete/', views.supplier_delete, name='supplier-delete'),
+    path('supplier/<int:supplier_id>/<str:slug>/view/supplier-archive/', views.supplier_archive, name='supplier-archive'),
 
     # archive
-    path('archived/', views.archived_materials, name='archived-materials'),
-    path('archived/<int:material_id>/restore/', views.restore_material, name='restore-material'),
+    path('archived/', views.archived_suppliers, name='archived-suppliers'),
+    path('archived/<int:supplier_id>/restore/', views.restore_supplier, name='restore-supplier'),
 
 ]

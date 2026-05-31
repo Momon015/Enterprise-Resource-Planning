@@ -1,5 +1,6 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load static %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -119,8 +120,19 @@
               {% for stock in page_obj %}
               <tr>
                 <td>
-                  <div class="cell-primary">{{ stock.name|capfirst }}</div>
-                  <div class="cell-sub">{{ stock.supplier|capfirst|default:"No supplier" }}</div>
+                  <div class="list-name-cell">
+                    {% with linked_product=stock.material.products.first %}
+                      {% if linked_product.image %}
+                        <img src="{{ linked_product.image.url }}" alt="" class="list-thumb">
+                      {% else %}
+                        <img src="{% static 'images/no-image.png' %}" alt="No image" class="list-thumb">
+                      {% endif %}
+                    {% endwith %}
+                    <div class="name-text">
+                      <strong>{{ stock.material.name }}</strong>
+                      <small class="text-muted">{{ stock.material.supplier.name|default:"No supplier" }}</small>
+                    </div>
+                  </div>
                 </td>
 
                 <td class="col-mobile-hidden">
@@ -153,27 +165,18 @@
                 <td class="sl-text-end sl-fw-semibold" style="color:var(--accent);">
                   ₱{{ stock.total_value|floatformat:2|intcomma }}
                 </td>
+                
                 <td class="sl-text-center">
-                  
                   {% if stock.quantity == 0 %}
-                    {% if request.user.role == 'owner' %}
-                      <a href="{% url 'inventory-stock-archive' stock_id=stock.id business_slug=current_business.slug %}"
-                        class="btn btn-sm"
-                        style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce; font-size:0.78rem;">
-                        <i class="bi bi-trash"></i> Remove
-                        
-                      </a>
-                    {% else %}
                       <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">
                        <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Inactive
-                    {% endif %}
-
                   {% else %}
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
                       <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Active
                     </span>
                   {% endif %}
                 </td>
+
               </tr>
                {% endfor %}
               </tbody>

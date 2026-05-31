@@ -3,6 +3,8 @@ from django.utils.text import slugify
 from core.models import Category, SlugModel, TimeStampModel
 from user.models import User, BusinessProfile
 from Supplier.models import Material
+
+from core.utils.images import product_image_path
 # Create your models here.
 
 class ActiveManager(models.Manager):
@@ -12,6 +14,8 @@ class ActiveManager(models.Manager):
 class Product(SlugModel, TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
+    image = models.ImageField(upload_to=product_image_path, null=True, blank=True)
+    image_original_name = models.CharField(max_length=255, blank=True)
     name = models.CharField(max_length=100)
     sku = models.CharField(max_length=64, blank=True, db_index=True)
     barcode = models.CharField(max_length=64, null=True, blank=True, db_index=True)

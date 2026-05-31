@@ -4,18 +4,51 @@ from django.utils.text import slugify
 from core.models import TimeStampModel, SlugModel, Category
 
 from user.models import User, BusinessProfile
+
+from core.utils.images import supplier_image_path
+
+from user.models import phone_validators
+from django.core.exceptions import ValidationError
+
 # # Create your models here.
+
+STATUS_CHOICES = [
+    ('active', 'Active'),
+    ('on_hold', 'On hold') ,
+    ('inactive', 'Inactive'), # acts as archive
+
+]
+
+class ActiveManager(models.Manager):
+    """Default queryset hides 'inactive' suppliers — they're effectively archived."""
+    def get_queryset(self):
+        return super().get_queryset().exclude(status='inactive')
 
 class Supplier(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='suppliers', null=True, blank=True)
     name = models.CharField(max_length=255)
+    image = models.ImageField(upload_to=supplier_image_path, null=True, blank=True)
+    image_original_name = models.CharField(max_length=255, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_supplies', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='suppliers', null=True, blank=True)
     is_locked = models.BooleanField(default=False, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, db_index=True, default='active')
+    contact_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    
+    objects = ActiveManager()
+    all_objects = models.Manager()
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['business', 'email'],
+                condition=models.Q(email__isnull=False) & ~models.Q(email=''),
+                name='unique_email_per_business',
+            ),
+        ]
         
     def __str__(self):
         return self.name
@@ -44,10 +77,43 @@ class Supplier(TimeStampModel, SlugModel):
             from django.core.exceptions import ValidationError
             raise ValidationError("The 'No Supplier' fallback cannot be deleted.")
         super().delete(*args, **kwargs)
+        
+    def clean(self):
+        super().clean()
+
+        # Only validate when transitioning TO inactive
+        if self.status != 'inactive':
+            return
+
+        # Skip on first create — no materials yet
+        if not self.pk:
+            return
+
+        # Single query: any active material with stock > 0?
+        from Inventory.models import Stock
+        blocked_stocks = Stock.objects.filter(
+            material__supplier=self,
+            material__status='active',
+            quantity__gt=0,
+        ).select_related('material')
+
+        if blocked_stocks.exists():
+            material_names = ", ".join(
+                blocked_stocks.values_list('material__name', flat=True).distinct()[:5]
+            )
+            count = blocked_stocks.count()
+            raise ValidationError({
+                'status': (
+                    f"Cannot mark this supplier inactive — "
+                    f"{count} material(s) still have stock on hand "
+                    f"({material_names}{'...' if count > 5 else ''}). "
+                    f"Use up or waste the stock before marking inactive."
+                )
+            })
 
 class ActiveManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(is_active=True)
+        return super().get_queryset().exclude(status='inactive')
 
 
 class Material(TimeStampModel, SlugModel):
@@ -90,7 +156,7 @@ class Material(TimeStampModel, SlugModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
     is_locked = models.BooleanField(default=False, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     
     objects = ActiveManager()
     all_objects = models.Manager()
