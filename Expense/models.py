@@ -198,6 +198,12 @@ class Shift(TimeStampModel):
     
     def __str__(self):
         return f"{self.id} - {self.amount} — {self.date}"
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+        super().save(*args, **kwargs)
+
 
 class ShiftEmployee(models.Model):
     shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='shift_employees')
@@ -214,16 +220,32 @@ class WasteQuerySet(models.QuerySet):
         return self.aggregate(total_waste_cost=Sum('total_cost'))['total_waste_cost'] or 0
 
 class Waste(TimeStampModel):
+    REASON_CHOICES = [
+        ('spoilage',      'Spoilage'),
+        ('damage',        'Damage'),
+        ('personal_use',  'Personal Use'),
+        ('theft',         'Theft'),
+        ('other',         'Other'),
+    ] 
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wastes')
-    date = models.DateField(auto_now_add=True, db_index=True)
+    date = models.DateField(db_index=True)
     total_cost = models.DecimalField(max_digits=10, decimal_places=6)
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, default='other', db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_wastes')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='wastes', null=True, blank=True)
     
     objects = WasteQuerySet.as_manager()
     
     def __str__(self):
-        return f"Waste - {self.date}"
+        if self.date:
+            return f"Waste - {self.date}"
+        
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+            
+        super().save(*args, **kwargs)
     
     @property
     def waste_cost(self):
@@ -306,6 +328,12 @@ class Expense(TimeStampModel):
     
     def __str__(self):
         return f"{self.id} - {self.created_by}" 
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+        super().save(*args, **kwargs)
+
     
     def total_expense_items(self):
         return sum(item.count() for item in self.expense_items.all())

@@ -140,6 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th>Date</th>
                 <th>Quantity</th>
                 <th class="sl-text-center">Total Loss</th>
+                <th class="sl-text-center">Reason</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
@@ -159,6 +160,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td class="sl-text-center sl-fw-semibold sl-text-danger">
                   ₱{{ waste.waste_cost|floatformat:2|intcomma }}
+                </td>
+
+                <td class="sl-text-center">
+                  {{ waste.get_reason_display }}
                 </td>
 
                 <td class="sl-text-center">

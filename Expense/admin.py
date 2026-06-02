@@ -53,8 +53,8 @@ class WasteItemInline(admin.TabularInline):
 
 @admin.register(Waste)
 class WasteAdmin(admin.ModelAdmin):
-    list_display = ('id', 'business', 'date', 'total_cost', 'created_by', 'created_at')
-    list_filter = ('date', 'business')
+    list_display = ('id', 'business', 'date', 'reason', 'total_cost')
+    list_filter = ('reason', 'business', 'date')
     search_fields = ('business__business_name',)
     readonly_fields = ('date', 'created_at', 'updated_at')
     autocomplete_fields = ('business', 'user', 'created_by')

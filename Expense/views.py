@@ -1014,6 +1014,7 @@ def waste_material_create(request, business_slug):
                 user=business.user,
                 business=business,
                 total_cost=0,
+                reason=request.POST.get('reason'),
                 created_by=request.user,
                 
             )
@@ -1071,6 +1072,13 @@ def waste_material_create(request, business_slug):
                 messages.warning(request, f"Some items were skipped: {', '.join(invalid_items)}")
             
             else:
+                from activity.utils import log_activity
+
+                log_activity(business, request.user, 'stock.adjusted',
+                    target=waste,
+                    description=f"Waste recorded — {waste.get_reason_display()}, ₱{waste.total_cost}",
+                    metadata={'reason': waste.reason, 'total': str(waste.total_cost)})
+
                 messages.success(request, f"Waste has been created.")
             return redirect('expense-waste-list', business_slug=business.slug)         
 

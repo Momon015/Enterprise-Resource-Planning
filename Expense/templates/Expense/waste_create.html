@@ -165,6 +165,21 @@ function toggleRow(checkbox) {
           <form method="POST" autocomplete="off" novalidate>
             {% csrf_token %}
             <div class="table-responsive">
+
+              {# ── REASON FOR WASTE ──────────────────────────────── #}
+              <div class="form-group">
+                  <label for="reason">Reason</label>
+                  <select name="reason" id="reason" required>
+                      <option value="">Select a reason…</option>
+                      <option value="spoilage">Spoilage / Expired</option>
+                      <option value="damage">Damage / Breakage</option>
+                      <option value="personal_use">Personal Use</option>
+                      <option value="theft">Theft / Missing</option>
+                      <option value="other">Other</option>
+                  </select>
+              </div>
+
+
               <table class="data-table">
                 <thead>
                   <tr>
