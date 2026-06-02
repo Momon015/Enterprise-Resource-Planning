@@ -1,4 +1,4 @@
-{% extends 'base.html' %}  {# TODO: confirm your base template name #}
+{% extends 'main.html' %} 
 
 {% block content %}
 <div class="activity-page">
@@ -13,6 +13,7 @@
         <a href="?category=sale"     class="{% if active_category == 'sale' %}active{% endif %}">Sales</a>
         <a href="?category=purchase" class="{% if active_category == 'purchase' %}active{% endif %}">Purchases</a>
         <a href="?category=stock"    class="{% if active_category == 'stock' %}active{% endif %}">Stock</a>
+        <a href="?category=waste"    class="{% if active_category == 'waste' %}active{% endif %}">Waste</a>
     </div>
 
     {# ── EVENTS LIST ──────────────────────────────────── #}

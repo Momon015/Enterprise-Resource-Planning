@@ -101,6 +101,7 @@ def view_inventory_stock(request, business_slug):
         Q(verb__startswith='material.'),
         business=business
     )[:4]
+
     
     from core.utils.kpis import get_inventory_kpis
     kpis = get_inventory_kpis(business)

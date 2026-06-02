@@ -552,7 +552,7 @@ def confirm_purchase_summary(request, business_slug):
             
             log_activity(business, request.user, 'purchase.recorded',
                 target=purchase,
-                description=f"{purchase.reference} — ₱{purchase.total_cost}",
+                description=f"{purchase.reference} — ₱{purchase.total_cost:.2f}",
                 metadata={
                     'reference': purchase.reference,
                     'total': str(purchase.total_cost),
@@ -958,6 +958,10 @@ def waste_list(request, business_slug):
         
         total_waste_cost = wastes.total_waste_cost()
         
+    recent_events = ActivityEvent.objects.filter(
+        verb__startswith='waste.', business=business,
+    )[:4]
+        
     pagination = Paginator(wastes, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
@@ -968,7 +972,8 @@ def waste_list(request, business_slug):
         'stocks': stocks, 
         'max_waste': max_waste,
         'current_year': current_year,
-        'section': 'waste'
+        'section': 'waste',
+        'recent_events': recent_events,
         }
     return render(request, 'Expense/waste_list.html', context)
 
@@ -1074,10 +1079,11 @@ def waste_material_create(request, business_slug):
             else:
                 from activity.utils import log_activity
 
-                log_activity(business, request.user, 'stock.adjusted',
+                log_activity(business, request.user, 'waste.recorded',
                     target=waste,
-                    description=f"Waste recorded — {waste.get_reason_display()}, ₱{waste.total_cost}",
+                    description=f"₱{waste.total_cost:.2f} — {waste.get_reason_display()}",    
                     metadata={'reason': waste.reason, 'total': str(waste.total_cost)})
+
 
                 messages.success(request, f"Waste has been created.")
             return redirect('expense-waste-list', business_slug=business.slug)         

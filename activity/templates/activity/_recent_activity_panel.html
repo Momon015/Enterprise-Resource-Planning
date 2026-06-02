@@ -20,7 +20,7 @@
             {% endfor %}
         </ul>
 
-        <a href="{% url 'view-all-activity' business_slug=business.slug %}" class="view-all-link">
+        <a href="{% url 'view-all-activity' business_slug=current_business.slug %}" class="view-all-link">
             View all activity
         </a>
     {% else %}

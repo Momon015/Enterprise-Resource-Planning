@@ -29,6 +29,7 @@ class ActivityEvent(models.Model):
         ('stock.adjusted',     'Stock updated'),
         ('stock.low',          'Low stock alert'),
         ('stock.out',          'Out of stock'),
+        ('waste.recorded',     'Waste recorded'),
         ('trial.ending',       'Trial ending soon'),
         ('plan.expired',       'Plan expired'),
         ('plan.canceled',      'Subscription canceled'),
@@ -74,6 +75,7 @@ class ActivityEvent(models.Model):
             'sale':     'fa-cash-register',
             'purchase': 'fa-shopping-cart',
             'stock':    'fa-warehouse',
+            'waste':    'fa-trash',
             'trial':    'fa-clock',
             'plan':     'fa-credit-card',
             'staff':    'fa-user-plus',
@@ -83,10 +85,12 @@ class ActivityEvent(models.Model):
     def tone(self):
         if self.verb in ('stock.low', 'stock.out', 'plan.expired'):
             return 'danger'
-        if self.verb in ('trial.ending', 'plan.canceled', 'product.archived',
-            'material.archived', 'supplier.archived'):
+        if self.verb in ('trial.ending', 'plan.canceled',
+                        'product.archived', 'material.archived', 'supplier.archived',
+                        'waste.recorded'):
             return 'warning'
         return 'info'
+
     
     @classmethod
     def prune_old(cls, days=7):

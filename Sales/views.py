@@ -469,7 +469,7 @@ def confirm_view_summary(request, business_slug):
             
             log_activity(business, request.user, 'sale.completed',
                 target=sale_obj,
-                description=f"{sale_obj.reference}: {sale_obj.quantity_item()} item(s) — ₱{sale_obj.total_revenue}",
+                description=f"{sale_obj.reference}: {sale_obj.quantity_item()} item(s) — ₱{sale_obj.total_revenue:.2f}",
                 metadata={
                     'reference': sale_obj.reference,
                     'total': str(sale_obj.total_revenue),
