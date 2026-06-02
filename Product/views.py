@@ -2,9 +2,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import update_session_auth_hash
+
 from django.contrib import messages
 
 from django.utils import timezone
@@ -14,25 +14,23 @@ import random
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 
-from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
-from django.contrib.auth import update_session_auth_hash
-
 from django.core.paginator import Paginator
 
-from core.models import Category
 from Product.models import Product, ProductPreset, ProductPresetItem
 from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm
-
-from user.models import User
 
 from decimal import Decimal
 from django.db.models import Q, F
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
-
 from django.contrib.messages import get_messages
 
 from subscription.decorators import capacity_required
+
+from activity.models import ActivityEvent
+from activity.utils import log_activity
+
+from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
+from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
 
 # Create your views here.
 
@@ -75,9 +73,9 @@ def product_list(request, business_slug):
     
     stock_filter = request.GET.get('stock')
     all_products = products.count()
-    in_stock = products.filter(prepared_quantity__gte=50).count()
-    low_stock = products.filter(Q(prepared_quantity__lte=49) & Q(prepared_quantity__gte=1)).count()
-    out_of_stock = products.filter(prepared_quantity=0).count()
+    in_stock = products.filter(prepared_quantity__gte=HIGH_STOCK_THRESHOLD).count()
+    low_stock = products.filter(Q(prepared_quantity__lte=LOW_STOCK_THRESHOLD) & Q(prepared_quantity__gte=1)).count()
+    out_of_stock = products.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
     
     
     if form.is_valid():
@@ -98,11 +96,11 @@ def product_list(request, business_slug):
             products = products.filter(category=category)
             
         if stock_filter == 'high':
-            products = products.filter(prepared_quantity__gte=50)
+            products = products.filter(prepared_quantity__gte=HIGH_STOCK_THRESHOLD)
         elif stock_filter == 'low':
-            products = products.filter(Q(prepared_quantity__lte=49) & Q(prepared_quantity__gte=1))
+            products = products.filter(Q(prepared_quantity__lte=LOW_STOCK_THRESHOLD) & Q(prepared_quantity__gte=1))
         elif stock_filter == 'none':
-            products = products.filter(prepared_quantity=0)
+            products = products.filter(prepared_quantity=NO_STOCK_THRESHOLD)
     
 
     paginator = Paginator(products, 8)
@@ -111,6 +109,16 @@ def product_list(request, business_slug):
     
     MULTI_UNIT_TYPES = ('Pack', 'Bundle', 'Tray', 'Dozen', 'Carton', 'Sachet', 'Box', 'Bag')
     
+    recent_events = ActivityEvent.objects.filter(
+        Q(verb__startswith='product.') |
+        Q(verb__startswith='sale.') |
+        Q(verb__startswith='purchase.') |
+        Q(verb__startswith='stock.'),
+        business=business,
+    )[:4]
+
+    from core.utils.kpis import get_product_kpis
+    kpis = get_product_kpis(business)
         
     context = {
         "page_obj": page_obj, # keep this as the Page object
@@ -123,6 +131,8 @@ def product_list(request, business_slug):
         'all_products': all_products,
         'multi_unit_types': MULTI_UNIT_TYPES,
         'section': 'product',
+        'recent_events': recent_events,
+        'kpis': kpis,
         
         #htmx
         'cart_items': len(sale),
@@ -173,6 +183,9 @@ def product_create(request, business_slug):
                 product.description = product.description.title()
 
             product.save()
+            
+            log_activity(business, request.user, 'product.created',
+                target=product, description=f"{product.name} added")
 
             messages.success(request, f"{product.name} has been created.")
             return redirect('product-list', business_slug=business.slug)
@@ -213,6 +226,10 @@ def product_update(request, business_slug, product_slug, product_id):
             product = form.save(commit=False)
             product.name = product.name.title()
             product.save()
+            
+            log_activity(business, request.user, 'product.updated',
+                target=product, description=f"{product.name} updated")
+
             messages.success(request, f"{product.name} has been updated.")
             return redirect('product-list', business_slug=business.slug)
     else:
@@ -233,6 +250,10 @@ def product_archive(request, business_slug, product_slug, product_id):
         
         product.is_active = False
         product.save(update_fields=['is_active'])
+        
+        log_activity(business, request.user, 'product.archived',
+            target=product, description=f"{product.name} archived")
+
         messages.success(request, f"{product.name} has been archived. You can restore it anytime.")
         return redirect('product-list', business_slug=business.slug)
     
@@ -519,5 +540,9 @@ def restore_product(request, business_slug, product_id):
         
         product.is_active = True
         product.save(update_fields=['is_active'])
+        
+        log_activity(business, request.user, 'product.restored',
+             target=product, description=f"{product.name} restored")
+
         messages.success(request, f"{product.name} restored.")
     return redirect('archived-products', business_slug=business.slug)

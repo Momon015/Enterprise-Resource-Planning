@@ -52,6 +52,8 @@ from django.contrib.messages import get_messages
 
 from subscription.decorators import capacity_required
 
+from activity.models import ActivityEvent
+from activity.utils import log_activity
 # logging
 import logging
 
@@ -164,6 +166,13 @@ def sale_list(request, business_slug):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    recent_events = ActivityEvent.objects.filter(
+        verb__startswith='sale.', business=business,
+    )[:4]
+    
+    from core.utils.kpis import get_sale_kpis
+    kpis = get_sale_kpis(business)
+    
     context = {
         'page_obj': page_obj,
         'total_revenue': total_revenue,
@@ -172,6 +181,8 @@ def sale_list(request, business_slug):
         'max_revenue': max_revenue,
         'current_year': current_year, # this is for dynamic year for select month
         'section': 'sale',
+        'recent_events': recent_events,
+        'kpis': kpis,
         
     }
         
@@ -290,7 +301,7 @@ def view_sale(request, business_slug):
             #     supplier_name = 'No supplier'
 
             items.append({
-                'supplier': product.material.supplier.name if product.material.supplier else 'No supplier',
+                'supplier': product.material.supplier.name if product.material else '',
                 'id': product.id,
                 'name': product.name,
                 'selling_price': selling_price,
@@ -356,7 +367,7 @@ def view_session_summary(request, business_slug):
             total_revenue += total_selling_price
    
             items.append({
-                'supplier_name': product.material.supplier.name if product.material.supplier else 'No supplier',
+                'supplier_name': product.material.supplier.name if product.material else '',
                 'id': product.id,
                 'name': product.name,
                 'selling_price': selling_price,
@@ -456,6 +467,15 @@ def confirm_view_summary(request, business_slug):
             sale_obj.total_salary_cost = total_salary_cost
             sale_obj.line_count = line_count
             sale_obj.save()
+            
+            log_activity(business, request.user, 'sale.completed',
+                target=sale_obj,
+                description=f"{sale_obj.reference}: {sale_obj.quantity_item()} item(s) — ₱{sale_obj.total_revenue}",
+                metadata={
+                    'reference': sale_obj.reference,
+                    'total': str(sale_obj.total_revenue),
+                    'line_count': sale_obj.line_count,
+                })
 
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
@@ -489,25 +509,30 @@ def view_sale_summary(request, sale_id, business_slug):
         cost_price = item.cost_price
         quantity = item.quantity
         unsold_quantity = item.unsold_quantity
-        
-        # computations
+
         total_cost_price_per_line = (cost_price * quantity)
         total_cost_price += total_cost_price_per_line
-        
+
         total_selling_price = item.price_at_sale * quantity
         total_revenue += total_selling_price
-        
+
+        # Safely walk product → material → supplier 
+        product  = item.product
+        material = product.material if product else None
+        supplier = material.supplier if material else None
+
         items.append({
-            'supplier_name': item.product.material.supplier.name if item.product.material.supplier else 'No supplier',
-            'id': item.product.id,
-            'name': item.name,
-            'quantity': item.quantity,
-            'selling_price': item.price_at_sale,
-            'unsold_quantity': unsold_quantity,
-            'cost_price': cost_price,
-            'total_cost_price_per_line': total_cost_price_per_line,
-            'total_selling_price': total_selling_price,
+            'supplier_name':              supplier.name if supplier else '',
+            'id':                         product.id if product else None,
+            'name':                       item.name,
+            'quantity':                   item.quantity,
+            'selling_price':              item.price_at_sale,
+            'unsold_quantity':            unsold_quantity,
+            'cost_price':                 cost_price,
+            'total_cost_price_per_line':  total_cost_price_per_line,
+            'total_selling_price':        total_selling_price,
         })
+
         
     paginator = Paginator(items, 6)
     page = request.GET.get('page')

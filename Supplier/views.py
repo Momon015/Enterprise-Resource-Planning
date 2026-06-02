@@ -36,6 +36,11 @@ from django.core.exceptions import ValidationError
 
 from subscription.decorators import capacity_required
 
+from activity.models import ActivityEvent
+from activity.utils import log_activity
+
+
+
 # Create your views here
 
 @login_required(login_url='login')
@@ -109,6 +114,13 @@ def material_list(request, business_slug):
 
     suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('-name')
     
+    recent_events = ActivityEvent.objects.filter(
+        Q(verb__startswith='material.') |
+        Q(verb__startswith='purchase.') |
+        Q(verb__startswith='stock.'),
+        business=business
+    )[:4]
+    
     context = {
         'categories': categories, 
         'page_obj': page_obj, 
@@ -117,6 +129,7 @@ def material_list(request, business_slug):
         'categories_count': categories_count,
         'top_categories': top_categories,
         'section': 'material',
+        'recent_events': recent_events,
 
         # HTMX
         'cart_count': sum(item['quantity'] for item in cart.values()),
@@ -161,6 +174,10 @@ def material_create(request, business_slug):
             material.name = material.name.title()
             material.business = business
             material.save()
+            
+            log_activity(business, request.user, 'material.created',
+                target=material, description=f"{material.name} added")
+
             messages.success(request, f"{material.name} successfully created.")
             return redirect('material-list', business_slug=business.slug)
     else:
@@ -194,6 +211,10 @@ def material_update(request,  slug, id, business_slug):
             # material.user = business.user
             material.save()
             
+            log_activity(business, request.user, 'material.updated',
+                target=material, description=f"{material.name} updated")
+
+            
             messages.success(request, f"{material.name} successfully updated.")
             url = request.GET.get('next', 'material-list')
             return redirect(url, business_slug=business.slug)
@@ -213,6 +234,10 @@ def material_archive(request, slug, id, business_slug):
     if request.method == 'POST':
         material.status = 'inactive'
         material.save(update_fields=['status'])
+        
+        log_activity(business, request.user, 'material.archived',
+            target=material, description=f"{material.name} archived")
+        
         messages.success(request, f"{material.name} archived. Linked product was archived too.")
         return redirect('material-list', business_slug=business.slug)
     
@@ -240,6 +265,10 @@ def restore_material(request, business_slug, material_id):
     if request.method == 'POST':
         material.status = 'active'
         material.save(update_fields=['status'])
+        
+        log_activity(business, request.user, 'material.restored',
+            target=material, description=f"{material.name} restored")
+
         messages.success(request, f"{material.name} restored. Linked product was also restored.")
     return redirect('archived-materials', business_slug=business.slug)
 
@@ -484,7 +513,21 @@ def supplier_list(request, business_slug):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'page_obj': page_obj, 'section': 'supplier'}
+    recent_events = ActivityEvent.objects.filter(
+        Q(verb__startswith='supplier.') |
+        Q(verb__startswith='purchase.'),
+        business=business
+    )[:4]
+    
+    from core.utils.kpis import get_supplier_kpis
+    kpis = get_supplier_kpis(business)
+
+    context = {
+        'page_obj': page_obj, 
+        'section': 'supplier',
+        'recent_events': recent_events,
+        'kpis': kpis,
+        }
     return render(request, 'Supplier/supplier_list.html', context)
 
 @login_required(login_url='login')
@@ -504,6 +547,9 @@ def supplier_create(request, business_slug):
             supplier.name = supplier.name.title()
             try:
                 supplier.save()
+                log_activity(business, request.user, 'supplier.created',
+                    target=supplier, description=f"{supplier.name} added")
+
             except ValidationError as e:
                 messages.warning(request, e.messages[0])
                 return redirect('supplier-list', business_slug=business.slug)
@@ -540,6 +586,10 @@ def supplier_update(request, business_slug, supplier_id, slug):
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
             supplier.save()
+            
+            log_activity(business, request.user, 'supplier.updated',
+                target=supplier, description=f"{supplier.name} updated")
+
             messages.success(request, f"{supplier.name} successfully updated.")
             query_string = request.META.get('QUERY_STRING', '')
             url = reverse('supplier-list', kwargs={'business_slug': business.slug})
@@ -569,6 +619,10 @@ def supplier_archive(request, business_slug, supplier_id, slug):
             messages.warning(request, e.messages[0])
             return redirect('supplier-list', business_slug=business.slug)
         supplier.save(update_fields=['status'])
+        
+        log_activity(business, request.user, 'supplier.archived',
+             target=supplier, description=f"{supplier.name} archived")
+
         messages.success(request, f"{supplier.name} archived (status: inactive).")
         return redirect('supplier-list', business_slug=business.slug)
 
@@ -598,5 +652,9 @@ def restore_supplier(request, business_slug, supplier_id):
     if request.method == 'POST':
         supplier.status = 'active'
         supplier.save(update_fields=['status'])
+        
+        log_activity(business, request.user, 'supplier.restored',
+             target=supplier, description=f"{supplier.name} restored")
+
         messages.success(request, f"{supplier.name} restored. Linked product was also restored.")
     return redirect('archived-suppliers', business_slug=business.slug)

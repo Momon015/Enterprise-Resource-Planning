@@ -1,0 +1,54 @@
+{% extends 'base.html' %}  {# TODO: confirm your base template name #}
+
+{% block content %}
+<div class="activity-page">
+    <h1>All Activity</h1>
+
+    {# ── CATEGORY FILTER TABS ─────────────────────────── #}
+    <div class="activity-filters">
+        <a href="?" class="{% if not active_category %}active{% endif %}">All</a>
+        <a href="?category=product"  class="{% if active_category == 'product' %}active{% endif %}">Products</a>
+        <a href="?category=material" class="{% if active_category == 'material' %}active{% endif %}">Materials</a>
+        <a href="?category=supplier" class="{% if active_category == 'supplier' %}active{% endif %}">Suppliers</a>
+        <a href="?category=sale"     class="{% if active_category == 'sale' %}active{% endif %}">Sales</a>
+        <a href="?category=purchase" class="{% if active_category == 'purchase' %}active{% endif %}">Purchases</a>
+        <a href="?category=stock"    class="{% if active_category == 'stock' %}active{% endif %}">Stock</a>
+    </div>
+
+    {# ── EVENTS LIST ──────────────────────────────────── #}
+    {% if page_obj %}
+        <ul class="activity-full-list">
+            {% for event in page_obj %}
+                <li class="activity-row activity--{{ event.tone }} {% if not event.is_read and event.is_important %}unread{% endif %}">
+                    <i class="fa {{ event.icon_class }}"></i>
+
+                    <div class="activity-body">
+                        <div class="activity-title">
+                            {{ event.get_verb_display }}
+                            {% if event.is_important %}<span class="important-flag">!</span>{% endif %}
+                        </div>
+                        <div class="activity-desc">{{ event.description }}</div>
+                        <small>
+                            {{ event.created_at|date:"M j, Y, g:i A" }}
+                            {% if event.actor %} · by {{ event.actor.username }}{% endif %}
+                        </small>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+
+        {# ── PAGINATION ───────────────────────────────── #}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">Prev</a>
+            {% endif %}
+            <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">Next</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <p class="empty-state">No activity yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -62,8 +62,6 @@ class Category(SlugModel):
             raise ValidationError("The 'No Category' fallback cannot be deleted.")
         super().delete(*args, **kwargs)
 
-
-    
 class StatusModel(SlugModel, TimeStampModel):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -83,3 +81,20 @@ class StatusModel(SlugModel, TimeStampModel):
             self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
     
+class KpiSnapshot(models.Model):
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE, related_name='kpi_snapshots')
+    date = models.DateField(db_index=True)
+    page = models.CharField(max_length=20, choices=[
+        ('products',  'Products'),
+        ('suppliers', 'Suppliers'),
+        ('inventory', 'Inventory'),
+        ('sales',     'Sales'),
+        ('purchases', 'Purchases'),
+        ('dashboard', 'Dashboard'),
+    ])
+    metrics = models.JSONField(default=dict)  # flexible per page
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('business', 'date', 'page')
+        indexes = [models.Index(fields=['business', 'page', '-date'])]

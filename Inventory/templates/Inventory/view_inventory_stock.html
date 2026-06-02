@@ -153,7 +153,7 @@
                 <td class="sl-text-center col-mobile-hidden">
                   {% if stock.quantity == 0 %}
                     <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Out of stock</span>
-                  {% elif stock.quantity <= 49 %}
+                  {% elif stock.quantity <= 25 and stock.quantity > 0 %}
                     <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
                   {% else %}
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>

@@ -25,6 +25,15 @@
 
 <div class="page-wrapper">
 
+  {% if kpis.deltas.total %}
+    {% if kpis.deltas.total > 0 %}
+        <span class="delta delta-up">↑ {{ kpis.deltas.total }} vs yesterday</span>
+    {% else %}
+        <span class="delta delta-down">↓ {{ kpis.deltas.total|stringformat:"d"|cut:"-" }} vs yesterday</span>
+    {% endif %}
+{% endif %}
+
+
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
@@ -151,8 +160,10 @@
                   {% endif %}
                   <div class="name-text">
                     <strong>{{ product.name|capfirst }}</strong>
-                  <small class="text-muted">{{ product.material.supplier|default:"No supplier" }}</small>
-                  </div>
+                    {% if product.material.supplier %}
+                  <small class="text-muted">{{ product.material.supplier.name}}</small>
+                    {% endif %}
+                </div>
                   
                   {% if product.is_locked %}
                       <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
@@ -196,7 +207,7 @@
                 <td class="sl-text-center col-mobile-hidden">
                   {% if product.prepared_quantity <= 0 %}
                     <span class="status-badge status-danger">Out of stock</span>
-                  {% elif product.prepared_quantity <= 49 %}
+                  {% elif product.prepared_quantity <= 25 and product.prepared_quantity > 0 %}
                     <span class="status-badge status-warning">Low stock</span>
                   {% else %}
                     <span class="status-badge status-success">In stock</span>

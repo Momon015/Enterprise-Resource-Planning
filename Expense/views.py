@@ -51,6 +51,8 @@ from django.contrib.messages import get_messages
 
 from subscription.decorators import capacity_required
 
+from activity.models import ActivityEvent
+from activity.utils import log_activity
 # logging
 import logging
 
@@ -153,6 +155,12 @@ def purchase_history(request, business_slug):
     ytd_start = timezone.localdate().replace(month=1, day=1)
     ytd_spend = purchases.filter(purchase_date__gte=ytd_start).aggregate(total_cost=Sum('total_cost'))['total_cost'] or 0
     
+    recent_events = ActivityEvent.objects.filter(
+        verb__startswith='purchase.', business=business,
+    )[:4]
+    
+    from core.utils.kpis import get_purchase_kpis
+    kpis = get_purchase_kpis(business)
     
     
     context = {
@@ -162,7 +170,9 @@ def purchase_history(request, business_slug):
         'average_cost': average_cost, 
         'ytd_spend': ytd_spend,
         'current_year': current_year,
-        'section': 'purchase'
+        'section': 'purchase',
+        'recent_events': recent_events,
+        'kpis': kpis,
         }
     return render(request, 'Expense/purchase_history.html', context)
 
@@ -539,8 +549,16 @@ def confirm_purchase_summary(request, business_slug):
             # save the purchase object
             purchase.total_cost = total_after_discount
             purchase.save()
+            
+            log_activity(business, request.user, 'purchase.recorded',
+                target=purchase,
+                description=f"{purchase.reference} — ₱{purchase.total_cost}",
+                metadata={
+                    'reference': purchase.reference,
+                    'total': str(purchase.total_cost),
+                    'line_count': purchase.line_count,
+                })
 
-                
     except ValidationError:
         messages.error(request, f"Cannot complete the purchase - Insufficient stock.")
         return redirect('material-list')

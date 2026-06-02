@@ -1,0 +1,29 @@
+{# ── RECENT ACTIVITY PANEL ──────────────────────────────── #}
+{# Usage: {% include 'activity/_recent_activity_panel.html' with events=recent_events %} #}
+<div class="recent-activity-panel">
+    <h3>Recent Activity</h3>
+
+    {% if events %}
+        <ul class="activity-list">
+            {% for event in events %}
+                <li class="activity-item activity--{{ event.tone }}">
+                    {# TODO: replace with icon set later #}
+                    <i class="fa {{ event.icon_class }}"></i>
+
+                    <div class="activity-body">
+                        <div class="activity-title">{{ event.get_verb_display }}</div>
+                        <div class="activity-desc">{{ event.description }}</div>
+                    </div>
+
+                    <span class="activity-time">{{ event.created_at|date:"g:i A" }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <a href="{% url 'view-all-activity' business_slug=business.slug %}" class="view-all-link">
+            View all activity
+        </a>
+    {% else %}
+        <p class="empty-state">No recent activity yet.</p>
+    {% endif %}
+</div>

@@ -86,7 +86,9 @@ function toggleCostInput(itemId) {
                 <!-- PRODUCT -->
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
-                  <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
+                  {% if item.supplier %}
+                  <div class="product-id">{{ item.supplier}}</div>
+                  {% endif %}
                 </td>
 
                 <!-- QTY SOLD -->

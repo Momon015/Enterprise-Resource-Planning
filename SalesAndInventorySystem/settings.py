@@ -133,11 +133,11 @@ INSTALLED_APPS = [
     'Product.apps.ProductConfig',
     'Expense.apps.ExpenseConfig',
     'Sales.apps.SalesConfig',
-    'SaleItem.apps.SaleitemConfig',
     'DailySummary.apps.DailysummaryConfig',
     'Dashboard.apps.DashboardConfig',
     'Inventory.apps.InventoryConfig',
     'Supplier.apps.SupplierConfig',
+    'activity.apps.ActivityConfig',
     
     'user.apps.UserConfig',
     'core.apps.CoreConfig',
@@ -178,7 +178,10 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'core.context_processors.business_context', # custom
+                
+                # custom
+                'core.context_processors.business_context', 
+                'activity.context_processors.notification_badge',
             ],
         },
     },

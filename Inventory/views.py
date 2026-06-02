@@ -34,6 +34,9 @@ from user.models import User
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 from subscription.decorators import capacity_required
+from activity.models import ActivityEvent
+from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -54,9 +57,9 @@ def view_inventory_stock(request, business_slug):
     categories = form.fields['category'].queryset
     
     all_stocks = stocks.count()
-    in_stock = stocks.filter(quantity__gte=50).count()
-    low_stock = stocks.filter(Q(quantity__lte=49) & Q(quantity__gte=1)).count()
-    out_of_stock = stocks.filter(quantity=0).count()
+    in_stock = stocks.filter(quantity__gte=HIGH_STOCK_THRESHOLD).count()
+    low_stock = stocks.filter(Q(quantity__lte=LOW_STOCK_THRESHOLD) & Q(quantity__gte=1)).count()
+    out_of_stock = stocks.filter(quantity=NO_STOCK_THRESHOLD).count()
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -77,13 +80,13 @@ def view_inventory_stock(request, business_slug):
     stock_filter = request.GET.get('stock')
     
     if stock_filter == 'high':
-        stocks = stocks.filter(quantity__gte=50)
+        stocks = stocks.filter(quantity__gte=HIGH_STOCK_THRESHOLD)
         
     elif stock_filter == 'low':
-        stocks = stocks.filter(quantity__lte=49, quantity__gte=1)
+        stocks = stocks.filter(quantity__lte=LOW_STOCK_THRESHOLD, quantity__gte=1)
     
     elif stock_filter == 'none':
-        stocks = stocks.filter(quantity=0)
+        stocks = stocks.filter(quantity=NO_STOCK_THRESHOLD)
         
     grand_total_value = sum(stock.price * stock.quantity for stock in stocks)
     
@@ -92,6 +95,15 @@ def view_inventory_stock(request, business_slug):
     page_obj = pagination.get_page(page)
     
     MULTI_UNIT_TYPES = ('Pack', 'Bundle', 'Tray', 'Dozen', 'Carton', 'Sachet', 'Box', 'Bag')
+    
+    recent_events = ActivityEvent.objects.filter(
+        Q(verb__startswith='stock.') |
+        Q(verb__startswith='material.'),
+        business=business
+    )[:4]
+    
+    from core.utils.kpis import get_inventory_kpis
+    kpis = get_inventory_kpis(business)
     
     context = {
                'page_obj': page_obj, 
@@ -103,7 +115,9 @@ def view_inventory_stock(request, business_slug):
                'low_stock': low_stock,
                'in_stock': in_stock,
                'all_stocks': all_stocks,
-               'categories': categories
+               'categories': categories,
+               'recent_events': recent_events,
+               'kpis': kpis,
             }
     
     return render(request, 'Inventory/view_inventory_stock.html', context)

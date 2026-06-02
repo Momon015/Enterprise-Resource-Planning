@@ -82,9 +82,6 @@ class SaleItem(models.Model):
         if self.product:
             self.name = self.product.name 
         
-        if not self.supplier_name:
-            self.supplier_name = self.product.material.supplier.name if self.product.material.supplier else 'No supplier'
-
         super().save(*args, **kwargs)
         
     # def clean(self):
