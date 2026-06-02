@@ -54,7 +54,7 @@ class Purchase(TimeStampModel):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
     
     def save(self, *args, **kwargs):
-        if not self.pk and self.purchase_date:
+        if not self.purchase_date:
             self.purchase_date = timezone.localdate()
         
         if self.status and self.status.slug == 'paid':

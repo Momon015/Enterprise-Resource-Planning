@@ -41,6 +41,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <div class="page-wrapper">
 
+  <div class="kpi-row">
+    {% include 'partials/_kpi_card.html' with label="Purchases Today"     value=kpis.current.count_today|floatformat:2  delta=kpis.deltas.count_today|floatformat:2  %}
+    {% include 'partials/_kpi_card.html' with label="Cost Today"          value=kpis.current.cost_today|floatformat:2   delta=kpis.deltas.cost_today|floatformat:2  %}
+    {% include 'partials/_kpi_card.html' with label="Purchases (Month)"   value=kpis.current.count_month|floatformat:2  delta=kpis.deltas.count_month|floatformat:2  %}
+    {% include 'partials/_kpi_card.html' with label="Total Spend (Month)" value=kpis.current.cost_month|floatformat:2  delta=kpis.deltas.cost_month|floatformat:2  %}
+</div>
+
+
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">

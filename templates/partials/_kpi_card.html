@@ -1,0 +1,19 @@
+{# ── KPI CARD ─────────────────────────────────────────── #}
+{# Usage: {% include 'partials/_kpi_card.html' with label="Total Products" value=kpis.current.total delta=kpis.deltas.total %} #}
+<div class="kpi-card">
+    <div class="kpi-label">{{ label }}</div>
+    <div class="kpi-value">{{ value|default:"0" }}</div>
+
+    {% if delta == None %}
+        <div class="kpi-delta kpi-delta-none">No data yet</div>
+    {% else %}
+        {% if delta > 0 %}
+            <div class="kpi-delta kpi-delta-up">↑ {{ delta|floatformat:0 }} vs yesterday</div>
+        {% elif delta < 0 %}
+            <div class="kpi-delta kpi-delta-down">↓ {{ delta|floatformat:0 }} vs yesterday</div>
+        {% else %}
+            <div class="kpi-delta kpi-delta-flat">— no change</div>
+        {% endif %}
+    {% endif %}
+
+</div>

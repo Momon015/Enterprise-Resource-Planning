@@ -24,6 +24,14 @@
 
 <div class="page-wrapper">
 
+  <div class="kpi-row">
+    {% include 'partials/_kpi_card.html' with label="Total Suppliers"     value=kpis.current.total                 delta=kpis.deltas.total %}
+    {% include 'partials/_kpi_card.html' with label="On Hold"             value=kpis.current.on_hold               delta=kpis.deltas.on_hold %}
+    {% include 'partials/_kpi_card.html' with label="Purchases (Month)"   value=kpis.current.purchases_count_month delta=kpis.deltas.purchases_count_month %}
+    {% include 'partials/_kpi_card.html' with label="Total Spend (Month)" value=kpis.current.total_spend_month     delta=kpis.deltas.total_spend_month %}
+</div>
+
+
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">

@@ -20,19 +20,14 @@
   {% endif %}
 </div>
 
-
-
-
 <div class="page-wrapper">
 
-  {% if kpis.deltas.total %}
-    {% if kpis.deltas.total > 0 %}
-        <span class="delta delta-up">↑ {{ kpis.deltas.total }} vs yesterday</span>
-    {% else %}
-        <span class="delta delta-down">↓ {{ kpis.deltas.total|stringformat:"d"|cut:"-" }} vs yesterday</span>
-    {% endif %}
-{% endif %}
-
+    {# ── PRODUCT KPI ROW ──────────────────────────────────── #}
+<div class="kpi-row">
+    {% include 'partials/_kpi_card.html' with label="Total Products"    value=kpis.current.total           delta=kpis.deltas.total %}
+    {% include 'partials/_kpi_card.html' with label="Low Stock Items"   value=kpis.current.low_stock       delta=kpis.deltas.low_stock %}
+    {% include 'partials/_kpi_card.html' with label="Out of Stock"      value=kpis.current.out_of_stock    delta=kpis.deltas.out_of_stock %}
+</div>
 
   <!-- PAGE HEADER -->
   <div class="page-header">

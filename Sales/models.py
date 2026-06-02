@@ -46,7 +46,7 @@ class Sale(TimeStampModel):
         return sum(item.quantity for item in self.sale_items.all())
     
     def save(self, *args, **kwargs):
-        if not self.pk and not self.date:
+        if not self.date:
             self.date = timezone.localdate()
     
         if not self.reference:
