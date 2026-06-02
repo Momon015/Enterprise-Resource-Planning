@@ -94,14 +94,13 @@ def sale_list(request, business_slug):
     sales = filter_to_own_if_staff(request.user, sales) 
     form = SaleFilterForm(request.GET or None)
     
-    now = timezone.now()
-    month = now.month
-    today = now.day
-    year = now.year
-    iso_year, iso_week, iso_weekday = now.isocalendar()
+    today = timezone.localdate()
+    month = today.month
+    year = today.year
+    iso_year, iso_week, iso_weekday = today.isocalendar()
     last_year = iso_year - 1
 
-    current_year = f"{year}-01"
+    current_year = f"{year}-{month}"
 
     period = request.GET.get('period')
     
@@ -146,7 +145,7 @@ def sale_list(request, business_slug):
         
         period_map = {
             'month': {'date__month': month, 'date__year': year},
-            'today': {'date': now.date()},
+            'today': {'date': today},
             'week': {'date__week': iso_week, 'date__year': iso_year}
 
         }

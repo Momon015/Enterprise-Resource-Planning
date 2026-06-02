@@ -411,7 +411,7 @@ class BusinessPlan(models.Model):
     @staticmethod
     def next_calendar_reset():
         """Returns datetime for the first day of next month (00:00)."""
-        now = timezone.now()
+        now = timezone.localtime()
         if now.month == 12:
             return now.replace(year=now.year + 1, month=1, day=1,
                                hour=0, minute=0, second=0, microsecond=0)

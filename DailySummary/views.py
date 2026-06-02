@@ -99,11 +99,11 @@ def view_summary(request, business_slug):
     if period in ('week', 'last_week') and not getattr(business.plan, 'has_weekly_summary', lambda: False)():
         period = ''   # silently ignore it
 
-    now = timezone.now()
-    iso_year, iso_week, iso_weekday = now.isocalendar()
+    today = timezone.localdate()
+    iso_year, iso_week, iso_weekday = today.isocalendar()
 
     
-    current_year = f"{now.year}-01"
+    current_year = f"{today.year}-{today.month}"
     
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date', '')
@@ -144,19 +144,19 @@ def view_summary(request, business_slug):
                 shifts = shifts.filter(date__week=iso_week-1, date__year=iso_year)
                 
         if period == 'today':
-            sales = sales.filter(date__day=now.day)
-            purchases = purchases.filter(purchase_date__day=now.day)
-            wastes = wastes.filter(date__day=now.day)
-            expenses = expenses.filter(date__day=now.day)
-            shifts = shifts.filter(date__day=now.day)
+            sales = sales.filter(date__day=today.day)
+            purchases = purchases.filter(purchase_date__day=today.day)
+            wastes = wastes.filter(date__day=today.day)
+            expenses = expenses.filter(date__day=today.day)
+            shifts = shifts.filter(date__day=today.day)
 
 
         if period == 'month':
-            sales = sales.filter(date__month=now.month)
-            purchases = purchases.filter(purchase_date__month=now.month)
-            wastes = wastes.filter(date__month=now.month)
-            expenses = expenses.filter(date__month=now.month)
-            shifts = shifts.filter(date__month=now.month)
+            sales = sales.filter(date__month=today.month)
+            purchases = purchases.filter(purchase_date__month=today.month)
+            wastes = wastes.filter(date__month=today.month)
+            expenses = expenses.filter(date__month=today.month)
+            shifts = shifts.filter(date__month=today.month)
         
         sales_by_date = sales.values('date').annotate(total_salary_cost=Sum('total_salary_cost'), total_revenue=Sum('total_revenue')).order_by('-date')
         purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
@@ -271,11 +271,11 @@ def view_summary(request, business_slug):
     
     
     # so the user's filters above don't skew the "best month" result.
-    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_revenue'))}
-    cost_by_month    = {p['purchase_date__month']: p['total'] for p in all_purchases.filter(purchase_date__year=now.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
-    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_cost'))}
-    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(date__year=now.year).values('date__month').annotate(total=Sum('total_amount'))}
-    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(date__year=now.year).values('date__month').annotate(total=Sum('amount'))}
+    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_revenue'))}
+    cost_by_month    = {p['purchase_date__month']: p['total'] for p in all_purchases.filter(purchase_date__year=today.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
+    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_cost'))}
+    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_amount'))}
+    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(date__year=today.year).values('date__month').annotate(total=Sum('amount'))}
 
     all_months = set(rev_by_month) | set(cost_by_month) | set(waste_by_month) | set(expense_by_month) | set(salary_by_month)
 

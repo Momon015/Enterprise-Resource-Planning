@@ -29,7 +29,7 @@ class SaleQuerySet(models.QuerySet):
 
 class Sale(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
-    date = models.DateField(auto_now_add=True, db_index=True)
+    date = models.DateField(db_index=True)
     total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
@@ -46,6 +46,9 @@ class Sale(TimeStampModel):
         return sum(item.quantity for item in self.sale_items.all())
     
     def save(self, *args, **kwargs):
+        if not self.pk and not self.date:
+            self.date = timezone.localdate()
+    
         if not self.reference:
             year = timezone.now().year
             

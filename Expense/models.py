@@ -42,7 +42,7 @@ class Purchase(TimeStampModel):
     status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
     is_paid = models.BooleanField(default=False)
     line_count = models.PositiveIntegerField(default=0)
-    purchase_date = models.DateField(auto_now_add=True, null=True, db_index=True) # remove NULL when you reset the DB
+    purchase_date = models.DateField(null=True, blank=True, db_index=True) # remove NULL when you reset the DB
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
@@ -54,6 +54,9 @@ class Purchase(TimeStampModel):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
     
     def save(self, *args, **kwargs):
+        if not self.pk and self.purchase_date:
+            self.purchase_date = timezone.localdate()
+        
         if self.status and self.status.slug == 'paid':
             self.is_paid = True
             

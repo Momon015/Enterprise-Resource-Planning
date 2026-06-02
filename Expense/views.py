@@ -76,13 +76,13 @@ def purchase_history(request, business_slug):
     total_cost = purchases.purchase_total_cost()
     average_cost = purchases.average_total_cost()
     
-    now = timezone.now()
-    iso_year, iso_week, iso_weekday = now.isocalendar()
-    today = now.day
-    year = now.year
-    month = now.month
+    today = timezone.localdate()
+    iso_year, iso_week, iso_weekday = today.isocalendar()
     
-    current_year = f"{year}-01"
+    year = today.year
+    month = today.month
+    
+    current_year = f"{year}-{today.month}"
     
     if form.is_valid():
         # search = form.cleaned_data.get('search')
@@ -917,8 +917,8 @@ def waste_list(request, business_slug):
     form = WasteItemFilterForm(request.GET or None)
     period = request.GET.get('period')
     
-    now = timezone.now()
-    current_year = f"{now.year}-01"
+    today = timezone.localdate()
+    current_year = f"{today.year}-{today.month}"
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -942,19 +942,19 @@ def waste_list(request, business_slug):
             
         
         if period == 'last_week':
-            last_year = now.year - 1
+            last_year = today.year - 1
             last_year_of_last_week = date(last_year, 12, 28).isocalendar()[1]
             
-            if now.isocalendar()[1] == 1:
+            if today.isocalendar()[1] == 1:
                 wastes = wastes.filter(date__week=last_year_of_last_week, date__year=last_year)
             else:
-                wastes = wastes.filter(date__week=now.isocalendar()[1]-1, date__year=now.year)
+                wastes = wastes.filter(date__week=today.isocalendar()[1]-1, date__year=today.year)
                 
         if period == 'month':
-            wastes = wastes.filter(date__month=now.month, date__year=now.year)
+            wastes = wastes.filter(date__month=today.month, date__year=today.year)
             
         if period == 'today':
-            wastes = wastes.filter(date__day=now.day, date__year=now.year)
+            wastes = wastes.filter(date__day=today.day, date__year=today.year)
         
         total_waste_cost = wastes.total_waste_cost()
         
@@ -1117,10 +1117,10 @@ def expense_create(request, business_slug):
                     user=business.user,
                     business=business,
                     created_by=request.user,
-                    date=timezone.now().date(),
+                    date=timezone.localdate(),
                 )
                 
-                if expense_date > date_type.today():
+                if expense_date > timezone.localdate():
                     messages.error(request, 'Expense date cannot be in the future.')
                     misc_expense = MiscExpense.objects.filter(business=business)
                     return render(request, 'Expense/misc_and_expense_create.html',{
@@ -1183,11 +1183,11 @@ def expense_list(request, business_slug):
     # Apply filters
     form = ExpenseFilterForm(request.GET or None)
     period = request.GET.get('period')
-    now = timezone.now()
+    today = timezone.localdate()
     
-    month = now.month
-    year = now.year
-    current_year = f"{year}-01"
+    month = today.month
+    year = today.year
+    current_year = f"{year}-{month}"
     
 
     if form.is_valid():
