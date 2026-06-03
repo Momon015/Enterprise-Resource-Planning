@@ -1,4 +1,5 @@
 from activity.models import ActivityEvent
+from django.db.models import Q
 
 def scope_events_for_user(qs, user):
     """
