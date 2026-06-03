@@ -27,7 +27,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity
+from activity.utils import log_activity, scope_events_for_user
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
 from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
@@ -115,7 +115,8 @@ def product_list(request, business_slug):
         Q(verb__startswith='purchase.') |
         Q(verb__startswith='stock.'),
         business=business,
-    )[:4]
+    )
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
 
     from core.utils.kpis import get_product_kpis
     kpis = get_product_kpis(business)

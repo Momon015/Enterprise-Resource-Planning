@@ -52,7 +52,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity
+from activity.utils import log_activity, scope_events_for_user
 # logging
 import logging
 
@@ -157,7 +157,9 @@ def purchase_history(request, business_slug):
     
     recent_events = ActivityEvent.objects.filter(
         verb__startswith='purchase.', business=business,
-    )[:4]
+    )
+    
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
     from core.utils.kpis import get_purchase_kpis
     kpis = get_purchase_kpis(business)
@@ -960,7 +962,8 @@ def waste_list(request, business_slug):
         
     recent_events = ActivityEvent.objects.filter(
         verb__startswith='waste.', business=business,
-    )[:4]
+    )
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
         
     pagination = Paginator(wastes, 6)
     page = request.GET.get('page')

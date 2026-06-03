@@ -34,7 +34,10 @@ from user.models import User
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
 
 from subscription.decorators import capacity_required
+
 from activity.models import ActivityEvent
+from activity.utils import scope_events_for_user
+
 from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
 
 # Create your views here.
@@ -100,8 +103,8 @@ def view_inventory_stock(request, business_slug):
         Q(verb__startswith='stock.') |
         Q(verb__startswith='material.'),
         business=business
-    )[:4]
-
+    )
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
     from core.utils.kpis import get_inventory_kpis
     kpis = get_inventory_kpis(business)

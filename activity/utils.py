@@ -1,5 +1,17 @@
 from activity.models import ActivityEvent
 
+def scope_events_for_user(qs, user):
+    """
+    Staff see: their own events + stock alerts (low/out).
+    Owners/dev: see all.
+    """
+    if user.role == 'staff':
+        return qs.filter(
+            Q(actor=user) |
+            Q(actor__isnull=True, verb__in=['stock.low', 'stock.out'])
+        )
+    return qs
+
 def log_activity(business, actor, verb, target=None, description='',
                  metadata=None, important=False):
     """

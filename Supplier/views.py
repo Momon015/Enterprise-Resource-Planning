@@ -37,7 +37,7 @@ from django.core.exceptions import ValidationError
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity
+from activity.utils import log_activity, scope_events_for_user
 
 
 
@@ -119,7 +119,8 @@ def material_list(request, business_slug):
         Q(verb__startswith='purchase.') |
         Q(verb__startswith='stock.'),
         business=business
-    )[:4]
+    )
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
     context = {
         'categories': categories, 
@@ -517,7 +518,8 @@ def supplier_list(request, business_slug):
         Q(verb__startswith='supplier.') |
         Q(verb__startswith='purchase.'),
         business=business
-    )[:4]
+    )
+    recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
     from core.utils.kpis import get_supplier_kpis
     kpis = get_supplier_kpis(business)
