@@ -26,7 +26,7 @@
     {% include 'partials/_kpi_card.html' with label="Total Stocks"  value=kpis.current.total        delta=kpis.deltas.total %}
     {% include 'partials/_kpi_card.html' with label="Low Stock"     value=kpis.current.low_stock    delta=kpis.deltas.low_stock %}
     {% include 'partials/_kpi_card.html' with label="Out of Stock"  value=kpis.current.out_of_stock delta=kpis.deltas.out_of_stock %}
-    {% include 'partials/_kpi_card.html' with label="Total Value"   value=kpis.current.total_value|floatformat:2 delta=kpis.deltas.total_value|floatformat:2 %}
+    {% include 'partials/_kpi_card.html' with label="Total Value"   value=kpis.current.total_value|floatformat:2 delta=kpis.deltas.total_value is_money=True %}
 </div>
 
 

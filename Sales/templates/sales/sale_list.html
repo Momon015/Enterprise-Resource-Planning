@@ -44,9 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   <div class="kpi-row">
     {% include 'partials/_kpi_card.html' with label="Sales Today"        value=kpis.current.count_today   delta=kpis.deltas.count_today %}
-    {% include 'partials/_kpi_card.html' with label="Revenue Today"      value=kpis.current.revenue_today|floatformat:2 delta=kpis.deltas.revenue_today|floatformat:2 %}
+    {% include 'partials/_kpi_card.html' with label="Revenue Today"      value=kpis.current.revenue_today|floatformat:2 delta=kpis.deltas.revenue_today is_money=True %}
     {% include 'partials/_kpi_card.html' with label="Sales (Month)"      value=kpis.current.count_month   delta=kpis.deltas.count_month %}
-    {% include 'partials/_kpi_card.html' with label="Revenue (Month)"    value=kpis.current.revenue_month|floatformat:2 delta=kpis.deltas.revenue_month|floatformat:2 %}
+    {% include 'partials/_kpi_card.html' with label="Revenue (Month)"    value=kpis.current.revenue_month|floatformat:2 delta=kpis.deltas.revenue_month is_money=True %}
 </div>
 
 

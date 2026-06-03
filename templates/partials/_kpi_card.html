@@ -1,19 +1,23 @@
 {# ── KPI CARD ─────────────────────────────────────────── #}
-{# Usage: {% include 'partials/_kpi_card.html' with label="Total Products" value=kpis.current.total delta=kpis.deltas.total %} #}
+{# Usage: #}
+{# Count: {% include 'partials/_kpi_card.html' with label="..." value=... delta=... %} #}
+{# Money: {% include 'partials/_kpi_card.html' with label="..." value=... delta=... is_money=True %} #}
+
 <div class="kpi-card">
     <div class="kpi-label">{{ label }}</div>
-    <div class="kpi-value">{{ value|default:"0" }}</div>
+    <div class="kpi-value">
+        {% if is_money %}₱{{ value|default:"0"|floatformat:2|cut:"-" }}{% else %}{{ value|default:"0"|cut:"-" }}{% endif %}
+    </div>
 
     {% if delta == None %}
         <div class="kpi-delta kpi-delta-none">No data yet</div>
     {% else %}
         {% if delta > 0 %}
-            <div class="kpi-delta kpi-delta-up">↑ {{ delta|floatformat:0 }} vs yesterday</div>
+            <div class="kpi-delta kpi-delta-up">↑ {% if is_money %}₱{{ delta|floatformat:2|cut:"-" }}{% else %}{{ delta|floatformat:0|cut:"-" }}{% endif %} vs yesterday</div>
         {% elif delta < 0 %}
-            <div class="kpi-delta kpi-delta-down">↓ {{ delta|floatformat:0 }} vs yesterday</div>
+            <div class="kpi-delta kpi-delta-down">↓ {% if is_money %}₱{{ delta|floatformat:2|cut:"-" }}{% else %}{{ delta|floatformat:0|cut:"-" }}{% endif %} vs yesterday</div>
         {% else %}
             <div class="kpi-delta kpi-delta-flat">— no change</div>
         {% endif %}
     {% endif %}
-
 </div>
