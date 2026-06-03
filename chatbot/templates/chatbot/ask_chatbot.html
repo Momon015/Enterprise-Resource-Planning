@@ -1,0 +1,27 @@
+{% extends 'main.html' %}
+
+{% block content %}
+
+<div class="chatbot-page">
+    <p>
+        {% if current_lang == 'fil' %}
+            Wika: Filipino — type `/english` to switch
+        {% else %}
+            Language: English — type `/filipino` to switch
+        {% endif %}
+    </p>
+    <h1>Ask</h1>
+    <p>Type a slash command. Try <code>/help</code> to see what's available.</p>
+
+    <form method="get">
+        <input type="text" name="q" autofocus required>
+        <button type="submit">Ask</button>
+    </form>
+
+    {% if response %}
+        <div class="chatbot-response">
+            <pre>{{ response }}</pre>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
