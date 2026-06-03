@@ -39,9 +39,15 @@ ALIASES = {
 TODAY_WORDS = {'today', 'ngayon', 'today\'s', 'araw'}
 MONTH_WORDS = {'month', 'buwan', 'monthly', 'buwang-ito'}
 
+def _scope_to_user(qs, user):
+    """Staff see only their own transactions. Owners/dev see everything."""
+    if user.role == 'staff':
+        return qs.filter(created_by=user)
+    return qs
 
 def parse_and_execute(request, query, business):
     lang = request.session.get(LANG_KEY, DEFAULT_LANG)
+    user = request.user
     query = (query or '').strip()
 
     if not query.startswith('/'):
@@ -69,11 +75,11 @@ def parse_and_execute(request, query, business):
                   fil=f"Hindi kilala ang utos: `{raw_cmd}`. Subukan ang `/tulong`.")
     
     try:
-        return handler(business, args, lang)
+        return handler(business, user, args, lang)
     except Exception as e:
         return _t(lang,
                   en=f"Something went wrong: {e}",
-                  fil=f"May mali {e}")
+                  fil=f"May mali: {e}")
         
 def _t(lang, en, fil):
     """Translation helper. Returns string in chosen language."""
@@ -81,7 +87,7 @@ def _t(lang, en, fil):
 
 # ── Handlers ──────────────────────────────────────────────────────────
 
-def handle_help(business, args, lang):
+def handle_help(business, user, args, lang):
     if lang == 'fil':
         return (
             "Mga utos:\n"
@@ -131,7 +137,7 @@ def handle_stock(business, args, lang):
         lines.append(f"• {s.name}: {s.quantity} {s.unit or ''}".strip())
     return "\n".join(lines)
 
-def handle_sales(business, args, lang):
+def handle_sales(business, user, args, lang):
     from Sales.models import Sale
     period = args.strip().lower()
     today = timezone.localdate()
@@ -146,13 +152,14 @@ def handle_sales(business, args, lang):
         return _t(lang,
                   en="Usage: `/sales today` or `/sales month`",
                   fil="Paggamit: `/benta ngayon` o `/benta buwan`")
-        
+    
+    qs = _scope_to_user(qs, user)  
     total = qs.aggregate(t=Sum('total_revenue'))['t'] or Decimal('0')
     return _t(lang,
               en=f"Sales {label}: {qs.count()} transaction(s), ₱{total:.2f}",
               fil=f"Benta {label}: {qs.count()} transaksyon, ₱{total:.2f}")
     
-def handle_expense(business, args, lang):
+def handle_expense(business, user, args, lang):
     from Expense.models import Expense
     period = args.strip().lower()
     today = timezone.localdate()
@@ -168,6 +175,7 @@ def handle_expense(business, args, lang):
                   en="Usage: `/expense today` or `/expense month`",
                   fil="Paggamit: `/gastos ngayon` o `/gastos buwan`")
 
+    qs = _scope_to_user(qs, user)
     total = qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
     return _t(lang,
               en=f"Expenses {label}: {qs.count()} entry(s), ₱{total:.2f}",
@@ -175,7 +183,7 @@ def handle_expense(business, args, lang):
 
     
     
-def handle_purchase(business, args, lang):
+def handle_purchase(business, user, args, lang):
     from Expense.models import Purchase
     period = args.strip().lower()
     today = timezone.localdate()
@@ -191,6 +199,7 @@ def handle_purchase(business, args, lang):
                   en="Usage: `/purchase today` or `/purchase month`",
                   fil="Paggamit: `/pagbili ngayon` o `/pagbili buwan`")
 
+    qs = _scope_to_user(qs, user)
     total = qs.aggregate(t=Sum('total_cost'))['t'] or Decimal('0')
     return _t(lang,
               en=f"Purchases {label}: {qs.count()} order(s), ₱{total:.2f}",
