@@ -130,6 +130,18 @@
         <span class="total-value">₱{{ total_revenue|floatformat:2 }}</span>
       </div>
 
+      {% if sale.outstanding %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-calculator"></i> Amount Paid</span>
+        <span class="total-value">₱{{ sale.amount_paid|floatformat:2 }}</span>
+      </div>
+      
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-calculator"></i> Outstanding Balance</span>
+        <span class="total-value">₱{{ sale.outstanding|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+
       {% comment %} SUMMARY METRICS — these belong in summary page
       {% if total_salary_cost > 0 %}
       <div class="total-row">

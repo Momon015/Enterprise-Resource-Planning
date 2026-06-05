@@ -151,6 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center col-mobile-hidden">Qty</th>
                 <th class="sl-text-center col-mobile-hidden">Lines</th>
                 <th class="sl-text-end mobile-center">Total Cost</th>
+                <th class="sl-text-center">Payment</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
@@ -179,6 +180,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end sl-fw-semibold sl-text-danger mobile-center">
                   ₱{{ purchase.total_cost|floatformat:2|intcomma }}
                 </td>
+
+                <td class="sl-text-center">
+                    {% if purchase.is_fully_paid %}
+                        <span class="sl-badge sl-badge-success">Paid</span>
+                    {% elif purchase.amount_paid > 0 %}
+                        <span class="sl-badge sl-badge-warning">
+                            Partial ₱{{ purchase.amount_paid|floatformat:2 }}
+                        </span>
+                    {% else %}
+                        <span class="sl-badge sl-badge-danger">Utang</span>
+                    {% endif %}
+                </td>
+
 
                 <td class="sl-text-center">
                   <div class="btn-group">
@@ -311,6 +325,14 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-bookmark-fill"></i> Presets
             </a>
+            <a href="{% url 'purchase-return-list' business_slug=current_business.slug %}"
+              class="btn btn-warning">Returns
+            </a>
+
+            <a href="{% url 'purchase-payables' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <i class="bi bi-bookmark-fill"></i> Purchase Payables
+          </a>
+            
           </div>
 
           <hr class="sl-quick-divider">

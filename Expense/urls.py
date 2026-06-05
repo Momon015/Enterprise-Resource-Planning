@@ -27,8 +27,6 @@ urlpatterns = [
     # edit material's price from session
     path('', views.cart_discount_material, name='cart-discount-material'),
     
-
-    
     # clear cart sessions
     path('view/cart/clear/', views.clear_cart, name='clear-cart'),
     
@@ -45,12 +43,12 @@ urlpatterns = [
     path('product/waste/create/', views.waste_product_create, name='product-waste-create'),
     path('material/waste/create/', views.waste_material_create, name='material-waste-create'),
     
-    
     # expense
     path('view/list/', views.expense_list, name='expense-list'),
     path('create/', views.expense_create, name='expense-create'),
     path('view/<str:date>/', views.expense_detail, name='expense-detail'),
     
+    # misc_expense
     path('misc/create/', views.misc_expense_create, name='misc-expense-create'),
     path('misc/list/', views.misc_expense_list, name='misc-expense-list'),
     path('misc/<str:misc_expense_id>/detail/', views.misc_expense_detail, name='misc-expense-detail'),
@@ -60,4 +58,13 @@ urlpatterns = [
     # daily rate
     # path('add-employee/', views.add_daily_rate_to_expense, name='add-salary-to-expense'),
     path('create/add/shift/employees', views.shift_log_create, name='add-shift-employee'),
+
+    path('purchase/<int:purchase_id>/return/create/', views.purchase_return_create, name='purchase-return-create'),
+    path('returns/list/', views.purchase_return_list, name='purchase-return-list'),
+    path('return/<int:return_id>/', views.purchase_return_detail, name='purchase-return-detail'),
+    path('purchase/<int:purchase_id>/payment/add/', views.add_purchase_payment, name='add-purchase-payment'),
+    
+    path('payables/', views.purchase_payables, name='purchase-payables'),
+
+
 ]

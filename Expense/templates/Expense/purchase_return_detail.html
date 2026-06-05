@@ -1,0 +1,44 @@
+{% extends 'main.html' %}
+
+{% block content %}
+<h1>{{ return_obj.reference }}</h1>
+
+<div class="return-meta">
+    <p><strong>Date:</strong> {{ return_obj.date }}</p>
+    <p><strong>Reason:</strong> {{ return_obj.get_reason_display }}
+        {% if return_obj.reason_note %} — {{ return_obj.reason_note }}{% endif %}
+    </p>
+    <p><strong>Refund:</strong> ₱{{ return_obj.refund_total|floatformat:2 }}
+        ({{ return_obj.get_refund_method_display }})
+    </p>
+    <p><strong>Linked purchase:</strong>
+        <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=return_obj.original_purchase.id %}">
+            {{ return_obj.original_purchase.reference }}
+        </a>
+    </p>
+    <p><strong>Recorded by:</strong> {{ return_obj.created_by|default:"—" }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Unit Refund</th>
+            <th>Line Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>₱{{ item.unit_refund|floatformat:2 }}</td>
+            <td>₱{{ item.line_total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'purchase-return-list' business_slug=current_business.slug %}">Back to returns</a>
+{% endblock %}

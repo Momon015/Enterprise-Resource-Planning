@@ -1,0 +1,74 @@
+{% extends 'main.html' %}
+
+{% block content %}
+<div class="payables-page">
+    <h1>Outstanding to Suppliers</h1>
+    <p>Total owed: <strong class="text-warning">₱{{ total_outstanding|floatformat:2 }}</strong></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Purchase date</th>
+                <th>Due date</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Outstanding</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in page_obj %}
+            <tr>
+                <td>
+                    <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.id %}">
+                        {{ p.reference }}
+                    </a>
+                </td>
+                <td>{{ p.purchase_date|date:"M j, Y" }}</td>
+                <td>
+                    {% if p.due_date %}
+                        {{ p.due_date|date:"M j, Y" }}
+                        {% if p.due_date < today %}
+                            <span class="text-danger">overdue</span>
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>₱{{ p.total_cost|floatformat:2 }}</td>
+                <td>₱{{ p.amount_paid|floatformat:2 }}</td>
+                <td><strong class="text-warning">₱{{ p.outstanding|floatformat:2 }}</strong></td>
+                <td>{{ p.status|default:"—" }}</td>
+                <td>
+                    <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}"
+                       class="btn btn-sm btn-primary">
+                        Add Payment
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted">
+                    ✅ No outstanding payables. All purchases are paid.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {# Pagination — mirror your other list templates #}
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

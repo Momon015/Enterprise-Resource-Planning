@@ -1,0 +1,23 @@
+{% extends 'main.html' %}
+{% block content %}
+<h1>{{ return_obj.reference }}</h1>
+<p>Date: {{ return_obj.date }} · Reason: {{ return_obj.get_reason_display }}</p>
+<p>Refund: ₱{{ return_obj.refund_total|floatformat:2 }} ({{ return_obj.get_refund_method_display }})</p>
+<p>Linked sale: <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=return_obj.original_sale.id %}">{{ return_obj.original_sale.reference }}</a></p>
+
+<table>
+    <thead>
+        <tr><th>Item</th><th>Qty</th><th>Unit Refund</th><th>Condition</th></tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>₱{{ item.unit_refund|floatformat:2 }}</td>
+            <td>{% if item.resellable %}Back to stock{% else %}Damaged → Waste{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

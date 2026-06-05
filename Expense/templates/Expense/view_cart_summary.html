@@ -23,6 +23,14 @@
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
+
+function togglePaymentFields() {
+    const status = document.querySelector('input[name="payment_status"]:checked').value;
+    document.getElementById('payment_method_group').style.display = status === 'utang' ? 'none' : 'block';
+    document.getElementById('amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
+    document.getElementById('due_date_group').style.display = (status === 'utang' || status === 'partial') ? 'block' : 'none';
+}
+
 </script>
 
 <div class="container-fluid py-3 py-lg-4">
@@ -147,6 +155,66 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
 
+            {# ── PAYMENT SECTION ───────────────────────────────────── #}
+  <form method="POST" action="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}">
+    {% csrf_token %}
+      <div class="payment-section">
+          <h3>Payment</h3>
+
+          <div class="form-group">
+              <label>Payment status</label>
+              <div>
+                  <label>
+                      <input type="radio" name="payment_status" value="full" checked
+                            onchange="togglePaymentFields()">
+                      Paid in full
+                  </label>
+                  <label>
+                      <input type="radio" name="payment_status" value="partial"
+                            onchange="togglePaymentFields()">
+                      Partial (DP)
+                  </label>
+                  <label>
+                      <input type="radio" name="payment_status" value="utang"
+                            onchange="togglePaymentFields()">
+                      Utang (pay later)
+                  </label>
+              </div>
+          </div>
+
+          <div class="form-group" id="payment_method_group">
+              <label>Method</label>
+              <select name="payment_method">
+                  <option value="cod">Cash on Delivery</option>
+                  <option value="cash">Cash</option>
+                  <option value="gcash">GCash</option>
+                  <option value="bank">Bank Transfer</option>
+                  <option value="credit">Credit / Other</option>
+              </select>
+          </div>
+
+          <div class="form-group" id="amount_paid_group" style="display:none;">
+              <label>Amount paid now</label>
+              <input type="number" name="amount_paid" step="0.01" min="0"
+                    placeholder="0.00">
+          </div>
+
+          <div class="form-group" id="due_date_group" style="display:none;">
+              <label>Due date (optional)</label>
+              <input type="date"
+                    name="due_date"
+                    min="{{ today_iso }}"
+                    max="{{ max_due_date_iso }}">
+              <small>Up to 30 days from today</small>
+          </div>
+
+          <div class="form-group">
+              <label>Reference / Note (optional)</label>
+              <input type="text" name="payment_note" maxlength="255"
+                    placeholder="e.g. GCash ref 9821-AKJ4, Supplier OR #00123">
+          </div>
+      </div>
+  
       <!-- ACTIONS CARD -->
       <div class="pos-card">
         <div class="pos-card-header">
@@ -165,11 +233,13 @@ document.addEventListener("DOMContentLoaded", function () {
           <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-secondary-action">
             <i class="bi bi-pencil-square"></i> Edit session
           </a>
-          <a href="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}" class="btn-confirm">
+        <button type="submit" class="btn-confirm">
             <i class="bi bi-check2-circle"></i> Confirm Purchase
+        </button>
           </a>
         </div>
       </div>
+    </form>
 
     </div>
   </div>

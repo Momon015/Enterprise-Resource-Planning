@@ -17,8 +17,13 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Expense.models import PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, ExpenseItem, MiscExpense, Shift, ShiftEmployee
-from Expense.forms import PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm, ProductWasteForm, MaterialWasteForm, WasteItemFilterForm, ExpenseForm, ExpenseFilterForm, MiscExpenseForm, EmployeeFilterForm
+from Expense.models import (PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, 
+    ExpenseItem, MiscExpense, Shift, ShiftEmployee, PurchaseReturn, PurchaseReturnItem,
+    PurchasePayment)
+
+from Expense.forms import (PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm,
+    ProductWasteForm, MaterialWasteForm, WasteItemFilterForm, ExpenseForm, ExpenseFilterForm, 
+    MiscExpenseForm, EmployeeFilterForm)
 
 from Supplier.models import Material
 from Supplier.forms import MaterialForm
@@ -59,6 +64,37 @@ import logging
 # Create your views here.
 
 logger = logging.getLogger('Expense')
+
+"""clearing cart just in case there's a bug """
+@login_required(login_url='login')
+def clear_cart(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    request.session['cart'] = {}
+    request.session.modified = True
+    messages.success(request, "All items has been removed.")
+    
+    
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'core/partials/_cart_response.html', {
+            'cart_count':     0,
+            'cart_items':     0,
+            'total':          Decimal('0'),
+            'cart_url':       'view-cart',
+            'icon':           'bi-file-text',
+            'label':          'Purchase Record',
+            'clear_sessions': 'clear-cart',
+            'name':           'Materials',
+            'total_name':     'cost',
+            'type':           'purchase',
+            'messages':       get_messages(request),
+        })
+    
+    
+    
+    
+    return redirect('material-list', business_slug=business.slug)
+
+"""clearing cart just in case there's a bug """
 
 @login_required(login_url='login')
 # @permission_required('staff_view')
@@ -191,36 +227,184 @@ def purchase_detail(request, business_slug, purchase_id):
     context = {'purchase': purchase, 'purchase_items': purchase_items, 'line_count': line_count}
     return render(request, 'Expense/purchase_detail.html', context)
 
-"""clearing cart just in case there's a bug """
 @login_required(login_url='login')
-def clear_cart(request, business_slug):
+@permission_required('add')   # blocks dev only; staff + owner can create
+def purchase_return_create(request, business_slug, purchase_id):
     business = get_business_for_user(request.user, business_slug)
-    request.session['cart'] = {}
-    request.session.modified = True
-    messages.success(request, "All items has been removed.")
-    
-    
-    if request.headers.get('HX-Request') == 'true':
-        return render(request, 'core/partials/_cart_response.html', {
-            'cart_count':     0,
-            'cart_items':     0,
-            'total':          Decimal('0'),
-            'cart_url':       'view-cart',
-            'icon':           'bi-file-text',
-            'label':          'Purchase Record',
-            'clear_sessions': 'clear-cart',
-            'name':           'Materials',
-            'total_name':     'cost',
-            'type':           'purchase',
-            'messages':       get_messages(request),
-        })
-    
-    
-    
-    
-    return redirect('material-list', business_slug=business.slug)
+    purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
+    purchase_items = purchase.materials.select_related('material').all()
 
-"""clearing cart just in case there's a bug """
+    if request.method == 'POST':
+        reason = request.POST.get('reason', 'other')
+        reason_note = request.POST.get('reason_note', '').strip()
+        refund_method = request.POST.get('refund_method', 'cash')
+
+        items_to_return = []
+        total_refund = Decimal('0')
+
+        for pi in purchase_items:
+            qty_str = request.POST.get(f'qty_{pi.id}', '0')
+            try:
+                qty = int(qty_str)
+            except ValueError:
+                qty = 0
+
+            if qty <= 0:
+                continue
+
+            if qty > pi.returnable_quantity:
+                messages.error(request,
+                    f"{pi.name}: only {pi.returnable_quantity} returnable "
+                    f"(already returned {pi.total_returned_quantity} of {pi.quantity}).")
+                return redirect('purchase-return-create',
+                                business_slug=business_slug, purchase_id=purchase_id)
+
+            unit_refund_str = request.POST.get(f'unit_refund_{pi.id}', str(pi.price))
+            try:
+                unit_refund = Decimal(unit_refund_str)
+            except (ValueError, ArithmeticError):
+                unit_refund = pi.price
+
+            items_to_return.append({
+                'purchase_item': pi,
+                'qty': qty,
+                'unit_refund': unit_refund,
+            })
+            total_refund += unit_refund * qty
+
+        if not items_to_return:
+            messages.warning(request, "Pick at least one item to return.")
+            return redirect('purchase-return-create',
+                            business_slug=business_slug, purchase_id=purchase_id)
+
+        # In purchase_return_create, after collecting items, before atomic block:
+        already_refunded = purchase.amount_refunded_cash + purchase.amount_refunded_credit
+        max_refund = (purchase.total_cost or Decimal('0')) - already_refunded
+
+        if total_refund > max_refund:
+            messages.error(request,
+                f"Refund ₱{total_refund:.2f} exceeds remaining refundable ₱{max_refund:.2f}.")
+            return redirect('purchase-return-create',
+                            business_slug=business_slug, purchase_id=purchase_id)
+
+        
+        with transaction.atomic():
+            return_obj = PurchaseReturn.objects.create(
+                original_purchase=purchase,
+                business=business,
+                reason=reason,
+                reason_note=reason_note,
+                refund_total=total_refund,
+                refund_method=refund_method,
+                created_by=request.user,
+            )
+
+            for item in items_to_return:
+                pi = item['purchase_item']
+                PurchaseReturnItem.objects.create(
+                    purchase_return=return_obj,
+                    original_purchase_item=pi,
+                    name=pi.name,
+                    quantity=item['qty'],
+                    unit_refund=item['unit_refund'],
+                )
+
+                # Decrement stock — items go back to supplier
+                try:
+                    stock = Stock.objects.get(business=business, material=pi.material)
+                    stock.quantity = max(0, stock.quantity - item['qty'])
+                    stock.save()
+                except Stock.DoesNotExist:
+                    pass  # No stock entry for this material; skip silently
+
+            log_activity(
+                business, request.user, 'purchase.refunded',
+                target=return_obj,
+                description=f"{return_obj.reference} — ₱{total_refund:.2f} refunded ({return_obj.get_refund_method_display()})",
+                metadata={
+                    'reference': return_obj.reference,
+                    'total': str(total_refund),
+                    'reason': reason,
+                    'refund_method': refund_method,
+                }
+            )
+
+        messages.success(request, f"Return {return_obj.reference} recorded.")
+        return redirect('purchase-detail',
+                        business_slug=business_slug, purchase_id=purchase_id)
+
+    context = {
+        'purchase': purchase,
+        'purchase_items': purchase_items,
+        'reason_choices': PurchaseReturn.REASON_CHOICES,
+        'refund_method_choices': PurchaseReturn.REFUND_METHOD_CHOICES,
+        'section': 'purchase',
+    }
+    return render(request, 'Expense/purchase_return_create.html', context)
+
+@login_required(login_url='login')
+def purchase_return_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    returns = PurchaseReturn.objects.filter(business=business).select_related(
+        'original_purchase', 'created_by'
+    ).order_by('-date', '-created_at')
+
+    paginator = Paginator(returns, 10)
+    page = request.GET.get('page')
+    page_obj = paginator.get_page(page)
+
+    context = {
+        'page_obj': page_obj,
+        'section': 'purchase',
+    }
+    return render(request, 'Expense/purchase_return_list.html', context)
+
+
+@login_required(login_url='login')
+def purchase_return_detail(request, business_slug, return_id):
+    business = get_business_for_user(request.user, business_slug)
+    return_obj = get_object_or_404(PurchaseReturn, business=business, id=return_id)
+    items = return_obj.items.select_related('original_purchase_item').all()
+
+    context = {
+        'return_obj': return_obj,
+        'items': items,
+        'section': 'purchase',
+    }
+    return render(request, 'Expense/purchase_return_detail.html', context)
+
+@login_required(login_url='login')
+@permission_required('staff_view')   # owner-only (blocks staff)
+def purchase_payables(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
+    purchases = (
+        Purchase.objects.filter(business=business)
+        .select_related('status')
+        .prefetch_related('payments', 'returns')
+        .order_by('due_date', '-purchase_date')   # earliest due first, then newest
+    )
+
+    # Filter by computed outstanding (property, not DB column)
+    outstanding_purchases = [p for p in purchases if p.outstanding > 0]
+    total_outstanding = sum((p.outstanding for p in outstanding_purchases), Decimal('0'))
+
+    paginator = Paginator(outstanding_purchases, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    today = timezone.localdate()
+
+    context = {
+        'page_obj': page_obj,
+        'total_outstanding': total_outstanding,
+        'today': today,
+        'section': 'purchase',
+    }
+    
+    return render(request, 'Expense/purchase_payables.html', context)
+
+
+    
 
 @login_required(login_url='login')
 @permission_required('add')
@@ -417,7 +601,18 @@ def view_cart_summary(request, business_slug):
     # LOGGING: View Cart Summary
     logger.debug(f"View Summary Cart Sessions: {request.session.get('cart')}")
     
-    context = {'subtotal': subtotal, 'total_after_discount': total_after_discount, 'cart_items': cart_items, 'total_discount': total_discount}
+    from datetime import timedelta
+    today = timezone.localdate()
+    max_due_date = today + timedelta(days=30)
+    
+    context = {
+        'subtotal': subtotal, 
+        'total_after_discount': total_after_discount, 
+        'cart_items': cart_items, 
+        'total_discount': total_discount,
+        'today_iso': today.isoformat(),               
+        'max_due_date_iso': max_due_date.isoformat(), 
+    }
     return render(request, 'Expense/view_cart_summary.html', context)
 
 @login_required(login_url='login')
@@ -433,12 +628,11 @@ def confirm_purchase_summary(request, business_slug):
     
     try: 
         with transaction.atomic():
-            status, created = StatusModel.objects.get_or_create(name='paid') # cash payment directly so automatically paid
+            # removed paid (status) to 
             purchase = Purchase.objects.create(
                 user=business.user, 
                 business=business, 
                 total_cost=0, 
-                status=status, 
                 created_by=request.user
             )
 
@@ -552,14 +746,93 @@ def confirm_purchase_summary(request, business_slug):
             purchase.total_cost = total_after_discount
             purchase.save()
             
-            log_activity(business, request.user, 'purchase.recorded',
+            # ── Payment capture ─────────────────────────────────
+            payment_status = request.POST.get('payment_status', 'full')
+            payment_method = request.POST.get('payment_method', 'cod')
+            payment_note = request.POST.get('payment_note', '').strip()
+            due_date_str = request.POST.get('due_date', '').strip()
+
+            # Optional due date (future date for Net 15/30)
+            if due_date_str:
+                try:
+                    from datetime import date as date_cls, timedelta
+                    parsed_due_date = date_cls.fromisoformat(due_date_str)
+                    today = timezone.localdate()
+                    max_allowed = today + timedelta(days=30)
+                    
+                    if parsed_due_date < today:
+                        messages.error(request, "Due date can't be set in the past.")
+                        # decide: redirect back or just skip the due_date assignment
+                        parsed_due_date = None
+                    elif parsed_due_date > max_allowed:
+                        messages.error(request, f"Due date can't be more than 30 days out (max {max_allowed}).")
+                        parsed_due_date = None
+                        
+                    if parsed_due_date:
+                        purchase.due_date = parsed_due_date
+                            
+                except ValueError:
+                    pass  # silently ignore bad date format
+
+            # Determine payment amount
+            if payment_status == 'full':
+                payment_amount = purchase.total_cost
+            elif payment_status == 'partial':
+                amount_str = request.POST.get('amount_paid', '0').strip()
+                try:
+                    payment_amount = Decimal(amount_str)
+                except (ValueError, ArithmeticError):
+                    payment_amount = Decimal('0')
+
+                if payment_amount <= 0:
+                    messages.warning(request, "Partial amount was invalid — recorded as utang instead.")
+                    payment_amount = Decimal('0')
+                elif payment_amount >= purchase.total_cost:
+                    payment_amount = purchase.total_cost
+                    messages.info(request, "Amount matched total — recorded as paid in full.")
+            else:  # utang
+                payment_amount = Decimal('0')
+
+            # Create payment row if amount > 0
+            if payment_amount > 0:
+                PurchasePayment.objects.create(
+                    purchase=purchase,
+                    business=business,
+                    amount=payment_amount,
+                    method=payment_method,
+                    note=payment_note,
+                    created_by=request.user,
+                )
+
+            # Status + is_paid based on actual outstanding
+            if purchase.is_fully_paid:
+                status_name = 'paid'
+            else:
+                status_name = 'pending'
+
+            status, _ = StatusModel.objects.get_or_create(name=status_name)
+            purchase.status = status
+            purchase.is_paid = purchase.is_fully_paid
+            purchase.save(update_fields=['status', 'is_paid', 'due_date'])
+
+            # Activity log
+            payment_label = (
+                "fully paid" if payment_status == 'full'
+                else f"partial ₱{payment_amount:.2f}" if payment_status == 'partial'
+                else "utang"
+            )
+            log_activity(
+                business, request.user, 'purchase.recorded',
                 target=purchase,
-                description=f"{purchase.reference} — ₱{purchase.total_cost:.2f}",
+                description=f"{purchase.reference} — ₱{purchase.total_cost:.2f} ({payment_label})",
                 metadata={
                     'reference': purchase.reference,
                     'total': str(purchase.total_cost),
                     'line_count': purchase.line_count,
-                })
+                    'payment_status': payment_status,
+                    'payment_method': payment_method if payment_status != 'utang' else None,
+                },
+            )
 
     except ValidationError:
         messages.error(request, f"Cannot complete the purchase - Insufficient stock.")
@@ -625,6 +898,81 @@ def view_purchase_summary(request, business_slug, purchase_id):
         }
     
     return render(request, 'Expense/view_purchase_summary.html', context)
+
+@login_required(login_url='login')
+@permission_required('add')   # blocks dev; staff + owner can record
+def add_purchase_payment(request, business_slug, purchase_id):
+    business = get_business_for_user(request.user, business_slug)
+    purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
+
+    if request.method == 'POST':
+        amount_str = request.POST.get('amount', '').strip()
+        method = request.POST.get('method', 'cod')
+        note = request.POST.get('note', '').strip()
+        date_str = request.POST.get('date', '').strip()
+
+        # Validate amount
+        try:
+            amount = Decimal(amount_str)
+        except (ValueError, ArithmeticError):
+            messages.error(request, "Enter a valid amount.")
+            return redirect('add-purchase-payment',
+                            business_slug=business_slug, purchase_id=purchase_id)
+
+        if amount <= 0:
+            messages.error(request, "Payment amount must be greater than ₱0.")
+            return redirect('add-purchase-payment',
+                            business_slug=business_slug, purchase_id=purchase_id)
+
+        # Soft warning if overpaying (allow — owner may have a reason)
+        outstanding_before = purchase.outstanding
+        if amount > outstanding_before:
+            messages.warning(
+                request,
+                f"Payment ₱{amount:.2f} exceeds outstanding ₱{outstanding_before:.2f}. "
+                f"Outstanding will go negative (supplier credit)."
+            )
+
+        with transaction.atomic():
+            payment = PurchasePayment.objects.create(
+                purchase=purchase,
+                business=business,
+                amount=amount,
+                method=method,
+                note=note,
+                created_by=request.user,
+            )
+
+            # Update status + is_paid based on actual outstanding
+            if purchase.is_fully_paid:
+                paid_status, _ = StatusModel.objects.get_or_create(name='paid')
+                purchase.status = paid_status
+            purchase.is_paid = purchase.is_fully_paid
+            purchase.save(update_fields=['status', 'is_paid'])
+
+            log_activity(
+                business, request.user, 'purchase.paid',
+                target=payment,
+                description=f"₱{amount:.2f} paid toward {purchase.reference} ({payment.get_method_display()})",
+                metadata={
+                    'purchase_reference': purchase.reference,
+                    'amount': str(amount),
+                    'method': method,
+                    'note': note,
+                },
+            )
+
+        messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
+        return redirect('purchase-detail',
+                        business_slug=business_slug, purchase_id=purchase_id)
+
+    context = {
+        'purchase': purchase,
+        'outstanding': purchase.outstanding,
+        'method_choices': PurchasePayment.PAYMENT_METHOD_CHOICES,
+        'section': 'purchase',
+    }
+    return render(request, 'Expense/add_purchase_payment.html', context)
 
 @login_required(login_url='login')
 def cart_remove_materials(request, business_slug, id):
@@ -1093,7 +1441,11 @@ def waste_material_create(request, business_slug):
 
     stocks = Stock.objects.filter(business=business)
 
-    context = {'page': page, 'section': 'waste', 'stocks': stocks}
+    context = {
+        'page': page, 
+        'section': 'waste', 
+        'stocks': stocks,
+    }
     return render(request, 'Expense/waste_create.html', context)
 
 @login_required(login_url='login')

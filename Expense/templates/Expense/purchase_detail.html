@@ -16,6 +16,41 @@
   </a>
 </div>
 
+{% if purchase.payments.exists %}
+<h3>Payments</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Note</th>
+            <th>By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in purchase.payments.all %}
+        <tr>
+            <td>{{ p.date }}</td>
+            <td>₱{{ p.amount|floatformat:2 }}</td>
+            <td>{{ p.get_method_display }}</td>
+            <td>{{ p.note|default:"—" }}</td>
+            <td>{{ p.created_by|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p>
+    Paid: ₱{{ purchase.amount_paid|floatformat:2 }} of ₱{{ purchase.total_cost|floatformat:2 }}
+    {% if purchase.amount_refunded_credit %}
+        · Credit refunds: ₱{{ purchase.amount_refunded_credit|floatformat:2 }}
+    {% endif %}
+    · Outstanding: <strong>₱{{ purchase.outstanding|floatformat:2 }}</strong>
+</p>
+{% endif %}
+
+
 
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
@@ -210,6 +245,20 @@
             <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Purchase
             </a>
+
+            <a href="{% url 'purchase-return-create' business_slug=current_business.slug purchase_id=purchase.id %}"
+              class="btn btn-warning">
+                Return items
+            </a>
+
+            {% if not purchase.is_fully_paid %}
+              <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}"
+                class="btn btn-primary">
+                  Add Payment
+              </a>
+            {% endif %}
+
+
           </div>
         </div>
       </div>

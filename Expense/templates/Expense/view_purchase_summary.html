@@ -133,8 +133,8 @@ document.addEventListener("DOMContentLoaded", function () {
     <div style="border-top:1px solid var(--border); padding:1rem 1.25rem; background:#fafaf8;">
 
       <div class="total-row">
-        <span class="total-label"><i class="bi bi-calculator"></i> Subtotal</span>
-        <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
+        <span class="total-label"><i class="bi bi-calculator"></i> Total Cost</span>
+        <span class="total-value">₱{{ total_cost|floatformat:2|intcomma }}</span>
       </div>
 
       {% if total_discount %}
@@ -148,11 +148,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <div class="total-row">
         <span class="total-label" style="font-weight:600; color:var(--text);">
-          <i class="bi bi-cash-stack"></i> Total Paid
+          <i class="bi bi-cash-stack"></i> Amount Paid
         </span>
-        <span class="total-grand" style="color:var(--danger);">₱{{ total_cost|floatformat:2|intcomma }}</span>
+        <span class="total-grand" style="color:var(--danger);">₱{{ purchase.amount_paid|floatformat:2|intcomma }}</span>
       </div>
-
+      {% if purchase.outstanding %}
+      <div class="total-row">
+        <span class="total-label" style="font-weight:600; color:var(--text);">
+          <i class="bi bi-cash-stack"></i> Outstanding
+        </span>
+        <span class="total-grand" style="color:var(--danger);">₱{{ purchase.outstanding|floatformat:2|intcomma }}</span>
+      </div>
+      {% endif %}
     </div>
   </div>
 

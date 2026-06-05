@@ -206,6 +206,19 @@
             <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> New Sale
             </a>
+            <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
+              class="btn btn-warning">
+                Return items
+            </a>
+            {% if not sale.is_fully_paid %}
+              <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}"
+                class="btn btn-primary">
+                  Add Payment
+                </a>
+            {% endif %}
+
+
+            
 
           </div>
         </div>

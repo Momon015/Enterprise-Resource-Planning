@@ -1,0 +1,60 @@
+{% extends 'main.html' %}
+
+{% block content %}
+<div class="receivables-page">
+    <h1>Customer Utang (Outstanding from Customers)</h1>
+    <p>Total expected: <strong class="text-warning">₱{{ total_outstanding|floatformat:2 }}</strong></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Sale date</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Outstanding</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in page_obj %}
+            <tr>
+                <td>
+                    <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=s.id %}">
+                        {{ s.reference }}
+                    </a>
+                </td>
+                <td>{{ s.date|date:"M j, Y" }}</td>
+                <td>₱{{ s.total_revenue|floatformat:2 }}</td>
+                <td>₱{{ s.amount_paid|floatformat:2 }}</td>
+                <td><strong class="text-warning">₱{{ s.outstanding|floatformat:2 }}</strong></td>
+                <td>
+                    <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}"
+                       class="btn btn-sm btn-primary">
+                        Record Payment
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted">
+                    ✅ No customer utang. All sales are paid.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

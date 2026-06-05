@@ -19,6 +19,16 @@
 {% endif %}
 </div>
 
+<script>
+
+function toggleSalesPaymentFields() {
+  const status = document.querySelector('input[name="payment_status"]:checked').value;
+  document.getElementById('sales_payment_method_group').style.display = status === 'utang' ? 'none' : 'block';
+  document.getElementById('sales_amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
+}
+
+</script>
+
 <div class="container-fluid py-3 py-lg-4">
 
   <!-- PAGE HEADER -->
@@ -124,6 +134,54 @@
         </div>
       </div>
 
+      <form method="POST" action="{% url 'sale-confirm-summary' business_slug=current_business.slug %}">
+    {% csrf_token %}
+
+    {# ── PAYMENT SECTION ─────────────────────────────── #}
+    <div class="payment-section">
+        <h3>Payment</h3>
+
+        <div class="form-group">
+            <label>Payment status</label>
+            <label>
+                <input type="radio" name="payment_status" value="full" checked
+                       onchange="toggleSalesPaymentFields()">
+                Paid in full
+            </label>
+            <label>
+                <input type="radio" name="payment_status" value="partial"
+                       onchange="toggleSalesPaymentFields()">
+                Partial
+            </label>
+            <label>
+                <input type="radio" name="payment_status" value="utang"
+                       onchange="toggleSalesPaymentFields()">
+                Utang (pay later)
+            </label>
+        </div>
+
+        <div class="form-group" id="sales_payment_method_group">
+            <label>Method</label>
+            <select name="payment_method">
+                <option value="cash" selected>Cash</option>
+                <option value="gcash">GCash</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="credit">Store Credit</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="sales_amount_paid_group" style="display:none;">
+            <label>Amount paid now</label>
+            <input type="number" name="amount_paid" step="0.01" min="0" placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+            <label>Reference / Note (optional)</label>
+            <input type="text" name="payment_note" maxlength="255"
+                   placeholder="e.g. GCash ref, customer name">
+        </div>
+    </div>
+
       <!-- ACTIONS CARD -->
       <div class="pos-card">
         <div class="pos-card-header">
@@ -140,13 +198,15 @@
             </p>
           </div>
           <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-secondary-action">
-            <i class="bi bi-pencil-square"></i> Edit session
-          </a>
-          <a href="{% url 'sale-confirm-summary' business_slug=current_business.slug %}" class="btn-confirm">
-            <i class="bi bi-check2-circle"></i> Confirm Sales
-          </a>
+              <i class="bi bi-pencil-square"></i> Edit session
+            </a>
+            <button type="submit" class="btn-confirm">
+                <i class="bi bi-check2-circle"></i> Confirm Sale
+            </button>
         </div>
+        </form>
       </div>
+    
 
     </div>
   </div>

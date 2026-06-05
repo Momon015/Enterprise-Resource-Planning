@@ -24,8 +24,10 @@ class ActivityEvent(models.Model):
         ('supplier.restore',   'Supplier restored'),
         ('sale.completed',     'Sale completed'),
         ('sale.reference',     'Sale reference'),
+        ('sale.paid',          'Sale payment recorded'),
         ('purchase.recorded',  'Purchase recorded'),
         ('purchase.reference', 'Purchase reference'),
+        ('purchase.paid',      'Purchase payment recorded'),
         ('stock.adjusted',     'Stock updated'),
         ('stock.low',          'Low stock alert'),
         ('stock.out',          'Out of stock'),
@@ -34,6 +36,8 @@ class ActivityEvent(models.Model):
         ('plan.expired',       'Plan expired'),
         ('plan.canceled',      'Subscription canceled'),
         ('staff.added',        'Staff added'),
+        ('purchase.refunded',  'Purchase refunded'),
+        ('sale.refunded',      'Sale refunded'),
     ]
     
     business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE, related_name='activities')

@@ -42,10 +42,12 @@ class Purchase(TimeStampModel):
     status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
     is_paid = models.BooleanField(default=False)
     line_count = models.PositiveIntegerField(default=0)
-    purchase_date = models.DateField(null=True, blank=True, db_index=True) # remove NULL when you reset the DB
+    purchase_date = models.DateField(null=True, blank=True, db_index=True)
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True, db_index=True)
+    
     
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
@@ -57,8 +59,8 @@ class Purchase(TimeStampModel):
         if not self.purchase_date:
             self.purchase_date = timezone.localdate()
         
-        if self.status and self.status.slug == 'paid':
-            self.is_paid = True
+        # if self.status and self.status.slug == 'paid':
+        #     self.is_paid = True
             
         if not self.reference:
             owner = get_owner(self.user)
@@ -110,6 +112,33 @@ class Purchase(TimeStampModel):
     @property
     def quantity_items(self):
         return [item.quantity for item in self.materials.all()]
+    
+    @property
+    def amount_paid(self):
+        """Sum of all payments made against this purchase."""
+        return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded_credit(self):
+        """Sum of credit-method refunds (these reduce outstanding)."""
+        return self.returns.filter(refund_method='credit').aggregate(
+            t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded_cash(self):
+        """Sum of cash-method refunds (these don't reduce outstanding — money already returned)."""
+        return self.returns.filter(refund_method='cash').aggregate(
+            t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def outstanding(self):
+        """What's still owed to the supplier."""
+        return (self.total_cost or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
+
+    @property
+    def is_fully_paid(self):
+        return self.outstanding <= Decimal('0')
+
 
 class PurchaseItem(TimeStampModel):
     name = models.CharField(max_length=255, null=True, blank=True)
@@ -133,7 +162,7 @@ class PurchaseItem(TimeStampModel):
             self.supplier = self.material.supplier.name
             
         super().save(*args, **kwargs)
-    
+        
     @property
     def material_price(self):
         return self.material.price
@@ -146,10 +175,140 @@ class PurchaseItem(TimeStampModel):
     def total_item_discount(self):
         return self.total_price_per_item - self.discount
     
+    @property
+    def total_returned_quantity(self):
+        return self.return_items.aggregate(
+            t=models.Sum('quantity'))['t'] or 0
+
+    @property
+    def returnable_quantity(self):
+        return self.quantity - self.total_returned_quantity
+
+    
     # def material_discount(self):
     #     if self.discount:
     #         return self.total_price_per_item - self.discount
     #     return self.total_price_per_item
+    
+# ──────────────────────────────────────────────────────────────
+# PURCHASE PAYMENTS — for partial / Net 15-30 / DP scenarios
+# Multiple payments per Purchase. Outstanding = total_cost - sum(payments) - refunded_credits
+# ──────────────────────────────────────────────────────────────
+
+class PurchasePayment(TimeStampModel):
+    PAYMENT_METHOD_CHOICES = [
+        ('cod', 'Cash on Delivery'),
+        ('cash', 'Cash'),
+        ('gcash', 'GCash'),
+        ('bank', 'Bank Transfer'),
+        ('credit', 'Credit / Other'),
+    ]
+    
+    purchase = models.ForeignKey(
+        Purchase, on_delete=models.CASCADE, related_name='payments')
+    
+    amount = models.DecimalField(max_digits=10, decimal_places=6)
+    date = models.DateField(db_index=True)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
+    note = models.CharField(max_length=255, blank=True)
+    business = models.ForeignKey( 
+        BusinessProfile, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='purchase_payments')
+    
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, 
+        related_name='created_purchase_payments')
+    
+    class Meta:
+        ordering = ['date', 'created_at']
+        
+    def __str__(self):
+        return f"₱{self.amount} payment for {self.purchase.reference}"
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+            
+        super().save(*args, **kwargs)
+        
+# ──────────────────────────────────────────────────────────────
+# PURCHASE RETURNS — supplier returns (defective, wrong qty, etc.)
+# ──────────────────────────────────────────────────────────────
+
+class PurchaseReturn(TimeStampModel):
+    REFUND_METHOD_CHOICES = [
+        ('cash',   'Cash refund'),
+        ('credit', 'Credit on outstanding balance'),
+    ]
+    
+    REASON_CHOICES = [
+        # Real returns
+        ('defective', 'Defective'),
+        ('wrong_item', 'Wrong item'),
+        ('expired', 'Expired'),
+        ('damaged_delivery', 'Damaged in delivery'),
+        
+        # Corrections
+        ('qty_correction', 'Quantity correction'),
+        ('amount_correction', 'Amount correction'),
+        ('void', 'Void / shouldn\'t have happened'),
+        ('staff_error', 'Staff error'),
+        ('other', 'Other'),
+    ]
+    
+    original_purchase = models.ForeignKey(
+        Purchase, on_delete=models.PROTECT, related_name='returns')
+    
+    date = models.DateField(db_index=True)
+    reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='defective')
+    reason_note = models.CharField(max_length=255, blank=True)
+    refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
+    reference = models.CharField(max_length=255, blank=True) # auto-generated PRR-YYYY-NNNN
+    
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL,
+        related_name='purchase_returns', null=True, blank=True)
+    
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL,
+        related_name='created_purchase_returns', null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+        
+    def __str__(self):
+        return f"{self.reference or '(unsaved)'} — ₱{self.refund_total}"
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+
+        if not self.reference:
+            year = timezone.now().year
+            last = PurchaseReturn.objects.filter(
+                business=self.business, date__year=year
+            ).order_by('-reference').first()
+            if last and last.reference:
+                last_n = int(last.reference.split('-')[-1])
+                next_n = last_n + 1
+            else:
+                next_n = 1
+            self.reference = f"PRR-{year}-{next_n:04d}"
+
+        super().save(*args, **kwargs)
+
+class PurchaseReturnItem(models.Model):
+    purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE,
+        related_name='items')
+    
+    original_purchase_item = models.ForeignKey(PurchaseItem, on_delete=models.SET_NULL,
+        related_name='return_items', null=True, blank=True)
+    
+    name = models.CharField(max_length=255) # snasphot
+    quantity = models.PositiveIntegerField(default=1)
+    unit_refund = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    def __str__(self):
+        return f"{self.name} × {self.quantity}"
     
 class EmployeeQuerySet(models.QuerySet):
     def total_daily_rate(self):
@@ -221,12 +380,14 @@ class WasteQuerySet(models.QuerySet):
 
 class Waste(TimeStampModel):
     REASON_CHOICES = [
-        ('spoilage',      'Spoilage'),
-        ('damage',        'Damage'),
-        ('personal_use',  'Personal Use'),
-        ('theft',         'Theft'),
-        ('other',         'Other'),
-    ] 
+        ('spoilage',     'Spoilage'),
+        ('expired',      'Expired'),
+        ('damage',       'Damage'),
+        ('defective',    'Defective'),   
+        ('personal_use', 'Personal Use'),
+        ('theft',        'Theft'),
+        ('other',        'Other'),
+    ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wastes')
     date = models.DateField(db_index=True)
@@ -353,15 +514,10 @@ class ExpenseItem(models.Model):
         if not self.category:
             self.category = self.misc_expense.category.name
         
-        super().save(*args, **kwargs)
-    
-    # def save(self, *args, **kwargs):
-    #     if self.misc_expense:
-    #         if not self.name:
-    #             self.name = self.misc_expense.name
-    #         if not self.amount:
-    #             self.amount = self.misc_expense.amount
+        if not self.name:
+            self.name = self.misc_expense.name
+            
+        if not self.amount:
+            self.amount = self.misc_expense.amount
         
-    #     super().save(*args, **kwargs)
-
-
+        super().save(*args, **kwargs)

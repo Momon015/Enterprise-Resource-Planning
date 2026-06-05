@@ -4841,6 +4841,10 @@ details.filter-card summary:hover {
   gap: 0.1rem;
 }
 
+.sl-badge-success { background: #d1fae5; color: #065f46; }
+.sl-badge-warning { background: #fef3c7; color: #92400e; }
+.sl-badge-danger  { background: #fee2e2; color: #991b1b; }
+
 
 /* ══════════════════════════════════════════
    ADD NEXT TEMPLATE CSS BELOW

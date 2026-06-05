@@ -1,0 +1,51 @@
+{% extends 'main.html' %}
+
+{% block content %}
+<h1>Purchase Returns</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Date</th>
+            <th>Original Purchase</th>
+            <th>Reason</th>
+            <th>Refund</th>
+            <th>Method</th>
+            <th>By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in page_obj %}
+        <tr>
+            <td>
+                <a href="{% url 'purchase-return-detail' business_slug=current_business.slug return_id=r.id %}">
+                    {{ r.reference }}
+                </a>
+            </td>
+            <td>{{ r.date }}</td>
+            <td>{{ r.original_purchase.reference }}</td>
+            <td>{{ r.get_reason_display }}</td>
+            <td>₱{{ r.refund_total|floatformat:2 }}</td>
+            <td>{{ r.get_refund_method_display }}</td>
+            <td>{{ r.created_by|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7">No purchase returns yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{# Pagination — mirror your existing list pages #}
+<div class="pagination">
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
+    {% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+</div>
+{% endblock %}

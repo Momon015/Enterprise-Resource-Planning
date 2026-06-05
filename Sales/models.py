@@ -63,6 +63,44 @@ class Sale(TimeStampModel):
             self.reference = f"SI-{year}-{next_number:04d}"
         
         super().save(*args, **kwargs)
+    
+    @property
+    def amount_paid(self):
+        return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded(self):
+        """Total of all refunds — for net_revenue calc."""
+        return self.returns.aggregate(t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded_cash(self):
+        """Cash refunds — money already left our pocket, doesn't reduce outstanding."""
+        return self.returns.filter(refund_method='cash').aggregate(
+            t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded_credit(self):
+        """Store-credit refunds — reduces customer's outstanding (they don't owe that amount)."""
+        return self.returns.filter(refund_method='credit').aggregate(
+            t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def net_revenue(self):
+        """Revenue minus ALL refunds — for accounting / reports."""
+        return (self.total_revenue or Decimal('0')) - self.amount_refunded
+
+    @property
+    def outstanding(self):
+        """What customer still owes — only credit refunds reduce this (cash already settled)."""
+        return (self.total_revenue or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
+
+    @property
+    def is_fully_paid(self):
+        return self.outstanding <= Decimal('0')
+
+
+
         
 class SaleItem(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
@@ -107,6 +145,140 @@ class SaleItem(models.Model):
     def net_sale_value(self):
         return (self.total_sold_per_item) - self.unsold_product_cost
     
+    
+    @property
+    def total_returned_quantity(self):
+        return self.return_items.aggregate(
+            t=models.Sum('quantity'))['t'] or 0
+
+    @property
+    def returnable_quantity(self):
+        return self.quantity - self.total_returned_quantity
+
+    
+        
+# ──────────────────────────────────────────────────────────────
+# SALES PAYMENTS — for utang / customer credit tracking (FUTURE)
+# Defined now for symmetry; not actively wired in v1.
+# ──────────────────────────────────────────────────────────────
+
+class SalesPayment(TimeStampModel):
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('gcash', 'GCash'),
+        ('bank', 'Bank Transfer'),
+        ('credit', 'Store Credit'),
+    
+    ]
+
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=6)
+    date = models.DateField(db_index=True)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
+    note = models.CharField(max_length=255, blank=True)
+    business = models.ForeignKey(
+        BusinessProfile, on_delete=models.SET_NULL,
+        related_name='sales_payments', null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_sales_payments')
+    
+    class Meta:
+        ordering = ['date', 'created_at']
+        
+    def __str__(self):
+        return f"₱{self.amount} payment for sale {self.sale.reference}"
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+            
+        super().save(*args, **kwargs)
+
+# ──────────────────────────────────────────────────────────────
+# SALES RETURNS — customer returns (defective, changed mind, etc.)
+# Per-item triage (resellable → Stock; damaged → Waste).
+# ──────────────────────────────────────────────────────────────
+
+class SalesReturn(TimeStampModel):
+    REFUND_METHOD_CHOICES = [
+        ('cash',   'Cash refund'),
+        ('credit', 'Store credit'),
+    ]
+
+    REASON_CHOICES = [
+        # Real returns
+        ('customer_changed_mind', 'Customer changed mind'),
+        ('defective',             'Defective'),
+        ('wrong_item',            'Wrong item'),
+        ('expired',               'Expired'),
+        
+        # Corrections
+        ('amount_correction',     'Amount correction'),
+        ('void',                  'Void / shouldn\'t have happened'),
+        ('staff_error',           'Staff error'),
+        ('other',                 'Other'),
+    ]
+
+    original_sale = models.ForeignKey(
+        Sale, on_delete=models.PROTECT, related_name='returns')
+    
+    date = models.DateField(db_index=True)
+    reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='customer_changed_mind')
+    reason_note = models.CharField(max_length=255, blank=True)
+    refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
+    reference = models.CharField(max_length=255, blank=True)  # auto SRR-YYYY-NNNN
+    
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL,
+        related_name='sales_returns', null=True, blank=True)
+    
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, 
+        related_name='created_sales_returns', null=True, blank=True)
+        
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"{self.reference or '(unsaved)'} — ₱{self.refund_total}"
+
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = timezone.localdate()
+
+        if not self.reference:
+            year = timezone.now().year
+            last = SalesReturn.objects.filter(
+                business=self.business, date__year=year
+            ).order_by('-reference').first()
+            if last and last.reference:
+                last_n = int(last.reference.split('-')[-1])
+                next_n = last_n + 1
+            else:
+                next_n = 1
+            self.reference = f"SRR-{year}-{next_n:04d}"
+
+        super().save(*args, **kwargs)
+        
+class SalesReturnItem(models.Model):
+    sales_return = models.ForeignKey(SalesReturn,
+        on_delete=models.CASCADE, related_name='items')
+    
+    original_sale_item = models.ForeignKey(SaleItem, on_delete=models.SET_NULL,
+        related_name='return_items', null=True, blank=True,)  
+    
+    name = models.CharField(max_length=255)  # snapshot
+    quantity = models.PositiveIntegerField(default=1)
+    unit_refund = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    resellable = models.BooleanField(default=True)  # True → Stock; False → Waste
+
+    def __str__(self):
+        return f"{self.name} × {self.quantity}"
+
+    @property
+    def line_total(self):
+        return self.unit_refund * self.quantity
     
 class SaleEmployee(TimeStampModel):
     """

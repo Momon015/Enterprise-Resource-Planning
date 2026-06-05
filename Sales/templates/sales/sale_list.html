@@ -152,6 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-end col-mobile-hidden">Qty</th>
                 <th class="sl-text-end col-mobile-hidden">Items</th>
                 <th class="sl-text-end mobile-center">Revenue</th>
+                <th class="sl-text-center">Payment</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
@@ -181,6 +182,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="sl-text-end sl-fw-semibold sl-text-success mobile-center">
                   ₱{{ sale.total_revenue|floatformat:2|intcomma }}
                 </td>
+
+                <td class="sl-text-center">
+                    {% if sale.is_fully_paid %}
+                        <span class="sl-badge sl-badge-success">Paid</span>
+                    {% elif sale.amount_paid > 0 %}
+                        <span class="sl-badge sl-badge-warning">
+                            Partial ₱{{ sale.amount_paid|floatformat:2 }}
+                        </span>
+                    {% else %}
+                        <span class="sl-badge sl-badge-danger">Utang</span>
+                    {% endif %}
+
+                </td>
+
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}" 
@@ -303,6 +318,14 @@ document.addEventListener("DOMContentLoaded", function () {
           <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
             <i class="bi bi-bookmark-fill"></i> Presets
           </a>
+          <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <i class="bi bi-bookmark-fill"></i> Returns
+          </a>
+
+          <a href="{% url 'sales-receivables' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <i class="bi bi-bookmark-fill"></i> Sales Receivables
+          </a>
+          
 
           <hr class="sl-quick-divider">
 

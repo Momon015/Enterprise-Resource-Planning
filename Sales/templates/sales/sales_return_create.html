@@ -1,0 +1,84 @@
+{% extends 'main.html' %}
+
+{% block content %}
+<div class="sales-return-create">
+    <h1>Return Sale Items</h1>
+    <p>From: <strong>{{ sale.reference }}</strong> · Total: ₱{{ sale.total_revenue|floatformat:2 }}</p>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Sold Qty</th>
+                    <th>Return Qty</th>
+                    <th>Unit Refund</th>
+                    <th>Condition</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for si in sale_items %}
+                <tr>
+                    <td>{{ si.name }}</td>
+                        <td>
+                            {{ si.quantity }}
+                            {% if si.total_returned_quantity > 0 %}
+                                <small>({{ si.returnable_quantity }} left)</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" name="qty_{{ si.id }}"
+                                min="0"
+                                max="{{ si.returnable_quantity }}"   {# ← was si.quantity #}
+                                value="0">
+                        </td>
+
+                    <td>
+                        ₱<input type="number" name="unit_refund_{{ si.id }}" step="0.01" value="{{ si.price_at_sale|floatformat:2 }}">
+                    </td>
+                    <td>
+                        <label>
+                            <input type="radio" name="resellable_{{ si.id }}" value="true" checked>
+                            Sellable
+                        </label>
+                        <label>
+                            <input type="radio" name="resellable_{{ si.id }}" value="false">
+                            Damaged
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="form-group">
+            <label for="reason">Reason</label>
+            <select name="reason" required>
+                {% for value, label in reason_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="reason_note">Note (optional)</label>
+            <input type="text" name="reason_note" placeholder="e.g. customer said it expired early" maxlength="255">
+        </div>
+
+        <div class="form-group">
+            <label>Refund method</label>
+            {% for value, label in refund_method_choices %}
+                <label>
+                    <input type="radio" name="refund_method" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+                    {{ label }}
+                </label>
+            {% endfor %}
+        </div>
+
+        <button type="submit">Record Return</button>
+        <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=sale.id %}">Cancel</a>
+    </form>
+</div>
+{% endblock %}

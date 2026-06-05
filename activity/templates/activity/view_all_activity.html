@@ -31,7 +31,9 @@
                         <div class="activity-desc">{{ event.description }}</div>
                         <small>
                             {{ event.created_at|date:"M j, Y, g:i A" }}
-                            {% if event.actor %} · by {{ event.actor.username }}{% endif %}
+                            {% if request.user.role == 'owner' %}
+                                {% if event.actor %} - {{ event.actor.username|title }}{% endif %}
+                            {% endif %}
                         </small>
                     </div>
                 </li>
