@@ -217,6 +217,15 @@
                 </a>
             {% endif %}
 
+            {% if current_business.plan.has_receipt_print %}
+                <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
+                  target="_blank"
+                  class="btn btn-secondary">
+                    <i class="bi bi-printer"></i> Preview Receipt
+                </a>
+            {% endif %}
+
+
 
             
 

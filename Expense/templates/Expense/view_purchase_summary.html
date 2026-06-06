@@ -169,9 +169,9 @@ document.addEventListener("DOMContentLoaded", function () {
       This purchase record can be printed or reviewed in your purchase history.
     </p>
     <div style="display:flex; gap:.5rem;">
-      <button type="button" class="btn-browse">
+      {% comment %} <button type="button" class="btn-browse">
         <i class="bi bi-printer"></i> Print receipt
-      </button>
+      </button> {% endcomment %}
       {% if request.user.role == 'owner' %}
       <a href="{% url 'dashboard' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard

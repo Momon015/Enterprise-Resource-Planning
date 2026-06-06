@@ -21,6 +21,7 @@ PLAN_LIMITS = {
         'max_expenses':         5,
         'max_product_presets':  2,
         'max_material_presets': 2,
+        'receipt_print':        False,
         'dashboard':            False,
         'daily_summary':        'none',
     },
@@ -35,6 +36,7 @@ PLAN_LIMITS = {
         'max_expenses':         30,
         'max_product_presets':  5,
         'max_material_presets': 5,
+        'receipt_print':        False,
         'dashboard':            False,
         'daily_summary':        'none',
     },
@@ -49,6 +51,7 @@ PLAN_LIMITS = {
         'max_expenses':         None,
         'max_product_presets':  None,
         'max_material_presets': None,
+        'receipt_print':        True,
         'dashboard':            False,
         'daily_summary':        'monthly + daily',
     },
@@ -63,6 +66,7 @@ PLAN_LIMITS = {
         'max_expenses':         None,
         'max_product_presets':  None,
         'max_material_presets': None,
+        'receipt_print':        True,
         'dashboard':            True,
         'daily_summary':        'daily + monthly + weekly',
     },
@@ -382,6 +386,10 @@ class BusinessPlan(models.Model):
     def has_dashboard(self):
         """PRO-only feature."""
         return self.limits().get('dashboard')
+    
+    def has_receipt_print(self):
+        """Thermal receipt printing - Premium and Pro."""
+        return self.limits().get('receipt_print', False)
 
     def has_weekly_summary(self):
         """Weekly summary filter - Pro only"""

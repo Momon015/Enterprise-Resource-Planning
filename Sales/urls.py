@@ -31,4 +31,6 @@ urlpatterns = [
     path('sale/<int:sale_id>/payment/add/', views.add_sales_payment, name='add-sales-payment'),
     
     path('receivables/', views.sales_receivables, name='sales-receivables'),
+    path('view/sale/<int:sale_id>/receipt/', views.sale_receipt, name='sale-receipt'),
+
 ]

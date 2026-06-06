@@ -1,0 +1,147 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt — {{ sale.reference }}</title>
+</head>
+<style>
+    @page { size: 80mm auto; margin: 0; }
+
+    @media screen {
+        body {
+            background: #e5e7eb;
+            margin: 0;
+            padding: 24px 12px;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+        }
+        .preview-toolbar {
+            max-width: 80mm;
+            margin: 0 auto 16px auto;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .preview-toolbar button {
+            padding: 8px 16px;
+            font-size: 13px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .preview-toolbar button.primary {
+            background: #111827;
+            color: #fff;
+            border-color: #111827;
+        }
+        .preview-toolbar button.primary:hover { background: #000; }
+        .receipt {
+            width: 80mm;
+            margin: 0 auto;
+            padding: 6mm 4mm;
+            background: #fff;
+            color: #000;
+            font-size: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        }
+    }
+
+    @media print {
+        body { background: #fff; margin: 0; padding: 0; }
+        .preview-toolbar { display: none !important; }
+        .receipt {
+            width: 80mm;
+            margin: 0;
+            padding: 6mm 4mm;
+            box-shadow: none;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #000;
+        }
+    }
+
+    .center  { text-align: center; }
+    .right   { text-align: right; }
+    .bold    { font-weight: bold; }
+    .divider { border-top: 1px dashed #000; margin: 4px 0; }
+    table    { width: 100%; border-collapse: collapse; }
+    td       { padding: 1px 0; vertical-align: top; }
+    .qty     { width: 18%; }
+    .name    { width: 52%; }
+    .amt     { width: 30%; text-align: right; }
+    .totals td { padding: 2px 0; }
+</style>
+</head>
+<body>
+    <div class="preview-toolbar">
+        <button class="primary" onclick="window.print()">
+            🖨 Print Receipt
+        </button>
+        <button onclick="window.close()">Close</button>
+    </div>
+
+    <div class="receipt">
+        {# ── all the receipt content goes here ── #}
+        <div class="center bold">{{ business.business_name }}</div>
+        {% if business.address %}
+            <div class="center">{{ business.address }}</div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <table>
+            <tr><td>Ref:</td><td class="right">{{ sale.reference }}</td></tr>
+            <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
+            <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
+            {% if sale.created_by %}
+                <tr><td>Cashier:</td><td class="right">{{ sale.created_by.username }}</td></tr>
+            {% endif %}
+        </table>
+
+        <div class="divider"></div>
+
+        <table>
+            {% for item in items %}
+            <tr><td colspan="3">{{ item.name }}</td></tr>
+            <tr>
+                <td class="qty">{{ item.quantity }} x</td>
+                <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
+                <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="divider"></div>
+
+        <table class="totals">
+            <tr class="bold">
+                <td>TOTAL</td>
+                <td class="right">P{{ sale.total_revenue|floatformat:2 }}</td>
+            </tr>
+            {% if sale.amount_paid %}
+            <tr>
+                <td>Paid</td>
+                <td class="right">P{{ sale.amount_paid|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
+            {% if not sale.is_fully_paid %}
+            <tr class="bold">
+                <td>Balance</td>
+                <td class="right">P{{ sale.outstanding|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td>Items</td>
+                <td class="right">{{ sale.quantity_item }}</td>
+            </tr>
+        </table>
+
+        <div class="divider"></div>
+        <div class="center">Thank you!</div>
+        <div class="center">Please come again.</div>
+    </div>
+</body>
+
+</html>

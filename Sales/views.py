@@ -202,6 +202,26 @@ def sale_detail(request, sale_id, business_slug):
     context = {'sale': sale, 'sale_items': sale_items, 'sale_employees': sale_employees, 'total_salary_cost': total_salary_cost}
     return render(request, 'Sales/sale_detail.html', context)
 
+def sale_receipt(request, business_slug, sale_id):
+    business = get_business_for_user(request.user, business_slug)
+
+    bp = getattr(business, 'plan', None)
+
+    if not bp or not bp.has_receipt_print():
+        messages.warning(request, 'Receipt printing is available on Premium and Pro plans.')
+        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
+    
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    items = sale.sale_items.all()
+    
+    context = {
+        'sale': sale,
+        'items': items,
+        'business': business,
+    }
+    
+    return render(request, 'sales/sale_receipt.html', context)
+    
 # Map SalesReturn.reason → Waste.reason for damaged items
 RETURN_TO_WASTE_REASON = {
     'defective': 'defective',
