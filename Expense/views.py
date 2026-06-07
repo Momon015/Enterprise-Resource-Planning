@@ -672,8 +672,8 @@ def confirm_purchase_summary(request, business_slug):
                 coke 20 qty
                 formula = PHP 5.00 * 20 qty = PHP 100.00 - 5.00(discount) = PHP 95.00
                 
-                total_quantity = 20(previous quantity) + 5 qty = 25 qty
-                
+                total_quantity = 5(previous quantity) + 20 qty = 25 qty
+
                 new stock price = PHP 20(previous price) + PHP 95 = PHP 115 / 25 qty = PHP 4.60
                 
                 3rd purchase 
@@ -682,15 +682,13 @@ def confirm_purchase_summary(request, business_slug):
                 
                 total_quantity = 25.00(previous quantity) + 15 qty = 40 qty
                 
-                new_stock_price 115.00(previous price) + PHP 75.00 = PHP 180.00 / 40 qty = PHP 4.50
+                new_stock_price 115.00(previous price) + PHP 75.00 = PHP 190.00 / 40 qty = PHP 4.75
                 """
                 
-                actual_unit_cost = (Decimal(price) * quantity) - discount
+                line_total_cost  = (Decimal(price) * quantity) - discount
                 
-                MULTI_UNIT_TYPES = ('pack', 'box', 'tray', 'dozen', 'bundle', 'carton', 'sachet')
-                
-                if material.unit in MULTI_UNIT_TYPES:
-                    actual_unit_cost = Decimal(price * quantity) - discount
+                if material.is_multi_unit:
+                    line_total_cost  = Decimal(price * quantity) - discount
                     quantity = quantity * material.piece_per_unit
                 
                 
@@ -700,7 +698,7 @@ def confirm_purchase_summary(request, business_slug):
                     material=material,
                     defaults={
                         'quantity': quantity,
-                        'price': actual_unit_cost / quantity,
+                        'price': line_total_cost / quantity,
                         'created_by': request.user,
                     }         
                 )
@@ -710,7 +708,7 @@ def confirm_purchase_summary(request, business_slug):
                     old_quantity = stock.quantity
                     total_quantity = old_quantity + quantity
                     stock.quantity = total_quantity
-                    stock.price = ((old_price * old_quantity) + actual_unit_cost) / total_quantity
+                    stock.price = ((old_price * old_quantity) + line_total_cost ) / total_quantity
                     stock.save()
                 
 
@@ -720,7 +718,7 @@ def confirm_purchase_summary(request, business_slug):
                     name=material.name,
                     material=material,
                     defaults={
-                        'cost_price': actual_unit_cost / quantity,
+                        'cost_price': line_total_cost / quantity,
                         'selling_price': 0.00,
                         'prepared_quantity': quantity,
                         'created_by': request.user,
@@ -733,7 +731,7 @@ def confirm_purchase_summary(request, business_slug):
                     total_quantity = previous_qty + quantity
                     
                     product.prepared_quantity = total_quantity
-                    product.cost_price = ((previous_price * previous_qty) + actual_unit_cost) / total_quantity
+                    product.cost_price = ((previous_price * previous_qty) + line_total_cost) / total_quantity
                     product.save()
                     
             # check if there's a discount

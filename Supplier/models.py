@@ -182,6 +182,11 @@ class Material(TimeStampModel, SlugModel):
         
         
         super().save(*args, **kwargs)
+        
+    @property
+    def is_multi_unit(self):
+        return self.unit in {'pack', 'box', 'tray', 'dozen', 'bundle', 'carton', 'sachet'}
+
     
 class MaterialPreset(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presets')
