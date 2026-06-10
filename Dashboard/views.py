@@ -58,6 +58,18 @@ from django.utils import timezone
 
 CACHE_TTL = 60 * 5   # 5 minutes — adjust as needed
 
+def _pct_delta(today_val, yesterday_val):
+    """Return ('up'|'down'|'flat', pct_string) or (None, None) if no comparison."""
+    today_val = float(today_val or 0)
+    yest_val  = float(yesterday_val or 0)
+    if yest_val == 0:
+        return (None, None)  # template hides the delta row
+    pct = ((today_val - yest_val) / yest_val) * 100
+    if abs(pct) < 0.05:
+        return ('flat', '0.0%')
+    direction = 'up' if pct > 0 else 'down'
+    return (direction, f"{abs(pct):.1f}%")
+
 
 def _compute_dashboard_metrics(business, today):
     """All the expensive aggregates. Cached separately so we don't recompute per request."""
@@ -74,6 +86,32 @@ def _compute_dashboard_metrics(business, today):
     total_material_cost = purchases_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     total_waste_cost    = wastes_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
+
+    # Yesterday's totals (for KPI deltas)
+    yesterday = today - timedelta(days=1)
+    y_sales     = Sale.objects.filter(business=business, date=yesterday)
+    y_purchases = Purchase.objects.filter(business=business, purchase_date=yesterday)
+    y_wastes    = Waste.objects.filter(business=business, date=yesterday)
+    y_expenses  = Expense.objects.filter(business=business, date=yesterday)
+    y_shifts    = Shift.objects.filter(business=business, date=yesterday)
+
+    y_revenue  = y_sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
+    y_material = y_purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    y_waste    = y_wastes.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    y_expense  = y_expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
+    y_salary   = y_shifts.aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_opex     = y_salary + y_expense
+    y_net      = y_revenue - y_material - y_waste - y_expense - y_salary
+
+    # Combined operating expenses (labor + overhead)
+    total_opex = total_salary_cost + total_expense_cost
+
+    # Deltas vs yesterday
+    rev_dir,  rev_pct  = _pct_delta(total_revenue,       y_revenue)
+    mat_dir,  mat_pct  = _pct_delta(total_material_cost, y_material)
+    wst_dir,  wst_pct  = _pct_delta(total_waste_cost,    y_waste)
+    opx_dir,  opx_pct  = _pct_delta(total_opex,          y_opex)
+    net_dir,  net_pct  = _pct_delta(net_profit,          y_net)
 
     # Weekly comparison
     this_week_start = today - timedelta(days=today.weekday())
@@ -133,6 +171,15 @@ def _compute_dashboard_metrics(business, today):
         'total_waste_cost': total_waste_cost,
         'total_expense_cost': total_expense_cost,
         'net_profit': net_profit,
+        
+        # yesterday
+        'total_opex': total_opex,
+
+        'rev_dir': rev_dir, 'rev_pct': rev_pct,
+        'mat_dir': mat_dir, 'mat_pct': mat_pct,
+        'wst_dir': wst_dir, 'wst_pct': wst_pct,
+        'opx_dir': opx_dir, 'opx_pct': opx_pct,
+        'net_dir': net_dir, 'net_pct': net_pct,
 
         'this_week_label': f"Wk {this_week_start.strftime('%b %d')}",
         'last_week_label': f"Wk {last_week_start.strftime('%b %d')}",
@@ -184,6 +231,76 @@ def dashboard(request, business_slug):
     wastes          = Waste.objects.filter(business=business, date=today)
     waste_items     = WasteItem.objects.filter(waste__in=wastes)
     expenses        = Expense.objects.filter(business=business, date=today)
+    
+    # ── On-Shift Now (active timecards: clocked in, not clocked out) ──
+    active_shifts = ShiftEmployee.objects.filter(
+        shift__business=business,
+        shift__date=today,
+        clock_in__isnull=False,
+        clock_out__isnull=True,
+    ).select_related('employee', 'shift').order_by('clock_in')
+
+    # ── Recent Activities feed (last 10 events across modules) ──
+    from itertools import chain
+    from operator import attrgetter
+
+    def _ts(obj, *candidates):
+        """Pick the first non-null timestamp from the given attr names."""
+        for attr in candidates:
+            v = getattr(obj, attr, None)
+            if v:
+                return v
+        return None
+
+    raw_sales     = list(Sale.objects.filter(business=business).order_by('-id')[:10])
+    raw_purchases = list(Purchase.objects.filter(business=business).order_by('-id')[:10])
+    raw_wastes    = list(Waste.objects.filter(business=business).order_by('-id')[:10])
+    raw_expenses  = list(Expense.objects.filter(business=business).prefetch_related('expense_items').order_by('-id')[:10])
+    
+    activities = []
+    for s in raw_sales:
+        activities.append({
+            'kind': 'sale', 'icon': 'bi-cash-coin', 'tint': 'success',
+            'title': f"Sale {s.reference or '#'+str(s.id)}",
+            'amount': s.total_revenue,
+            'ts': _ts(s, 'created_at', 'date'),
+            'url': reverse('sale-detail', kwargs={'business_slug': business.slug, 'sale_id': s.id}),
+        })
+    for p in raw_purchases:
+        activities.append({
+            'kind': 'purchase', 'icon': 'bi-box-seam', 'tint': 'purple',
+            'title': f"Purchase {p.reference or '#'+str(p.id)}",
+            'amount': p.total_cost,
+            'ts': _ts(p, 'created_at', 'purchase_date'),
+            'url': reverse('purchase-detail', kwargs={'business_slug': business.slug, 'purchase_id': p.id}),
+        })
+    for w in raw_wastes:
+        activities.append({
+            'kind': 'waste', 'icon': 'bi-trash3', 'tint': 'danger',
+            'title': "Waste recorded",  # swap to f"Waste {w.reference}" after the WST migration
+            'amount': w.total_cost,
+            'ts': _ts(w, 'created_at', 'date'),
+            'url': reverse('material-waste-detail', kwargs={'business_slug': business.slug, 'waste_id': w.id}),
+
+        })
+    for e in raw_expenses:
+        top_item = e.expense_items.first()
+        label = top_item.name if top_item else 'Other'
+        activities.append({
+            
+            'kind': 'expense', 'icon': 'bi-receipt', 'tint': 'warning',
+            'title': f"Other Expense - {label}",
+            'amount': e.total_amount,
+            'ts': _ts(e, 'created_at', 'date'),
+            'url': reverse('expense-detail', kwargs={'business_slug': business.slug, 'date': e.date.isoformat() if e.date else ''}),
+        })
+
+        
+    # Sort newest first, take top 10
+    activities = [a for a in activities if a['ts'] is not None]
+    activities.sort(key=lambda a: a['ts'], reverse=True)
+    activities = activities[:10]
+    
 
     context = {
         **metrics,
@@ -197,6 +314,9 @@ def dashboard(request, business_slug):
         'expenses': expenses,
         'today': today,
         'section': 'dashboard',
+        
+        'active_shifts': active_shifts,
+        'activities': activities,
     }
     return render(request, 'Dashboard/dashboard.html', context)
 

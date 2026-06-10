@@ -1,43 +1,115 @@
 {% extends 'main.html' %}
-
+{% load humanize %}
+{% load static %}
 {% block content %}
-<div class="add-sales-payment">
-    <h1>Record Customer Payment</h1>
-    <p>
-        For: <strong>{{ sale.reference }}</strong> ·
-        Total: ₱{{ sale.total_revenue|floatformat:2 }} ·
-        Outstanding: <strong>₱{{ outstanding|floatformat:2 }}</strong>
-    </p>
 
-    <form method="POST">
-        {% csrf_token %}
+<div class="page-wrapper">
 
-        <div class="form-group">
-            <label for="amount">Amount</label>
-            <input type="number" name="amount" step="0.01" min="0.01"
-                   placeholder="0.00" required autofocus>
-            <small>Outstanding: ₱{{ outstanding|floatformat:2 }}</small>
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">TRANSACTIONS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="breadcrumb-link">{{ sale.reference }}</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>PAYMENT</span>
+      </div>
+      <h1 class="page-title">Record Payment</h1>
+      <p class="page-subtitle">Apply a customer payment to this sale.</p>
+    </div>
+  </div>
+
+  <!-- FORM CARD (centered, single column) -->
+  <div class="form-page-wrap">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-cash-coin"></i> Payment Details
+        </span>
+        <span class="card-header-sub">{{ sale.reference }}</span>
+      </div>
+
+      <div class="card-body" style="padding: 1.25rem;">
+
+        <!-- Featured Outstanding -->
+        <div class="period-net period-net--loss" style="margin-bottom: 1.25rem;">
+          <div class="period-net-label">OUTSTANDING</div>
+          <div class="period-net-value">₱{{ outstanding|floatformat:2|intcomma }}</div>
+          <div class="period-net-sub">
+            <i class="bi bi-receipt"></i>
+            Total ₱{{ sale.total_revenue|floatformat:2|intcomma }} · Paid ₱{{ sale.amount_paid|floatformat:2|intcomma }}
+          </div>
         </div>
 
-        <div class="form-group">
-            <label for="method">Method</label>
-            <select name="method" required>
-                {% for value, label in method_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
+        <form method="POST" class="payment-form">
+          {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
+          <div class="form-field">
+            <label class="form-label" for="amount">
+              <i class="bi bi-currency-exchange"></i> Amount
+            </label>
+            <input type="number" id="amount" name="amount"
+                   class="form-control form-control--polish"
+                   step="0.01" min="0.01" placeholder="₱0.00"
+                   required autofocus>
+            <small class="form-hint">Max: ₱{{ outstanding|floatformat:2|intcomma }}</small>
+          </div>
 
-        <div class="form-group">
-            <label for="note">Reference / Note (optional)</label>
-            <input type="text" name="note" maxlength="255"
+            <div class="form-field">
+                <label class="form-label">
+                    <i class="bi bi-wallet2"></i> Method
+                </label>
+                    <div class="payment-method-grid">
+                        {% for value, label in method_choices %}
+                        <label class="payment-method-option">
+                            <input type="radio" name="method" value="{{ value }}"
+                                {% if forloop.first %}checked{% endif %} required>
+                            <div class="payment-method-card">
+                            {% if value == 'cash' %}
+                                <i class="bi bi-cash-stack"></i>
+                            {% elif value == 'gcash' %}
+                                <img src="{% static 'images/gcash.svg' %}" alt="GCash" class="payment-method-logo">
+                            {% elif value == 'bank_transfer' or value == 'bank' %}
+                                <i class="bi bi-bank"></i>
+                            {% elif value == 'credit' or value == 'store_credit' %}
+                                <i class="bi bi-credit-card-2-back"></i>
+                            {% else %}
+                                <i class="bi bi-wallet2"></i>
+                            {% endif %}
+                            <span>{{ label }}</span>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+          <div class="form-field">
+            <label class="form-label" for="note">
+              <i class="bi bi-pencil"></i> Reference / Note <span class="form-optional">(optional)</span>
+            </label>
+            <input type="text" id="note" name="note" maxlength="255"
+                   class="form-control form-control--polish"
                    placeholder="e.g. GCash ref, customer name">
-        </div>
+          </div>
 
-        <button type="submit">Record Payment</button>
-        <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=sale.id %}">
+          <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 0.5rem;">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle"></i> Record Payment
+            </button>
+            <a href="{% if request.GET.next == 'receivables' %}{% url 'sales-receivables' business_slug=current_business.slug %}{% else %}{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}{% endif %}"
+            class="btn btn-light">
             Cancel
-        </a>
-    </form>
+            </a>
+
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+
 </div>
+
 {% endblock %}

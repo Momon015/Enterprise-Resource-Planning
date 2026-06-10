@@ -1,298 +1,392 @@
 {% load static %}
+
+{% comment %} {# Run BEFORE the sidebar renders — inject CSS to pre-collapse groups that
+   localStorage says should be collapsed. Hides nav briefly only if needed,
+   to prevent flash. If nothing is collapsed, the sidebar renders naturally. #} {% endcomment %}
+<script>
+(function () {
+  try {
+    var c = JSON.parse(localStorage.getItem('swiftErp.sidebar.collapsedGroups') || '[]');
+    if (!c.length) return;
+
+    // Inject TEMPORARY CSS to pre-collapse the right groups
+    var s = document.createElement('style');
+    s.id = 'sidebar-precollapse';
+    s.textContent = c.map(function (k) {
+      return '.sidebar-group[data-group="' + k + '"] .sidebar-group__items { grid-template-rows: 0fr; }'
+           + '.sidebar-group[data-group="' + k + '"] .sidebar-group__chevron { transform: rotate(-90deg); }';
+    }).join('\n');
+    document.head.appendChild(s);
+
+    // Hide the nav until JS reveals it — prevents flash on mixed states
+    document.documentElement.classList.add('sidebar-needs-hide');
+  } catch (e) {}
+})();
+</script>
+
 <!-- MOBILE OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- MOBILE TOP BAR (logo toggle + brand + right icons) -->
+<!-- MOBILE TOP BAR -->
 <div class="sidebar-mobile-bar" id="sidebarMobileBar">
   <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
     {% comment %} <img src="{% static 'images/hamburger-icon.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo"> {% endcomment %}
-    <i class='bi bi-list'></i>
+    <i class="bi bi-list"></i>
   </button>
-
-  {% comment %} <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
-    <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
-  </button> {% endcomment %}
 
   <div class="sidebar-mobile-brand-wrap">
     <div class="sidebar-mobile-brand">Swift ERP</div>
-    <div class="sidebar-mobile-brand__sub">Enterprise Resource Planning</div>
+    <div class="sidebar-mobile-brand__sub">Sales · Inventory · Operations</div>
   </div>
 
   <div class="sidebar-mobile-actions">
     <button type="button" class="mb-icon-btn" aria-label="Notifications">
-      <i class="bi bi-bell mb-icon-bell"></i>
+      <i class="bi bi-bell"></i>
       <span class="mb-icon-dot"></span>
     </button>
     <a href="{% if user.is_authenticated %}{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}{% else %}{% url 'login' %}{% endif %}"
-       class="mb-avatar{% if request.user.is_authenticated and request.user.role == 'owner' %}{% with sub=request.user.subscription %}{% if sub %} mb-avatar--plan-{{ sub.plan }}{% endif %}{% endwith %}{% endif %}"
-       aria-label="Profile">
+       class="mb-avatar" aria-label="Profile">
       {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
     </a>
   </div>
 </div>
 
-
-
-
+<!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
 
-  <!-- MOBILE-ONLY TOP ROW (hamburger + brand side by side) -->
-  <div class="sidebar-mobile-header">
-    <button class="sidebar-mobile-toggle btn btn-sm" id="sidebarToggle" aria-label="Open menu">
-      <img src="{% static 'images/logo.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo">
-    </button>
+  <!-- BRAND -->
+  <a class="sidebar-brand"
+     href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login' %}{% endif %}">
+    <div class="sidebar-brand__icon">
+      <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+    </div>
+    <div class="sidebar-brand__text">
+      <div class="sidebar-brand__name">Swift ERP</div>
+      <div class="sidebar-brand__sub">Sales · Inventory · Operations</div>
+    </div>
+  </a>
 
-    <!-- BRAND -->
-    <a class="sidebar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login'  %}{% endif %}">
-      <div class="sidebar-brand__icon">
-        <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
-      </div>
-      <div>
-        <div class="sidebar-brand__name">
-          Swift ERP <!-- <span class="sidebar-brand__badge"></span> -->
-        </div>
-        <div class="sidebar-brand__sub">Enterprise Resource Planning</div>
-      </div>
-    </a>
-  </div> 
-  <!-- end .sidebar-mobile-header -->
+  <!-- CURRENT BUSINESS -->
+  <div class="sidebar-business">
+    <div class="sidebar-business__label">
+      {% if request.user.role == 'owner' %}Current Business{% else %}Business{% endif %}
+    </div>
 
-  <!-- CURRENT BUSINESS SECTION -->
-
-<div class="sidebar-section" style="margin-bottom: 1.5rem;">
-  <div class="sidebar-section-label" style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;">
-    {% if request.user.role == 'owner' %}
-    Current Business
+    {% if request.user.role == 'owner' and user_businesses|length > 1 %}
+      <select class="sidebar-business__select" onchange="location = this.value;">
+        {% for biz in user_businesses %}
+          <option value="{% url 'dashboard' business_slug=biz.slug %}"
+                  {% if current_business.id == biz.id %}selected{% endif %}>
+            {{ biz.business_name }}
+          </option>
+        {% endfor %}
+      </select>
     {% else %}
-    Business Name
+      <div class="sidebar-business__display">
+        <div class="sidebar-business__icon">
+            {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
+              <i class="bi bi-cup-hot"></i>
+            {% elif current_business.business_type == 'pharmacy' %}
+              <i class="bi bi-capsule"></i>
+            {% elif current_business.business_type == 'grocery' or current_business.business_type == 'retail' %}
+              <i class="bi bi-basket3"></i>
+            {% elif current_business.business_type == 'sari_sari' %}
+              <i class="bi bi-shop"></i>
+            {% else %}
+              {{ current_business.business_name|slice:":1"|upper }}
+            {% endif %}
+        </div>
+        <div class="sidebar-business__text">
+          <div class="sidebar-business__name">{{ current_business.business_name }}</div>
+          {% if current_business.business_type %}
+            <div class="sidebar-business__type">{{ current_business.get_business_type_display }}</div>
+          {% endif %}
+        </div>
+      </div>
     {% endif %}
   </div>
 
-  
-  {% if request.user.role == 'owner' and user_businesses|length > 1 %}
-    <!-- Owner with multiple businesses: Dropdown -->
-    <select class="business-selector" onchange="location = this.value;" style="
-      width: 100%;
-      background: #1f2937;
-      color: #f9fafb;
-      border: 1px solid #374151;
-      border-radius: 0.375rem;
-      padding: 0.375rem 0.5rem;
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-weight: 500;
-    " onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#1f2937'">
-      {% for biz in user_businesses %}
-        <option value="{% url 'dashboard' business_slug=biz.slug %}" 
-                {% if current_business.id == biz.id %}selected{% endif %}>
-          {{ biz.business_name }}
-        </option>
-      {% endfor %}
-    </select>
-  {% else %}
-    <!-- Staff or single-business owner: Static display -->
-    <div class="business-display" style="
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 0.375rem;
-      padding: 0.3rem 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-    ">
-    <div style="
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    ">
-      {% if current_business.business_type == 'cafe' %}
-        <img src="{% static 'images/business-types/cafe.png' %}" alt="Cafe" style="width:100%;height:100%;object-fit:contain;">
-      {% elif current_business.business_type == 'restaurant' %}
-        <img src="{% static 'images/business-types/restaurant.png' %}" alt="Restaurant" style="width:100%;height:100%;object-fit:contain;">
-      {% elif current_business.business_type == 'retail' %}
-        <img src="{% static 'images/business-types/retail.png' %}" alt="Retail" style="width:100%;height:100%;object-fit:contain;">
-      {% elif current_business.business_type == 'pharmacy' %}
-        <img src="{% static 'images/business-types/pharmacy.png' %}" alt="Drugstore" style="width:100%;height:100%;object-fit:contain;">
-      {% else %}
-        <img src="{% static 'images/business-types/default.png' %}" alt="Business" style="width:100%;height:100%;object-fit:contain;">
-      {% endif %}
-  </div>
+   <!-- NAV BODY -->
+  <div class="sidebar-nav" id="sidebarNav">
 
-      <div style="flex: 1; min-width: 0;">
-        <div style="color: #f9fafb; font-weight: 500; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> 
-          {{ current_business.business_name }}
-        </div>
-        {% if current_business.business_type %}
-        <div style="color: #9ca3af; font-size: 0.625rem; margin-top: 0;">
-          {{ current_business.get_business_type_display }}
-        </div>
-        {% endif %}
+    <!-- HOME -->
+    <div class="sidebar-group" data-group="home">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-home">
+        <span class="sidebar-group__label">Home</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-home">
+        <ul>
+          <li>
+            {% if current_business.plan.has_dashboard %}
+              <!-- DASHBOARD -->
+              <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}"
+                href="{% url 'dashboard' business_slug=current_business.slug %}"
+                {% if request.user.role == 'staff' %}data-locked="Dashboard" data-locked-fixed="true"{% endif %}>
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+                {% if request.user.role == 'staff' %}
+                  <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+                {% endif %}
+              </a>
+            {% endif %}
+          </li>
+          <li>
+            <!-- REPORTS -->
+            <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}"
+              href="{% url 'view-summary' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Reports" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-calendar-check"></i>
+              <span>Reports</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+        </ul>
       </div>
     </div>
-  {% endif %}
-</div>
+
+    <!-- TRANSACTIONS -->
+    <div class="sidebar-group" data-group="transactions">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-transactions">
+        <span class="sidebar-group__label">Transactions</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-transactions">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}"
+               href="{% url 'sale-list' business_slug=current_business.slug %}">
+              <i class="bi bi-cash-coin"></i>
+              <span>Sales</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}"
+               href="{% url 'purchase-list' business_slug=current_business.slug %}">
+              <i class="bi bi-receipt"></i>
+              <span>Purchases</span>
+            </a>
+          </li>
+          <li>
+              <a class="sidebar-nav__link {% if section == 'sale-return' %}is-active{% endif %}"
+                href="{% url 'sales-return-list' business_slug=current_business.slug %}"
+                {% if request.user.role == 'staff' %}data-locked="Sales Returns"{% endif %}>
+                <i class="bi bi-arrow-return-left"></i>
+                <span>Sales Returns</span>
+                {% if request.user.role == 'staff' %}
+                  <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+                {% endif %}
+              </a>
+
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'purchase-return' %}is-active{% endif %}"
+              href="{% url 'purchase-return-list' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Purchase Returns"{% endif %}>
+              <i class="bi bi-arrow-return-right"></i>
+                <span>Purchase Returns</span>
+                {% if request.user.role == 'staff' %}
+                  <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+                {% endif %}
+              
+            </a>
+          </li>
 
 
-  <!-- MAIN MODULES -->
-  <div class="sidebar-section">
-    
-    <div class="sidebar-section-label">Main</div>
-    <ul class="sidebar-nav">
-      <li class="sidebar-nav__item">
-        {% if current_business.plan.has_dashboard %}
-        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' business_slug=current_business.slug %}">
-          <i class="bi bi-speedometer2"></i>
-          <span>Dashboard</span>
-          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-        {% endif %}
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}" href="{% url 'view-summary' business_slug=current_business.slug %}?next={{request.path}}">
-          <i class="bi bi-calendar-check"></i>
-          <span>Reports</span>
-          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}" href="{% url 'expense-list' business_slug=current_business.slug %}">
-          <i class="bi bi-wallet2"></i>
-          <span>Expenses</span>
-          {% if request.user.role == 'staff' or request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-    </ul>
-  </div>
-
-  <!-- TRANSACTIONS -->
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Transactions</div>
-    <ul class="sidebar-nav">
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'sale' %}is-active{% endif %}" href="{% url 'sale-list' business_slug=current_business.slug %}">
-          <i class="bi bi-cash-coin"></i>
-          <span>Sales</span>
-          {% if request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'purchase' %}is-active{% endif %}" href="{% url 'purchase-list' business_slug=current_business.slug %}">
-          <i class="bi bi-receipt"></i>
-          <span>Purchases</span>
-          {% if request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}" href="{% url 'expense-waste-list' business_slug=current_business.slug %}">
-          <i class="bi bi-recycle"></i>
-          <span>Waste</span>
-          {% if request.user.role == 'developer' %}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-    </ul>
-  </div>
-
-<!-- CATALOG -->
-<div class="sidebar-section">
-  <div class="sidebar-section-label">Catalog</div>
-  <ul class="sidebar-nav">
-    <li class="sidebar-nav__item">
-      <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}" href="{% url 'product-list' business_slug=current_business.slug %}">
-        <i class="bi bi-basket"></i>
-        <span>Products</span>
-      </a>
-    </li>
-
-    <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'material' %}is-active{% endif %}" 
-           href="{% url 'material-list' business_slug=current_business.slug %}">
-          <i class="bi bi-box-seam"></i>
-          <span>Materials</span>
-        </a>
-    </li>
-    <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}" 
-           href="{% url 'supplier-list' business_slug=current_business.slug %}">
-          <i class="bi bi-building"></i>
-          <span>Suppliers</span>
-        </a>
-    </li>
-    <li class="sidebar-nav__item">
-      <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
-        <i class="bi bi-box"></i>
-        <span>Inventory</span>
-      </a>
-    </li>
-  </ul>
-</div>
-
-{% if request.user.role == 'owner' %}
-  <!-- HR -->
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">HR</div>
-    <ul class="sidebar-nav">
-      <li class="sidebar-nav__item">
-        <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}" href="{% url 'employee-list' business_slug=current_business.slug %}?next={{request.path}}">
-          <i class="bi bi-people"></i>
-          <span>Employees</span>
-          {% if request.user.role == 'staff'%}
-            <i class="bi bi-lock-fill" style="font-size:0.85rem; color:rgba(255,255,255,0.3); margin-left:auto;"></i>
-          {% endif %}
-        </a>
-      </li>
-    </ul>
-  </div>
-
-{% endif %}
-
-  <!-- FOOTER -->
-  <div class="sidebar-footer">
-    <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="sidebar-new-sale">
-      <i class="bi bi-plus-lg"></i>
-      <span>New Sale</span>
-    </a>
-
-    <div class="sidebar-account" id="accountToggle">
-      <div class="sidebar-account__avatar">
-        {% if user.is_authenticated %}
-          {{ user.username|first|upper }}
-        {% else %}
-          <i class="bi bi-person"></i>
-        {% endif %}
+          
+          <li>
+            <!-- EXPENSES -->
+            <a class="sidebar-nav__link {% if section == 'expense' %}is-active{% endif %}"
+              href="{% url 'expense-list' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Expenses" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-wallet2"></i>
+              <span>Expenses</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}"
+               href="{% url 'expense-waste-list' business_slug=current_business.slug %}">
+              <i class="bi bi-recycle"></i>
+              <span>Waste</span>
+            </a>
+          </li>
+        </ul>
       </div>
-      <div class="sidebar-account__text-wrap">
-        <span class="sidebar-account__name">
-          {% if user.is_authenticated %}{{ user.username }}{% else %}Account{% endif %}
-        </span>
-        {% if request.user.is_authenticated and request.user.role == 'owner' %}
-          {% with sub=request.user.subscription %}
-            {% if sub %}
-              <span class="sidebar-account__plan plan-{{ sub.plan }}">
-                {{ sub.get_plan_display }}{% if sub.is_founder %} · Founder{% endif %}{% if sub.is_lifetime %} · Lifetime{% endif %}
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="sidebar-group" data-group="inventory">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-inventory">
+        <span class="sidebar-group__label">Inventory</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-inventory">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}"
+               href="{% url 'product-list' business_slug=current_business.slug %}">
+              <i class="bi bi-basket"></i>
+              <span>Products</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}"
+               href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
+              <i class="bi bi-box"></i>
+              <span>Stock</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PURCHASING -->
+    <div class="sidebar-group" data-group="purchasing">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-purchasing">
+        <span class="sidebar-group__label">Purchasing</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-purchasing">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'material' %}is-active{% endif %}"
+               href="{% url 'material-list' business_slug=current_business.slug %}">
+              <i class="bi bi-box-seam"></i>
+              <span>Materials</span>
+            </a>
+          </li>
+          <li>
+            {% if current_business %}
+              <a class="sidebar-nav__link {% if section == 'supplier' %}is-active{% endif %}"
+                 href="{% url 'supplier-list' business_slug=current_business.slug %}">
+                <i class="bi bi-building"></i>
+                <span>Suppliers</span>
+              </a>
+            {% else %}
+              <span class="sidebar-nav__link" style="opacity:.5; cursor:not-allowed;" title="Select a business first">
+                <i class="bi bi-building"></i><span>Suppliers</span>
               </span>
             {% endif %}
-          {% endwith %}
+          </li>
+        </ul>
+      </div>
+    </div>
+
+   
+    <!-- CASH FLOW -->
+    <div class="sidebar-group" data-group="cashflow">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-cashflow">
+        <span class="sidebar-group__label">Cash Flow</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-cashflow">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"
+              href="{% url 'sales-receivables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Receivables"{% endif %}>
+              <i class="bi bi-cash-stack"></i>
+              <span>Receivables</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'payable' %}is-active{% endif %}"
+              href="{% url 'purchase-payables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Payables"{% endif %}>
+              <i class="bi bi-credit-card"></i>
+              <span>Payables</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {% if request.user.role == 'owner' or current_business.plan.has_timecards %}
+    <!-- TEAM -->
+    <div class="sidebar-group" data-group="team">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-team">
+        <span class="sidebar-group__label">Team</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-team">
+        <ul>
+          {% if request.user.role == 'owner' %}
+          <li>
+            <a class="sidebar-nav__link {% if section == 'employee' %}is-active{% endif %}"
+               href="{% url 'employee-list' business_slug=current_business.slug %}?next={{request.path}}">
+              <i class="bi bi-people"></i>
+              <span>Employees</span>
+            </a>
+          </li>
+          {% endif %}
+          {% if current_business.plan.has_timecards %}
+          <li>
+            {% comment %} <a class="sidebar-nav__link {% if section == 'shift' %}is-active{% endif %}"
+               href="{% url 'shift-dashboard' business_slug=current_business.slug %}">
+              <i class="bi bi-clock-history"></i>
+              <span>Shifts</span>
+            </a> {% endcomment %}
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+
+  <!-- FOOTER: user block (no "+ New Sale" button — primary action lives per-page) -->
+  <div class="sidebar-footer">
+    <div class="sidebar-account" id="accountToggle">
+      <div class="sidebar-account__avatar">
+        {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
+      </div>
+
+      <div class="sidebar-account__text">
+        <div class="sidebar-account__name">
+          {% if user.is_authenticated %}
+            {{ request.user.username }}
+          {% else %}
+            Account
+          {% endif %}
+        </div>
+
+        {% if request.user.is_authenticated %}
+          {% if request.user.role == 'owner' and current_business %}
+            {% with bp=current_business.plan sub=request.user.subscription %}
+              {% if bp %}
+                <span class="plan-badge plan-badge--{{ bp.plan }} sidebar-account__plan">
+                  {{ bp.get_plan_display }}{% if sub.is_founder %} · Founder{% endif %}{% if sub.is_lifetime %} · Lifetime{% endif %}
+                </span>
+              {% endif %}
+            {% endwith %}
+          {% elif request.user.role == 'staff' %}
+            <span class="plan-badge plan-badge--staff sidebar-account__plan">
+              Staff
+            </span>
+          {% elif request.user.role == 'developer' %}
+            <span class="plan-badge plan-badge--developer sidebar-account__plan">
+              Developer
+            </span>
+          {% endif %}
         {% endif %}
       </div>
-      <i class="bi bi-chevron-up" style="font-size:0.65rem; color:rgba(255,255,255,0.3);"></i>
 
-      <div class="sidebar-dropdown" id="accountDropdown">
+      <i class="bi bi-chevron-up sidebar-account__chevron"></i>
+
+      <div class="sidebar-dropdown">
         {% if user.is_authenticated %}
           <a class="sidebar-dropdown__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
             <i class="bi bi-person-circle"></i> Profile
@@ -311,7 +405,6 @@
         {% endif %}
       </div>
     </div>
-
   </div>
 
 </nav>
@@ -319,103 +412,206 @@
 <!-- MOBILE BOTTOM NAV -->
 <nav class="mobile-bottom-nav" aria-label="Primary navigation">
   {% if request.user.role == 'owner' %}
-  <a href="{% url 'dashboard' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'dashboard' %}is-active{% endif %}">
-    <i class="bi bi-speedometer2"></i><span>Dashboard</span>
-  </a>
-  <a href="{% url 'view-summary' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'summary' %}is-active{% endif %}">
-    <i class="bi bi-calendar-check"></i><span>Summary</span>
-  </a>
-  <a href="{% url 'sale-list' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'sale' %}is-active{% endif %}">
-    <i class="bi bi-cash-coin"></i><span>Sales</span>
-  </a>
-  <a href="{% url 'purchase-list' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'purchase' %}is-active{% endif %}">
-    <i class="bi bi-receipt"></i><span>Purchases</span>
-  </a>
-  <button type="button" class="mb-nav-item mb-nav-more" id="mobileMoreBtn" aria-label="More">
-    <i class="bi bi-three-dots"></i><span>More</span>
-  </button>
+    <a href="{% url 'dashboard' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'dashboard' %}is-active{% endif %}">
+      <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    </a>
+    <a href="{% url 'view-summary' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'summary' %}is-active{% endif %}">
+      <i class="bi bi-calendar-check"></i><span>Reports</span>
+    </a>
+    <a href="{% url 'sale-list' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'sale' %}is-active{% endif %}">
+      <i class="bi bi-cash-coin"></i><span>Sales</span>
+    </a>
+    <a href="{% url 'purchase-list' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'purchase' %}is-active{% endif %}">
+      <i class="bi bi-receipt"></i><span>Purchases</span>
+    </a>
+    <button type="button" class="mb-nav-item mb-nav-more" id="mobileMoreBtn" aria-label="More">
+      <i class="bi bi-three-dots"></i><span>More</span>
+    </button>
   {% else %}
-  <a href="{% url 'product-list' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'product' %}is-active{% endif %}">
-    <i class="bi bi-basket"></i><span>Products</span>
-  </a>
-  <a href="{% url 'material-list' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'supplier' %}is-active{% endif %}">
-    <i class="bi bi-building"></i><span>Supplier</span>
-  </a>
-  <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'inventory' %}is-active{% endif %}">
-    <i class="bi bi-box"></i><span>Inventory</span>
-  </a>
-  <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}"
-     class="mb-nav-item {% if section == 'waste' %}is-active{% endif %}">
-    <i class="bi bi-recycle"></i><span>Waste &amp; Loss</span>
-  </a>
+    {% comment %} {% if current_business.plan.has_timecards %}
+    <a href="{% url 'shift-dashboard' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'shift' %}is-active{% endif %}">
+      <i class="bi bi-clock-history"></i><span>Shifts</span>
+    </a>
+    {% endif %} {% endcomment %}
+    <a href="{% url 'product-list' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'product' %}is-active{% endif %}">
+      <i class="bi bi-basket"></i><span>Products</span>
+    </a>
+    <a href="{% url 'material-list' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'material' %}is-active{% endif %}">
+      <i class="bi bi-box-seam"></i><span>Materials</span>
+    </a>
+    <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
+       class="mb-nav-item {% if section == 'inventory' %}is-active{% endif %}">
+      <i class="bi bi-box"></i><span>Stock</span>
+    </a>
+    <button type="button" class="mb-nav-item mb-nav-more" id="mobileMoreBtn" aria-label="More">
+      <i class="bi bi-three-dots"></i><span>More</span>
+    </button>
   {% endif %}
+
 </nav>
-
-
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  // Account dropdown
+  // ── Sidebar group collapse with localStorage persistence ──
+  const STORAGE_KEY = 'swiftErp.sidebar.collapsedGroups';
+
+  const getCollapsed = () => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
+  };
+  const saveCollapsed = (list) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  };
+
+  const groups = document.querySelectorAll('.sidebar-group');
+  let collapsed = getCollapsed();
+
+  groups.forEach(group => {
+    const key = group.dataset.group;
+    const header = group.querySelector('.sidebar-group__header');
+    const hasActive = group.querySelector('.sidebar-nav__link.is-active');
+
+    // Force-expand the group containing the active page
+    if (hasActive && collapsed.includes(key)) {
+      collapsed = collapsed.filter(k => k !== key);
+      saveCollapsed(collapsed);
+    }
+
+    // Apply initial collapsed state
+    if (collapsed.includes(key) && !hasActive) {
+      group.dataset.collapsed = 'true';
+      header.setAttribute('aria-expanded', 'false');
+    }
+
+    header.addEventListener('click', () => {
+      const isCollapsed = group.dataset.collapsed === 'true';
+
+      if (isCollapsed) {
+        // Opening — animate
+        group.classList.add('is-animatable');
+        requestAnimationFrame(() => {
+          group.dataset.collapsed = 'false';
+          header.setAttribute('aria-expanded', 'true');
+        });
+      } else {
+        // Closing — instant, no animation
+        group.classList.remove('is-animatable');
+        requestAnimationFrame(() => {
+          group.dataset.collapsed = 'true';
+          header.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      const list = getCollapsed();
+      if (!isCollapsed && !list.includes(key)) list.push(key);
+      else if (isCollapsed) list.splice(list.indexOf(key), 1);
+      saveCollapsed(list);
+    });
+  });
+
+  // ── Account dropdown toggle ──
   const accountToggle = document.getElementById('accountToggle');
   if (accountToggle) {
-    accountToggle.addEventListener('click', function(e) {
+    accountToggle.addEventListener('click', function (e) {
       e.stopPropagation();
       this.classList.toggle('open');
     });
-    document.addEventListener('click', function() {
-      accountToggle.classList.remove('open');
-    });
+    document.addEventListener('click', () => accountToggle.classList.remove('open'));
   }
 
-  // Mobile sidebar
-  const sidebar       = document.getElementById('sidebar');
-  const overlay       = document.getElementById('sidebarOverlay');
-  const toggle        = document.getElementById('sidebarToggle');
-  const inlineToggle  = document.getElementById('sidebarInlineToggle');
-  const moreBtn       = document.getElementById('mobileMoreBtn');
-  const bar           = document.getElementById('sidebarMobileBar');
+  // ── Mobile drawer ──
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const toggle  = document.getElementById('sidebarToggle');
+  const moreBtn = document.getElementById('mobileMoreBtn');
+  const bar     = document.getElementById('sidebarMobileBar');
 
   const setSidebarOpen = (open) => {
-    if (sidebar) sidebar.classList.toggle('open', open);
-    if (overlay) overlay.classList.toggle('open', open);
+    sidebar?.classList.toggle('open', open);
+    overlay?.classList.toggle('open', open);
     document.body.classList.toggle('sidebar-open', open);
   };
 
-  if (moreBtn) {
-    moreBtn.addEventListener('click', () => setSidebarOpen(true));
-  }
+  moreBtn?.addEventListener('click', () => setSidebarOpen(true));
+  toggle?.addEventListener('click',  () => setSidebarOpen(!sidebar?.classList.contains('open')));
+  overlay?.addEventListener('click', () => setSidebarOpen(false));
 
-  if (toggle) {
-    toggle.addEventListener('click', () => setSidebarOpen(!sidebar?.classList.contains('open')));
-  }
-
-  if (overlay) {
-    overlay.addEventListener('click', () => setSidebarOpen(false));
-  }
-
-  if (inlineToggle) {
-    inlineToggle.addEventListener('click', () => setSidebarOpen(false));
-  }
-
+  // Auto-hide top bar on scroll down
   if (bar) {
     let lastScroll = 0;
     window.addEventListener('scroll', () => {
-      const currentScroll = window.pageYOffset;
-      if (currentScroll > lastScroll && currentScroll > 100) {
-        bar.classList.add('is-hidden');
-      } else {
-        bar.classList.remove('is-hidden');
-      }
-      lastScroll = currentScroll;
+      const cur = window.pageYOffset;
+      if (cur > lastScroll && cur > 100) bar.classList.add('is-hidden');
+      else bar.classList.remove('is-hidden');
+      lastScroll = cur;
     });
   }
-});
-</script>
 
+  // ── Drop the temp pre-collapse stylesheet + reveal nav ──
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const pre = document.getElementById('sidebar-precollapse');
+      if (pre) pre.remove();
+      document.documentElement.classList.add('sidebar-ready');
+    });
+  });
+});
+
+/* Global Toast */
+document.addEventListener('DOMContentLoaded', function () {
+  const lockedLinks = document.querySelectorAll('[data-locked]');
+
+  lockedLinks.forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+
+      const feature = this.dataset.locked;
+      const isFixed = this.dataset.lockedFixed === 'true';
+
+      const message = isFixed
+        ? `<strong>${feature}</strong> is for business owners only.`
+        : `<strong>${feature}</strong> requires owner access. Ask your owner to grant you access.`;
+
+      let container = document.getElementById('globalToast');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'globalToast';
+          container.className = 'toast-container';
+          document.body.appendChild(container);
+        }
+
+        // Remove any existing toast and clear its timer
+        const existing = container.querySelector('.toast-message');
+        if (existing) {
+          if (existing._removalTimer) clearTimeout(existing._removalTimer);
+          if (existing._fadeTimer) clearTimeout(existing._fadeTimer);
+          existing.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.className = 'toast-message toast-warning';
+        toast.innerHTML = `
+          <i class="bi bi-lock-fill"></i>
+          <span class="toast-text">&nbsp;${message}</span>
+        `;
+        container.appendChild(toast);
+
+        // Store timers on the element so we can cancel them on next click
+        toast._removalTimer = setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(20px)';
+          toast._fadeTimer = setTimeout(() => toast.remove(), 300);
+        }, 3500);
+
+    });
+  });
+});
+
+</script>

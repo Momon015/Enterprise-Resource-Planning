@@ -23,7 +23,7 @@
       <div class="page-breadcrumb">REPORTS</div>
       <h4 class="sd-page-title">
         {% comment %} <i class="bi bi-calendar2-check"></i> {% endcomment %}
-        Summary Detail
+        Profit Detail
       </h4>
       <p class="sd-page-breadcrumb">
         Summary<span>•</span>Daily Breakdown
@@ -40,39 +40,12 @@
   </div>
 
   <div class="two-col-layout">
-
+    
     <!-- ========== LEFT PANEL ========== -->
+     
     <div class="left-panel">
-
-      <!-- KPI STATS ROW -->
-      <div class="sd-stats-row" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1rem;">
-        <div class="sd-stat-box">
-          <div class="sd-stat-label">Revenue</div>
-          <div class="sd-stat-value" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-        <div class="sd-stat-box col-mobile-hidden">
-          <div class="sd-stat-label">Purchase Cost</div>
-          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-        <!-- MOBILE ONLY -->
-        <div class="sd-stat-box col-mobile-only">
-          <div class="sd-stat-label ">Exp & Mat Cost</div>
-          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_material_cost|add:total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-
-        <div class="sd-stat-box">
-          <div class="sd-stat-label">Waste Cost</div>
-          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-        <div class="sd-stat-box">
-          <div class="sd-stat-label">Labor Cost</div>
-          <div class="sd-stat-value" style="color:var(--muted);">₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-        <div class="sd-stat-box col-mobile-hidden">
-          <div class="sd-stat-label">Expense Cost</div>
-          <div class="sd-stat-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        </div>
-      </div>
+      {% comment %} <div class="detail-grid-2x2"> {% endcomment %}
+      
 
       <!-- SALES TRANSACTIONS -->
       <details class="filter-card" open>
@@ -91,28 +64,19 @@
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-center col-mobile-hidden">Unit Cost</th>
-                  <th class="sl-text-end mobile-center">Unit Price</th>
+                  <th class="sl-text-center">Qty</th>
                   <th class="sl-text-end">Revenue</th>
                 </tr>
               </thead>
               <tbody>
                 {% for item in sale_items %}
                 <tr>
-                  <td>
-                    <div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div>
-                    {% comment %} <div class="cell-sub">{{ item.id|default:"—" }}</div> {% endcomment %}
-                  </td>
+                  <td><div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div></td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-center col-mobile-hidden">₱{{ item.cost_price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end mobile-center">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.net_sale_value|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="5">No sale items found for this day.</td>
-                </tr>
+                <tr class="sl-empty-row"><td colspan="3">No sale items.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -138,28 +102,19 @@
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-center">Unit Cost</th>
-                  <th class="sl-text-end mobile-center">Discount</th>
+                  <th class="sl-text-center">Qty</th>
                   <th class="sl-text-end">Cost</th>
                 </tr>
               </thead>
               <tbody>
                 {% for item in purchase_items %}
                 <tr>
-                  <td>
-                    <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
-                    {% comment %} <div class="cell-sub">#{{ item.id|default:"—" }}</div> {% endcomment %}
-                  </td>
+                  <td><div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div></td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-center sl-fw-semibold">₱{{ item.price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold mobile-center">₱{{ item.discount|floatformat:2|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="5">No purchases recorded for this day.</td>
-                </tr>
+                <tr class="sl-empty-row"><td colspan="3">No purchases.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -184,30 +139,22 @@
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-center">Unit Cost</th>
-                  <th class="sl-text-end">Waste Cost</th>
+                  <th class="sl-text-center">Qty</th>
+                  <th class="sl-text-end">Cost</th>
                 </tr>
               </thead>
               <tbody>
                 {% for item in waste_items %}
                 <tr>
-                  <td>
-                    <div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div>
-                    {% comment %} <div class="cell-sub">{{ item.supplier|default:"—" }}</div> {% endcomment %}
-                  </td>
+                  <td><div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div></td>
                   <td class="sl-text-center sl-fw-semibold">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-center sl-fw-semibold">₱{{ item.price|floatformat:2|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ item.total_material_cost|floatformat:2|intcomma }}
-                  </td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ item.total_material_cost|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="4">No waste recorded for this day.</td>
-                </tr>
+                <tr class="sl-empty-row"><td colspan="3">No waste.</td></tr>
                 {% endfor %}
               </tbody>
+
             </table>
           </div>
         </div>
@@ -230,7 +177,6 @@
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th class="sl-text-center">Category</th>
                   <th class="sl-text-end">Amount</th>
                 </tr>
               </thead>
@@ -238,153 +184,116 @@
                 {% for expense in expenses %}
                   {% for exp in expense.expense_items.all %}
                   <tr>
-                    <td>
-                      <div class="cell-primary">{{ exp.name|capfirst }}</div>
-                    </td>
-                    <td class="sl-text-center">
-                      <span class="cell-sub">{{ exp.category|default:"No category" }}</span>
-                    </td>
-                    <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">
-                      ₱{{ exp.amount|floatformat:2|intcomma }}
-                    </td>
+                    <td><div class="cell-primary">{{ exp.name|capfirst }}</div></td>
+                    <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ exp.amount|floatformat:2|intcomma }}</td>
                   </tr>
                   {% endfor %}
                 {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="3">No expenses recorded for this day.</td>
-                </tr>
+                <tr class="sl-empty-row"><td colspan="2">No expenses.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
-          {% if shift_employees %}
-          <div style="padding:0.75rem 1rem 0;">
-            <div class="sd-section-label">
-              <i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i>
-              Staff on Shift
-            </div>
           </div>
+        </div>
+
+
+      </details>
+    {% comment %} </div> {% endcomment %}
+
+      <!-- LABOR COST -->
+      <details class="filter-card">
+        <summary>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);">
+              <i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i>
+            </div>
+            <span>Staff on Shift</span>
+          </div>
+          <span class="sl-badge sl-badge-light">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
+        </summary>
+        <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Employee</th>
+                  <th>Name</th>
                   <th class="sl-text-end">Daily Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {% for emp in shift_employees %}
-                <tr>
-                  <td>
-                    <div class="cell-primary">{{ emp.name|capfirst }}</div>
-                  </td>
-                  <td class="sl-text-end sl-fw-semibold">
-                    ₱{{ emp.daily_rate|floatformat:2|intcomma }}
-                  </td>
-                </tr>
+                  <tr>
+                    <td><div class="cell-primary">{{ emp.name|capfirst }}</div></td>
+                    <td class="sl-text-end sl-fw-semibold" style="color:var(--muted);">₱{{ emp.daily_rate|floatformat:2|intcomma }}</td>
+                  </tr>
                 {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="2">No employees recorded.</td>
-                </tr>
+                <tr class="sl-empty-row"><td colspan="2">No employees recorded.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          {% endif %}
-          </div>
         </div>
       </details>
+  </div>
 
-    </div>
+      <!-- ========== RIGHT PANEL ========== -->
+      <div class="right-panel">
 
-    <!-- ========== RIGHT PANEL ========== -->
-    <div class="right-panel">
-      <div class="card">
-        <div class="card-header dark">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-graph-up-arrow"></i>
-            <span style="font-weight:600; font-size:0.9rem;">Day Summary</span>
+        <!-- Day Summary -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-title">
+              <i class="bi bi-graph-up-arrow"></i> Day Summary
+            </span>
+            {% if sales %}
+            <span class="card-header-sub">{{ sales.first.date|date:"M d, Y" }}</span>
+            {% endif %}
+          </div>
+          <div class="card-body" style="padding: 1rem;">
+
+            <!-- Featured Net Profit -->
+            <div class="period-net {% if net_profit < 0 %}period-net--loss{% endif %}">
+              <div class="period-net-label">NET PROFIT</div>
+              <div class="period-net-value">₱{{ net_profit|floatformat:2|intcomma|default:0 }}</div>
+              {% if total_revenue > 0 %}
+              <div class="period-net-sub">
+                <i class="bi bi-percent"></i>
+                {% widthratio net_profit total_revenue 100 %}% margin
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Breakdown -->
+            <dl class="period-breakdown">
+              <div><dt>Revenue</dt><dd class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Material Cost</dt><dd class="text-danger">₱{{ total_material_cost|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ total_waste_cost|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Labor Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
+            </dl>
           </div>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Net Profit</div>
-            <div class="sd-total-amount" style="{% if net_profit < 0 %}color:var(--danger);{% endif %}">
-              ₱{{ net_profit|floatformat:2|intcomma|default:0 }}
-            </div>
+        <!-- At a Glance -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-title">
+              <i class="bi bi-clipboard-data"></i> At a glance
+            </span>
           </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Cost Breakdown</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Revenue</span>
-              <span class="sd-info-value" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Purchase Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_material_cost|floatformat:2|intcomma }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Waste Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Labor Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expense Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma }}</span>
-            </div>
+          <div class="card-body" style="padding: 1rem;">
+            <dl class="period-breakdown">
+              <div><dt>Sales</dt><dd>{{ sales|length }}</dd></div>
+              <div><dt>Purchases</dt><dd>{{ purchases|length }}</dd></div>
+              <div><dt>Waste records</dt><dd>{{ waste_items|length }}</dd></div>
+              <div><dt>Expense records</dt><dd>{{ expenses|length }}</dd></div>
+              <div><dt>Staff on shift</dt><dd>{{ shift_employees|length }}</dd></div>
+            </dl>
           </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Transactions</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total Sales</span>
-              <span class="sd-info-value">{{ sales|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total Purchases</span>
-              <span class="sd-info-value">{{ purchases|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Waste Records</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ waste_items|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expense Records</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ expenses|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Staff on shift</span>
-              <span class="sd-info-value">{{ sale_employees|length }}</span>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Actions</div>
-            <div class="btn-grid">
-              <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-primary btn-block">
-                <i class="bi bi-plus-circle sl-me-1"></i> New sale
-              </a>
-              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-primary btn-block">
-                <i class="bi bi-plus-circle sl-me-1"></i> New purchase
-              </a>
-            </div>
-          </div>
-
-          <div class="sd-note-box">
-            <div class="sd-note-icon"><i class="bi bi-info-circle"></i></div>
-            <div>
-              <div class="sd-note-title">Note</div>
-              <div class="sd-note-text">This is a read-only daily breakdown. All figures are aggregated from individual transactions.</div>
-            </div>
-          </div>
-
         </div>
+
       </div>
-    </div>
+
 
   </div>
 </div>

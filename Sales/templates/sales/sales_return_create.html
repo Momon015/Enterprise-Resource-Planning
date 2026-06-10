@@ -1,84 +1,186 @@
 {% extends 'main.html' %}
+{% load static %}
+{% load humanize %}
 
 {% block content %}
-<div class="sales-return-create">
-    <h1>Return Sale Items</h1>
-    <p>From: <strong>{{ sale.reference }}</strong> · Total: ₱{{ sale.total_revenue|floatformat:2 }}</p>
 
-    <form method="POST">
-        {% csrf_token %}
+<div class="page-wrapper">
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Sold Qty</th>
-                    <th>Return Qty</th>
-                    <th>Unit Refund</th>
-                    <th>Condition</th>
-                </tr>
-            </thead>
-            <tbody>
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">TRANSACTIONS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="breadcrumb-link">{{ sale.reference }}</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>RETURN</span>
+      </div>
+      <h1 class="page-title">Return Items</h1>
+      <p class="page-subtitle">Record returned items and process the refund.</p>
+    </div>
+  </div>
+
+  <form method="POST">
+    {% csrf_token %}
+
+    <!-- ITEMS CARD -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-box-seam"></i> Items to Return
+        </span>
+        <span class="card-header-sub">From {{ sale.reference }} · Total ₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="sl-text-center">Sold Qty</th>
+              <th class="sl-text-center">Return Qty</th>
+              <th class="sl-text-center">Unit Refund</th>
+              <th class="sl-text-center">Condition</th>
+            </tr>
+          </thead>
+          <tbody>
                 {% for si in sale_items %}
-                <tr>
-                    <td>{{ si.name }}</td>
-                        <td>
-                            {{ si.quantity }}
-                            {% if si.total_returned_quantity > 0 %}
-                                <small>({{ si.returnable_quantity }} left)</small>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <input type="number" name="qty_{{ si.id }}"
-                                min="0"
-                                max="{{ si.returnable_quantity }}"   {# ← was si.quantity #}
-                                value="0">
-                        </td>
+                <tr {% if si.returnable_quantity == 0 %}class="row-disabled"{% endif %}>
+                <td>
+                    <div class="cell-primary">{{ si.name|capfirst }}</div>
+                    {% if si.total_returned_quantity > 0 %}
+                    <div class="cell-sub">
+                        {% if si.returnable_quantity == 0 %}
+                        <span class="text-muted">All units returned</span>
+                        {% else %}
+                        {{ si.returnable_quantity }} left to return
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="sl-text-center">
+                    <span class="sl-badge sl-badge-light">{{ si.quantity }}</span>
+                </td>
 
-                    <td>
-                        ₱<input type="number" name="unit_refund_{{ si.id }}" step="0.01" value="{{ si.price_at_sale|floatformat:2 }}">
+                {% if si.returnable_quantity == 0 %}
+                    <!-- Fully returned: collapse the action columns into one "done" cell -->
+                    <td colspan="3" class="sl-text-center">
+                    <span class="sl-badge sl-badge-success">
+                        <i class="bi bi-check-circle-fill"></i> Fully returned
+                    </span>
                     </td>
-                    <td>
-                        <label>
-                            <input type="radio" name="resellable_{{ si.id }}" value="true" checked>
-                            Sellable
-                        </label>
-                        <label>
-                            <input type="radio" name="resellable_{{ si.id }}" value="false">
-                            Damaged
-                        </label>
+                {% else %}
+                    <!-- Still has returnable units: show inputs -->
+                    <td class="sl-text-center">
+                    <input type="number" name="qty_{{ si.id }}"
+                            class="form-control form-control--polish"
+                            style="max-width: 90px; margin: 0 auto;"
+                            min="0" max="{{ si.returnable_quantity }}" value="0">
                     </td>
+                    <td class="sl-text-center">
+                    <div class="input-with-prefix">
+                        <span class="input-prefix">₱</span>
+                        <input type="number" name="unit_refund_{{ si.id }}"
+                            class="form-control form-control--polish"
+                            style="max-width: 110px;"
+                            step="0.01" value="{{ si.price_at_sale|floatformat:2 }}">
+                    </div>
+                    </td>
+                    <td class="sl-text-center">
+                    <div class="condition-toggle">
+                        <label class="condition-option">
+                        <input type="radio" name="resellable_{{ si.id }}" value="true" checked>
+                        <span class="condition-label condition-label--sellable">
+                            <i class="bi bi-check-circle"></i> Sellable
+                        </span>
+                        </label>
+                        <label class="condition-option">
+                        <input type="radio" name="resellable_{{ si.id }}" value="false">
+                        <span class="condition-label condition-label--damaged">
+                            <i class="bi bi-x-circle"></i> Damaged
+                        </span>
+                        </label>
+                    </div>
+                    </td>
+                {% endif %}
                 </tr>
                 {% endfor %}
-            </tbody>
+
+          </tbody>
         </table>
+      </div>
+    </div>
 
-        <div class="form-group">
-            <label for="reason">Reason</label>
-            <select name="reason" required>
-                {% for value, label in reason_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
+    <!-- DETAILS CARD -->
+    <div class="card" style="margin-top: 1rem;">
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-clipboard-check"></i> Return Details
+        </span>
+      </div>
+      <div class="card-body" style="padding: 1.25rem;">
+
+        <div class="form-grid-2col">
+          <div class="form-field">
+            <label class="form-label" for="reason">
+              <i class="bi bi-question-circle"></i> Reason
+            </label>
+            <select id="reason" name="reason" class="form-control form-control--polish" required>
+              {% for value, label in reason_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
             </select>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="reason_note">
+              <i class="bi bi-pencil"></i> Note <span class="form-optional">(optional)</span>
+            </label>
+            <input type="text" id="reason_note" name="reason_note"
+                   class="form-control form-control--polish"
+                   placeholder="e.g. customer said it expired early" maxlength="255">
+          </div>
         </div>
 
-        <div class="form-group">
-            <label for="reason_note">Note (optional)</label>
-            <input type="text" name="reason_note" placeholder="e.g. customer said it expired early" maxlength="255">
-        </div>
-
-        <div class="form-group">
-            <label>Refund method</label>
+        <div class="form-field" style="margin-top: 1rem;">
+          <label class="form-label">
+            <i class="bi bi-wallet2"></i> Refund Method
+          </label>
+          <div class="payment-method-grid">
             {% for value, label in refund_method_choices %}
-                <label>
-                    <input type="radio" name="refund_method" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
-                    {{ label }}
-                </label>
+              <label class="payment-method-option">
+                <input type="radio" name="refund_method" value="{{ value }}"
+                       {% if forloop.first %}checked{% endif %}>
+                <div class="payment-method-card">
+                  {% if value == 'cash' %}
+                    <i class="bi bi-cash-stack"></i>
+                  {% elif value == 'credit' or value == 'store_credit' %}
+                    <i class="bi bi-credit-card-2-back"></i>
+                  {% else %}
+                    <i class="bi bi-wallet2"></i>
+                  {% endif %}
+                  <span>{{ label }}</span>
+                </div>
+              </label>
             {% endfor %}
+          </div>
         </div>
 
-        <button type="submit">Record Return</button>
-        <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=sale.id %}">Cancel</a>
-    </form>
+        <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem;">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Record Return
+          </button>
+          <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="btn btn-light">
+            Cancel
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+  </form>
+
 </div>
+
 {% endblock %}

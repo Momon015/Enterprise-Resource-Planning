@@ -42,14 +42,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <div class="page-wrapper">
 
-  <div class="kpi-row">
-    {% include 'partials/_kpi_card.html' with label="Sales Today"        value=kpis.current.count_today   delta=kpis.deltas.count_today %}
-    {% include 'partials/_kpi_card.html' with label="Revenue Today"      value=kpis.current.revenue_today|floatformat:2 delta=kpis.deltas.revenue_today is_money=True %}
-    {% include 'partials/_kpi_card.html' with label="Sales (Month)"      value=kpis.current.count_month   delta=kpis.deltas.count_month %}
-    {% include 'partials/_kpi_card.html' with label="Revenue (Month)"    value=kpis.current.revenue_month|floatformat:2 delta=kpis.deltas.revenue_month is_money=True %}
-</div>
-
-
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
@@ -57,7 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <h1 class="page-title">Sales Records</h1>
       <p class="page-subtitle">Products sold to customers, tracked per transaction</p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
         <i class="bi bi-file-earmark-text"></i>
         <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
@@ -66,8 +58,90 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-trophy"></i>
         Best sale: <strong>₱{% if max_revenue %}{{ max_revenue|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
       </div>
-    </div>
+    </div> {% endcomment %}
   </div>
+
+  <!-- KPI STATS ROW -->
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- TODAY'S SALES -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-cart-check"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Today's Sales</div>
+        <div class="kpi-value">{{ kpis.current.count_today|default:"0" }}</div>
+        {% if sales_deltas.today_dir %}
+          <div class="kpi-delta kpi-delta--{{ sales_deltas.today_dir }}">
+            <i class="bi bi-arrow-{% if sales_deltas.today_dir == 'up' %}up{% elif sales_deltas.today_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ sales_deltas.today_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- TODAY'S REVENUE -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Today's Revenue</div>
+        <div class="kpi-value">₱{{ kpis.current.revenue_today|default:"0"|floatformat:2|intcomma }}</div>
+        {% if sales_deltas.today_rev_dir %}
+          <div class="kpi-delta kpi-delta--{{ sales_deltas.today_rev_dir }}">
+            <i class="bi bi-arrow-{% if sales_deltas.today_rev_dir == 'up' %}up{% elif sales_deltas.today_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ sales_deltas.today_rev_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- THIS WEEK REVENUE -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--purple">
+        <i class="bi bi-calendar-week"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">This Week Revenue</div>
+        <div class="kpi-value">₱{{ kpis.current.revenue_week|default:"0"|floatformat:2|intcomma }}</div>
+        {% if sales_deltas.week_rev_dir %}
+          <div class="kpi-delta kpi-delta--{{ sales_deltas.week_rev_dir }}">
+            <i class="bi bi-arrow-{% if sales_deltas.week_rev_dir == 'up' %}up{% elif sales_deltas.week_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ sales_deltas.week_rev_pct }} <span class="kpi-delta-note">vs Last Week</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data last week</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- THIS MONTH REVENUE -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--warning">
+        <i class="bi bi-calendar3"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">This Month Revenue</div>
+        <div class="kpi-value">₱{{ kpis.current.revenue_month|default:"0"|floatformat:2|intcomma }}</div>
+        {% if sales_deltas.month_rev_dir %}
+          <div class="kpi-delta kpi-delta--{{ sales_deltas.month_rev_dir }}">
+            <i class="bi bi-arrow-{% if sales_deltas.month_rev_dir == 'up' %}up{% elif sales_deltas.month_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ sales_deltas.month_rev_pct }} <span class="kpi-delta-note">vs Last Month</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data last month</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
 
   <div class="two-col-layout">
 
@@ -86,7 +160,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
+          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
 
             {% comment %}
             Search temporarily disabled due to duplicate rows caused by joins.
@@ -101,32 +175,42 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             {% endcomment %}
 
-            <div class="form-group">
-              <label class="form-label">Period (month)</label>
-              <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:current_year }}">
-            </div>
+             <div class="form-field">
+                <label class="form-label">
+                  <i class="bi bi-calendar3"></i> Month
+                </label>
+                <input type="month" name="select_month" class="form-control form-control--polish"
+                      value="{{ request.GET.select_month|default:current_year }}">
+              </div>
 
-            <div class="form-group">
-              <label class="form-label">From date</label>
-              <input type="date" name="start_date" class="form-control"
-                     value="{{ request.GET.start_date|default:'' }}">
-            </div>
+              <div class="form-field">
+                <label class="form-label">
+                  <i class="bi bi-calendar-event"></i> From
+                </label>
+                <input type="date" name="start_date" class="form-control form-control--polish"
+                      value="{{ request.GET.start_date|default:'' }}">
+              </div>
 
-            <div class="form-group">
-              <label class="form-label">To date</label>
-              <input type="date" name="end_date" class="form-control"
-                     value="{{ request.GET.end_date|default:'' }}">
-            </div>
+              <div class="form-range-sep">→</div>
 
-            <div class="filter-actions">
-              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel"></i> Filter
-              </button>
-              <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
-            </div>
+              <div class="form-field">
+                <label class="form-label">
+                  <i class="bi bi-calendar-check"></i> To
+                </label>
+                <input type="date" name="end_date" class="form-control form-control--polish"
+                      value="{{ request.GET.end_date|default:'' }}">
+              </div>
 
-          </form>
+              <div class="form-actions-inline">
+                <button class="btn btn-primary btn-sm" type="submit">
+                  <i class="bi bi-funnel-fill"></i> Apply
+                </button>
+                <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                  <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </a>
+              </div>
+
+            </form>
         </div>
       </details>
 
@@ -139,7 +223,38 @@ document.addEventListener("DOMContentLoaded", function () {
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
           </div>
-          <span class="card-header-sub">Most recent first</span>
+            {% if request.user.role == 'owner' and users %}
+            <div class="user-filter-bar">
+              <label for="userFilter" class="user-filter-label">
+                <i class="bi bi-person-fill"></i> Show by
+              </label>
+                <select id="userFilter"
+                        class="user-filter-select {% if active_user %}is-filtered{% endif %}"
+                        onchange="window.location.href=this.value">
+                <option value="?{% if request.GET.period %}period={{ request.GET.period }}{% endif %}"
+                        {% if not active_user %}selected{% endif %}>
+                  All users
+                </option>
+
+                </option>
+                {% for s in users %}
+                  <option value="?user={{ s.id }}{% if request.GET.period %}&period={{ request.GET.period }}{% endif %}"
+                          {% if active_user == s.id|stringformat:'s' %}selected{% endif %}>
+                    {% if s.is_owner %} {% endif %}{{ s.display|capfirst }}{% if s.is_owner %} (Owner){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+
+                {% if active_user %}
+                  <a href="?{% if request.GET.period %}period={{ request.GET.period }}{% endif %}" class="filter-clear">
+                    <i class="bi bi-x-circle"></i> Clear
+                  </a>
+                {% endif %}
+
+            </div>
+              {% else %}
+              <label class="card-header-sub">Most recent first</label>
+            {% endif %}
         </div>
 
         <div class="table-responsive">
@@ -226,31 +341,32 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with q=request.GET.search cat=request.GET.category %}
-              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                {% endif %}
-              </li>
-              {% for p in page_obj.paginator.page_range %}
-              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">{{ p }}</a>
-              </li>
-              {% endfor %}
-              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                {% endif %}
-              </li>
-              {% endwith %}
+              {% with q=request.GET.search cat=request.GET.category user_param=request.GET.user period=request.GET.period sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date %}
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                  {% if page_obj.has_previous %}
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}">
+                      <i class="bi bi-chevron-left"></i>
+                    </a>
+                  {% else %}
+                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                  {% endif %}
+                </li>
+                {% for p in page_obj.paginator.page_range %}
+                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                  <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                  {% if page_obj.has_next %}
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}">
+                      <i class="bi bi-chevron-right"></i>
+                    </a>
+                  {% else %}
+                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                  {% endif %}
+                </li>
+                {% endwith %}
+
             </ul>
           </nav>
         </div>
@@ -264,99 +380,95 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- Period Summary -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff;">
-            <i class="bi bi-graph-up-arrow"></i>
-            Period Summary
-          </span>
-        </div>
-        <div class="card-body">
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Transactions</span>
-            <span class="sl-summary-value">{{ total_sales_count|default:"0" }}</span>
-          </div>
-
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Total Revenue</span>
-            {% if total_revenue %}
-            <span class="sl-summary-value green">
-              ₱{{ total_revenue|floatformat:2|intcomma }}
+        <div class="card-header">
+            <span class="card-header-title">
+              <i class="bi bi-graph-up-arrow"></i> Period Summary
             </span>
-            {% else %}
-            <span class="sl-summary-value muted">
-              ₱0.00
-            </span>
-            {% endif %}
-          </div>
-
-          <div class="sl-summary-row">
-            <span class="sl-summary-label">Avg. per sale</span>
-            <span class="sl-summary-value">
-              ₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}
+            <span class="card-header-sub">
+              {% if request.GET.period == 'today' %}Today
+              {% elif request.GET.period == 'last_week' %}Last week
+              {% elif request.GET.period == 'week' %}This week
+              {% elif request.GET.period == 'month' %}This month
+              {% elif request.GET.select_month %}{{ request.GET.select_month }}
+              {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
+              {% else %}All time
+              {% endif %}
             </span>
           </div>
 
-          <hr class="sl-summary-divider">
-          <p class="sl-summary-note">
-            Use filters on the left or quick ranges below to adjust this summary.
-          </p>
+        <div class="card-body" style="padding: 1rem;">
+
+          <!-- Featured Total Revenue -->
+          <div class="period-net">
+            <div class="period-net-label">TOTAL REVENUE</div>
+            <div class="period-net-value">
+              ₱{{ total_revenue|default:0|floatformat:2|intcomma }}
+            </div>
+          </div>
+
+          <!-- Insights -->
+          <dl class="period-breakdown">
+            <div><dt>Transactions</dt><dd>{{ total_sales_count|default:"0" }}</dd></div>
+            <div><dt>Avg per sale</dt><dd>₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}</dd></div>
+            <div><dt>Best sale</dt><dd class="text-success">₱{% if max_revenue %}{{ max_revenue|floatformat:2|intcomma }}{% else %}0.00{% endif %}</dd></div>
+          </dl>
         </div>
       </div>
 
-      <!-- Quick Actions -->
+      <!-- Quick Ranges -->
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
-            {% comment %} <i class="bi bi-lightning"></i> {% endcomment %}
-            Quick Actions
+            <i class="bi bi-calendar-range"></i> Quick Ranges
           </span>
         </div>
-        <div class="card-body">
-          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-            <i class="bi bi-plus-circle"></i> New Sale
+        <div class="card-body quick-ranges">
+          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today"
+            class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+            <i class="bi bi-calendar-day"></i> Today
           </a>
-          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-            <i class="bi bi-bookmark-fill"></i> Presets
+          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week"
+            class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+            <i class="bi bi-clock-history"></i> Last week
           </a>
-          <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-            <i class="bi bi-bookmark-fill"></i> Returns
+          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week"
+            class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+            <i class="bi bi-calendar-week"></i> This week
           </a>
-
-          <a href="{% url 'sales-receivables' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-            <i class="bi bi-bookmark-fill"></i> Sales Receivables
+          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month"
+            class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+            <i class="bi bi-calendar-month"></i> This month
           </a>
-          
-
-          <hr class="sl-quick-divider">
-
-          <div class="sl-quick-label">Quick ranges</div>
-            <div class="quick-range-grid">
-              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today"
-                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
-                <i class="bi bi-calendar-day"></i> Today
-              </a>
-              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week"
-                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-                <i class="bi bi-clock-history"></i> Last 7 days
-              </a>
-              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week"
-                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-                <i class="bi bi-calendar-week"></i> This week
-              </a>
-              <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month"
-                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-                <i class="bi bi-calendar-month"></i> This month
-              </a>
-            </div>
-
-              <div class="sl-quick-label">
-                {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
-            </div>
-            
         </div>
       </div>
 
+      {% comment %} <!-- Related -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-link-45deg"></i> Related
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block" style="margin-bottom: 0.75rem;">
+            <i class="bi bi-plus-circle"></i> New Sale
+          </a>
+          <div class="related-links">
+            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="related-link">
+              <i class="bi bi-arrow-return-left"></i> Sales Returns
+            </a>
+            <a href="{% url 'sales-receivables' business_slug=current_business.slug %}" class="related-link">
+              <i class="bi bi-cash-stack"></i> Sales Receivables
+            </a>
+            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="related-link">
+              <i class="bi bi-bookmark-fill"></i> Presets
+            </a>
+          </div>
+        </div>
+      </div> {% endcomment %}
+
     </div>
+
 
   </div>
 </div>

@@ -1,4 +1,5 @@
 {% extends 'main.html' %}
+{% load static %}
 {% block locked_banner %}
   <div class="locked-banner-hide-mobile">
     {% include 'partials/_locked_items_banner.html' %}
@@ -23,20 +24,12 @@
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">SALES</a>
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">Transactions</a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
       <h1 class="page-title">Sales Transaction</h1>
-      <p class="page-subtitle">{{ sale.created_at|date:"F d, Y" }} at {{ sale.created_at|date:"h:i A" }}</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to Sales
-      </a>
-      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to products
-      </a>
+        <p class="page-subtitle">{{ sale.date|date:"D, M d, Y" }} · {{ sale.created_at|date:"h:i A" }}</p>
     </div>
 
   </div>
@@ -48,119 +41,186 @@
       <div class="card">
 
         <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon">
-              <i class="bi bi-box-seam"></i>
-            </div>
-            <div>
-              <p class="card-header-title" style="margin: 0;">{{ sale_items|length }} Product{{ sale_items|length|pluralize }}</p>
-              <p class="card-header-sub" style="margin: 0;">Line items in this transaction</p>
-            </div>
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-box-seam"></i> Line Items
+            </span>
+            <span class="sl-badge sl-badge-light">{{ sale_items|length }} item{{ sale_items|length|pluralize }}</span>
           </div>
-          {% comment %} <div class="sd-card-header-right">
-            <div class="label">Total</div>
-            <div class="amount">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
-          </div> {% endcomment %}
+          <span class="card-header-sub">{{ sale.reference|default:"No reference" }}</span>
         </div>
 
-        <div class="card-body">
+        <div class="sale-detail-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="sl-text-center">Quantity</th>
+                <th class="sl-text-center">Unit Price</th>
+                <th class="sl-text-end">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in sale_items %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ item.name|capfirst|default:"Unnamed" }}</div>
+                  <div class="cell-sub">{{ item.product.product_preset_items.first.supplier_name|default:"No supplier" }}</div>
+                </td>
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ item.quantity|intcomma }}</span>
+                </td>
+                <td class="sl-text-center">
+                  ₱{{ item.price_at_sale|default:0|floatformat:2 }}
+                </td>
+                <td class="sl-text-end sl-fw-semibold sl-text-success">
+                  ₱{{ item.total_sold_per_item|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="4">No items recorded for this transaction.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-          <!-- Quick Stats -->
-          <div class="sd-stats-row">
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Reference</div>
-              <div class="sd-stat-value">{{ sale.reference|default:"No reference" }}</div>
-            </div>
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Total Quantity</div>
-              <div class="sd-stat-value">{{ sale.quantity_item|intcomma }}</div>
-            </div>
-            <div class="sd-stat-box col-mobile-hidden">
-              <div class="sd-stat-label">Line Items</div>
-              <div class="sd-stat-value">{{ sale_items|length }}</div>
-            </div>
+      </div>
+
+      <!-- Payments card -->
+      <div class="card" style="margin-top: 1rem;">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-cash-coin"></i> Payments
+            </span>
+            <span class="sl-badge sl-badge-light">
+              {{ payments|length }} payment{{ payments|length|pluralize }}
+            </span>
           </div>
+        </div>
 
-          <!-- Line Items Table -->
-          <hr class="sd-section-divider">
-          <div class="sd-section-label">Line Items</div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-center">Unit Price</th>
-                  <th class="sl-text-end">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in sale_items %}
-                <tr>
-                  <td>
-                    
-                    <div class="cell-primary">{{ item.name|capfirst|default:"Unnamed" }}</div>
-                    <div class="cell-sub">{{ item.product.product_preset_items.first.supplier_name|default:"No supplier" }}</div>
-
-                  </td>
-                  
-                  <td class="sl-text-center">
-                    <span class="sl-badge sl-badge-light">{{ item.quantity|intcomma }}</span>
-                  </td>
-                  <td class="sl-text-center">
-                    ₱{{ item.price_at_sale|default:0|floatformat:2 }}
-                  </td>
-                  <td class="sl-text-end sl-fw-semibold sl-text-success">
-                    ₱{{ item.total_sold_per_item|floatformat:2|intcomma }}
-                  </td>
-                </tr>
-                {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="4">No items recorded for this transaction.</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+        <div class="table-responsive">
+          {% if payments %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="sl-text-center">Method</th>
+                <th>Note</th>
+                <th class="sl-text-end">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in payments %}
+              <tr>
+                <td class="cell-primary">
+                  {{ p.created_at|date:"M d, Y" }}
+                  <div class="cell-sub">{{ p.created_at|date:"h:i A" }}</div>
+                </td>
+                <td class="sl-text-center">
+                  {% if p.method == 'cash' %}
+                    <span class="sl-badge sl-badge-warning">
+                      <i class="bi bi-cash-stack"></i> Cash
+                    </span>
+                  {% elif p.method == 'gcash' %}
+                    <span class="sl-badge sl-badge-info">
+                      <img src="{% static 'images/gcash.svg' %}" alt="GCash" style="width:0.85rem; height:0.85rem; vertical-align:middle;">
+                      GCash
+                    </span>
+                  {% elif p.method == 'bank_transfer' or p.method == 'bank' %}
+                    <span class="sl-badge sl-badge-info">
+                      <i class="bi bi-bank"></i> Bank
+                    </span>
+                  {% elif p.method == 'credit' or p.method == 'store_credit' %}
+                    <span class="sl-badge sl-badge-info">
+                      <i class="bi bi-credit-card-2-back"></i> Credit
+                    </span>
+                  {% else %}
+                    <span class="sl-badge sl-badge-light">{{ p.get_method_display }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if p.note %}
+                    <span class="cell-sub">{{ p.note }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-end sl-fw-semibold text-success">
+                  ₱{{ p.amount|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state" style="padding: 1.5rem;">
+            <div class="empty-icon" style="font-size: 1.5rem;">
+              <i class="bi bi-hourglass-split"></i>
+            </div>
+            <h3 class="empty-title" style="font-size: 0.9rem;">Awaiting first payment</h3>
+            <p class="empty-text" style="font-size: 0.8rem;">No payments have been recorded for this sale yet.</p>
           </div>
-
+          {% endif %}
         </div>
       </div>
+
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div class="right-panel">
 
-      <!-- Summary Card -->
-      <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="bi bi-calculator"></i>
-            Summary
-          </span>
-        </div>
+      <!-- RIGHT PANEL -->
+      <div class="right-panel">
 
-        <div class="card-body">
+        <!-- Summary -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-title">
+              <i class="bi bi-calculator"></i> Summary
+            </span>
+          </div>
+          <div class="card-body" style="padding: 1rem;">
 
-          <!-- Total Amount -->
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Total Revenue</div>
-            <div class="sd-total-amount">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
-            <div class="sd-total-sub">{{ sale_items|length }} item{{ sale_items|length|pluralize }} · {{ sale.quantity_item }} units</div>
+          <!-- Featured Total Revenue -->
+          <div class="period-net">
+            <div class="period-net-label">TOTAL REVENUE</div>
+            <div class="period-net-value">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-box-seam"></i>
+              {{ sale_items|length }} item{{ sale_items|length|pluralize }} · {{ sale.quantity_item }} units
+            </div>
           </div>
 
-          <!-- Created By -->
-
+          <!-- Payment status -->
+          <dl class="period-breakdown">
+            <div>
+              <dt>Total Paid</dt>
+              <dd class="text-success">₱{{ sale.amount_paid|floatformat:2|intcomma }}</dd>
+            </div>
+            {% if sale.outstanding > 0 %}
+            <div>
+              <dt>Outstanding</dt>
+              <dd class="text-danger sl-fw-bold">₱{{ sale.outstanding|floatformat:2|intcomma }}</dd>
+            </div>
+            {% else %}
+            <div>
+              <dt>Status</dt>
+              <dd>
+                <span class="sl-badge sl-badge-success">
+                  <i class="bi bi-check-circle-fill"></i> Fully Paid
+                </span>
+              </dd>
+            </div>
+            {% endif %}
+          </dl>
           {% if sale.created_by and request.user.role == 'owner' %}
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Recorded By</div>
-            <div class="created-by-info">
-              <div class="created-by-avatar">
-                {{ sale.created_by.username|slice:":1"|upper }}
-              </div>
-              <div class="created-by-details">
-                <div class="created-by-name">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</div>
-                <div class="created-by-meta">
+            <div class="recorded-by">
+              <div class="recorded-by-label">Recorded by</div>
+              <div class="recorded-by-row">
+                <div class="recorded-by-avatar">{{ sale.created_by.username|slice:":1"|upper }}</div>
+                <div class="recorded-by-info">
+                  <div class="recorded-by-name">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</div>
                   {% if sale.created_by.role == 'developer' %}
                     <span class="role-badge role-dev">Developer</span>
                   {% elif sale.created_by.role == 'owner' %}
@@ -171,69 +231,45 @@
                 </div>
               </div>
             </div>
-          </div>
           {% endif %}
+         </div>
+        </div>
 
-
-          <!-- Note -->
-          <div class="sd-note-box">
-            <div class="sd-note-icon">
-              <i class="bi bi-shield-lock"></i>
-            </div>
-            <div>
-              <div class="sd-note-title">Read-only</div>
-              <div class="sd-note-text">This transaction is locked. Edits restricted.</div>
-            </div>
+        <!-- Actions -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-title">
+              <i class="bi bi-lightning"></i> Actions
+            </span>
           </div>
+          <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-        </div>
-      </div>
-
-      <!-- Actions Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning"></i>
-            Action
-          </span>
-        </div>
-        <div class="card-body">
-          <div class="btn-grid">
-            {% comment %} <a href="{% url 'sale-list' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-arrow-left-circle"></i> Back to Sales
-            </a> {% endcomment %}
-            
-            <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle"></i> New Sale
-            </a>
-            <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
-              class="btn btn-warning">
-                Return items
-            </a>
             {% if not sale.is_fully_paid %}
-              <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}"
-                class="btn btn-primary">
-                  Add Payment
-                </a>
+            <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
+              class="btn btn-primary btn-block">
+              <i class="bi bi-cash-coin"></i> Add Payment
+            </a>
+
             {% endif %}
+
+            <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
+              class="btn btn-light btn-block">
+              <i class="bi bi-arrow-return-left"></i> Return items
+            </a>
 
             {% if current_business.plan.has_receipt_print %}
-                <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
-                  target="_blank"
-                  class="btn btn-secondary">
-                    <i class="bi bi-printer"></i> Preview Receipt
-                </a>
+            <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
+              target="_blank"
+              class="btn btn-light btn-block">
+              <i class="bi bi-printer"></i> Preview Receipt
+            </a>
             {% endif %}
-
-
-
-            
 
           </div>
         </div>
+
       </div>
 
-    </div>
 
   </div>
 </div>

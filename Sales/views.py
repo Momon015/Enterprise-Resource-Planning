@@ -19,7 +19,7 @@ from django.contrib.auth import update_session_auth_hash
 
 from Sales.models import (
     Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn, SalesReturnItem)
-from Sales.forms import SaleForm, SaleFilterForm
+from Sales.forms import SaleForm, SaleFilterForm, SalesReturnFilterForm
 
 from Product.models import Product
 from Product.forms import ProductForm
@@ -44,7 +44,7 @@ from datetime import date, datetime
 import calendar
 from django.db.models import Sum, Avg, Max, Q, F
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
 
@@ -55,6 +55,7 @@ from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
 from activity.utils import log_activity, scope_events_for_user
+
 # logging
 import logging
 
@@ -101,7 +102,7 @@ def sale_list(request, business_slug):
     iso_year, iso_week, iso_weekday = today.isocalendar()
     last_year = iso_year - 1
 
-    current_year = f"{year}-{month}"
+    current_year = f"{year}-0{month}"
 
     period = request.GET.get('period')
     
@@ -161,8 +162,44 @@ def sale_list(request, business_slug):
         
     max_revenue = sales.aggregate(max=Max('total_revenue'))['max'] or 0
     
+    # Employee/seller filter — owner only
+    user_filter = None
+    users = []
+
+    if request.user.role == 'owner':
+        user_filter = request.GET.get('user')
+        if user_filter and user_filter.isdigit():
+            sales = sales.filter(created_by_id=int(user_filter))
+
+        owner = business.user
+        if owner:
+            users.append({
+                'id': owner.id,
+                'display': owner.name or owner.username,
+                'is_owner': True,
+            })
+
+        employee_users = Employee.objects.filter(
+            business=business,
+            is_locked=False,
+            staff_user__isnull=False,
+        ).select_related('staff_user').order_by('name')
+
+        for emp in employee_users:
+            u = emp.staff_user
+            users.append({
+                'id': u.id,
+                'display': emp.name or u.name or u.username,
+                'is_owner': False,
+            })
             
-    paginator = Paginator(sales, 6)
+    if request.user.role == 'owner' and user_filter and user_filter.isdigit():
+        total_revenue = sales.total_revenue()
+        average_total_revenue = sales.average_total_revenue()
+        total_sales_count = sales.count()
+        max_revenue = sales.aggregate(max=Max('total_revenue'))['max'] or 0
+
+    paginator = Paginator(sales, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -174,6 +211,36 @@ def sale_list(request, business_slug):
     from core.utils.kpis import get_sale_kpis
     kpis = get_sale_kpis(business)
     
+    def _pct(curr, base):
+        """Returns (direction, abs_pct_string) or (None, None) if no comparison."""
+        base = float(base or 0)
+        curr = float(curr or 0)
+        if base <= 0:
+            return (None, None)
+        pct = ((curr - base) / base) * 100
+        if abs(pct) < 0.05:
+            return ('flat', '0.0%')
+        direction = 'up' if pct > 0 else 'down'
+        return (direction, f"{abs(pct):.1f}%")
+
+    c = kpis['current']
+    sales_deltas = {
+        'today_dir':     None, 'today_pct':     None,
+        'today_rev_dir': None, 'today_rev_pct': None,
+        'week_rev_dir':  None, 'week_rev_pct':  None,
+        'month_rev_dir': None, 'month_rev_pct': None,
+    }
+    # count_today vs yesterday — use snapshot delta if available, else None
+    if kpis['deltas'].get('count_today') is not None:
+        d = kpis['deltas']['count_today']
+        if d > 0:   sales_deltas['today_dir'], sales_deltas['today_pct'] = 'up', f"{int(d)}"
+        elif d < 0: sales_deltas['today_dir'], sales_deltas['today_pct'] = 'down', f"{int(abs(d))}"
+        else:       sales_deltas['today_dir'], sales_deltas['today_pct'] = 'flat', '0'
+
+    sales_deltas['today_rev_dir'], sales_deltas['today_rev_pct'] = _pct(c['revenue_today'], c['revenue_yesterday'])
+    sales_deltas['week_rev_dir'],  sales_deltas['week_rev_pct']  = _pct(c['revenue_week'],  c['revenue_last_week'])
+    sales_deltas['month_rev_dir'], sales_deltas['month_rev_pct'] = _pct(c['revenue_month'], c['revenue_last_month'])
+
     context = {
         'page_obj': page_obj,
         'total_revenue': total_revenue,
@@ -184,6 +251,10 @@ def sale_list(request, business_slug):
         'section': 'sale',
         'recent_events': recent_events,
         'kpis': kpis,
+        
+        # employee
+        'users': users,
+        'active_user': user_filter,
         
     }
         
@@ -198,8 +269,15 @@ def sale_detail(request, sale_id, business_slug):
     sale_items = sale.sale_items.select_related('product')
     sale_employees = sale.sale_employees.select_related('employee')
     total_salary_cost = sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
+    payments = sale.payments.select_related('created_by').order_by('created_at')
     
-    context = {'sale': sale, 'sale_items': sale_items, 'sale_employees': sale_employees, 'total_salary_cost': total_salary_cost}
+    context = {
+        'sale': sale, 
+        'sale_items': sale_items, 
+        'sale_employees': sale_employees, 
+        'total_salary_cost': total_salary_cost,
+        'payments': payments,
+    }
     return render(request, 'Sales/sale_detail.html', context)
 
 def sale_receipt(request, business_slug, sale_id):
@@ -257,7 +335,7 @@ def sales_return_create(request, business_slug, sale_id):
                 messages.error(request,
                     f"{si.name}: only {si.returnable_quantity} returnable "
                     f"(already returned {si.total_returned_quantity} of {si.quantity}).")
-                return redirect('purchase-return-create',
+                return redirect('sales-return-create',
                                 business_slug=business_slug, sale_id=sale_id)
 
 
@@ -386,32 +464,113 @@ def sales_return_create(request, business_slug, sale_id):
             )
 
         messages.success(request, f"Return {return_obj.reference} recorded.")
-        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
+        return redirect('sales-return-success', business_slug=business.slug, return_id=return_obj.id)
 
     context = {
         'sale': sale,
         'sale_items': sale_items,
         'reason_choices': SalesReturn.REASON_CHOICES,
         'refund_method_choices': SalesReturn.REFUND_METHOD_CHOICES,
-        'section': 'sale',
+        'section': 'sale-return',
     }
     return render(request, 'Sales/sales_return_create.html', context)
 
+@login_required(login_url='login')
+@permission_required('add') # dev
+def return_recorded(request, business_slug, return_id):
+    business = get_business_for_user(request.user, business_slug)
+    return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
+    items = return_obj.items.select_related('original_sale_item').all()
 
+    context = {
+        'return_obj': return_obj,
+        'items': items,
+        'section': 'sale-return',
+    }
+    return render(request, 'Sales/return_recorded.html', context)
+    
 @login_required(login_url='login')
 def sales_return_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     returns = SalesReturn.objects.filter(business=business).select_related(
         'original_sale', 'created_by'
     ).order_by('-date', '-created_at')
+    
+    # Only reasons that have at least one return for this business
+    used_reason_values = (
+        SalesReturn.objects
+        .filter(business=business)
+        .values_list('reason', flat=True)
+        .distinct()
+        .order_by('reason')
+    )
+    reason_dict = dict(SalesReturn.REASON_CHOICES)
+    reason_choices = [
+        (v, reason_dict.get(v, v.replace('_', '').title()))
+        for v in used_reason_values if v
+    ]
 
-    paginator = Paginator(returns, 10)
-    page = request.GET.get('page')
-    page_obj = paginator.get_page(page)
+    form = SalesReturnFilterForm(request.GET or None)
+    if form.is_valid():
+        q = form.cleaned_data.get('q')
+        reason = form.cleaned_data.get('reason')
+        select_month = form.cleaned_data.get('select_month')
+        sd = form.cleaned_data.get('start_date')
+        ed = form.cleaned_data.get('end_date')
+        period = request.GET.get('period', '')
+        
+        today = timezone.localdate()
+        iso_year, iso_week, _ = today.isocalendar()
 
+        if period == 'today':
+            returns = returns.filter(date=today)
+        elif period == 'last_week':
+            last_week = today - timedelta(days=7)
+            returns = returns.filter(date__gte=last_week)
+        elif period == 'week':
+            returns = returns.filter(date__week=iso_week, date__year=iso_year)
+        elif period == 'month':
+            returns = returns.filter(date__month=today.month, date__year=today.year)
+
+        if q:
+            filters = Q(reference__icontains=q)
+            try:
+                filters |= Q(refund_total=Decimal(q))
+            except (InvalidOperation, ValueError):
+                pass
+            returns = returns.filter(filters)
+
+        if reason:
+            returns = returns.filter(reason=reason)
+
+        if select_month:
+            try:
+                parsed = datetime.strptime(select_month, '%Y-%m')
+                returns = returns.filter(date__year=parsed.year, date__month=parsed.month)
+            except ValueError:
+                pass
+
+        if sd and ed:
+            returns = returns.filter(date__range=(sd, ed))
+
+    totals = returns.aggregate(
+        total_refunded=Sum('refund_total'),
+        avg_refund=Avg('refund_total'),
+    )
+
+    paginator = Paginator(returns, 5)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    today = timezone.localdate()
     return render(request, 'Sales/sales_return_list.html', {
         'page_obj': page_obj,
-        'section': 'sale',
+        'form': form,
+        'section': 'sale-return',
+        'total_refunded': totals['total_refunded'] or 0,
+        'avg_refund': totals['avg_refund'] or 0,
+        'total_count': returns.count(),
+        'current_year': f"{today.year}-0{today.month}",
+        'reason_choices': reason_choices,
     })
 
 
@@ -424,9 +583,9 @@ def sales_return_detail(request, business_slug, return_id):
     return render(request, 'Sales/sales_return_detail.html', {
         'return_obj': return_obj,
         'items': items,
-        'section': 'sale',
+        'section': 'sale-return',
     })
-                
+    
 @login_required(login_url='login')
 @permission_required('add') # dev
 def add_to_sales(request, product_id, business_slug):
@@ -875,20 +1034,44 @@ def add_sales_payment(request, business_slug, sale_id):
                     'note': note,
                 },
             )
-
+            
         messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
-        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
+        next_param = request.POST.get('next', '')
+        url = reverse('sale-payment-success', kwargs={
+            'business_slug': business_slug,
+            'sale_id': sale_id,
+            'payment_id': payment.id,
+        })
+        if next_param:
+            url += f'?next={next_param}'
+        return redirect(url)
 
     context = {
         'sale': sale,
         'outstanding': sale.outstanding,
         'method_choices': SalesPayment.PAYMENT_METHOD_CHOICES,
-        'section': 'sale',
+        'section': 'receivable',
     }
     return render(request, 'Sales/add_sales_payment.html', context)
 
 @login_required(login_url='login')
-@permission_required('staff_view')   # owner-only
+@permission_required('staff_view')
+@permission_required('add') # dev
+def payment_recorded(request, business_slug, sale_id, payment_id):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    payment = get_object_or_404(SalesPayment, business=business, id=payment_id)
+    
+    context = {
+        'sale': sale,
+        'payment': payment,
+        'outstanding': sale.outstanding,
+        'section': 'receivable',
+    }
+    return render(request, 'Sales/payment_recorded.html', context)
+
+@login_required(login_url='login')
+@permission_required('staff_view')
 def sales_receivables(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
@@ -898,16 +1081,56 @@ def sales_receivables(request, business_slug):
         .order_by('-date')
     )
 
+    # Date filters (SQL-level — applies to the queryset)
+    period = request.GET.get('period', '')
+    select_month = request.GET.get('select_month', '')
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    status_filter = request.GET.get('status', '')
+
+    today = timezone.localdate()
+    iso_year, iso_week, _ = today.isocalendar()
+
+    if period == 'today':
+        sales = sales.filter(date=today)
+    elif period == 'last_week':
+        last_week = today - timedelta(days=7)
+        sales = sales.filter(date__gte=last_week)
+    elif period == 'week':
+        sales = sales.filter(date__week=iso_week, date__iso_year=iso_year)
+    elif period == 'month':
+        sales = sales.filter(date__month=today.month, date__year=today.year)
+
+    if select_month:
+        try:
+            parsed = datetime.strptime(select_month, '%Y-%m')
+            sales = sales.filter(date__year=parsed.year, date__month=parsed.month)
+        except ValueError:
+            pass
+
+    if start_date and end_date:
+        sales = sales.filter(date__range=(start_date, end_date))
+
+    # Python-side filtering (outstanding is a property, not a DB field)
     outstanding_sales = [s for s in sales if s.outstanding > 0]
+
+    if status_filter == 'partial':
+        outstanding_sales = [s for s in outstanding_sales if s.amount_paid > 0]
+    elif status_filter == 'utang':
+        outstanding_sales = [s for s in outstanding_sales if s.amount_paid == 0]
+
     total_outstanding = sum((s.outstanding for s in outstanding_sales), Decimal('0'))
 
-    paginator = Paginator(outstanding_sales, 15)
+    paginator = Paginator(outstanding_sales, 5)
     page_obj = paginator.get_page(request.GET.get('page'))
+
+    today_str = f"{today.year}-{today.month:02d}"
 
     context = {
         'page_obj': page_obj,
         'total_outstanding': total_outstanding,
-        'section': 'sale',
+        'section': 'receivable',
+        'current_year': today_str,
     }
     return render(request, 'Sales/sales_receivables.html', context)
 

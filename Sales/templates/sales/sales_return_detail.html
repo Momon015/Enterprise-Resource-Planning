@@ -1,23 +1,163 @@
 {% extends 'main.html' %}
-{% block content %}
-<h1>{{ return_obj.reference }}</h1>
-<p>Date: {{ return_obj.date }} · Reason: {{ return_obj.get_reason_display }}</p>
-<p>Refund: ₱{{ return_obj.refund_total|floatformat:2 }} ({{ return_obj.get_refund_method_display }})</p>
-<p>Linked sale: <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=return_obj.original_sale.id %}">{{ return_obj.original_sale.reference }}</a></p>
+{% load humanize %}
 
-<table>
-    <thead>
-        <tr><th>Item</th><th>Qty</th><th>Unit Refund</th><th>Condition</th></tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
-        <tr>
-            <td>{{ item.name }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>₱{{ item.unit_refund|floatformat:2 }}</td>
-            <td>{% if item.resellable %}Back to stock{% else %}Damaged → Waste{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="breadcrumb-link">SALES RETURNS</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">{{ return_obj.reference }}</h1>
+        <p class="page-subtitle">{{ return_obj.date|date:"D, M d, Y" }} · {{ return_obj.created_at|date:"h:i A" }}</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <div class="card">
+
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-box-seam"></i> Returned Items
+            </span>
+            <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="sl-text-center">Qty</th>
+                <th class="sl-text-center">Unit Refund</th>
+                <th class="sl-text-center">Condition</th>
+                <th class="sl-text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ item.name|capfirst }}</div>
+                </td>
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
+                </td>
+                <td class="sl-text-center">
+                  ₱{{ item.unit_refund|floatformat:2|intcomma }}
+                </td>
+                <td class="sl-text-center">
+                  {% if item.resellable %}
+                    <span class="sl-badge sl-badge-success">
+                      <i class="bi bi-check-circle-fill"></i> Sellable
+                    </span>
+                  {% else %}
+                    <span class="sl-badge sl-badge-danger">
+                      <i class="bi bi-x-circle-fill"></i> Damaged
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="sl-text-end sl-fw-semibold text-danger">
+                  ₱{{ item.unit_refund|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="5">No items recorded for this return.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- Summary -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-arrow-return-left"></i> Refund Summary
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+
+          <!-- Featured Refunded -->
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">REFUNDED</div>
+            <div class="period-net-value">₱{{ return_obj.refund_total|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              {% if return_obj.refund_method == 'cash' %}
+                <i class="bi bi-cash-stack"></i>
+              {% elif return_obj.refund_method == 'credit' or return_obj.refund_method == 'store_credit' %}
+                <i class="bi bi-credit-card-2-back"></i>
+              {% else %}
+                <i class="bi bi-wallet2"></i>
+              {% endif %}
+              via {{ return_obj.get_refund_method_display }}
+            </div>
+          </div>
+
+          <!-- Breakdown -->
+          <dl class="period-breakdown">
+            <div>
+              <dt>Linked Sale</dt>
+              <dd>
+                <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=return_obj.original_sale.id %}" class="link-accent">
+                  {{ return_obj.original_sale.reference }}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ return_obj.get_reason_display }}</dd>
+            </div>
+            {% if return_obj.reason_note %}
+            <div>
+              <dt>Note</dt>
+              <dd>{{ return_obj.reason_note }}</dd>
+            </div>
+            {% endif %}
+          </dl>
+
+          {% if return_obj.created_by and request.user.role == 'owner' %}
+          <div class="recorded-by">
+            <div class="recorded-by-label">Recorded by</div>
+            <div class="recorded-by-row">
+              <div class="recorded-by-avatar">{{ return_obj.created_by.username|slice:":1"|upper }}</div>
+              <div class="recorded-by-info">
+                <div class="recorded-by-name">{{ return_obj.created_by.get_full_name|default:return_obj.created_by.username }}</div>
+                {% if return_obj.created_by.role == 'owner' %}
+                  <span class="role-badge role-owner">Owner</span>
+                {% elif return_obj.created_by.role == 'developer' %}
+                  <span class="role-badge role-dev">Developer</span>
+                {% else %}
+                  <span class="role-badge role-staff">Staff</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
 {% endblock %}

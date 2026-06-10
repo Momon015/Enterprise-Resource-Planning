@@ -1,60 +1,291 @@
 {% extends 'main.html' %}
+{% load humanize %}
 
 {% block content %}
-<div class="receivables-page">
-    <h1>Customer Utang (Outstanding from Customers)</h1>
-    <p>Total expected: <strong class="text-warning">₱{{ total_outstanding|floatformat:2 }}</strong></p>
 
-    <table>
-        <thead>
-            <tr>
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">CASH FLOW</div>
+      <h1 class="page-title">Receivables</h1>
+      <p class="page-subtitle">Customer utang — outstanding payments owed to your business.</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+        <!-- ADVANCED FILTER -->
+        <details class="filter-card"
+                {% if request.GET.status or request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
+        <summary>
+            <i class="bi bi-sliders"></i>
+            <span>Advanced filters</span>
+            {% if request.GET.status or request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+            <span class="filter-badge">Active</span>
+            {% endif %}
+        </summary>
+
+        <div class="filter-body">
+            <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+
+            <div class="form-field">
+                <label class="form-label">
+                <i class="bi bi-flag"></i> Status
+                </label>
+                <select name="status" class="form-control form-control--polish">
+                <option value="">All</option>
+                <option value="utang" {% if request.GET.status == 'utang' %}selected{% endif %}>Utang (not paid)</option>
+                <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>Partial</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">
+                <i class="bi bi-calendar3"></i> Month
+                </label>
+                <input type="month" name="select_month" class="form-control form-control--polish"
+                    value="{{ request.GET.select_month|default:current_year }}">
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">
+                <i class="bi bi-calendar-event"></i> From
+                </label>
+                <input type="date" name="start_date" class="form-control form-control--polish"
+                    value="{{ request.GET.start_date|default:'' }}">
+            </div>
+
+            <div class="form-range-sep">→</div>
+
+            <div class="form-field">
+                <label class="form-label">
+                <i class="bi bi-calendar-check"></i> To
+                </label>
+                <input type="date" name="end_date" class="form-control form-control--polish"
+                    value="{{ request.GET.end_date|default:'' }}">
+            </div>
+
+            <div class="form-actions-inline">
+                <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+                </button>
+                <a href="{% url 'sales-receivables' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </a>
+            </div>
+
+            </form>
+        </div>
+        </details>
+
+
+      <!-- TABLE -->
+      <div class="card table-card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Open Balances</span>
+            <span class="sl-badge sl-badge-light">
+              {{ page_obj.paginator.count }} sale{{ page_obj.paginator.count|pluralize }}
+            </span>
+          </div>
+          <span class="card-header-sub">Most recent first</span>
+        </div>
+
+        <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Sale Date</th>
                 <th>Reference</th>
-                <th>Sale date</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Outstanding</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in page_obj %}
-            <tr>
-                <td>
-                    <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=s.id %}">
-                        {{ s.reference }}
-                    </a>
+                <th class="sl-text-end col-mobile-hidden">Total</th>
+                <th class="sl-text-end col-mobile-hidden">Paid</th>
+                <th class="sl-text-end">Outstanding</th>
+                <th class="sl-text-center">Status</th>
+                <th class="sl-text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in page_obj %}
+            <tr class="row-link" onclick="window.location='{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables'">
+                <td class="cell-primary">
+                    {{ s.date|date:"M d" }}<span class="col-mobile-hidden">, {{ s.date|date:"Y" }}</span>
+                    <div class="cell-sub">{{ s.date|date:"l" }}</div>
                 </td>
-                <td>{{ s.date|date:"M j, Y" }}</td>
-                <td>₱{{ s.total_revenue|floatformat:2 }}</td>
-                <td>₱{{ s.amount_paid|floatformat:2 }}</td>
-                <td><strong class="text-warning">₱{{ s.outstanding|floatformat:2 }}</strong></td>
+
                 <td>
-                    <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}"
-                       class="btn btn-sm btn-primary">
-                        Record Payment
-                    </a>
+                    <div class="cell-primary">{{ s.reference }}</div>
                 </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" class="text-center text-muted">
-                    ✅ No customer utang. All sales are paid.
+
+                <td class="sl-text-end col-mobile-hidden">
+                    ₱{{ s.total_revenue|floatformat:2|intcomma }}
+                </td>
+
+                <td class="sl-text-end col-mobile-hidden">
+                    <span class="text-success">₱{{ s.amount_paid|floatformat:2|intcomma }}</span>
+                </td>
+
+                <td class="sl-text-end sl-fw-semibold text-danger">
+                    ₱{{ s.outstanding|floatformat:2|intcomma }}
+                </td>
+
+                <td class="sl-text-center">
+                    {% if s.amount_paid > 0 %}
+                    <span class="sl-badge sl-badge-warning">Partial</span>
+                    {% else %}
+                    <span class="sl-badge sl-badge-danger">Utang</span>
+                    {% endif %}
+                </td>
+
+                <td class="sl-text-center">
+                    <div class="btn-group">
+                    <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables"
+                        class="row-chevron" title="Record payment">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
 
-    {% if page_obj.paginator.num_pages > 1 %}
-    <div class="pagination">
-        {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon" style="color: #16a34a;">
+              <i class="bi bi-check-circle-fill"></i>
+            </div>
+            <h3 class="empty-title">No outstanding balances</h3>
+            <p class="empty-text">All customer sales are fully paid. Nice work.</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              {% with st=request.GET.status sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date pd=request.GET.period %}
+
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                {% else %}
+                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+            </li>
+
+            {% for p in page_obj.paginator.page_range %}
+            <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                {{ p }}
+                </a>
+            </li>
+            {% endfor %}
+
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+                {% else %}
+                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+            </li>
+
+            {% endwith %}
+             </ul>
+          </nav>
+        </div>
         {% endif %}
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}">Next</a>
-        {% endif %}
+
+      </div>
     </div>
-    {% endif %}
+
+    
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- Summary -->
+      <div class="card">
+        <div class="card-header">
+            <span class="card-header-title">
+                <i class="bi bi-graph-up-arrow"></i> Receivables Summary
+            </span>
+            <span class="card-header-sub">
+                {% if request.GET.period == 'today' %}Today
+                {% elif request.GET.period == 'last_week' %}Last week
+                {% elif request.GET.period == 'week' %}This week
+                {% elif request.GET.period == 'month' %}This month
+                {% elif request.GET.select_month %}{{ request.GET.select_month }}
+                {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
+                {% else %}All time
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="card-body" style="padding: 1rem;">
+
+          <!-- Featured Total Expected -->
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">TOTAL EXPECTED</div>
+            <div class="period-net-value">₱{{ total_outstanding|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-people-fill"></i>
+              {{ page_obj.paginator.count }} unpaid sale{{ page_obj.paginator.count|pluralize }}
+            </div>
+          </div>
+
+          <dl class="period-breakdown">
+            <div>
+              <dt>Open balances</dt>
+              <dd>{{ page_obj.paginator.count }}</dd>
+            </div>
+          </dl>
+
+          <!-- Quick Ranges -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-header-title">
+                <i class="bi bi-calendar-range"></i> Quick Ranges
+                </span>
+            </div>
+            <div class="card-body quick-ranges">
+                <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=today"
+                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+                <i class="bi bi-calendar-day"></i> Today
+                </a>
+                <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=last_week"
+                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> Last 7 days
+                </a>
+                <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=week"
+                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+                <i class="bi bi-calendar-week"></i> This week
+                </a>
+                <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=month"
+                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+                <i class="bi bi-calendar-month"></i> This month
+                </a>
+            </div>
+        </div>
+
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
 </div>
+
 {% endblock %}

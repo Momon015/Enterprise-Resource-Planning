@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // (Pages without a given filter just have the param absent — no harm.)
   const FILTER_PARAMS = [
     "search", "category", "start_date", "end_date",
-    "select_month", "stock", "period",
+    "select_month", "stock", "reason", "status",
   ];
   const params = new URLSearchParams(window.location.search);
   if (FILTER_PARAMS.some(p => params.get(p))) {

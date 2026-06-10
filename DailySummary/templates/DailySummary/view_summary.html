@@ -45,12 +45,12 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">REPORTS</div>
-      <h1 class="page-title">Sales Summary</h1>
-      <p class="page-subtitle">Daily breakdown of revenue, costs, and net profit.</p>
+      <div class="page-breadcrumb">Home</div>
+      <h1 class="page-title">Daily Profit</h1>
+      <p class="page-subtitle">Breakdown of revenue, costs, and net profit...</p>
     </div>
 
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
         <i class="bi bi-calendar3"></i>
         <strong>{{ summary_list|length }}</strong> day{{ summary_list|length|pluralize }} recorded
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-trophy"></i>
         Best month: <strong>{{ best_month_name }}</strong>
       </div>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -78,29 +78,45 @@ document.addEventListener("DOMContentLoaded", function () {
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
-            <div class="form-group">
-              <label class="form-label">Period (month)</label>
-              <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:current_year }}">
+          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar3"></i> Month
+              </label>
+              <input type="month" name="select_month" class="form-control form-control--polish"
+                    value="{{ request.GET.select_month|default:current_year }}">
             </div>
-            <div class="form-group">
-              <label class="form-label">From date</label>
-              <input type="date" name="start_date" class="form-control"
-                     value="{{ request.GET.start_date|default:'' }}">
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-event"></i> From
+              </label>
+              <input type="date" name="start_date" class="form-control form-control--polish"
+                    value="{{ request.GET.start_date|default:'' }}">
             </div>
-            <div class="form-group">
-              <label class="form-label">To date</label>
-              <input type="date" name="end_date" class="form-control"
-                     value="{{ request.GET.end_date|default:'' }}">
+
+            <div class="form-range-sep">→</div>
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-check"></i> To
+              </label>
+              <input type="date" name="end_date" class="form-control form-control--polish"
+                    value="{{ request.GET.end_date|default:'' }}">
             </div>
-            <div class="filter-actions">
-              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+
+            <div class="form-actions-inline">
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
             </div>
+
           </form>
+
         </div>
       </details>
 
@@ -108,7 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="card table-card">
         <div class="card-header">
           <div class="card-header-left-group">
-            <span class="card-header-title">Daily Summary</span>
+            <span class="card-header-title">Transactions</span>
             <span class="sl-badge sl-badge-light">{{ summary_list|length }} day{{ summary_list|length|pluralize }}</span>
           </div>
           <span class="card-header-sub">Most recent first</span>
@@ -124,7 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-end col-mobile-hidden">Waste Cost</th>
                 <th class="sl-text-end col-mobile-hidden">Material Cost</th>
                 <th class="sl-text-end col-mobile-hidden">Labor Cost</th>
-                <th class="sl-text-end col-mobile-hidden">Expense Cost</th>
+                <th class="sl-text-end col-mobile-hidden">Other Expense</th>
                 <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
                 <th class="sl-text-end mobile-center">Net Profit</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
@@ -149,8 +165,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   {% endif %}
                 </td>
                 <td class="sl-text-end col-mobile-hidden">
-                  {% if summary.total_cost %}
-                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_cost|floatformat:2|intcomma }}</span>
+                  {% if summary.total_material_cost %}
+                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_material_cost|floatformat:2|intcomma }}</span>
                   {% else %}
                     <span class="cell-sub">₱0.00</span>
                   {% endif %}
@@ -177,7 +193,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td class="sl-text-end col-mobile-only mobile-center">
                   <span class="sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ summary.total_waste_cost|add:summary.total_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}
+                    ₱{{ summary.total_waste_cost|add:summary.total_material_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}
                   </span>
                 </td>
 
@@ -246,100 +262,83 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
 
     <!-- ========== RIGHT PANEL ========== -->
-    <div class="right-panel">
+    <aside class="right-panel">
+
       <!-- PERIOD TOTALS -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-graph-up-arrow"></i> Period Totals
           </span>
+          <span class="card-header-sub">
+            {{ days_recorded }} day{{ days_recorded|pluralize }}
+            {% if best_month_name != 'N/A' %}· Best month: {{ best_month_name }}{% endif %}
+          </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-          <!-- net profit -->
-          <div class="sd-summary-block" style="background:{% if grand_net_profit >= 0 %}var(--success-light); border-color:var(--success-border);{% else %}var(--danger-light); border-color:var(--danger-border);{% endif %}">
-            <div class="sd-summary-block-label">Net Profit</div>
-            <div class="sd-total-amount" style="{% if grand_net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
-              ₱{{ grand_net_profit|floatformat:2|intcomma|default:"0.00" }}
-            </div>
+        <div class="card-body" style="padding: 1rem;">
+
+          <!-- Featured Net Profit -->
+          <div class="period-net {% if grand_net_profit < 0 %}period-net--loss{% endif %}">
+            <div class="period-net-label">NET PROFIT</div>
+            <div class="period-net-value">₱{{ grand_net_profit|floatformat:2|intcomma }}</div>
           </div>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Overview</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Days Recorded</span>
-              <span class="sd-info-value">{{ summary_list|length }}</span>
+          <!-- Insights strip -->
+          <div class="period-insights">
+            <div class="period-insight">
+              <i class="bi bi-percent"></i>
+              <span class="period-insight-label">Profit margin</span>
+              <span class="period-insight-value">{{ profit_margin|floatformat:1 }}%</span>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total Revenue</span>
-              <span class="sd-info-value" style="color:var(--success);">₱{{ grand_total_revenue|floatformat:2|intcomma|default:"0.00" }}</span>
+            <div class="period-insight">
+              <i class="bi bi-check-circle"></i>
+              <span class="period-insight-label">Profitable days</span>
+              <span class="period-insight-value">{{ days_profitable }} of {{ days_recorded }}</span>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Waste Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</span>
+            {% if best_day and best_day.net_profit > 0 %}
+            <div class="period-insight">
+              <i class="bi bi-arrow-up-circle text-success"></i>
+              <span class="period-insight-label">Best day</span>
+              <span class="period-insight-value">{{ best_day.date|date:"M d" }} · ₱{{ best_day.net_profit|floatformat:2|intcomma }}</span>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Material Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Labor Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_salary_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expense Cost</span>
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ grand_total_expense_cost|floatformat:2|intcomma|default:"0.00" }}</span>
-            </div>
-          </div>
-
-          <!-- Quick Actions & Ranges remain unchanged -->
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick Actions</div>
-            <div class="btn-grid">
-              <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> New Sale
-              </a>
-              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> New Purchase
-              </a>
-            </div>
-          </div>
-
-          <hr class="sl-quick-divider">
-          <div class="sl-quick-label">Quick Ranges</div>
-          <div class="quick-range-grid">
-            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today"
-               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
-              <i class="bi bi-calendar-day"></i> Today
-            </a>
-            {% if current_business.plan.has_weekly_summary %}
-              <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week"
-                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-                <i class="bi bi-clock-history"></i> Last week
-              </a>
-              <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=week"
-                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-                <i class="bi bi-calendar-week"></i> This week
-              </a>
             {% endif %}
-
-            <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=month"
-               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-              <i class="bi bi-calendar-month"></i> This month
-            </a>
-          </div>
-
-          <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-            <div>
-              <div class="sd-note-title">About this report</div>
-              <div class="sd-note-text">Figures are aggregated daily. Use filters or quick ranges to narrow the period.</div>
+            {% if worst_day and worst_day.net_profit < 0 %}
+            <div class="period-insight">
+              <i class="bi bi-arrow-down-circle text-danger"></i>
+              <span class="period-insight-label">Worst day</span>
+              <span class="period-insight-value">{{ worst_day.date|date:"M d" }} · ₱{{ worst_day.net_profit|floatformat:2|intcomma }}</span>
             </div>
+            {% endif %}
           </div>
 
+          <!-- Breakdown -->
+          <dl class="period-breakdown">
+            <div><dt>Revenue</dt><dd class="text-success">₱{{ grand_total_revenue|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Material Cost</dt><dd class="text-danger">₱{{ grand_total_material_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ grand_total_waste_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Labor Cost</dt><dd class="text-danger">₱{{ grand_total_salary_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ grand_total_expense_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+          </dl>
         </div>
       </div>
 
-    </div>
+      <!-- QUICK RANGES -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-calendar-range"></i> Quick Ranges
+          </span>
+        </div>
+        <div class="card-body quick-ranges">
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today" class="quick-range-btn"><i class="bi bi-calendar-day"></i>Today</a>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week" class="quick-range-btn"><i class="bi bi-clock-history"></i>Last week</a>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_week" class="quick-range-btn"><i class="bi bi-calendar-week"></i>This week</a>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_month" class="quick-range-btn"><i class="bi bi-calendar3"></i>This month</a>
+        </div>
+      </div>
+
+    </aside>
+
   </div>
 </div>
 

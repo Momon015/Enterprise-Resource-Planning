@@ -78,7 +78,7 @@ def view_summary(request, business_slug):
     shifts    = all_shifts
 
     grand_net_profit = 0
-    grand_total_cost = 0
+    grand_material_total_cost = 0
     grand_total_revenue = 0
     grand_total_salary_cost = 0
     grand_total_waste_cost = 0
@@ -90,8 +90,6 @@ def view_summary(request, business_slug):
     shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('amount')).order_by('-date')
     purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
          
-    print(sales_by_date)
-
     form = SummaryFilterForm(request.GET or None)
     
     period = request.GET.get('period', '')
@@ -100,10 +98,10 @@ def view_summary(request, business_slug):
         period = ''   # silently ignore it
 
     today = timezone.localdate()
+    
     iso_year, iso_week, iso_weekday = today.isocalendar()
 
-    
-    current_year = f"{today.year}-{today.month}"
+    current_year = f"{today.year}-0{today.month}"
     
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date', '')
@@ -239,24 +237,24 @@ def view_summary(request, business_slug):
     if summary:
         for date, value in summary.items():
             total_revenue = value['total_revenue']
-            total_cost = value['total_cost']
+            total_material_cost = value['total_cost']
             total_salary_cost = value['total_salary_cost']
             total_waste_cost = value['total_waste_cost']
             total_expense_cost = value['total_expense_cost']
             
-            net_profit = total_revenue - total_cost - total_salary_cost - total_waste_cost - total_expense_cost
+            net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
             
             grand_total_expense_cost += total_expense_cost
             grand_total_waste_cost += total_waste_cost
             grand_total_revenue += total_revenue
             grand_total_salary_cost += total_salary_cost
-            grand_total_cost += total_cost
+            grand_material_total_cost += total_material_cost
             grand_net_profit += net_profit
             
             summary_list.append({
                 'date': date,
                 'total_salary_cost': total_salary_cost,
-                'total_cost': total_cost,
+                'total_material_cost': total_material_cost,
                 'total_revenue': total_revenue,
                 'total_waste_cost': total_waste_cost,
                 'total_expense_cost': total_expense_cost,
@@ -292,13 +290,30 @@ def view_summary(request, business_slug):
         if profit > best_month_profit:
             best_month_profit = profit
             best_month_name = calendar.month_name[m]
+            
+    days_recorded = len(sorted_list)
+    
+    # Profit margin (net / revenue)
+    if grand_total_revenue > 0:
+        profit_margin = (grand_net_profit / grand_total_revenue) * 100
+    else:
+        profit_margin = 0
+    
+    # Days profitable 
+    days_profitable = sum(1 for d in sorted_list if d['net_profit'] > 0)
 
-
+    # Best / Worst day (by net_profit)
+    best_day = 0
+    worst_day = 0
+    if sorted_list:
+        best_day = max(sorted_list, key=lambda d: d['net_profit'])
+        worst_day = max(sorted_list, key=lambda d: d['net_profit'])
+    
     context = {
         'summary_list': sorted_list,
         'page_obj': page_obj,
         'section': 'summary',
-        'grand_total_cost': grand_total_cost,
+        'grand_material_total_cost': grand_material_total_cost,
         'grand_total_revenue': grand_total_revenue,
         'grand_total_waste_cost': grand_total_waste_cost,
         'grand_total_salary_cost': grand_total_salary_cost,
@@ -308,6 +323,13 @@ def view_summary(request, business_slug):
         
         'best_month_name': best_month_name,
         'best_month_profit': best_month_profit,
+        
+        'days_recorded': days_recorded,
+        'profit_margin': profit_margin,
+        'days_profitable': days_profitable,
+        'best_day': best_day,
+        'worst_day': worst_day,
+
     }
     
     return render(request, 'DailySummary/view_summary.html', context)

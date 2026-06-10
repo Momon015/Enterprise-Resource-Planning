@@ -158,30 +158,50 @@ def compute_sale_kpis(business):
     from Sales.models import Sale
 
     today = timezone.localdate()
-    month_start = today.replace(day=1)
+    yesterday = today - timedelta(days=1)
 
-    today_qs = Sale.objects.filter(business=business, date=today)
-    month_qs = Sale.objects.filter(business=business, date__gte=month_start)
+    # Week range (Mon → today). Last week = full Mon → Sun previous.
+    this_week_start = today - timedelta(days=today.weekday())
+    last_week_end   = this_week_start - timedelta(days=1)
+    last_week_start = last_week_end - timedelta(days=6)
 
-    revenue_today = today_qs.aggregate(
-        total=Coalesce(Sum('total_revenue'),
+    # Month range
+    this_month_start = today.replace(day=1)
+    last_month_end   = this_month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+
+    def _revenue(filters):
+        return Sale.objects.filter(business=business, **filters).aggregate(
+            t=Coalesce(Sum('total_revenue'),
                        Decimal('0'),
                        output_field=DecimalField(max_digits=14, decimal_places=2))
-    )['total']
+        )['t']
 
-    revenue_month = month_qs.aggregate(
-        total=Coalesce(Sum('total_revenue'),
-                       Decimal('0'),
-                       output_field=DecimalField(max_digits=14, decimal_places=2))
-    )['total']
+    def _count(filters):
+        return Sale.objects.filter(business=business, **filters).count()
+
+    count_today      = _count({'date': today})
+    revenue_today    = _revenue({'date': today})
+    revenue_yesterday = _revenue({'date': yesterday})
+
+    revenue_week      = _revenue({'date__gte': this_week_start})
+    revenue_last_week = _revenue({'date__range': (last_week_start, last_week_end)})
+
+    revenue_month      = _revenue({'date__gte': this_month_start})
+    revenue_last_month = _revenue({'date__range': (last_month_start, last_month_end)})
+
+    count_month = _count({'date__gte': this_month_start})
 
     return {
-        'count_today':   today_qs.count(),
-        'revenue_today': str(revenue_today),
-        'count_month':   month_qs.count(),
-        'revenue_month': str(revenue_month),
+        'count_today':         count_today,
+        'revenue_today':       str(revenue_today),
+        'revenue_yesterday':   str(revenue_yesterday),
+        'revenue_week':        str(revenue_week),
+        'revenue_last_week':   str(revenue_last_week),
+        'count_month':         count_month,
+        'revenue_month':       str(revenue_month),
+        'revenue_last_month':  str(revenue_last_month),
     }
-
 
 def get_sale_kpis(business):
     today = timezone.localdate()
@@ -202,30 +222,36 @@ def compute_purchase_kpis(business):
     from Expense.models import Purchase
 
     today = timezone.localdate()
-    month_start = today.replace(day=1)
+    yesterday = today - timedelta(days=1)
 
-    today_qs = Purchase.objects.filter(business=business, purchase_date=today)
-    month_qs = Purchase.objects.filter(business=business, purchase_date__gte=month_start)
+    this_week_start = today - timedelta(days=today.weekday())
+    last_week_end   = this_week_start - timedelta(days=1)
+    last_week_start = last_week_end - timedelta(days=6)
 
-    cost_today = today_qs.aggregate(
-        total=Coalesce(Sum('total_cost'),
+    this_month_start = today.replace(day=1)
+    last_month_end   = this_month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+
+    def _cost(filters):
+        return Purchase.objects.filter(business=business, **filters).aggregate(
+            t=Coalesce(Sum('total_cost'),
                        Decimal('0'),
                        output_field=DecimalField(max_digits=14, decimal_places=2))
-    )['total']
+        )['t']
 
-    cost_month = month_qs.aggregate(
-        total=Coalesce(Sum('total_cost'),
-                       Decimal('0'),
-                       output_field=DecimalField(max_digits=14, decimal_places=2))
-    )['total']
+    def _count(filters):
+        return Purchase.objects.filter(business=business, **filters).count()
 
     return {
-        'count_today': today_qs.count(),
-        'cost_today':  str(cost_today),
-        'count_month': month_qs.count(),
-        'cost_month':  str(cost_month),
+        'count_today':      _count({'purchase_date': today}),
+        'cost_today':       str(_cost({'purchase_date': today})),
+        'cost_yesterday':   str(_cost({'purchase_date': yesterday})),
+        'cost_week':        str(_cost({'purchase_date__gte': this_week_start})),
+        'cost_last_week':   str(_cost({'purchase_date__range': (last_week_start, last_week_end)})),
+        'count_month':      _count({'purchase_date__gte': this_month_start}),
+        'cost_month':       str(_cost({'purchase_date__gte': this_month_start})),
+        'cost_last_month':  str(_cost({'purchase_date__range': (last_month_start, last_month_end)})),
     }
-
 
 def get_purchase_kpis(business):
     today = timezone.localdate()

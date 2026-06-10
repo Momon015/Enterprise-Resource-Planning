@@ -1,0 +1,113 @@
+{% extends 'main.html' %}
+{% load humanize %}
+{% load static %}
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">TRANSACTIONS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="breadcrumb-link">{{ sale.reference }}</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>PAYMENT</span>
+      </div>
+      <h1 class="page-title">
+        <i class="bi bi-check-circle-fill" style="color: #16a34a; margin-right: 0.3rem;"></i>
+        Payment Recorded
+      </h1>
+      <p class="page-subtitle">Posted {{ payment.created_at|date:"F d, Y" }} at {{ payment.created_at|date:"h:i A" }}</p>
+    </div>
+  </div>
+
+  <!-- CENTERED SUMMARY CARD -->
+  <div class="form-page-wrap">
+    <div class="card">
+
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-receipt"></i> Payment Summary
+        </span>
+        <span class="card-header-sub">{{ sale.reference }}</span>
+      </div>
+
+      <div class="card-body" style="padding: 1.25rem;">
+
+        <!-- Featured Amount Paid -->
+        <div class="period-net" style="margin-bottom: 1.25rem;">
+          <div class="period-net-label">AMOUNT PAID</div>
+          <div class="period-net-value">₱{{ payment.amount|floatformat:2|intcomma }}</div>
+          <div class="period-net-sub">
+            {% if payment.method == 'cash' %}
+              <i class="bi bi-cash-stack"></i>
+            {% elif payment.method == 'gcash' %}
+              <img src="{% static 'images/gcash.svg' %}" alt="GCash" style="width:0.95rem; height:0.95rem; vertical-align:middle;">
+            {% elif payment.method == 'bank_transfer' or payment.method == 'bank' %}
+              <i class="bi bi-bank"></i>
+            {% elif payment.method == 'credit' or payment.method == 'store_credit' %}
+              <i class="bi bi-credit-card-2-back"></i>
+            {% else %}
+              <i class="bi bi-wallet2"></i>
+            {% endif %}
+            via {{ payment.get_method_display }}{% if payment.note %} · Ref {{ payment.note }}{% endif %}
+          </div>
+        </div>
+
+        <!-- Breakdown -->
+        <dl class="period-breakdown">
+          <div>
+            <dt>Sale Reference</dt>
+            <dd>{{ sale.reference }}</dd>
+          </div>
+          <div>
+            <dt>Sale Total</dt>
+            <dd>₱{{ sale.total_revenue|floatformat:2|intcomma }}</dd>
+          </div>
+          <div>
+            <dt>Total Paid</dt>
+            <dd class="text-success">₱{{ sale.amount_paid|floatformat:2|intcomma }}</dd>
+          </div>
+          <div>
+            <dt>Outstanding</dt>
+            <dd>
+              {% if outstanding <= 0 %}
+                <span class="status-pill status-pill--success">
+                  <i class="bi bi-check-circle-fill"></i> Fully Paid
+                </span>
+              {% else %}
+                <span class="text-danger sl-fw-bold">₱{{ outstanding|floatformat:2|intcomma }}</span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+
+        <!-- Actions -->
+        <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1rem;">
+            <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="btn btn-primary">
+                <i class="bi bi-receipt"></i> View Sale
+            </a>
+
+            {% if outstanding > 0 %}
+            <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="btn btn-light">
+                <i class="bi bi-plus-circle"></i> Add Another Payment
+            </a>
+            {% endif %}
+
+            <a href="{% if request.GET.next == 'receivables' %}{% url 'sales-receivables' business_slug=current_business.slug %}{% else %}{% url 'sale-list' business_slug=current_business.slug %}{% endif %}"
+                class="btn btn-light">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

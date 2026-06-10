@@ -9,7 +9,7 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">DASHBOARD</div>
+      <div class="page-breadcrumb">Home</div>
       <h1 class="page-title">Today's Overview</h1>
       <p class="page-subtitle">{{ today|date:"F d, Y" }} — {{ today|date:"l" }}</p>
     </div>
@@ -24,55 +24,110 @@
   </div>
 
   <!-- KPI STATS ROW -->
+  <div class="kpi-row">
 
-  <!-- REVENUE -->
-  <div class="sd-stats-row" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
-    <div class="sd-stat-box">
-      <div class="sd-stat-label">Revenue</div>
-        <div class="sd-stat-value" style="color:{% if total_revenue %}var(--success){% else %}var(--muted){% endif %};">
-          ₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}
+    <!-- NET PROFIT (first — the number owners actually care about) -->
+    <div class="kpi-card kpi-card--featured">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-value {% if net_profit < 0 %}text-danger{% endif %}">
+          ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
         </div>
+        {% if net_dir %}
+          <div class="kpi-delta kpi-delta--{{ net_dir }}">
+            <i class="bi bi-arrow-{% if net_dir == 'up' %}up{% elif net_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ net_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- REVENUE -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Revenue</div>
+        <div class="kpi-value">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if rev_dir %}
+          <div class="kpi-delta kpi-delta--{{ rev_dir }}">
+            <i class="bi bi-arrow-{% if rev_dir == 'up' %}up{% elif rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ rev_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- OPERATING EXPENSES (labor + overhead, with split tooltip) -->
+    <div class="kpi-card" title="Labor: ₱{{ total_salary_cost|floatformat:2|intcomma }} · Other Expenses: ₱{{ total_expense_cost|floatformat:2|intcomma }}">
+      <div class="kpi-icon kpi-icon--warning">
+        <i class="bi bi-receipt"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Operating Expenses</div>
+        <div class="kpi-value">₱{{ total_opex|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if opx_dir %}
+          <div class="kpi-delta kpi-delta--{{ opx_dir }} kpi-delta--inverse">
+            <i class="bi bi-arrow-{% if opx_dir == 'up' %}up{% elif opx_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ opx_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+        <div class="kpi-split">
+          <span>Labor ₱{{ total_salary_cost|floatformat:0|intcomma }}</span>
+          <span>·</span>
+          <span>Other Expenses ₱{{ total_expense_cost|floatformat:0|intcomma }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- MATERIAL COST -->
-    <div class="sd-stat-box">
-      <div class="sd-stat-label">Material Cost</div>
-        <div class="sd-stat-value" style="color:{% if total_material_cost %}var(--danger){% else %}var(--muted){% endif %};">
-           ₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}
-        </div>
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--purple">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Material Cost</div>
+        <div class="kpi-value">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if mat_dir %}
+          <div class="kpi-delta kpi-delta--{{ mat_dir }} kpi-delta--inverse">
+            <i class="bi bi-arrow-{% if mat_dir == 'up' %}up{% elif mat_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ mat_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
+      </div>
     </div>
 
     <!-- WASTE COST -->
-    <div class="sd-stat-box">
-      <div class="sd-stat-label">Waste Cost</div>
-        <div class="sd-stat-value" style="color:{% if total_waste_cost %}var(--danger){% else %}var(--muted){% endif %};">
-          ₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}
-        </div>
-    </div>
-
-    <!-- LABOR COST -->
-    <div class="sd-stat-box">
-      <div class="sd-stat-label">Labor Cost</div>
-        <div class="sd-stat-value" style="color:{% if total_salary_cost %}var(--danger){% else %}var(--muted){% endif %};">
-          ₱{{ total_salary_cost|floatformat:2|intcomma|default:"0.00" }}
-        </div>
-    </div>
-
-    <!-- EXPENSE COST -->
-    <div class="sd-stat-box">
-      <div class="sd-stat-label">Expense Cost</div>
-        <div class="sd-stat-value" style="color:{% if total_expense_cost %}var(--danger){% else %}var(--muted){% endif %};">
-          ₱{{ total_expense_cost|floatformat:2|intcomma|default:"0.00" }}
-        </div>
-    </div>
-
-    <!-- NET PROFIT -->
-    <div class="sd-stat-box" style="{% if net_profit > 0 %}background:var(--success-light); border-color:var(--success);{% else %}var(--muted){% endif %}">
-      <div class="sd-stat-label">Net Profit</div>
-      <div class="sd-stat-value" style="{% if net_profit > 0 %}color:var(--success);{% else %}color:var(--muted);{% endif %}">
-        ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--danger">
+        <i class="bi bi-trash3"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Waste Cost</div>
+        <div class="kpi-value">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if wst_dir %}
+          <div class="kpi-delta kpi-delta--{{ wst_dir }} kpi-delta--inverse">
+            <i class="bi bi-arrow-{% if wst_dir == 'up' %}up{% elif wst_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ wst_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+        {% endif %}
       </div>
     </div>
+
   </div>
 
   <div class="two-col-layout">
@@ -148,63 +203,67 @@
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
 
-      <!-- TODAY'S BREAKDOWN -->
+      <!-- ON SHIFT NOW -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-pie-chart-fill"></i> Today's Breakdown
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-people-fill"></i> On Shift Now
           </span>
+          <span class="card-header-sub">{{ active_shifts|length }} clocked in</span>
         </div>
-        <div class="card-body" style="padding:1rem;">
-          <canvas id="breakdownChart" height="200"></canvas>
-          <p class="sl-summary-note" style="margin-top:0.75rem; text-align:center;">Based on today's recorded transactions.</p>
+        <div class="card-body shift-list">
+          {% for se in active_shifts %}
+            <div class="shift-row">
+              <div class="shift-avatar">{{ se.employee.name|slice:":1"|upper }}</div>
+              <div class="shift-info">
+                <div class="shift-name">{{ se.employee.name }}</div>
+                <div class="shift-meta">
+                  <span>In {{ se.clock_in|time:"g:i A" }}</span>
+                  <span>·</span>
+                  <span class="shift-running">{{ se.hours_worked|floatformat:1 }}h running</span>
+                </div>
+              </div>
+              <span class="shift-status-dot" title="Active"></span>
+            </div>
+          {% empty %}
+            <div class="shift-empty">
+              <i class="bi bi-moon-stars"></i>
+              <p>No one clocked in right now</p>
+            </div>
+          {% endfor %}
         </div>
       </div>
 
-      <!-- DAY SUMMARY -->
+      <!-- RECENT ACTIVITIES -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-speedometer2"></i> Day Summary
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-clock-history"></i> Recent Activities
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-          <div class="sd-summary-block" style="{% if net_profit >= 0 %}background:var(--success-light); border-color:var(--success-border);{% else %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
-            <div class="sd-summary-block-label">Net Profit</div>
-            <div class="sd-total-amount" style="{% if net_profit >= 0 %}color:var(--success);{% else %}color:var(--danger);{% endif %}">
-              ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
+        <div class="card-body activity-feed">
+        {% for a in activities %}
+          <a href="{{a.url}}" class="activity-row">
+            <div class="activity-icon activity-icon--{{ a.tint }}">
+              <i class="bi {{ a.icon }}"></i>
             </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Today's Records</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Sales</span>
-              <span class="sd-info-value">{{ sales|length }}</span>
+            <div class="activity-body">
+              <div class="activity-title">{{ a.title }}</div>
+              <div class="activity-meta">{{ a.ts|timesince }} ago</div>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Purchases</span>
-              <span class="sd-info-value">{{ purchases|length }}</span>
+            <div class="activity-amount">₱{{ a.amount|floatformat:2|intcomma }}</div>
+          </a>
+          {% empty %}
+            <div class="activity-empty">
+              <i class="bi bi-inbox"></i>
+              <p>No recent activity yet</p>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Waste</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ waste_items|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expenses</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ expenses|length }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Staff on Shift</span>
-              <span class="sd-info-value">{{ shift_employees|length }}</span>
-            </div>
-          </div>
-
+          {% endfor %}
         </div>
       </div>
 
     </div>
+
   </div>
 </div>
 

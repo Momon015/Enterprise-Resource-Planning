@@ -1,0 +1,117 @@
+{% extends 'main.html' %}
+{% load humanize %}
+
+{% block content %}
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="breadcrumb-link">SALES RETURNS</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>{{ return_obj.reference }}</span>
+      </div>
+      <h1 class="page-title">
+        <i class="bi bi-check-circle-fill" style="color: #16a34a; margin-right: 0.3rem;"></i>
+        Return Recorded
+      </h1>
+      <p class="page-subtitle">Posted {{ return_obj.created_at|date:"F d, Y" }} at {{ return_obj.created_at|date:"h:i A" }}</p>
+    </div>
+  </div>
+
+  <div class="form-page-wrap">
+    <div class="card">
+
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-arrow-return-left"></i> Return Summary
+        </span>
+        <span class="card-header-sub">{{ return_obj.reference }}</span>
+      </div>
+
+      <div class="card-body" style="padding: 1.25rem;">
+
+        <!-- Featured Refund -->
+        <div class="period-net period-net--loss" style="margin-bottom: 1.25rem;">
+          <div class="period-net-label">REFUNDED</div>
+          <div class="period-net-value">₱{{ return_obj.refund_total|floatformat:2|intcomma }}</div>
+          <div class="period-net-sub">
+            {% if return_obj.refund_method == 'cash' %}
+              <i class="bi bi-cash-stack"></i>
+            {% elif return_obj.refund_method == 'credit' or return_obj.refund_method == 'store_credit' %}
+              <i class="bi bi-credit-card-2-back"></i>
+            {% else %}
+              <i class="bi bi-wallet2"></i>
+            {% endif %}
+            via {{ return_obj.get_refund_method_display }} · {{ return_obj.get_reason_display }}
+          </div>
+        </div>
+
+        <!-- Returned Items -->
+        <div class="returned-items-label">RETURNED ITEMS</div>
+        <div class="table-responsive" style="margin-bottom: 1rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="sl-text-center">Qty</th>
+                <th class="sl-text-center">Condition</th>
+                <th class="sl-text-end">Refund</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ item.original_sale_item.name|capfirst }}</div>
+                </td>
+                <td class="sl-text-center">{{ item.quantity }}</td>
+                <td class="sl-text-center">
+                    {% if item.resellable %}
+                    <span class="sl-badge sl-badge-success">Sellable</span>
+                    {% else %}
+                    <span class="sl-badge sl-badge-danger">Damaged</span>
+                    {% endif %}
+                </td>
+                <td class="sl-text-end sl-fw-semibold text-danger">
+                  ₱{{ item.unit_refund|floatformat:2|intcomma }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Breakdown -->
+        <dl class="period-breakdown">
+          <div>
+            <dt>Linked Sale</dt>
+            <dd>{{ return_obj.original_sale.reference }}</dd>
+          </div>
+          {% if return_obj.reason_note %}
+          <div>
+            <dt>Note</dt>
+            <dd>{{ return_obj.reason_note }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+
+        <!-- Actions -->
+        <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1rem;">
+          <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=return_obj.original_sale.id %}" class="btn btn-primary">
+            <i class="bi bi-receipt"></i> View Original Sale
+          </a>
+          <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="btn btn-light">
+            Back to Returns
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

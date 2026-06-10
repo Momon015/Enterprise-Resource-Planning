@@ -82,14 +82,17 @@
         <button onclick="window.close()">Close</button>
     </div>
 
-    <div class="receipt">
-        {# ── all the receipt content goes here ── #}
-        <div class="center bold">{{ business.business_name }}</div>
-        {% if business.address %}
-            <div class="center">{{ business.address }}</div>
-        {% endif %}
+        <div class="receipt">
+            <div class="center bold">{{ business.business_name }}</div>
+                {% if business.address %}
+                    <div class="center">{{ business.address }}</div>
+                {% endif %}
+                {% if business.business_phone_number %}
+                    <div class="center">Phone: {{ business.business_phone_number }}</div>
+                {% endif %}
 
-        <div class="divider"></div>
+            <div class="divider"></div>
+
 
         <table>
             <tr><td>Ref:</td><td class="right">{{ sale.reference }}</td></tr>
