@@ -250,6 +250,8 @@ def sale_list(request, business_slug):
         'current_year': current_year, # this is for dynamic year for select month
         'section': 'sale',
         'recent_events': recent_events,
+        
+        'sales_deltas': sales_deltas, 
         'kpis': kpis,
         
         # employee
@@ -277,315 +279,10 @@ def sale_detail(request, sale_id, business_slug):
         'sale_employees': sale_employees, 
         'total_salary_cost': total_salary_cost,
         'payments': payments,
+        'section': 'sale',
     }
     return render(request, 'Sales/sale_detail.html', context)
 
-def sale_receipt(request, business_slug, sale_id):
-    business = get_business_for_user(request.user, business_slug)
-
-    bp = getattr(business, 'plan', None)
-
-    if not bp or not bp.has_receipt_print():
-        messages.warning(request, 'Receipt printing is available on Premium and Pro plans.')
-        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
-    
-    sale = get_object_or_404(Sale, business=business, id=sale_id)
-    items = sale.sale_items.all()
-    
-    context = {
-        'sale': sale,
-        'items': items,
-        'business': business,
-    }
-    
-    return render(request, 'sales/sale_receipt.html', context)
-    
-# Map SalesReturn.reason → Waste.reason for damaged items
-RETURN_TO_WASTE_REASON = {
-    'defective': 'defective',
-    'expired':   'expired',
-    # everything else → 'damage' fallback
-}
-
-@login_required(login_url='login')
-@permission_required('add')
-def sales_return_create(request, business_slug, sale_id):
-    business = get_business_for_user(request.user, business_slug)
-    sale = get_object_or_404(Sale, business=business, id=sale_id)
-    sale_items = sale.sale_items.select_related('product').all()
-
-    if request.method == 'POST':
-        reason = request.POST.get('reason', 'other')
-        reason_note = request.POST.get('reason_note', '').strip()
-        refund_method = request.POST.get('refund_method', 'cash')
-
-        items_to_return = []
-        total_refund = Decimal('0')
-
-        for si in sale_items:
-            qty_str = request.POST.get(f'qty_{si.id}', '0')
-            try:
-                qty = int(qty_str)
-            except ValueError:
-                qty = 0
-            if qty <= 0:
-                continue
-            
-            if qty > si.returnable_quantity:
-                messages.error(request,
-                    f"{si.name}: only {si.returnable_quantity} returnable "
-                    f"(already returned {si.total_returned_quantity} of {si.quantity}).")
-                return redirect('sales-return-create',
-                                business_slug=business_slug, sale_id=sale_id)
-
-
-            unit_refund_str = request.POST.get(f'unit_refund_{si.id}', str(si.price_at_sale))
-            try:
-                unit_refund = Decimal(unit_refund_str)
-            except (ValueError, ArithmeticError):
-                unit_refund = si.price_at_sale
-
-            resellable = request.POST.get(f'resellable_{si.id}', 'true') == 'true'
-
-            items_to_return.append({
-                'sale_item': si,
-                'qty': qty,
-                'unit_refund': unit_refund,
-                'resellable': resellable,
-            })
-            total_refund += unit_refund * qty
-
-        if not items_to_return:
-            messages.warning(request, "Pick at least one item to return.")
-            return redirect('sales-return-create',
-                            business_slug=business_slug, sale_id=sale_id)
-
-        # In sales_return_create, after collecting items, before atomic block:
-        already_refunded = sale.amount_refunded  # already a property on Sale
-        max_refund = (sale.total_revenue or Decimal('0')) - already_refunded
-
-        if total_refund > max_refund:
-            messages.error(request,
-                f"Refund ₱{total_refund:.2f} exceeds remaining refundable ₱{max_refund:.2f}.")
-            return redirect('sales-return-create',
-                            business_slug=business_slug, sale_id=sale_id)
-        
-        
-        with transaction.atomic():
-            return_obj = SalesReturn.objects.create(
-                original_sale=sale,
-                business=business,
-                reason=reason,
-                reason_note=reason_note,
-                refund_total=total_refund,
-                refund_method=refund_method,
-                created_by=request.user,
-            )
-
-            damaged_items = []   # collect for single Waste record
-
-            for item in items_to_return:
-                si = item['sale_item']
-                qty = item['qty']
-
-                SalesReturnItem.objects.create(
-                    sales_return=return_obj,
-                    original_sale_item=si,
-                    name=si.name,
-                    quantity=qty,
-                    unit_refund=item['unit_refund'],
-                    resellable=item['resellable'],
-                )
-
-                if item['resellable']:
-                    # Back to inventory: bump Stock + Product.prepared_quantity
-                    if si.product and si.product.material:
-                        try:
-                            stock = Stock.objects.get(
-                                business=business, material=si.product.material
-                            )
-                            stock.quantity += qty
-                            stock.save()
-                        except Stock.DoesNotExist:
-                            pass
-
-                    if si.product:
-                        si.product.prepared_quantity += qty
-                        si.product.save(update_fields=['prepared_quantity'])
-                else:
-                    # Mark for Waste
-                    damaged_items.append({
-                        'sale_item': si,
-                        'qty': qty,
-                    })
-
-            # If any damaged items, create a Waste record bundling them
-            if damaged_items:
-                waste_reason = RETURN_TO_WASTE_REASON.get(reason, 'damage')
-                total_waste_cost = sum(
-                    (d['sale_item'].cost_price or Decimal('0')) * d['qty']
-                    for d in damaged_items
-                )
-
-                waste = Waste.objects.create(
-                    business=business,
-                    user=business.user,
-                    total_cost=total_waste_cost,
-                    reason=waste_reason,
-                    created_by=request.user,
-                )
-
-                for d in damaged_items:
-                    si = d['sale_item']
-                    WasteItem.objects.create(
-                        waste=waste,
-                        product=si.product,
-                        price=si.cost_price or Decimal('0'),
-                        quantity=d['qty'],
-                        name=si.name,
-                    )
-
-                log_activity(
-                    business, request.user, 'waste.recorded',
-                    target=waste,
-                    description=f"₱{total_waste_cost:.2f} — {waste.get_reason_display()} (from return {return_obj.reference})",
-                    metadata={'reason': waste_reason, 'total': str(total_waste_cost),
-                              'sales_return_id': return_obj.id},
-                )
-
-            log_activity(
-                business, request.user, 'sale.refunded',
-                target=return_obj,
-                description=f"{return_obj.reference} — ₱{total_refund:.2f} refunded ({return_obj.get_refund_method_display()})",
-                metadata={'reference': return_obj.reference,
-                          'total': str(total_refund),
-                          'reason': reason,
-                          'refund_method': refund_method},
-            )
-
-        messages.success(request, f"Return {return_obj.reference} recorded.")
-        return redirect('sales-return-success', business_slug=business.slug, return_id=return_obj.id)
-
-    context = {
-        'sale': sale,
-        'sale_items': sale_items,
-        'reason_choices': SalesReturn.REASON_CHOICES,
-        'refund_method_choices': SalesReturn.REFUND_METHOD_CHOICES,
-        'section': 'sale-return',
-    }
-    return render(request, 'Sales/sales_return_create.html', context)
-
-@login_required(login_url='login')
-@permission_required('add') # dev
-def return_recorded(request, business_slug, return_id):
-    business = get_business_for_user(request.user, business_slug)
-    return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
-    items = return_obj.items.select_related('original_sale_item').all()
-
-    context = {
-        'return_obj': return_obj,
-        'items': items,
-        'section': 'sale-return',
-    }
-    return render(request, 'Sales/return_recorded.html', context)
-    
-@login_required(login_url='login')
-def sales_return_list(request, business_slug):
-    business = get_business_for_user(request.user, business_slug)
-    returns = SalesReturn.objects.filter(business=business).select_related(
-        'original_sale', 'created_by'
-    ).order_by('-date', '-created_at')
-    
-    # Only reasons that have at least one return for this business
-    used_reason_values = (
-        SalesReturn.objects
-        .filter(business=business)
-        .values_list('reason', flat=True)
-        .distinct()
-        .order_by('reason')
-    )
-    reason_dict = dict(SalesReturn.REASON_CHOICES)
-    reason_choices = [
-        (v, reason_dict.get(v, v.replace('_', '').title()))
-        for v in used_reason_values if v
-    ]
-
-    form = SalesReturnFilterForm(request.GET or None)
-    if form.is_valid():
-        q = form.cleaned_data.get('q')
-        reason = form.cleaned_data.get('reason')
-        select_month = form.cleaned_data.get('select_month')
-        sd = form.cleaned_data.get('start_date')
-        ed = form.cleaned_data.get('end_date')
-        period = request.GET.get('period', '')
-        
-        today = timezone.localdate()
-        iso_year, iso_week, _ = today.isocalendar()
-
-        if period == 'today':
-            returns = returns.filter(date=today)
-        elif period == 'last_week':
-            last_week = today - timedelta(days=7)
-            returns = returns.filter(date__gte=last_week)
-        elif period == 'week':
-            returns = returns.filter(date__week=iso_week, date__year=iso_year)
-        elif period == 'month':
-            returns = returns.filter(date__month=today.month, date__year=today.year)
-
-        if q:
-            filters = Q(reference__icontains=q)
-            try:
-                filters |= Q(refund_total=Decimal(q))
-            except (InvalidOperation, ValueError):
-                pass
-            returns = returns.filter(filters)
-
-        if reason:
-            returns = returns.filter(reason=reason)
-
-        if select_month:
-            try:
-                parsed = datetime.strptime(select_month, '%Y-%m')
-                returns = returns.filter(date__year=parsed.year, date__month=parsed.month)
-            except ValueError:
-                pass
-
-        if sd and ed:
-            returns = returns.filter(date__range=(sd, ed))
-
-    totals = returns.aggregate(
-        total_refunded=Sum('refund_total'),
-        avg_refund=Avg('refund_total'),
-    )
-
-    paginator = Paginator(returns, 5)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    today = timezone.localdate()
-    return render(request, 'Sales/sales_return_list.html', {
-        'page_obj': page_obj,
-        'form': form,
-        'section': 'sale-return',
-        'total_refunded': totals['total_refunded'] or 0,
-        'avg_refund': totals['avg_refund'] or 0,
-        'total_count': returns.count(),
-        'current_year': f"{today.year}-0{today.month}",
-        'reason_choices': reason_choices,
-    })
-
-
-@login_required(login_url='login')
-def sales_return_detail(request, business_slug, return_id):
-    business = get_business_for_user(request.user, business_slug)
-    return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
-    items = return_obj.items.select_related('original_sale_item').all()
-
-    return render(request, 'Sales/sales_return_detail.html', {
-        'return_obj': return_obj,
-        'items': items,
-        'section': 'sale-return',
-    })
-    
 @login_required(login_url='login')
 @permission_required('add') # dev
 def add_to_sales(request, product_id, business_slug):
@@ -920,69 +617,6 @@ def confirm_view_summary(request, business_slug):
     return redirect('sale-summary', business_slug=sale_obj.business.slug, sale_id=sale_obj.id)
 
 @login_required(login_url='login')
-@permission_required('view') # dev
-def view_sale_summary(request, sale_id, business_slug):
-    business = get_business_for_user(request.user, business_slug)
-    sale = get_object_or_404(Sale, business=business, id=sale_id)
-    sale_items = sale.sale_items.select_related('product')
-    total_salary_cost = sale.sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
-    print(total_salary_cost)
-    
-    total_revenue = 0
-    total_cost_price = 0
-
-    items = []
-
-    for item in sale_items:
-        cost_price = item.cost_price
-        quantity = item.quantity
-        unsold_quantity = item.unsold_quantity
-
-        total_cost_price_per_line = (cost_price * quantity)
-        total_cost_price += total_cost_price_per_line
-
-        total_selling_price = item.price_at_sale * quantity
-        total_revenue += total_selling_price
-
-        # Safely walk product → material → supplier 
-        product  = item.product
-        material = product.material if product else None
-        supplier = material.supplier if material else None
-
-        items.append({
-            'supplier_name':              supplier.name if supplier else '',
-            'id':                         product.id if product else None,
-            'name':                       item.name,
-            'quantity':                   item.quantity,
-            'selling_price':              item.price_at_sale,
-            'unsold_quantity':            unsold_quantity,
-            'cost_price':                 cost_price,
-            'total_cost_price_per_line':  total_cost_price_per_line,
-            'total_selling_price':        total_selling_price,
-        })
-
-        
-    paginator = Paginator(items, 6)
-    page = request.GET.get('page')
-    page_obj =  paginator.get_page(page)
-    
-    # How many filler rows to reach a full page
-    blank_rows = range(paginator.per_page - len(page_obj.object_list))
-
-    context = {
-        'items': items, 
-        'sale': sale,
-        'page_obj': page_obj,
-        'blank_rows': blank_rows,
-        'total_cost_price': total_cost_price, 
-        'total_revenue': total_revenue, 
-        'total_salary_cost': total_salary_cost, 
-        'section': 'sale'
-        }
-    
-    return render(request, 'Sales/view_sale_summary.html', context)
-
-@login_required(login_url='login')
 @permission_required('add')
 def add_sales_payment(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
@@ -1055,6 +689,374 @@ def add_sales_payment(request, business_slug, sale_id):
     return render(request, 'Sales/add_sales_payment.html', context)
 
 @login_required(login_url='login')
+@permission_required('view') # dev
+def view_sale_summary(request, sale_id, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    sale_items = sale.sale_items.select_related('product')
+    total_salary_cost = sale.sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
+    print(total_salary_cost)
+    
+    total_revenue = 0
+    total_cost_price = 0
+
+    items = []
+
+    for item in sale_items:
+        cost_price = item.cost_price
+        quantity = item.quantity
+        unsold_quantity = item.unsold_quantity
+
+        total_cost_price_per_line = (cost_price * quantity)
+        total_cost_price += total_cost_price_per_line
+
+        total_selling_price = item.price_at_sale * quantity
+        total_revenue += total_selling_price
+
+        # Safely walk product → material → supplier 
+        product  = item.product
+        material = product.material if product else None
+        supplier = material.supplier if material else None
+
+        items.append({
+            'supplier_name':              supplier.name if supplier else '',
+            'id':                         product.id if product else None,
+            'name':                       item.name,
+            'quantity':                   item.quantity,
+            'selling_price':              item.price_at_sale,
+            'unsold_quantity':            unsold_quantity,
+            'cost_price':                 cost_price,
+            'total_cost_price_per_line':  total_cost_price_per_line,
+            'total_selling_price':        total_selling_price,
+        })
+
+        
+    paginator = Paginator(items, 6)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
+    # How many filler rows to reach a full page
+    blank_rows = range(paginator.per_page - len(page_obj.object_list))
+
+    context = {
+        'items': items, 
+        'sale': sale,
+        'page_obj': page_obj,
+        'blank_rows': blank_rows,
+        'total_cost_price': total_cost_price, 
+        'total_revenue': total_revenue, 
+        'total_salary_cost': total_salary_cost, 
+        'section': 'sale'
+        }
+    
+    return render(request, 'Sales/view_sale_summary.html', context)
+
+def sale_receipt(request, business_slug, sale_id):
+    business = get_business_for_user(request.user, business_slug)
+
+    bp = getattr(business, 'plan', None)
+
+    if not bp or not bp.has_receipt_print():
+        messages.warning(request, 'Receipt printing is available on Premium and Pro plans.')
+        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
+    
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    items = sale.sale_items.all()
+    
+    context = {
+        'sale': sale,
+        'items': items,
+        'business': business,
+    }
+    
+    return render(request, 'sales/sale_receipt.html', context)
+    
+# Map SalesReturn.reason → Waste.reason for damaged items
+RETURN_TO_WASTE_REASON = {
+    'defective': 'defective',
+    'expired':   'expired',
+    # everything else → 'damage' fallback
+}
+
+@login_required(login_url='login')
+@permission_required('add')
+def sales_return_create(request, business_slug, sale_id):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    sale_items = sale.sale_items.select_related('product').all()
+
+    if request.method == 'POST':
+        reason = request.POST.get('reason', 'other')
+        reason_note = request.POST.get('reason_note', '').strip()
+        refund_method = request.POST.get('refund_method', 'cash')
+
+        items_to_return = []
+        total_refund = Decimal('0')
+
+        for si in sale_items:
+            qty_str = request.POST.get(f'qty_{si.id}', '0')
+            try:
+                qty = int(qty_str)
+            except ValueError:
+                qty = 0
+            if qty <= 0:
+                continue
+            
+            if qty > si.returnable_quantity:
+                messages.error(request,
+                    f"{si.name}: only {si.returnable_quantity} returnable "
+                    f"(already returned {si.total_returned_quantity} of {si.quantity}).")
+                return redirect('sales-return-create',
+                                business_slug=business_slug, sale_id=sale_id)
+
+
+            unit_refund_str = request.POST.get(f'unit_refund_{si.id}', str(si.price_at_sale))
+            try:
+                unit_refund = Decimal(unit_refund_str)
+            except (ValueError, ArithmeticError):
+                unit_refund = si.price_at_sale
+
+            resellable = request.POST.get(f'resellable_{si.id}', 'true') == 'true'
+
+            items_to_return.append({
+                'sale_item': si,
+                'qty': qty,
+                'unit_refund': unit_refund,
+                'resellable': resellable,
+            })
+            total_refund += unit_refund * qty
+
+        if not items_to_return:
+            messages.warning(request, "Pick at least one item to return.")
+            return redirect('sales-return-create',
+                            business_slug=business_slug, sale_id=sale_id)
+
+        # In sales_return_create, after collecting items, before atomic block:
+        already_refunded = sale.amount_refunded  # already a property on Sale
+        max_refund = (sale.total_revenue or Decimal('0')) - already_refunded
+
+        if total_refund > max_refund:
+            messages.error(request,
+                f"Refund ₱{total_refund:.2f} exceeds remaining refundable ₱{max_refund:.2f}.")
+            return redirect('sales-return-create',
+                            business_slug=business_slug, sale_id=sale_id)
+        
+        
+        with transaction.atomic():
+            return_obj = SalesReturn.objects.create(
+                original_sale=sale,
+                business=business,
+                reason=reason,
+                reason_note=reason_note,
+                refund_total=total_refund,
+                refund_method=refund_method,
+                created_by=request.user,
+            )
+
+            damaged_items = []   # collect for single Waste record
+
+            for item in items_to_return:
+                si = item['sale_item']
+                qty = item['qty']
+
+                SalesReturnItem.objects.create(
+                    sales_return=return_obj,
+                    original_sale_item=si,
+                    name=si.name,
+                    quantity=qty,
+                    unit_refund=item['unit_refund'],
+                    resellable=item['resellable'],
+                )
+
+                if item['resellable']:
+                    # Back to inventory: bump Stock + Product.prepared_quantity
+                    if si.product and si.product.material:
+                        try:
+                            stock = Stock.objects.get(
+                                business=business, material=si.product.material
+                            )
+                            stock.quantity += qty
+                            stock.save()
+                        except Stock.DoesNotExist:
+                            pass
+
+                    if si.product:
+                        si.product.prepared_quantity += qty
+                        si.product.save(update_fields=['prepared_quantity'])
+                else:
+                    # Mark for Waste
+                    damaged_items.append({
+                        'sale_item': si,
+                        'qty': qty,
+                    })
+
+            # If any damaged items, create a Waste record bundling them
+            if damaged_items:
+                waste_reason = RETURN_TO_WASTE_REASON.get(reason, 'damage')
+                total_waste_cost = sum(
+                    (d['sale_item'].cost_price or Decimal('0')) * d['qty']
+                    for d in damaged_items
+                )
+
+                waste = Waste.objects.create(
+                    business=business,
+                    user=business.user,
+                    total_cost=total_waste_cost,
+                    reason=waste_reason,
+                    created_by=request.user,
+                )
+
+                for d in damaged_items:
+                    si = d['sale_item']
+                    WasteItem.objects.create(
+                        waste=waste,
+                        product=si.product,
+                        price=si.cost_price or Decimal('0'),
+                        quantity=d['qty'],
+                        name=si.name,
+                    )
+
+                log_activity(
+                    business, request.user, 'waste.recorded',
+                    target=waste,
+                    description=f"₱{total_waste_cost:.2f} — {waste.get_reason_display()} (from return {return_obj.reference})",
+                    metadata={'reason': waste_reason, 'total': str(total_waste_cost),
+                              'sales_return_id': return_obj.id},
+                )
+
+            log_activity(
+                business, request.user, 'sale.refunded',
+                target=return_obj,
+                description=f"{return_obj.reference} — ₱{total_refund:.2f} refunded ({return_obj.get_refund_method_display()})",
+                metadata={'reference': return_obj.reference,
+                          'total': str(total_refund),
+                          'reason': reason,
+                          'refund_method': refund_method},
+            )
+
+        messages.success(request, f"Return {return_obj.reference} recorded.")
+        return redirect('sales-return-success', business_slug=business.slug, return_id=return_obj.id)
+
+    context = {
+        'sale': sale,
+        'sale_items': sale_items,
+        'reason_choices': SalesReturn.REASON_CHOICES,
+        'refund_method_choices': SalesReturn.REFUND_METHOD_CHOICES,
+        'section': 'sale-return',
+    }
+    return render(request, 'Sales/sales_return_create.html', context)
+
+@login_required(login_url='login')
+@permission_required('add') # dev
+def return_recorded(request, business_slug, return_id):
+    business = get_business_for_user(request.user, business_slug)
+    return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
+    items = return_obj.items.select_related('original_sale_item').all()
+
+    context = {
+        'return_obj': return_obj,
+        'items': items,
+        'section': 'sale-return',
+    }
+    return render(request, 'Sales/return_recorded.html', context)
+    
+@login_required(login_url='login')
+def sales_return_list(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    returns = SalesReturn.objects.filter(business=business).select_related(
+        'original_sale', 'created_by'
+    ).order_by('-date', '-created_at')
+    
+    # Only reasons that have at least one return for this business
+    used_reason_values = (
+        SalesReturn.objects
+        .filter(business=business)
+        .values_list('reason', flat=True)
+        .distinct()
+        .order_by('reason')
+    )
+    reason_dict = dict(SalesReturn.REASON_CHOICES)
+    reason_choices = [
+        (v, reason_dict.get(v, v.replace('_', '').title()))
+        for v in used_reason_values if v
+    ]
+
+    form = SalesReturnFilterForm(request.GET or None)
+    if form.is_valid():
+        q = form.cleaned_data.get('q')
+        reason = form.cleaned_data.get('reason')
+        select_month = form.cleaned_data.get('select_month')
+        sd = form.cleaned_data.get('start_date')
+        ed = form.cleaned_data.get('end_date')
+        period = request.GET.get('period', '')
+        
+        today = timezone.localdate()
+        iso_year, iso_week, _ = today.isocalendar()
+
+        if period == 'today':
+            returns = returns.filter(date=today)
+        elif period == 'last_week':
+            last_week = today - timedelta(days=7)
+            returns = returns.filter(date__gte=last_week)
+        elif period == 'week':
+            returns = returns.filter(date__week=iso_week, date__year=iso_year)
+        elif period == 'month':
+            returns = returns.filter(date__month=today.month, date__year=today.year)
+
+        if q:
+            filters = Q(reference__icontains=q)
+            try:
+                filters |= Q(refund_total=Decimal(q))
+            except (InvalidOperation, ValueError):
+                pass
+            returns = returns.filter(filters)
+
+        if reason:
+            returns = returns.filter(reason=reason)
+
+        if select_month:
+            try:
+                parsed = datetime.strptime(select_month, '%Y-%m')
+                returns = returns.filter(date__year=parsed.year, date__month=parsed.month)
+            except ValueError:
+                pass
+
+        if sd and ed:
+            returns = returns.filter(date__range=(sd, ed))
+
+    totals = returns.aggregate(
+        total_refunded=Sum('refund_total'),
+        avg_refund=Avg('refund_total'),
+    )
+
+    paginator = Paginator(returns, 7)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    today = timezone.localdate()
+    return render(request, 'Sales/sales_return_list.html', {
+        'page_obj': page_obj,
+        'form': form,
+        'section': 'sale-return',
+        'total_refunded': totals['total_refunded'] or 0,
+        'avg_refund': totals['avg_refund'] or 0,
+        'total_count': returns.count(),
+        'current_year': f"{today.year}-0{today.month}",
+        'reason_choices': reason_choices,
+    })
+
+@login_required(login_url='login')
+def sales_return_detail(request, business_slug, return_id):
+    business = get_business_for_user(request.user, business_slug)
+    return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
+    items = return_obj.items.select_related('original_sale_item').all()
+
+    return render(request, 'Sales/sales_return_detail.html', {
+        'return_obj': return_obj,
+        'items': items,
+        'section': 'sale-return',
+    })
+
+@login_required(login_url='login')
 @permission_required('staff_view')
 @permission_required('add') # dev
 def payment_recorded(request, business_slug, sale_id, payment_id):
@@ -1121,7 +1123,7 @@ def sales_receivables(request, business_slug):
 
     total_outstanding = sum((s.outstanding for s in outstanding_sales), Decimal('0'))
 
-    paginator = Paginator(outstanding_sales, 5)
+    paginator = Paginator(outstanding_sales, 7)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     today_str = f"{today.year}-{today.month:02d}"

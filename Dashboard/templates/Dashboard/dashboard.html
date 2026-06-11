@@ -11,7 +11,18 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">Home</div>
       <h1 class="page-title">Today's Overview</h1>
-      <p class="page-subtitle">{{ today|date:"F d, Y" }} — {{ today|date:"l" }}</p>
+        <p class="page-subtitle">
+          {{ today|date:"F d, Y" }} — {{ today|date:"l" }}
+          {% if computed_at %}
+            · <span class="text-muted">Updated {{ computed_at|timesince }} ago</span>
+            <i class="bi bi-info-circle text-muted"
+              data-bs-toggle="tooltip"
+              data-bs-placement="top"
+              title="Snapshot of today's totals. Refreshes within 15 minutes or instantly when you record a new transaction."
+              style="cursor: help; font-size: 0.85em;"></i>
+          {% endif %}
+        </p>
+
     </div>
     <div class="page-header-right">
       <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
@@ -42,7 +53,7 @@
             {{ net_pct }} <span class="kpi-delta-note">vs Yesterday</span>
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
       </div>
     </div>
@@ -61,7 +72,7 @@
             {{ rev_pct }} <span class="kpi-delta-note">vs Yesterday</span>
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
       </div>
     </div>
@@ -80,7 +91,7 @@
             {{ opx_pct }} <span class="kpi-delta-note">vs Yesterday</span>
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
         <div class="kpi-split">
           <span>Labor ₱{{ total_salary_cost|floatformat:0|intcomma }}</span>
@@ -104,7 +115,7 @@
             {{ mat_pct }} <span class="kpi-delta-note">vs Yesterday</span>
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
       </div>
     </div>
@@ -123,7 +134,7 @@
             {{ wst_pct }} <span class="kpi-delta-note">vs Yesterday</span>
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data yesterday</div>
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
       </div>
     </div>

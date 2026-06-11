@@ -47,7 +47,7 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f"Unknown page: {page}"))
                     continue
 
-                metrics = compute_fn(business)
+                metrics = compute_fn(business, as_of=target_date)
                 KpiSnapshot.objects.update_or_create(
                     business=business,
                     date=target_date,

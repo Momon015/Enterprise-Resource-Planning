@@ -4,6 +4,22 @@
 
 {% block content %}
 
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
@@ -73,10 +89,16 @@
                 {% else %}
                     <!-- Still has returnable units: show inputs -->
                     <td class="sl-text-center">
-                    <input type="number" name="qty_{{ si.id }}"
-                            class="form-control form-control--polish"
-                            style="max-width: 90px; margin: 0 auto;"
-                            min="0" max="{{ si.returnable_quantity }}" value="0">
+                        <div class="qty-stepper">
+                            <button type="button" class="qty-stepper-btn qty-stepper-btn--dec" data-step="-1" aria-label="Decrease">
+                            <i class="bi bi-dash-lg"></i>
+                            </button>
+                            <input type="number" name="qty_{{ si.id }}" class="qty-stepper-input"
+                                min="0" max="{{ si.returnable_quantity }}" value="0">
+                            <button type="button" class="qty-stepper-btn qty-stepper-btn--inc" data-step="1" aria-label="Increase">
+                            <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </td>
                     <td class="sl-text-center">
                     <div class="input-with-prefix">

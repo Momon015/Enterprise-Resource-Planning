@@ -59,12 +59,18 @@ urlpatterns = [
     # path('add-employee/', views.add_daily_rate_to_expense, name='add-salary-to-expense'),
     path('create/add/shift/employees', views.shift_log_create, name='add-shift-employee'),
 
-    path('purchase/<int:purchase_id>/return/create/', views.purchase_return_create, name='purchase-return-create'),
-    path('returns/list/', views.purchase_return_list, name='purchase-return-list'),
+
+
     path('return/<int:return_id>/', views.purchase_return_detail, name='purchase-return-detail'),
     path('purchase/<int:purchase_id>/payment/add/', views.add_purchase_payment, name='add-purchase-payment'),
     
     path('payables/', views.purchase_payables, name='purchase-payables'),
+    path('purchase/<int:purchase_id>/payment/<int:payment_id>/success/',views.purchase_payment_recorded, name='purchase-payment-success'),
+
+    path('returns/list/', views.purchase_return_list, name='purchase-return-list'),
+    path('purchase/<int:purchase_id>/return/create/', views.purchase_return_create, name='purchase-return-create'),
+    path('return/<int:return_id>/success/',views.purchase_return_recorded, name='purchase-return-success'),
+
 
 
 ]

@@ -10,6 +10,22 @@
 
 {% block content %}
 
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
 <div class="page-wrapper">
 
   <div class="mobile-back-row">
@@ -214,13 +230,18 @@
             </div>
             {% endif %}
           </dl>
+
+          <!-- Created By -->
           {% if sale.created_by and request.user.role == 'owner' %}
-            <div class="recorded-by">
-              <div class="recorded-by-label">Recorded by</div>
-              <div class="recorded-by-row">
-                <div class="recorded-by-avatar">{{ sale.created_by.username|slice:":1"|upper }}</div>
-                <div class="recorded-by-info">
-                  <div class="recorded-by-name">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</div>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Recorded By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">
+                {{ sale.created_by.username|slice:":1"|upper }}
+              </div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ sale.created_by.username }}</div>
+                <div class="created-by-meta">
                   {% if sale.created_by.role == 'developer' %}
                     <span class="role-badge role-dev">Developer</span>
                   {% elif sale.created_by.role == 'owner' %}
@@ -231,7 +252,19 @@
                 </div>
               </div>
             </div>
+          </div>
           {% endif %}
+
+          <!-- Note -->
+          <div class="sd-note-box">
+            <div class="sd-note-icon">
+              <i class="bi bi-shield-lock"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">Read-only</div>
+              <div class="sd-note-text">This record is locked. To make a change, record a return or correction below.</div>
+            </div>
+          </div>
          </div>
         </div>
 

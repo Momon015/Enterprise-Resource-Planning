@@ -9,6 +9,7 @@ from django.contrib import messages
 
 from django.utils import timezone
 from datetime import timedelta
+import time
 import random
 
 from django.views.decorators.http import require_POST
@@ -56,7 +57,10 @@ from subscription.decorators import feature_required
 from django.core.cache import cache
 from django.utils import timezone
 
-CACHE_TTL = 60 * 5   # 5 minutes — adjust as needed
+CACHE_TTL = 60 * 15 # 15 mins - /* was 5 mins */
+COMPUTE_LOCK_TTL = 30   # max seconds the compute should take
+WAIT_TICK = 0.2         # poll interval
+WAIT_MAX_TICKS = 5      # 5 × 0.2s = 1s max wait before giving up
 
 def _pct_delta(today_val, yesterday_val):
     """Return ('up'|'down'|'flat', pct_string) or (None, None) if no comparison."""
@@ -197,16 +201,38 @@ def _compute_dashboard_metrics(business, today):
 
         'trend_labels': json.dumps(trend_labels),
         'trend_data': json.dumps(trend_data),
+        'computed_at': timezone.now(), 
     }
 
 
 def _get_cached_dashboard_metrics(business, today):
     cache_key = f'dashboard:metrics:{business.id}:{today.isoformat()}'
     metrics = cache.get(cache_key)
-    if metrics is None:
-        metrics = _compute_dashboard_metrics(business, today)
-        cache.set(cache_key, metrics, timeout=CACHE_TTL)
-    return metrics
+    if metrics is not None:
+        return metrics
+
+    # Cache miss — try to be the one who computes.
+    lock_key = f'{cache_key}:lock'
+    got_lock = cache.add(lock_key, True, timeout=COMPUTE_LOCK_TTL)
+
+    if got_lock:
+        try:
+            metrics = _compute_dashboard_metrics(business, today)
+            cache.set(cache_key, metrics, timeout=CACHE_TTL)
+            return metrics
+        finally:
+            cache.delete(lock_key)
+
+    # Someone else is already computing — wait briefly for them to finish.
+    for _ in range(WAIT_MAX_TICKS):
+        time.sleep(WAIT_TICK)
+        metrics = cache.get(cache_key)
+        if metrics is not None:
+            return metrics
+
+    # Lock holder is stuck or compute is genuinely slow — fall back so the
+    # user doesn't see a blank page. Worst case: we do the work twice.
+    return _compute_dashboard_metrics(business, today)
 
 
 @login_required(login_url='login')

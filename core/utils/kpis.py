@@ -12,7 +12,7 @@ CACHE_TTL = 60 * 60 * 24  # 24 hours
 
 # ─── PRODUCTS ───────────────────────────────────────────────────────────────
 
-def compute_product_kpis(business):
+def compute_product_kpis(business, as_of=None):
     """
     Live KPI computation for the Products page.
     Counts active (non-archived) products only.
@@ -44,7 +44,7 @@ def compute_product_kpis(business):
     }
     
 
-def get_product_kpis(business):
+def get_product_kpis(business, as_of=None):
     """
     Today's product KPIs (24h cache) + 'vs yesterday' delta from snapshot.
     Returns {'current': {...}, 'deltas': {...}}.
@@ -67,11 +67,11 @@ def get_product_kpis(business):
     
 # ─── SUPPLIERS ───────────────────────────────────────────────────────────────
 
-def compute_supplier_kpis(business):
+def compute_supplier_kpis(business, as_of=None):
     from Supplier.models import Supplier
     from Expense.models import Purchase
 
-    today = timezone.localdate()
+    today = as_of or timezone.localdate()
     month_start = today.replace(day=1)
 
     suppliers = Supplier.objects.filter(business=business)  # ActiveManager hides inactive
@@ -111,7 +111,7 @@ def get_supplier_kpis(business):
     
 # ─── INVENTORY (Stocks) ───────────────────────────────────────────────────────
     
-def compute_inventory_kpis(business):
+def compute_inventory_kpis(business, as_of=None):
     from Inventory.models import Stock
 
     qs = Stock.objects.filter(business=business).exclude(material__status='inactive')
@@ -154,18 +154,16 @@ def get_inventory_kpis(business):
 
 # ─── SALES ─────────────────────────────────────────────────────────────────────
 
-def compute_sale_kpis(business):
+def compute_sale_kpis(business, as_of=None):
     from Sales.models import Sale
 
-    today = timezone.localdate()
+    today = as_of or timezone.localdate()
     yesterday = today - timedelta(days=1)
 
-    # Week range (Mon → today). Last week = full Mon → Sun previous.
     this_week_start = today - timedelta(days=today.weekday())
     last_week_end   = this_week_start - timedelta(days=1)
     last_week_start = last_week_end - timedelta(days=6)
 
-    # Month range
     this_month_start = today.replace(day=1)
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
@@ -180,28 +178,17 @@ def compute_sale_kpis(business):
     def _count(filters):
         return Sale.objects.filter(business=business, **filters).count()
 
-    count_today      = _count({'date': today})
-    revenue_today    = _revenue({'date': today})
-    revenue_yesterday = _revenue({'date': yesterday})
-
-    revenue_week      = _revenue({'date__gte': this_week_start})
-    revenue_last_week = _revenue({'date__range': (last_week_start, last_week_end)})
-
-    revenue_month      = _revenue({'date__gte': this_month_start})
-    revenue_last_month = _revenue({'date__range': (last_month_start, last_month_end)})
-
-    count_month = _count({'date__gte': this_month_start})
-
     return {
-        'count_today':         count_today,
-        'revenue_today':       str(revenue_today),
-        'revenue_yesterday':   str(revenue_yesterday),
-        'revenue_week':        str(revenue_week),
-        'revenue_last_week':   str(revenue_last_week),
-        'count_month':         count_month,
-        'revenue_month':       str(revenue_month),
-        'revenue_last_month':  str(revenue_last_month),
+        'count_today':         _count({'date': today}),
+        'revenue_today':       str(_revenue({'date': today})),
+        'revenue_yesterday':   str(_revenue({'date': yesterday})),
+        'revenue_week':        str(_revenue({'date__gte': this_week_start})),
+        'revenue_last_week':   str(_revenue({'date__range': (last_week_start, last_week_end)})),
+        'count_month':         _count({'date__gte': this_month_start}),
+        'revenue_month':       str(_revenue({'date__gte': this_month_start})),
+        'revenue_last_month':  str(_revenue({'date__range': (last_month_start, last_month_end)})),
     }
+
 
 def get_sale_kpis(business):
     today = timezone.localdate()
@@ -218,10 +205,10 @@ def get_sale_kpis(business):
 
 # ─── PURCHASES ─────────────────────────────────────────────────────────────────
 
-def compute_purchase_kpis(business):
+def compute_purchase_kpis(business, as_of=None):
     from Expense.models import Purchase
 
-    today = timezone.localdate()
+    today = as_of or timezone.localdate()
     yesterday = today - timedelta(days=1)
 
     this_week_start = today - timedelta(days=today.weekday())
@@ -252,6 +239,7 @@ def compute_purchase_kpis(business):
         'cost_month':       str(_cost({'purchase_date__gte': this_month_start})),
         'cost_last_month':  str(_cost({'purchase_date__range': (last_month_start, last_month_end)})),
     }
+
 
 def get_purchase_kpis(business):
     today = timezone.localdate()

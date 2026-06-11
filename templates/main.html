@@ -57,11 +57,59 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- Initialize Bootstrap tooltips site-wide -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]')
+          .forEach(el => new bootstrap.Tooltip(el));
+      });
+    </script>
+
+
     <!-- htmx (add this line) -->
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 
     <!-- Shared filter-drawer + toast behavior -->
     <script src="{% static 'js/filter-drawer.js' %}"></script>
+
+    <script>
+      function syncStepperButtons(input) {
+        const wrap = input.parentElement;
+        const dec = wrap.querySelector('.qty-stepper-btn--dec');
+        const inc = wrap.querySelector('.qty-stepper-btn--inc');
+        const val = parseInt(input.value, 10) || 0;
+        const min = parseInt(input.min, 10) || 0;
+        const max = isNaN(parseInt(input.max, 10)) ? Infinity : parseInt(input.max, 10);
+        if (dec) dec.disabled = val <= min;
+        if (inc) inc.disabled = val >= max;
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.qty-stepper-btn');
+        if (!btn) return;
+        const wrap = btn.parentElement;
+        const input = wrap.querySelector('.qty-stepper-input');
+        if (!input) return;
+        const step = parseInt(btn.dataset.step, 10) || 0;
+        const min = parseInt(input.min, 10) || 0;
+        const max = isNaN(parseInt(input.max, 10)) ? Infinity : parseInt(input.max, 10);
+        const current = parseInt(input.value, 10) || 0;
+        input.value = Math.max(min, Math.min(max, current + step));
+        syncStepperButtons(input);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('qty-stepper-input')) {
+          syncStepperButtons(e.target);
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.qty-stepper-input').forEach(syncStepperButtons);
+      });
+    </script>
+
 
     {% block extra_js %}{% endblock %}
 

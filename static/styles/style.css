@@ -1931,6 +1931,9 @@ details.filter-card summary:hover {
   text-decoration: underline;
 }
 
+.row-link.is-overdue { background: #fef2f2; }   /* very faint red tint */
+.row-link.is-overdue:hover { background: #fee2e2; }
+
 
 /* ══════════════════════════════════════════
    MATERIAL FORM
@@ -5760,6 +5763,79 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
 }
 
+/* Quantity stepper — +/− buttons flanking a number input */
+.qty-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  height: 34px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.qty-stepper:has(.qty-stepper-input:focus) {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.qty-stepper:hover {
+  border-color: #d1d5db;
+}
+
+.qty-stepper-btn {
+  width: 30px;
+  background: #fafafa;
+  border: none;
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.qty-stepper-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.qty-stepper-btn:active {
+  background: #e5e7eb;
+}
+.qty-stepper-btn:disabled {
+  background: #fafafa;
+  color: #d1d5db;
+  cursor: default;
+}
+.qty-stepper-btn--dec { border-right: 1px solid #f1f5f9; }
+.qty-stepper-btn--inc { border-left: 1px solid #f1f5f9; }
+
+.qty-stepper-input {
+  width: 44px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 600;
+  outline: none;
+  padding: 0;
+  appearance: textfield;
+}
+.qty-stepper-input::-webkit-outer-spin-button,
+.qty-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qty-stepper-input:disabled {
+  color: #9ca3af;
+}
+
+
 .form-range-sep {
   color: #9ca3af;
   font-weight: 600;
@@ -5789,6 +5865,9 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   max-width: 600px;
 }
 
+.sl-badge.sl-badge--rect {
+  border-radius: 5px;
+}
 
 
 
