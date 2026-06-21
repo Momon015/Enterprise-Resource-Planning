@@ -101,7 +101,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('date', models.DateField(db_index=True)),
-                ('reason', models.CharField(choices=[('defective', 'Defective'), ('wrong_item', 'Wrong item'), ('expired', 'Expired'), ('damaged_delivery', 'Damaged in delivery'), ('qty_correction', 'Quantity correction'), ('amount_correction', 'Amount correction'), ('void', "Void / shouldn't have happened"), ('staff_error', 'Staff error'), ('other', 'Other')], default='defective', max_length=30)),
+                ('reason', models.CharField(choices=[('defective', 'Defective'), ('wrong_item', 'Wrong item'), ('expired', 'Expired'), ('damaged_delivery', 'Damaged in delivery'), ('qty_correction', 'Quantity correction'), ('amount_correction', 'Amount correction'), ('staff_error', 'Staff error'), ('other', 'Other')], default='defective', max_length=30)),
                 ('reason_note', models.CharField(blank=True, max_length=255)),
                 ('refund_total', models.DecimalField(decimal_places=6, default=0, max_digits=10)),
                 ('refund_method', models.CharField(choices=[('cash', 'Cash refund'), ('credit', 'Credit on outstanding balance')], default='cash', max_length=20)),

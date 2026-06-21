@@ -26,6 +26,7 @@ from Expense.forms import (PurchaseForm, PurchaseItemForm, PurchaseFilterForm,
     MiscExpenseForm, PurchaseReturnFilterForm)
 
 from Employee.models import Shift, ShiftEmployee, Employee
+from Employee.utils import void_window_open
 
 from Supplier.models import Material
 from Supplier.forms import MaterialForm
@@ -110,7 +111,7 @@ def purchase_history(request, business_slug):
     form = PurchaseFilterForm(request.GET or None)
     
     # count, sum and purchased total cost.
-    total_count = purchases.count()
+    total_count = purchases.active().count()
     total_cost = purchases.purchase_total_cost()
     average_cost = purchases.average_total_cost()
     
@@ -182,7 +183,7 @@ def purchase_history(request, business_slug):
             if filter_kwargs:
                 purchases = purchases.filter(**filter_kwargs)
             
-        total_count = purchases.count()
+        total_count = purchases.active().count()
         total_cost = purchases.purchase_total_cost()
         average_cost = purchases.average_total_cost()
         
@@ -230,7 +231,7 @@ def purchase_history(request, business_slug):
     
     ytd_start = timezone.localdate().replace(month=1, day=1)
     ytd_spend = (
-        Purchase.objects.filter(business=business, purchase_date__gte=ytd_start)
+        Purchase.objects.active().filter(business=business, purchase_date__gte=ytd_start)
         .aggregate(total_cost=Sum('total_cost'))['total_cost'] or 0
     )
 
@@ -920,10 +921,111 @@ def view_purchase_summary(request, business_slug, purchase_id):
         'subtotal': subtotal, 
         'total_cost': purchase.total_cost, 
         'total_discount': total_discount, 
+        'can_void': can_void_purchase(purchase),
         'purchase': purchase
         }
     
     return render(request, 'Expense/view_purchase_summary.html', context)
+
+def can_void_purchase(purchase):
+    return (
+        not purchase.is_void
+        and not purchase.returns.exists()
+        and purchase.purchase_date == timezone.localdate()
+        and void_window_open(purchase.business)
+    )
+
+
+@login_required(login_url='login')
+@permission_required('add')
+def void_purchase(request, business_slug, purchase_id):
+    business = get_business_for_user(request.user, business_slug)
+    purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
+
+    if not can_void_purchase(purchase):
+        messages.error(request, "This purchase can no longer be voided — use Purchase Returns instead.")
+        return redirect('view-purchase-summary', business_slug=business.slug, purchase_id=purchase.id)
+
+    if request.method != 'POST':
+        return render(request, 'Expense/void_purchase.html', {
+            'purchase': purchase,
+            'reasons': Purchase.VOID_REASON_CHOICES,
+        })
+
+    reason = request.POST.get('void_reason', '').strip()
+    action = request.POST.get('action', 'void')
+
+    with transaction.atomic():
+        # 1) un-blend this purchase from stock + product (exact reversal)
+        for item in purchase.materials.select_related('material'):
+            material = item.material
+            if not material:
+                continue
+            cost_in = (Decimal(item.price) * item.quantity) - Decimal(item.discount or 0)
+            qty_in  = item.quantity * material.piece_per_unit if material.is_multi_unit else item.quantity
+
+            stock = Stock.objects.filter(business=business, material=material).first()
+            if stock:
+                new_qty = stock.quantity - qty_in
+                if new_qty > 0:
+                    new_val = (stock.quantity * stock.price) - cost_in
+                    stock.price = max(Decimal('0'), new_val / new_qty)
+                stock.quantity = max(0, new_qty)
+                stock.save(update_fields=['quantity', 'price'])
+
+            product = Product.objects.filter(business=business, material=material).first()
+            if product:
+                new_qty = product.prepared_quantity - qty_in
+                if new_qty > 0:
+                    new_val = (product.prepared_quantity * product.cost_price) - cost_in
+                    product.cost_price = max(Decimal('0'), new_val / new_qty)
+                product.prepared_quantity = max(0, new_qty)
+                product.save(update_fields=['prepared_quantity', 'cost_price'])
+
+        # 2) flag void — total_cost + payments auto-exclude via is_void
+        purchase.is_void = True
+        purchase.void_reason = reason
+        purchase.voided_by = request.user
+        purchase.voided_at = timezone.now()
+        purchase.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at'])
+
+        log_activity(
+            business, request.user, 'purchase.voided',
+            target=purchase,
+            description=reason or 'Voided',
+            metadata={'reference': purchase.reference, 'total': f"{purchase.total_cost or 0:.2f}"},
+        )
+
+    # 3) re-ring → rebuild the purchase cart
+    if action == 'reedit':
+        cart = {}
+        for item in purchase.materials.select_related('material'):
+            material = item.material
+            if not material:
+                continue
+            key = str(material.id)
+            if key in cart:
+                cart[key]['quantity'] += item.quantity
+            else:
+                cart[key] = {
+                    'supplier': material.supplier.name if material.supplier else 'No supplier',
+                    'id': material.id,
+                    'slug': material.slug,
+                    'name': material.name,
+                    'price': float(item.price),
+                    'quantity': item.quantity,
+                    'discount': str(item.discount),
+                }
+        request.session['cart'] = cart
+        request.session.modified = True
+        messages.success(request, f"Purchase {purchase.reference} voided — edit and save again.")
+        return redirect('view-cart', business_slug=business.slug)
+
+    messages.success(request, f"Purchase {purchase.reference} has been voided.")
+    if request.user.role == 'owner':
+        return redirect('dashboard', business_slug=business.slug)
+    return redirect('material-list')
+
 
 @login_required(login_url='login')
 @permission_required('add')   # blocks dev only; staff + owner can create

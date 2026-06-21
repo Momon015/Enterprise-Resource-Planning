@@ -143,10 +143,10 @@ def handle_sales(business, user, args, lang):
     today = timezone.localdate()
 
     if period in TODAY_WORDS:
-        qs = Sale.objects.filter(business=business, date=today)
+        qs = Sale.objects.active().filter(business=business, date=today)
         label = _t(lang, en="today", fil="ngayon")
     elif period in MONTH_WORDS:
-        qs = Sale.objects.filter(business=business, date__gte=today.replace(day=1))
+        qs = Sale.objects.active().filter(business=business, date__gte=today.replace(day=1))
         label = _t(lang, en="this month", fil="ngayong buwan")
     else:
         return _t(lang,

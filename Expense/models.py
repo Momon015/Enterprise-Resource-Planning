@@ -29,14 +29,26 @@ any other name so u can simply called Purchase.objects.
 """
 
 class PurchaseQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_void=False)
+    
     def purchase_total_cost(self):
-        return self.aggregate(monthly_cost=Coalesce(Sum('total_cost'), Value(Decimal('0'))))['monthly_cost']
+        return self.active().aggregate(monthly_cost=Coalesce(Sum('total_cost'), Value(Decimal('0'))))['monthly_cost']
         
     def average_total_cost(self):
-        return self.aggregate(monthly_average_cost=Coalesce(Avg('total_cost'), Value(Decimal('0'))))['monthly_average_cost']
+        return self.active().aggregate(monthly_average_cost=Coalesce(Avg('total_cost'), Value(Decimal('0'))))['monthly_average_cost']
     
     
 class Purchase(TimeStampModel):
+    VOID_REASON_CHOICES = [
+        ('Wrong price',             'Wrong price'),
+        ('Wrong quantity',          'Wrong quantity'),
+        ('Wrong item',              'Wrong item'),
+        ('Wrong supplier',          'Wrong supplier'),
+        ('Test / accidental entry', 'Test / accidental entry'),
+        ('Other',                   'Other'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
     total_cost = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
@@ -48,6 +60,12 @@ class Purchase(TimeStampModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
     
+    # ── Void (cancellation, not a return) ─────────────────
+    is_void     = models.BooleanField(default=False, db_index=True)
+    void_reason = models.CharField(max_length=255, blank=True)
+    voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL,
+                      related_name='voided_purchases', null=True, blank=True)
+    voided_at   = models.DateTimeField(null=True, blank=True)
     
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
@@ -132,8 +150,11 @@ class Purchase(TimeStampModel):
 
     @property
     def outstanding(self):
-        """What's still owed to the supplier."""
+        """What's still owed to the supplier — voided owes nothing."""
+        if self.is_void:
+            return Decimal('0')
         return (self.total_cost or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
+
 
     @property
     def is_fully_paid(self):
@@ -251,7 +272,6 @@ class PurchaseReturn(TimeStampModel):
         # Corrections
         ('qty_correction', 'Quantity correction'),
         ('amount_correction', 'Amount correction'),
-        ('void', 'Void / shouldn\'t have happened'),
         ('staff_error', 'Staff error'),
         ('other', 'Other'),
     ]

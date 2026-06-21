@@ -27,6 +27,7 @@ from Product.forms import ProductForm
 from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
 from Employee.models import Employee, Shift, ShiftEmployee
 from Employee.forms import EmployeeForm
+from Employee.utils import void_window_open
 
 from Inventory.models import Stock
 from Expense.models import Waste, WasteItem
@@ -110,7 +111,7 @@ def sale_list(request, business_slug):
     
     total_revenue = sales.total_revenue()
     average_total_revenue = sales.average_total_revenue()
-    total_sales_count = sales.count()
+    total_sales_count = sales.active().count()
     
     if form.is_valid():
         # search = form.cleaned_data.get('search')
@@ -160,7 +161,7 @@ def sale_list(request, business_slug):
             
         total_revenue = sales.total_revenue()
         average_total_revenue = sales.average_total_revenue()
-        total_sales_count = sales.count()
+        total_sales_count = sales.active().count()
         
     max_revenue = sales.aggregate(max=Max('total_revenue'))['max'] or 0
     
@@ -198,8 +199,8 @@ def sale_list(request, business_slug):
     if request.user.role == 'owner' and user_filter and user_filter.isdigit():
         total_revenue = sales.total_revenue()
         average_total_revenue = sales.average_total_revenue()
-        total_sales_count = sales.count()
-        max_revenue = sales.aggregate(max=Max('total_revenue'))['max'] or 0
+        total_sales_count = sales.active().count()
+        max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
 
     paginator = Paginator(sales, 5)
     page_number = request.GET.get('page')
@@ -802,8 +803,10 @@ def view_sale_summary(request, sale_id, business_slug):
         'total_cost_price': total_cost_price, 
         'total_revenue': total_revenue, 
         'total_salary_cost': total_salary_cost, 
+        'can_void': can_void(sale),
         'section': 'sale'
         }
+
     
     return render(request, 'Sales/view_sale_summary.html', context)
 
@@ -830,7 +833,95 @@ def sale_receipt(request, business_slug, sale_id):
     }
     
     return render(request, 'sales/sale_receipt.html', context)
-    
+
+def can_void(sale):
+    """Same-day, not already void, no returns, and the void window is open."""
+    return (
+        not sale.is_void
+        and not sale.returns.exists()
+        and sale.date == timezone.localdate()
+        and void_window_open(sale.business)
+    )
+
+
+@login_required(login_url='login')
+@permission_required('add')   # owner + staff; tune if you want owner-only
+def void_sale(request, business_slug, sale_id):
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+
+    if not can_void(sale):
+        messages.error(request, "This sale can no longer be voided — use Sales Returns instead.")
+        return redirect('sale-summary', business_slug=business.slug, sale_id=sale.id)
+
+    if request.method != 'POST':
+        return render(request, 'Sales/void_sale.html', {
+            'sale': sale,
+            'reasons': Sale.VOID_REASON_CHOICES,
+            'section': 'sale',
+        })
+
+    reason = request.POST.get('void_reason', '').strip()
+    action = request.POST.get('action', 'void')   # 'void' | 'reedit'
+
+    with transaction.atomic():
+        # 1) restock — exact reverse of confirm_view_summary
+        for item in sale.sale_items.select_related('product', 'product__material'):
+            product = item.product
+            if not product:
+                continue
+            if not product.is_service:
+                product.prepared_quantity += item.quantity
+                product.save(update_fields=['prepared_quantity'])
+            if product.material_id:
+                stock = Stock.objects.filter(business=business, material=product.material).first()
+                if stock:
+                    stock.quantity += item.quantity
+                    stock.save(update_fields=['quantity'])
+
+        # 2) flag void — revenue + drawer auto-exclude via is_void
+        sale.is_void = True
+        sale.void_reason = reason
+        sale.voided_by = request.user
+        sale.voided_at = timezone.now()
+        sale.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at'])
+
+        log_activity(
+            business, request.user, 'sale.voided',
+            target=sale,
+            description=reason or 'Voided',
+            metadata={'reference': sale.reference, 'total': f"{sale.total_revenue or 0:.2f}"},
+        )
+
+    # 3) re-ring → reload items into the cart and jump to it
+    if action == 'reedit':
+        cart = {}
+        for item in sale.sale_items.select_related('product'):
+            product = item.product
+            if not product:
+                continue
+            key = str(product.id)
+            if key in cart:
+                cart[key]['quantity'] += item.quantity
+            else:
+                cart[key] = {
+                    'id': product.id,
+                    'name': product.name,
+                    'quantity': item.quantity,
+                    'cost_price': str(item.cost_price),
+                    'selling_price': str(item.price_at_sale),  # what was actually charged
+                }
+        request.session['sale'] = cart
+        request.session.modified = True
+        messages.success(request, f"Sale {sale.reference} voided — edit the items and save again.")
+        return redirect('view-sale', business_slug=business.slug)
+
+    messages.success(request, f"Sale {sale.reference} has been voided.")
+    if request.user.role == 'owner':
+        return redirect('dashboard', business_slug=business.slug)
+    return redirect('product-list', business_slug=business.slug)
+
+
 # Map SalesReturn.reason → Waste.reason for damaged items
 RETURN_TO_WASTE_REASON = {
     'defective': 'defective',

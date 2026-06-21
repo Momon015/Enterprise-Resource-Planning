@@ -17,7 +17,8 @@ urlpatterns = [
     path('view/session/sale-summary/', views.view_session_summary, name='view-session-summary'),
     path('view/confirm-summary/', views.confirm_view_summary, name='sale-confirm-summary'),
     path('view/sale/<int:sale_id>/summary/', views.view_sale_summary, name='sale-summary'),
-    
+    path('view/sale/<int:sale_id>/void/', views.void_sale, name='void-sale'),
+
     # reciept
     path('view/sale/<int:sale_id>/receipt/', views.sale_receipt, name='sale-receipt'),
     

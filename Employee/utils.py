@@ -72,3 +72,17 @@ def pending_acks_for_staff(user, business):
         'has_any':         changes.exists() or payouts.exists() or closes.exists(),
     }
 
+def void_window_open(business):
+    """Whether voids are currently allowed for this business.
+    - Has staff/timecards: open only while a shift is still clocked in today
+      (closes once ALL staff clock out).
+    - Free/solo, or a no-shift day: open until midnight (same-day only)."""
+    today = timezone.localdate()
+    todays = ShiftEmployee.objects.filter(
+        shift__business=business,
+        shift__date=today,
+        clock_in__isnull=False,
+    )
+    if todays.exists():
+        return todays.filter(clock_out__isnull=True).exists()
+    return True

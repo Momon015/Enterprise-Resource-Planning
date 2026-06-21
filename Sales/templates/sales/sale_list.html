@@ -267,7 +267,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-end col-mobile-hidden">Qty</th>
                 <th class="sl-text-end col-mobile-hidden">Items</th>
                 <th class="sl-text-end mobile-center">Revenue</th>
-                <th class="sl-text-center">Payment</th>
+                <th class="sl-text-center">Status</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
@@ -293,23 +293,22 @@ document.addEventListener("DOMContentLoaded", function () {
                   <span class="sl-badge sl-badge-light">{{ sale.line_count }}</span>
                 </td>
 
-
                 <td class="sl-text-end sl-fw-semibold sl-text-success mobile-center">
-                  ₱{{ sale.total_revenue|floatformat:2|intcomma }}
+                  <span {% if sale.is_void %}style="text-decoration:line-through; opacity:.55;"{% endif %}>₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
                 </td>
 
                 <td class="sl-text-center">
-                    {% if sale.is_fully_paid %}
+                    {% if sale.is_void %}
+                        <span class="sl-badge sl-badge-light">Voided</span>
+                    {% elif sale.is_fully_paid %}
                         <span class="sl-badge sl-badge-success">Paid</span>
                     {% elif sale.amount_paid > 0 %}
-                        <span class="sl-badge sl-badge-warning">
-                            Partial ₱{{ sale.amount_paid|floatformat:2 }}
-                        </span>
+                        <span class="sl-badge sl-badge-warning">Partial ₱{{ sale.amount_paid|floatformat:2 }}</span>
                     {% else %}
                         <span class="sl-badge sl-badge-danger">Utang</span>
                     {% endif %}
-
                 </td>
+
 
                 <td class="sl-text-center">
                   <div class="btn-group">

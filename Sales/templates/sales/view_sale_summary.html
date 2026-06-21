@@ -221,6 +221,20 @@
               <i class="bi bi-printer"></i> Preview Receipt
           </a>
       {% endif %}
+      
+      {% if can_void %}
+      <a href="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
+         class="btn btn-secondary" style="color:var(--danger);">
+        <i class="bi bi-x-octagon"></i> Void
+      </a>
+      {% elif not sale.is_void %}
+      <span class="btn btn-secondary" style="opacity:.5; cursor:not-allowed;"
+            title="Voiding is only available during an open shift, same day. Use Sales Returns to correct this.">
+        <i class="bi bi-lock"></i> Void closed
+      </span>
+      {% endif %}
+
+
       {% if request.user.role == 'owner' %}
       <a href="{% url 'dashboard' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard

@@ -14,6 +14,7 @@ urlpatterns = [
     path('view/checkout-summary/', views.view_cart_summary, name='view-cart-summary'),
     path('view/confirm/purchase-summary/', views.confirm_purchase_summary, name='confirm-purchase-summary'),
     path('view/<int:purchase_id>/purchase-summary/', views.view_purchase_summary, name='view-purchase-summary'),
+    path('view/<int:purchase_id>/purchase/void/', views.void_purchase, name='void-purchase'),
 
     # edit material's quantity from session
     path('<int:id>/edit/quantity/', views.cart_edit_material, name='cart-edit-material'),

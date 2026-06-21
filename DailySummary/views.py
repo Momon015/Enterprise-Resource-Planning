@@ -65,8 +65,8 @@ def view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
     # Base querysets — unfiltered, used for year-wide aggregates (e.g. "best month")
-    all_sales     = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
-    all_purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business)
+    all_sales     = get_queryset_for_user(request.user, Sale.objects.active()).filter(business=business)
+    all_purchases = get_queryset_for_user(request.user, Purchase.objects.active()).filter(business=business)
     all_wastes    = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business)
     all_expenses  = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
     all_shifts    = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
@@ -342,7 +342,7 @@ def view_summary_detail(request, business_slug, date):
     business = get_business_for_user(request.user, business_slug)
     net_profit = 0
     
-    sales = Sale.objects.filter(business=business, date=date)
+    sales = Sale.objects.active().filter(business=business, date=date)
     sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product').order_by('product__is_service', 'id')
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
     total_revenue = sales.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0

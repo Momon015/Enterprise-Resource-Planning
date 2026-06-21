@@ -81,8 +81,8 @@ def _pct_delta(today_val, yesterday_val):
 def _compute_dashboard_metrics(business, today):
     """All the expensive aggregates. Cached separately so we don't recompute per request."""
     # Today's totals
-    sales_today      = Sale.objects.filter(business=business, date=today)
-    purchases_today  = Purchase.objects.filter(business=business, purchase_date=today)
+    sales_today      = Sale.objects.active().filter(business=business, date=today)
+    purchases_today  = Purchase.objects.active().filter(business=business, purchase_date=today)
     wastes_today     = Waste.objects.filter(business=business, date=today)
     expenses_today   = Expense.objects.filter(business=business, date=today)
     shifts_today     = Shift.objects.filter(business=business, date=today)
@@ -96,8 +96,8 @@ def _compute_dashboard_metrics(business, today):
 
     # Yesterday's totals (for KPI deltas)
     yesterday = today - timedelta(days=1)
-    y_sales     = Sale.objects.filter(business=business, date=yesterday)
-    y_purchases = Purchase.objects.filter(business=business, purchase_date=yesterday)
+    y_sales     = Sale.objects.active().filter(business=business, date=yesterday)
+    y_purchases = Purchase.objects.active().filter(business=business, purchase_date=yesterday)
     y_wastes    = Waste.objects.filter(business=business, date=yesterday)
     y_expenses  = Expense.objects.filter(business=business, date=yesterday)
     y_shifts    = Shift.objects.filter(business=business, date=yesterday)
@@ -128,15 +128,15 @@ def _compute_dashboard_metrics(business, today):
     def _bucket(qs, field, date_filter):
         return float(qs.filter(business=business, **date_filter).aggregate(t=Sum(field))['t'] or 0)
 
-    tw_revenue = _bucket(Sale.objects, 'total_revenue', {'date__gte': this_week_start})
-    tw_cost    = _bucket(Purchase.objects, 'total_cost', {'purchase_date__gte': this_week_start})
+    tw_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__gte': this_week_start})
+    tw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_week_start})
     tw_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_week_start})
     tw_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_week_start})
     tw_salary  = _bucket(Shift.objects, 'amount', {'date__gte': this_week_start})
     tw_net     = tw_revenue - tw_cost - tw_waste - tw_expense - tw_salary
 
-    lw_revenue = _bucket(Sale.objects, 'total_revenue', {'date__range': (last_week_start, last_week_end)})
-    lw_cost    = _bucket(Purchase.objects, 'total_cost', {'purchase_date__range': (last_week_start, last_week_end)})
+    lw_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_week_start, last_week_end)})
+    lw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_week_start, last_week_end)})
     lw_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_week_start, last_week_end)})
     lw_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_week_start, last_week_end)})
     lw_salary  = _bucket(Shift.objects, 'amount', {'date__range': (last_week_start, last_week_end)})
@@ -147,15 +147,15 @@ def _compute_dashboard_metrics(business, today):
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
-    tm_revenue = _bucket(Sale.objects, 'total_revenue', {'date__gte': this_month_start})
-    tm_cost    = _bucket(Purchase.objects, 'total_cost', {'purchase_date__gte': this_month_start})
+    tm_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__gte': this_month_start})
+    tm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_month_start})
     tm_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_month_start})
     tm_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_month_start})
     tm_salary  = _bucket(Shift.objects, 'amount', {'date__gte': this_month_start})
     tm_net     = tm_revenue - tm_cost - tm_waste - tm_expense - tm_salary
 
-    lm_revenue = _bucket(Sale.objects, 'total_revenue', {'date__range': (last_month_start, last_month_end)})
-    lm_cost    = _bucket(Purchase.objects, 'total_cost', {'purchase_date__range': (last_month_start, last_month_end)})
+    lm_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_month_start, last_month_end)})
+    lm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_month_start, last_month_end)})
     lm_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_month_start, last_month_end)})
     lm_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_month_start, last_month_end)})
     lm_salary  = _bucket(Shift.objects, 'amount', {'date__range': (last_month_start, last_month_end)})
@@ -164,7 +164,7 @@ def _compute_dashboard_metrics(business, today):
     # 30-day trend
     thirty_days_ago = today - timedelta(days=29)
     daily_sales = (
-        Sale.objects.filter(business=business, date__gte=thirty_days_ago)
+        Sale.objects.active().filter(business=business, date__gte=thirty_days_ago)
         .values('date').annotate(rev=Sum('total_revenue')).order_by('date')
     )
     trend_labels = [(thirty_days_ago + timedelta(days=i)).strftime('%b %d') for i in range(30)]
@@ -251,11 +251,11 @@ def dashboard(request, business_slug):
 
     # Live querysets — small lookups, used by template for "today's items" lists.
     # NOT cached because they're cheap and we want freshness for "what just happened today".
-    sales           = Sale.objects.filter(business=business, date=today)
+    sales           = Sale.objects.active().filter(business=business, date=today)
     sale_items      = SaleItem.objects.filter(sale__in=sales)
     shifts          = Shift.objects.filter(business=business, date=today)
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
-    purchases       = Purchase.objects.filter(business=business, purchase_date=today)
+    purchases       = Purchase.objects.active().filter(business=business, purchase_date=today)
     purchase_items  = PurchaseItem.objects.filter(purchase__in=purchases)
     wastes          = Waste.objects.filter(business=business, date=today)
     waste_items     = WasteItem.objects.filter(waste__in=wastes)
@@ -281,8 +281,8 @@ def dashboard(request, business_slug):
                 return v
         return None
 
-    raw_sales              =  list(Sale.objects.filter(business=business).order_by('-id')[:10])
-    raw_purchases          =  list(Purchase.objects.filter(business=business).order_by('-id')[:10])
+    raw_sales              =  list(Sale.objects.active().filter(business=business).order_by('-id')[:10])
+    raw_purchases          =  list(Purchase.objects.active().filter(business=business).order_by('-id')[:10])
     raw_wastes             =  list(Waste.objects.filter(business=business).order_by('-id')[:10])
     raw_expenses           =  list(Expense.objects.filter(business=business).prefetch_related('expense_items').order_by('-id')[:10])
     raw_sales_returns      =  list(SalesReturn.objects.filter(business=business).select_related('original_sale').order_by('-id')[:10])

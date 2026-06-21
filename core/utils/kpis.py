@@ -219,14 +219,14 @@ def compute_sale_kpis(business, as_of=None):
     last_month_start = last_month_end.replace(day=1)
 
     def _revenue(filters):
-        return Sale.objects.filter(business=business, **filters).aggregate(
+        return Sale.objects.active().filter(business=business, **filters).aggregate(
             t=Coalesce(Sum('total_revenue'),
                        Decimal('0'),
                        output_field=DecimalField(max_digits=14, decimal_places=2))
         )['t']
 
     def _count(filters):
-        return Sale.objects.filter(business=business, **filters).count()
+        return Sale.objects.active().filter(business=business, **filters).count()
 
     return {
         'count_today':         _count({'date': today}),

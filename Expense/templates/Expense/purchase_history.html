@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center col-mobile-hidden">Qty</th>
                 <th class="sl-text-center col-mobile-hidden">Lines</th>
                 <th class="sl-text-end mobile-center">Total Cost</th>
-                <th class="sl-text-center">Payment</th>
+                <th class="sl-text-center">Status</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
@@ -289,20 +289,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
                 <td class="sl-text-end sl-fw-semibold sl-text-danger mobile-center">
-                  ₱{{ purchase.total_cost|floatformat:2|intcomma }}
+                  <span {% if purchase.is_void %}style="text-decoration:line-through; opacity:.55;"{% endif %}>₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
                 </td>
 
+
                 <td class="sl-text-center">
-                    {% if purchase.is_fully_paid %}
+                    {% if purchase.is_void %}
+                        <span class="sl-badge sl-badge-light">Voided</span>
+                    {% elif purchase.is_fully_paid %}
                         <span class="sl-badge sl-badge-success">Paid</span>
                     {% elif purchase.amount_paid > 0 %}
-                        <span class="sl-badge sl-badge-warning">
-                            Partial ₱{{ purchase.amount_paid|floatformat:2 }}
-                        </span>
+                        <span class="sl-badge sl-badge-warning">Partial ₱{{ purchase.amount_paid|floatformat:2 }}</span>
                     {% else %}
                         <span class="sl-badge sl-badge-danger">Utang</span>
                     {% endif %}
                 </td>
+
 
 
                 <td class="sl-text-center">

@@ -1,0 +1,45 @@
+{% extends 'main.html' %}
+{% block content %}
+<div class="container-fluid py-3 py-lg-4" style="max-width: 640px;">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Void this sale?</h1>
+      <p class="page-subtitle">{{ sale.reference }} · ₱{{ sale.total_revenue|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}">
+    {% csrf_token %}
+
+    <div class="pos-card mb-3" style="padding: 1.25rem;">
+      <p style="font-size:.88rem; color:var(--text);">
+        Voiding cancels this sale completely — it stops counting toward revenue and the cash drawer,
+        and the items go back into stock. This is for mistakes made on this shift, not customer returns.
+      </p>
+
+      <label style="font-size:.8rem; font-weight:600; display:block; margin:.75rem 0 .35rem;">Reason</label>
+      <select name="void_reason" class="form-select" style="margin-bottom:.5rem;">
+        {% for value, label in reasons %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap;">
+      <a href="{% url 'sale-summary' business_slug=current_business.slug sale_id=sale.id %}"
+         class="btn btn-secondary">Cancel</a>
+
+      <div style="display:flex; gap:.5rem;">
+        <button type="submit" name="action" value="void" class="btn btn-secondary">
+          <i class="bi bi-x-circle"></i> Just void
+        </button>
+        <button type="submit" name="action" value="reedit" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
+          <i class="bi bi-pencil-square"></i> Void &amp; re-ring
+        </button>
+      </div>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

@@ -32,6 +32,15 @@ class SaleQuerySet(models.QuerySet):
     
 
 class Sale(TimeStampModel):
+    
+    VOID_REASON_CHOICES = [
+        ('Wrong price',            'Wrong price'),
+        ('Wrong quantity',         'Wrong quantity'),
+        ('Forgot to apply discount','Forgot to apply discount'),
+        ('Wrong item',             'Wrong item'),
+        ('Test / accidental entry','Test / accidental entry'),
+        ('Other',                  'Other'),
+    ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
     date = models.DateField(db_index=True)
     total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
@@ -40,7 +49,13 @@ class Sale(TimeStampModel):
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
-    
+
+    # ── Void (cancellation, not a return) ─────────────────
+    is_void     = models.BooleanField(default=False, db_index=True)
+    void_reason = models.CharField(max_length=255, blank=True)
+    voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='voided_sales', null=True, blank=True)
+    voided_at   = models.DateTimeField(null=True, blank=True)
+
     objects = SaleQuerySet.as_manager()
     
     def __str__(self):
@@ -68,6 +83,7 @@ class Sale(TimeStampModel):
         
         super().save(*args, **kwargs)
     
+    
     @property
     def amount_paid(self):
         return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
@@ -91,13 +107,18 @@ class Sale(TimeStampModel):
 
     @property
     def net_revenue(self):
-        """Revenue minus ALL refunds — for accounting / reports."""
+        """Revenue minus ALL refunds — for accounting / reports. Voided = 0."""
+        if self.is_void:
+            return Decimal('0')
         return (self.total_revenue or Decimal('0')) - self.amount_refunded
 
     @property
     def outstanding(self):
-        """What customer still owes — only credit refunds reduce this (cash already settled)."""
+        """What customer still owes — voided sale owes nothing."""
+        if self.is_void:
+            return Decimal('0')
         return (self.total_revenue or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
+
 
     @property
     def is_fully_paid(self):
@@ -220,7 +241,6 @@ class SalesReturn(TimeStampModel):
         
         # Corrections
         ('amount_correction',     'Amount correction'),
-        ('void',                  'Void / shouldn\'t have happened'),
         ('staff_error',           'Staff error'),
         ('other',                 'Other'),
     ]

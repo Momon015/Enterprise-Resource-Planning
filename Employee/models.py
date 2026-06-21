@@ -224,7 +224,7 @@ class ShiftEmployee(TimeStampModel):
             method=method,
             created_at__gte=self.clock_in,
             created_at__lte=self._shift_window_end(),
-        ).aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        ).exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal('0')
 
     def _refunds_total(self, method):
         from Sales.models import SalesReturn
@@ -247,7 +247,7 @@ class ShiftEmployee(TimeStampModel):
             method=method,
             created_at__gte=self.clock_in,
             created_at__lte=self._shift_window_end(),
-        ).aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        ).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal('0')
 
     def _payouts_total(self):
         """Owner cash withdrawals during this shift (CashPayout rows)."""

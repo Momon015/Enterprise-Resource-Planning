@@ -45,8 +45,11 @@
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
-      <h1 class="page-title">Purchase Record</h1>
+      <h1 class="page-title">Purchase Record
+        {% if purchase.is_void %}<span class="sl-badge sl-badge-danger" style="font-size:.55em; vertical-align:middle; margin-left:.5rem;">Voided</span>{% endif %}
+      </h1>
       <p class="page-subtitle">{{ purchase.purchase_date|date:"D, M d, Y" }} · {{ purchase.created_at|date:"h:i A" }}</p>
+
     </div>
   </div>
 
@@ -206,10 +209,10 @@
         </div>
         <div class="card-body" style="padding: 1rem;">
 
-          <!-- Featured Total Cost -->
-          <div class="period-net period-net--loss">
-            <div class="period-net-label">TOTAL COST</div>
-            <div class="period-net-value">₱{{ purchase.total_cost|floatformat:2|intcomma }}</div>
+                    <!-- Featured Total Cost -->
+          <div class="period-net period-net--loss" {% if purchase.is_void %}style="background:#fdf0ef; border-color:var(--danger);"{% endif %}>
+            <div class="period-net-label">{% if purchase.is_void %}VOIDED — NOT COUNTED{% else %}TOTAL COST{% endif %}</div>
+            <div class="period-net-value" {% if purchase.is_void %}style="color:var(--danger); text-decoration:line-through; opacity:.7;"{% endif %}>₱{{ purchase.total_cost|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-box-seam"></i>
               {{ purchase_items|length }} item{{ purchase_items|length|pluralize }} · {{ purchase.total_quantity_items|intcomma }} unit{{ purchase.total_quantity_items|pluralize }}
@@ -218,6 +221,24 @@
 
           <!-- Payment status -->
           <dl class="period-breakdown">
+            {% if purchase.is_void %}
+            <div>
+              <dt>Status</dt>
+              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-x-octagon"></i> Voided</span></dd>
+            </div>
+            {% if purchase.voided_by %}
+            <div>
+              <dt>Voided by</dt>
+              <dd>{{ purchase.voided_by.name|default:purchase.voided_by.username }}</dd>
+            </div>
+            {% endif %}
+            {% if purchase.void_reason %}
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ purchase.void_reason }}</dd>
+            </div>
+            {% endif %}
+            {% else %}
             <div>
               <dt>Total Paid</dt>
               <dd class="text-success">₱{{ purchase.amount_paid|floatformat:2|intcomma }}</dd>
@@ -237,7 +258,9 @@
               </dd>
             </div>
             {% endif %}
+            {% endif %}
           </dl>
+
 
           <!-- Created By -->
           {% if purchase.created_by and request.user.role == 'owner' %}
@@ -276,6 +299,7 @@
         </div>
       </div>
 
+      {% if not purchase.is_void %}
       <!-- Actions -->
       <div class="card">
         <div class="card-header">
@@ -285,7 +309,7 @@
         </div>
         <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-          {% if not purchase.is_fully_paid %}
+          {% if not purchase.is_void and not purchase.is_fully_paid %}
           <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}?next=purchase-detail"
             class="btn btn-primary btn-block">
             <i class="bi bi-cash-coin"></i> Add Payment
@@ -296,9 +320,10 @@
             class="btn btn-light btn-block">
             <i class="bi bi-arrow-return-left"></i> Return items
           </a>
-
+          
         </div>
       </div>
+      {% endif %}
 
     </div>
 

@@ -44,8 +44,11 @@
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
-      <h1 class="page-title">Sales Transaction</h1>
+      <h1 class="page-title">Sales Transaction
+        {% if sale.is_void %}<span class="sl-badge sl-badge-danger" style="font-size:.55em; vertical-align:middle; margin-left:.5rem;">Voided</span>{% endif %}
+      </h1>
         <p class="page-subtitle">{{ sale.date|date:"D, M d, Y" }} · {{ sale.created_at|date:"h:i A" }}</p>
+
     </div>
 
   </div>
@@ -208,9 +211,9 @@
           <div class="card-body" style="padding: 1rem;">
 
           <!-- Featured Total Revenue -->
-          <div class="period-net">
-            <div class="period-net-label">TOTAL REVENUE</div>
-            <div class="period-net-value">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
+          <div class="period-net" {% if sale.is_void %}style="background:#fdf0ef; border-color:var(--danger);"{% endif %}>
+            <div class="period-net-label">{% if sale.is_void %}VOIDED — NOT COUNTED{% else %}TOTAL REVENUE{% endif %}</div>
+            <div class="period-net-value" {% if sale.is_void %}style="color:var(--danger); text-decoration:line-through; opacity:.7;"{% endif %}>₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-basket"></i>
               {% regroup sale_items by product.is_service as kind_groups %}
@@ -220,6 +223,24 @@
 
           <!-- Payment status -->
           <dl class="period-breakdown">
+            {% if sale.is_void %}
+            <div>
+              <dt>Status</dt>
+              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-x-octagon"></i> Voided</span></dd>
+            </div>
+            {% if sale.voided_by %}
+            <div>
+              <dt>Voided by</dt>
+              <dd>{{ sale.voided_by.name|default:sale.voided_by.username }}</dd>
+            </div>
+            {% endif %}
+            {% if sale.void_reason %}
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ sale.void_reason }}</dd>
+            </div>
+            {% endif %}
+            {% else %}
             <div>
               <dt>Total Paid</dt>
               <dd class="text-success">₱{{ sale.amount_paid|floatformat:2|intcomma }}</dd>
@@ -239,7 +260,9 @@
               </dd>
             </div>
             {% endif %}
+            {% endif %}
           </dl>
+
 
           <!-- Created By -->
           {% if sale.created_by and request.user.role == 'owner' %}
@@ -287,7 +310,7 @@
           </div>
           <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-            {% if not sale.is_fully_paid %}
+            {% if not sale.is_void and not sale.is_fully_paid %}
             <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
               class="btn btn-primary btn-block">
               <i class="bi bi-cash-coin"></i> Add Payment
@@ -295,10 +318,12 @@
 
             {% endif %}
 
+            {% if not sale.is_void %}
             <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
               class="btn btn-light btn-block">
               <i class="bi bi-arrow-return-left"></i> Return items
             </a>
+            {% endif %}
 
             {% if current_business.plan.has_receipt_print %}
             <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"

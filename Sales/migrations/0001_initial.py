@@ -74,7 +74,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('date', models.DateField(db_index=True)),
-                ('reason', models.CharField(choices=[('customer_changed_mind', 'Customer changed mind'), ('defective', 'Defective'), ('wrong_item', 'Wrong item'), ('expired', 'Expired'), ('amount_correction', 'Amount correction'), ('void', "Void / shouldn't have happened"), ('staff_error', 'Staff error'), ('other', 'Other')], default='customer_changed_mind', max_length=30)),
+                ('reason', models.CharField(choices=[('customer_changed_mind', 'Customer changed mind'), ('defective', 'Defective'), ('wrong_item', 'Wrong item'), ('expired', 'Expired'), ('amount_correction', 'Amount correction'), ('staff_error', 'Staff error'), ('other', 'Other')], default='customer_changed_mind', max_length=30)),
                 ('reason_note', models.CharField(blank=True, max_length=255)),
                 ('refund_total', models.DecimalField(decimal_places=6, default=0, max_digits=10)),
                 ('refund_method', models.CharField(choices=[('cash', 'Cash refund'), ('credit', 'Store credit')], default='cash', max_length=20)),
