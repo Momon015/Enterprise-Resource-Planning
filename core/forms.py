@@ -8,7 +8,7 @@ from core.models import Category
 class CategoryForm(ModelForm):
     class Meta:
         model = Category
-        fields = ['name', 'category_type']
+        fields = ['name', 'category_type', 'target_margin']
         
         widgets = {
             'name': forms.TextInput(attrs={
@@ -16,17 +16,38 @@ class CategoryForm(ModelForm):
                 'autocomplete': 'off',
                 'class': 'form-control',
             }),
+            
+            'target_margin': forms.NumberInput(attrs={
+                'min': '10', 'max': '90', 'inputmode': 'numeric', 'placeholder': 'e.g. 30',
+            }),
         }
         
         
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         
+
+        
+        
         self.fields['category_type'].empty_label = None
-        # self.fields['category_type'].choices = [('item', 'Item'), ('expense', 'Expense'), ('product', 'Product')]
+        
+        # Material categories are a cafe/restaurant
+        if business and business.business_type not in ('cafe', 'restaurant'):
+            self.fields['category_type'].choices = [
+                c for c in self.fields['category_type'].choices if c[0] != 'material'
+            ]
+        
+        if getattr(user, 'role', None) != 'owner':
+            self.fields.pop('target_margin', None)
+        else:
+            self.fields['target_margin'].required = False
+            self.fields['target_margin'].label = 'Target margin %'
 
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
+            
             
     def clean_name(self):
         name = self.cleaned_data['name'].strip()

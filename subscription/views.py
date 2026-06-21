@@ -82,7 +82,7 @@ def contact(request, business_slug):
 def _resolve_model(model_key):
     from Product.models import Product, ProductPreset
     from Supplier.models import Material, MaterialPreset, Supplier
-    from Expense.models import Employee
+    from Employee.models import Employee
 
     return {
         'product':         Product,
@@ -107,7 +107,7 @@ def subscription_settings(request, business_slug):
 
     from Product.models import Product, ProductPreset
     from Supplier.models import Material, MaterialPreset, Supplier
-    from Expense.models import Employee
+    from Employee.models import Employee
     from subscription.models import (
         BusinessPlan, PLAN_CHOICES, BUNDLE_COUNT,
         FOUNDER_BASE, REGULAR_BASE, PLAN_LIMITS,
@@ -135,10 +135,10 @@ def subscription_settings(request, business_slug):
         usage_rows = [
             {
                 'label': 'Products', 'key': 'product',
-                'used': Product.objects.filter(business=biz).count(),
-                'archived': Product.all_objects.filter(business=biz, is_active=False).count(),
+                'used': Product.goods.filter(business=biz).count(),
+                'archived': Product.all_objects.filter(business=biz, is_active=False, is_service=False).count(),
                 'limit': limits['max_products'],
-                'locked': Product.objects.filter(business=biz, is_locked=True).count(),
+                'locked': Product.goods.filter(business=biz, is_locked=True).count(),
             },
             {
                 'label': 'Materials', 'key': 'material',

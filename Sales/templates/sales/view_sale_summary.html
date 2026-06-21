@@ -62,18 +62,24 @@
         </thead>
         <tbody>
           {% for item in page_obj %}
+            {% if item.is_service %}{% ifchanged item.is_service %}
+            <tr>
+              <td colspan="5" class="ps-4"
+                  style="padding-top:.7rem; font-weight:600; font-size:.78rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);">
+                Services
+              </td>
+            </tr>
+            {% endifchanged %}{% endif %}
           <tr>
             <td class="ps-4">
               <div class="product-name">{{ item.name }}</div>
               {% if item.supplier_name %}
-              <div class="product-id">{{ item.supplier_name|default:"No supplier"}}</div>
+              <div class="product-sub">{{ item.supplier_name }}</div>
               {% endif %}
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
             <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
-            {% comment %} <td><span class="mono">{{ item.unsold_quantity }}</span></td> {% endcomment %}
             <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
-            {% comment %} <td><span class="mono">₱{{ item.total_cost_price_per_line|floatformat:2 }}</span></td> {% endcomment %}
             <td class="text-end pe-4"><span class="mono" style="font-weight: 700; color: var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span></td>
           </tr>
           {% endfor %}
@@ -130,17 +136,39 @@
         <span class="total-value">₱{{ total_revenue|floatformat:2 }}</span>
       </div>
 
-      {% if sale.outstanding %}
+      {% if sale.amount_paid and not sale.is_fully_paid %}
       <div class="total-row">
-        <span class="total-label"><i class="bi bi-calculator"></i> Amount Paid</span>
-        <span class="total-value">₱{{ sale.amount_paid|floatformat:2 }}</span>
-      </div>
-      
-      <div class="total-row">
-        <span class="total-label"><i class="bi bi-calculator"></i> Outstanding Balance</span>
-        <span class="total-value">₱{{ sale.outstanding|floatformat:2 }}</span>
+        <span class="total-label"><i class="bi bi-wallet2"></i> Amount Paid</span>
+        <span class="total-value" style="color:var(--accent);">₱{{ sale.amount_paid|floatformat:2 }}</span>
       </div>
       {% endif %}
+
+
+      {% if sale.outstanding > 0 %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-exclamation-circle"></i> Outstanding</span>
+        <span class="total-value" style="color:var(--danger);">₱{{ sale.outstanding|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+
+      <hr class="divider">
+
+      <!-- Payment outcome -->
+      <div class="total-row" style="margin-bottom:0;">
+        <span class="total-label" style="font-weight:600; color:var(--text);">
+          <i class="bi bi-credit-card"></i> Payment
+        </span>
+        <span>
+          {% if sale.is_fully_paid %}
+            <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">Paid in full</span>
+          {% elif sale.amount_paid %}
+            <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Partial</span>
+          {% else %}
+            <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Utang</span>
+          {% endif %}
+          {% with fp=sale.payments.first %}{% if fp %}<span style="color:var(--muted); font-size:.82rem; margin-left:.4rem;">via {{ fp.get_method_display }}</span>{% endif %}{% endwith %}
+        </span>
+      </div>
 
       {% comment %} SUMMARY METRICS — these belong in summary page
       {% if total_salary_cost > 0 %}

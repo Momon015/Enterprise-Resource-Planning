@@ -2,115 +2,88 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  
+
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">SETTINGS &gt; EDIT</div>
+      <div class="page-breadcrumb">
+        <a href="{% url 'settings' business_slug=current_business.slug %}" class="breadcrumb-link">SETTINGS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="breadcrumb-link">CATEGORY</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>EDIT</span>
+      </div>
       <h1 class="page-title">Edit Category</h1>
       <p class="page-subtitle">Update this category's name and type.</p>
     </div>
-    <div class="page-header-right">
-      <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to categories
-      </a>
+  </div>
+
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 760px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon"><i class="bi bi-pencil-square"></i></div>
+        <div>
+          <p class="card-header-title">Edit Category</p>
+          <p class="card-header-sub">Update this category's name and type.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <form method="POST" autocomplete="off" novalidate>
+        {% csrf_token %}
+        <div class="mf-fields-grid">
+
+          {# Name #}
+          <div class="mf-field-group">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}
+              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Category Type #}
+          <div class="mf-field-group">
+            <label for="{{ form.category_type.id_for_label }}" class="mf-form-label">
+              {{ form.category_type.label }}
+              {% if form.category_type.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.category_type }}
+            {% if form.category_type.errors %}<div class="mf-error">{{ form.category_type.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Target Margin #}
+          {% if request.user.role == 'owner' %}
+            <div class="mf-field-group" id="marginField">
+              <label for="{{ form.target_margin.id_for_label }}" class="mf-form-label">Target margin %</label>
+              {{ form.target_margin }}
+              <div class="mf-help">Default profit margin for products in this category. Blank = 30%. Products can override it.</div>
+              {% if form.target_margin.errors %}<div class="mf-error">{{ form.target_margin.errors|striptags }}</div>{% endif %}
+            </div>
+            <script>
+              (function(){
+                const typeSel = document.getElementById('{{ form.category_type.id_for_label }}');
+                const marginField = document.getElementById('marginField');
+                function sync(){ marginField.style.display = typeSel.value === 'product' ? '' : 'none'; }
+                if (typeSel && marginField){ sync(); typeSel.addEventListener('change', sync); }
+              })();
+            </script>
+          {% endif %}
+
+        </div>
+
+        <div class="mf-form-actions">
+          <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
-
-    <!-- LEFT: FORM -->
-    <div class="card">
-      <div class="card-header">
-        <div class="sd-card-header-left">
-          <div class="sd-header-icon">
-            <i class="bi bi-pencil-square"></i>
-          </div>
-          <div>
-            <p class="card-header-title">Edit Category</p>
-            <p class="card-header-sub">Update this category's name and type.</p>
-          </div>
-        </div>
-        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to categories
-        </a>
-      </div>
-
-      <div class="card-body">
-        <form method="POST" autocomplete="off" novalidate>
-          {% csrf_token %}
-          <div class="mf-fields-grid">
-
-            {# Name #}
-            <div class="mf-field-group">
-              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-                {{ form.name.label }}
-                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.name }}
-              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Category Type #}
-            <div class="mf-field-group">
-              <label for="{{ form.category_type.id_for_label }}" class="mf-form-label">
-                {{ form.category_type.label }}
-                {% if form.category_type.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.category_type }}
-              {% if form.category_type.errors %}<div class="mf-error">{{ form.category_type.errors|striptags }}</div>{% endif %}
-            </div>
-
-          </div>
-
-          <div class="mf-form-actions">
-            <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- RIGHT: SNAPSHOT -->
-    <div class="card">
-      <div class="card-header dark">
-        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-          <i class="bi bi-speedometer2"></i> Category Snapshot
-        </span>
-      </div>
-      <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-        <div class="sd-summary-block highlight">
-          <div class="sd-summary-block-label">Current Values</div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Name</span>
-            <span class="sd-info-value">{{ category.name|capfirst }}</span>
-          </div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Type</span>
-            {% if category.category_type == 'material' %}
-              <span class="status-badge status-success">Material</span>
-            {% elif category.category_type == 'product' %}
-              <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
-            {% elif category.category_type == 'expense' %}
-              <span class="status-badge status-warning">Expense</span>
-            {% endif %}
-          </div>
-        </div>
-
-        {% comment %} <div class="sd-summary-block">
-          <div class="sd-summary-block-label">Danger Zone</div>
-          <a href="{% url 'category-delete' category.id %}" class="btn btn-sm btn-block"
-             style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); width:100%; text-align:center;">
-            <i class="bi bi-trash sl-me-1"></i> Delete Category
-          </a>
-        </div> {% endcomment %}
-
-      </div>
-    </div>
-
-  </div>
 </div>
 
 {% endblock %}

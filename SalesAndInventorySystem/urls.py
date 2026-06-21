@@ -22,6 +22,20 @@ from user import views as user_views
 from django.conf import settings
 from django.conf.urls.static import static
 
+from django.contrib import admin
+from django.contrib.admin.forms import AdminAuthenticationForm
+
+
+class NoAutocompleteAdminLoginForm(AdminAuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs['autocomplete'] = 'off'
+        self.fields['password'].widget.attrs['autocomplete'] = 'new-password'
+
+
+admin.site.login_form = NoAutocompleteAdminLoginForm
+
+
 urlpatterns = [
     # landing page
     path('', user_views.landing, name='landing'),
@@ -39,6 +53,7 @@ urlpatterns = [
         path('supplier/', include('Supplier.urls')),
         path('subscription/', include('subscription.urls')),
         path('activity/', include('activity.urls')),
+        path('employee/', include('Employee.urls')),
         path('', include('chatbot.urls')),
     ])),
     
@@ -46,3 +61,13 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    
+from django.contrib import admin
+from django.contrib.admin.forms import AdminAuthenticationForm
+
+class NoAutocompleteAdminLoginForm(AdminAuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs['autocomplete'] = 'off'
+        self.fields['password'].widget.attrs['autocomplete'] = 'off'

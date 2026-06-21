@@ -33,58 +33,51 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
   <div class="mobile-back-row">
-  <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
+    <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">Transactions</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href={% url 'expense-list' business_slug=current_business.slug %} class="breadcrumb-link">
+          <span>Expenses</span>
+        </a>
         <i class="bi bi-chevron-right"></i>
         <span>DETAIL</span>
       </div>
       <h1 class="page-title">Daily Expenses</h1>
       <p class="page-subtitle">
-        {% if shift.first.date %}{{ shift.first.date|date:"F d, Y" }} — {{ shift.first.date|date:"l" }}
-        {% else %}{{ expense.first.date|date:"F d, Y" }} — {{ expense.first.date|date:"l" }}{% endif %}
+        {% if shift.first.date %}{{ shift.first.date|date:"D, M d, Y" }}
+        {% else %}{{ expense.first.date|date:"D, M d, Y" }}{% endif %}
       </p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'expense-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to expenses
-      </a>
     </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: EXPENSE & SALARY BREAKDOWN -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
-      
+
       <!-- EXPENSE LIST -->
       {% if expense_items %}
       <div class="card">
         <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon ic-red">
-              <i class="bi bi-wallet2"></i>
-            </div>
-            <div>
-              <div class="card-header-title">Expense Records</div>
-              <div class="card-header-sub">{{ expense_count }} expense{{ expense_count|pluralize }} logged</div>
-            </div>
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-wallet2"></i> Expense Records
+            </span>
+            <span class="sl-badge sl-badge-light">{{ expense_count }} expense{{ expense_count|pluralize }}</span>
           </div>
-          {% comment %} <div style="text-align:right;">
-            <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.15rem;">Total</div>
-            <div style="font-size:1.1rem; font-weight:700; color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma }}</div>
-          </div> {% endcomment %}
+          <span class="card-header-sub">Logged for this day</span>
         </div>
 
-        <div class="card-body" style="padding:0;">
+        <div class="table-responsive">
           <table class="data-table">
             <thead>
               <tr>
@@ -100,12 +93,10 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ item.name|capfirst }}</div>
                 </td>
                 <td>
-                  <div class="cell-sub">{{ item.category }}</div>
+                  <span class="cell-sub">{{ item.category|default:"—" }}</span>
                 </td>
-                <td class="sl-text-end">
-                  <span class="mono" style="color:var(--danger); font-weight:600;">
-                    ₱{{ item.amount|floatformat:2|intcomma }}
-                  </span>
+                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                  ₱{{ item.amount|floatformat:2|intcomma }}
                 </td>
               </tr>
               {% endfor %}
@@ -117,24 +108,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- SALARY LIST -->
       {% if employee_items %}
-      <div class="card">
+      <div class="card" style="margin-top: 1rem;">
         <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon ic-blue">
-              <i class="bi bi-people"></i>
-            </div>
-            <div>
-              <div class="card-header-title">Staff on Shift</div>
-              <div class="card-header-sub">{{ employee_count }} employee{{ employee_count|pluralize }}</div>
-            </div>
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-people"></i> Staff on Shift
+            </span>
+            <span class="sl-badge sl-badge-light">{{ employee_count }} employee{{ employee_count|pluralize }}</span>
           </div>
-          {% comment %} <div style="text-align:right;">
-            <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.15rem;">Total</div>
-            <div style="font-size:1.1rem; font-weight:700; color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma }}</div>
-          </div> {% endcomment %}
+          <span class="card-header-sub">Daily salary cost</span>
         </div>
 
-        <div class="card-body" style="padding:0;">
+        <div class="table-responsive">
           <table class="data-table">
             <thead>
               <tr>
@@ -148,10 +133,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td>
                   <div class="cell-primary">{{ item.name }}</div>
                 </td>
-                <td class="sl-text-end">
-                  <span class="mono" style="color:var(--danger); font-weight:600;">
-                    ₱{{ item.daily_rate|floatformat:2|intcomma }}
-                  </span>
+                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                  ₱{{ item.daily_rate|floatformat:2|intcomma }}
                 </td>
               </tr>
               {% endfor %}
@@ -166,11 +149,9 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="card">
         <div class="card-body">
           <div class="empty-state">
-            <div class="empty-icon">
-              <i class="bi bi-inbox"></i>
-            </div>
-            <div class="empty-title">No costs recorded</div>
-            <div class="empty-sub">No expenses or staff shifts logged for this date.</div>
+            <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+            <h3 class="empty-title">No costs recorded</h3>
+            <p class="empty-text">No expenses or staff shifts logged for this date.</p>
           </div>
         </div>
       </div>
@@ -178,69 +159,73 @@ document.addEventListener("DOMContentLoaded", function () {
 
     </div>
 
-    <!-- RIGHT: SUMMARY -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      <!-- Summary -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-calculator"></i> Cost Summary
           </span>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="padding: 1rem;">
 
-          <div class="sd-summary-block highlight" style="{% if total_cost > 0 %}background:var(--danger-light); border-color:var(--danger-border);{% endif %}">
-            <div class="sd-summary-block-label">Total Daily Cost</div>
-            <div class="sd-total-amount" style="color:var(--danger);">
-              ₱{{ total_cost|floatformat:2|intcomma }}
-            </div>
-            <div class="sd-total-sub">All expenses + labor cost</div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Breakdown</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expense Cost</span>
-              {% if total_expense_cost %}
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_expense_cost|floatformat:2|intcomma }}</span>
-              {% else %}
-              <span class="sd-info-value" style="color:var(--muted);">₱0.00</span>
-              {% endif %}
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Salary Cost</span>
-              {% if total_salary_cost %}
-              <span class="sd-info-value" style="color:var(--danger);">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
-              {% else %}
-              <span class="sd-info-value" style="color:var(--muted);">₱0.00</span>
-              {% endif %}
+          <!-- Featured Total -->
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">TOTAL DAILY COST</div>
+            <div class="period-net-value">₱{{ total_cost|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-receipt"></i>
+              Expenses + salary cost
             </div>
           </div>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Record Count</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Expenses</span>
-              <span class="sd-info-value">{{ expense_count }}</span>
+          <!-- Breakdown -->
+          <dl class="period-breakdown">
+            <div>
+              <dt>Expense cost</dt>
+              <dd class="text-danger">₱{{ total_expense_cost|default:0|floatformat:2|intcomma }}</dd>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Staff on Shift</span>
-              <span class="sd-info-value">{{ employee_count }}</span>
+            <div>
+              <dt>Salary cost</dt>
+              <dd class="text-danger">₱{{ total_salary_cost|default:0|floatformat:2|intcomma }}</dd>
             </div>
-          </div>
+          </dl>
 
+          <!-- Note -->
           <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill"></i>
+            <div class="sd-note-icon">
+              <i class="bi bi-info-circle-fill"></i>
+            </div>
             <div>
               <div class="sd-note-title">About this view</div>
-               <div class="sd-note-text">This page shows all expenses and salary costs logged on
-                  {% if shift.first.date %}{{ shift.first.date|date:"F d, Y" }}
-                  {% else %}{{ expense.first.date|date:"F d, Y" }}{% endif %}
-               </div>
+              <div class="sd-note-text">All expenses and salary costs logged on
+                {% if shift.first.date %}{{ shift.first.date|date:"F d, Y" }}{% else %}{{ expense.first.date|date:"F d, Y" }}{% endif %}.
+              </div>
             </div>
           </div>
 
         </div>
       </div>
+
+      {% comment %} <!-- Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i> Actions
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+            <i class="bi bi-plus-circle"></i> Log expense
+          </a>
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-light btn-block">
+            <i class="bi bi-arrow-left"></i> Back to Expenses
+          </a>
+        </div>
+      </div> {% endcomment %}
+
     </div>
 
   </div>

@@ -1,57 +1,213 @@
-{% extends 'main.html' %} 
+{% extends 'main.html' %}
+{% load humanize %}
 
 {% block content %}
-<div class="activity-page">
-    <h1>All Activity</h1>
 
-    {# ── CATEGORY FILTER TABS ─────────────────────────── #}
-    <div class="activity-filters">
-        <a href="?" class="{% if not active_category %}active{% endif %}">All</a>
-        <a href="?category=product"  class="{% if active_category == 'product' %}active{% endif %}">Products</a>
-        <a href="?category=material" class="{% if active_category == 'material' %}active{% endif %}">Materials</a>
-        <a href="?category=supplier" class="{% if active_category == 'supplier' %}active{% endif %}">Suppliers</a>
-        <a href="?category=sale"     class="{% if active_category == 'sale' %}active{% endif %}">Sales</a>
-        <a href="?category=purchase" class="{% if active_category == 'purchase' %}active{% endif %}">Purchases</a>
-        <a href="?category=stock"    class="{% if active_category == 'stock' %}active{% endif %}">Stock</a>
-        <a href="?category=waste"    class="{% if active_category == 'waste' %}active{% endif %}">Waste</a>
+<div class="page-wrapper">
+
+  <div class="mobile-back-row">
+    <a href="javascript:history.back()" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header col-mobile-hidden">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACTIVITY</div>
+      <h1 class="page-title">All Activity</h1>
+      <p class="page-subtitle">Audit log of changes across your business.</p>
+    </div>
+  </div>
+
+  <!-- CATEGORY FILTER -->
+  <div class="card" style="margin-bottom: 1rem;">
+    <div class="card-body" style="padding: 0.75rem 1rem;">
+      <div class="activity-filter-tabs">
+      {% with imp=active_important unr=active_unread %}
+
+      <a href="?{% if imp %}important=1{% endif %}{% if unr %}{% if imp %}&{% endif %}unread=1{% endif %}"
+         class="activity-tab {% if not active_category %}is-active{% endif %}">
+        <i class="bi bi-grid"></i> All
+      </a>
+      <a href="?category=product{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'product' %}is-active{% endif %}">
+        <i class="bi bi-box-seam"></i> Products
+      </a>
+      <a href="?category=material{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'material' %}is-active{% endif %}">
+        <i class="bi bi-boxes"></i> Materials
+      </a>
+      <a href="?category=supplier{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'supplier' %}is-active{% endif %}">
+        <i class="bi bi-truck"></i> Suppliers
+      </a>
+      <a href="?category=sale{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'sale' %}is-active{% endif %}">
+        <i class="bi bi-cash-coin"></i> Sales
+      </a>
+      <a href="?category=purchase{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'purchase' %}is-active{% endif %}">
+        <i class="bi bi-cart3"></i> Purchases
+      </a>
+      <a href="?category=stock{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'stock' %}is-active{% endif %}">
+        <i class="bi bi-stack"></i> Stock
+      </a>
+      <a href="?category=waste{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+         class="activity-tab {% if active_category == 'waste' %}is-active{% endif %}">
+        <i class="bi bi-trash3"></i> Waste
+      </a>
+
+      {% endwith %}
+     </div>
+   </div>
+</div>
+
+
+  <!-- EVENTS CARD -->
+  <div class="card">
+    <div class="card-header">
+        <div class="card-header-left-group">
+            <span class="card-header-title">
+            <i class="bi bi-clock-history"></i> Activity Log
+            </span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} event{{ page_obj.paginator.count|pluralize }}</span>
+        </div>
+
+        <div class="activity-header-right">
+            <span class="card-header-sub" style="margin: 0;">
+              {% if active_category %}{{ active_category|capfirst }}{% else %}All categories{% endif %}
+              {% if active_important %} · Important{% endif %}
+              {% if active_unread %} · Unread{% endif %}
+              · Most recent first
+            </span>
+            <details class="activity-filter-pop">
+            <summary class="activity-filter-trigger" title="Filter">
+                <i class="bi bi-sliders"></i>
+            </summary>
+            <div class="activity-filter-menu">
+            <a href="?{% if active_category %}category={{ active_category }}{% endif %}"
+                class="{% if not active_important and not active_unread %}is-active{% endif %}">
+                All events
+            </a>
+            <a href="?important=1{% if active_category %}&category={{ active_category }}{% endif %}"
+                class="{% if active_important %}is-active{% endif %}">
+                Important only
+            </a>
+            <a href="?unread=1{% if active_category %}&category={{ active_category }}{% endif %}"
+                class="{% if active_unread %}is-active{% endif %}">
+                Unread only
+            </a>
+            </div>
+            </details>
+        </div>
     </div>
 
-    {# ── EVENTS LIST ──────────────────────────────────── #}
-    {% if page_obj %}
-        <ul class="activity-full-list">
-            {% for event in page_obj %}
-                <li class="activity-row activity--{{ event.tone }} {% if not event.is_read and event.is_important %}unread{% endif %}">
-                    <i class="fa {{ event.icon_class }}"></i>
 
-                    <div class="activity-body">
-                        <div class="activity-title">
-                            {{ event.get_verb_display }}
-                            {% if event.is_important %}<span class="important-flag">!</span>{% endif %}
-                        </div>
-                        <div class="activity-desc">{{ event.description }}</div>
-                        <small>
-                            {{ event.created_at|date:"M j, Y, g:i A" }}
-                            {% if request.user.role == 'owner' %}
-                                {% if event.actor %} - {{ event.actor.username|title }}{% endif %}
-                            {% endif %}
-                        </small>
+    <div class="card-body" style="padding: 0;">
+      {% if page_obj and page_obj.object_list %}
+
+        <ul class="activity-full-list">
+        {% regroup page_obj by created_at.date as day_groups %}
+        {% for day in day_groups %}
+            <li class="activity-day-header">
+            <span>
+                {% if day.grouper == today %}Today
+                {% elif day.grouper == yesterday %}Yesterday
+                {% else %}{{ day.grouper|date:"l, M d, Y" }}
+                {% endif %}
+            </span>
+            <span class="activity-day-count">{{ day.list|length }} event{{ day.list|length|pluralize }}</span>
+            </li>
+
+            {% for event in day.list %}
+              {% with url=event.computed_url|default:'' %}
+                <li class="activity-full-row activity-full-row--{{ event.tone|default:'info' }} {% if event.is_important and not event.is_read %}is-unread{% endif %}">
+                  {% if url %}
+                  <a href="{{ event.computed_url }}" class="activity-full-link">
+                  {% endif %}
+                    <div class="activity-full-body">
+                      <div class="activity-full-title">
+                        {{ event.get_verb_display }}
+                        {% if event.is_important %}<span class="activity-important-flag">!</span>{% endif %}
                     </div>
+                    <div class="activity-full-desc">{{ event.description }}</div>
+                      <div class="activity-full-meta">
+                        <i class="bi bi-clock"></i> {{ event.created_at|date:"g:i A" }}
+                        {% if request.user.role == 'owner' and event.actor %}
+                        · <i class="bi bi-person"></i> {{ event.actor.username|capfirst }}
+                        {% endif %}
+                      </div>
+                    </div>
+                {% if url %}
+                </a>
+                {% endif %}
                 </li>
-            {% endfor %}
+                {% endwith %}
+              {% endfor %}
+
+        {% endfor %}
         </ul>
 
-        {# ── PAGINATION ───────────────────────────────── #}
-        <div class="pagination">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">Prev</a>
-            {% endif %}
-            <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">Next</a>
-            {% endif %}
-        </div>
-    {% else %}
-        <p class="empty-state">No activity yet.</p>
-    {% endif %}
+
+      <!-- PAGINATION -->
+      {% if page_obj.paginator.num_pages > 1 %}
+      <div class="pagination-wrapper">
+        <nav>
+          <ul class="pagination">
+            {% with cat=active_category imp=active_important unr=active_unread %}
+
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+              {% if page_obj.has_previous %}
+              <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if cat %}&category={{ cat }}{% endif %}{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+              {% else %}
+              <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+              {% endif %}
+            </li>
+
+            {% for p in page_obj.paginator.page_range %}
+            <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+              <a class="page-link" href="?page={{ p }}{% if cat %}&category={{ cat }}{% endif %}{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}">{{ p }}</a>
+            </li>
+            {% endfor %}
+
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+              {% if page_obj.has_next %}
+              <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if cat %}&category={{ cat }}{% endif %}{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+              {% else %}
+              <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+              {% endif %}
+            </li>
+
+            {% endwith %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+
+
+      {% else %}
+      <div class="empty-state" style="padding: 3rem 1rem;">
+        <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+        <h3 class="empty-title">No activity yet</h3>
+        <p class="empty-text">
+          {% if active_category %}
+            Nothing recorded for {{ active_category|capfirst }} in this period.
+          {% else %}
+            Activity events will appear here as you use the system.
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
+
 {% endblock %}

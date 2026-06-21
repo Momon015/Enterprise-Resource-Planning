@@ -2,7 +2,6 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-
 <div id='messages' hx-swap-oob='true' class="toast-container" aria-live="polite" aria-atomic="true">
   {% if messages %}
    {% for message in messages %}
@@ -18,7 +17,6 @@
   {% endif %}
 </div>
 
-
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
@@ -31,9 +29,12 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCTS</a>
+        <span>CATALOG</span>
         <i class="bi bi-chevron-right"></i>
-        <span>PRESETS</span>
+        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCT</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>PRESET</span>
+
       </div>
       <h1 class="page-title">Preset Bundles</h1>
       <p class="page-subtitle">Saved product groups you can quickly add to a sale.</p>
@@ -44,16 +45,13 @@ document.addEventListener("DOMContentLoaded", function () {
         <strong>{{ page_obj.paginator.count }}</strong> preset{{ page_obj.paginator.count|pluralize }}
       </div> {% endcomment %}
       <a id='preset-badge' href="{% url 'view-sale' business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-         class="btn btn-primary btn-sm">
-        <i class="bi bi-file-text"></i> Sales Record
+         class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-cart3"></i>
         {% if cart_count %}
           <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
             {{ cart_count }}
           </span>
         {% endif %}
-      </a>
-      <a href="{% url 'product-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to products
       </a>
     </div>
   </div>
@@ -110,9 +108,9 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
 
-        <!-- TABLE -->
+        <!-- TABLE / EMPTY STATE -->
+        {% if page_obj and page_obj.object_list %}
         <div class="table-responsive">
-          {% if page_obj and page_obj.object_list %}
           <table class="data-table">
             <thead>
               <tr>
@@ -187,18 +185,20 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endfor %}
             </tbody>
           </table>
-              {% else %}
-                <tr>
-                  <td colspan="4">
-                    <div class="empty-state">
-                      <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
-                      <h3 class="empty-title">No presets found</h3>
-                      <p class="empty-text">Create one from your current sale screen.</p>
-                    </div>
-                  </td>
-                </tr>
-            {% endif %}
         </div>
+        {% else %}
+        <div class="empty-state" style="padding: 3rem 1.5rem;">
+          <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+          <h3 class="empty-title">No presets found</h3>
+          <p class="empty-text">
+            {% if request.GET.search %}
+              No results for "{{ request.GET.search }}". Try a different name.
+            {% else %}
+              Create one from your sales screen after adding products.
+            {% endif %}
+          </p>
+        </div>
+        {% endif %}
 
         <!-- PAGINATION -->
         {% if page_obj.paginator.num_pages > 1 %}
@@ -240,20 +240,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
     <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      <!-- Preset Overview (white header) -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-bookmark-fill"></i> Preset Overview
-          </span>
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-bookmark-fill"></i> Preset Overview
+            </span>
+          </div>
         </div>
 
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Total Presets</div>
-            <div class="sd-total-amount">{{ page_obj.paginator.count }}</div>
+          <!-- Featured total -->
+          <div class="period-net">
+            <div class="period-net-label">TOTAL PRESETS</div>
+            <div class="period-net-value">{{ page_obj.paginator.count }}</div>
           </div>
 
+          <!-- How presets work -->
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">How presets work</div>
             <div class="sd-info-row">
@@ -270,6 +276,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
 
+          <!-- Tip -->
           <div class="sd-note-box">
             <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
             <div>
@@ -280,6 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         </div>
       </div>
+
     </div>
 
   </div>

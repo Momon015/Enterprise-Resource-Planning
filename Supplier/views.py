@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseNotAllowed
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import authenticate, login, logout
@@ -22,8 +22,8 @@ from Supplier.forms import MaterialForm, MaterialFilterForm, SupplierForm, Suppl
 
 from django.core.paginator import Paginator
 
-from django.db.models import Q, F, Sum, Max, Avg, Count
-
+from django.db.models import Q, F, Sum, Max, Avg, Count, DecimalField, Value
+from django.db.models.functions import Coalesce
 from decimal import Decimal
 
 from user.models import User
@@ -71,7 +71,7 @@ def material_list(request, business_slug):
             
     form = MaterialFilterForm(request.GET or None, business=business)
     
-    materials = get_queryset_for_user(request.user, Material.objects.all()).filter(business=business).order_by('name')
+    materials = get_queryset_for_user(request.user, Material.objects.all()).filter(business=business).order_by('is_locked', 'name')
 
     
     """
@@ -100,14 +100,15 @@ def material_list(request, business_slug):
                 Q(name__icontains=search) |
                     Q(price__icontains=search) |
                     Q(quantity__icontains=search) |
-                    Q(category__name__icontains=search) |
                     Q(unit__icontains=matched_unit or search)
+                    # Q(category__name__icontains=search) |
+                    
             )   
         if category:
             materials = materials.filter(category=category)
         
     # pagination
-    paginator = Paginator(materials, 7)
+    paginator = Paginator(materials, 6)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
            
@@ -122,6 +123,8 @@ def material_list(request, business_slug):
     )
     recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
+    archived_count = Material.all_objects.filter(business=business, status='inactive').count()
+    
     context = {
         'categories': categories, 
         'page_obj': page_obj, 
@@ -131,6 +134,7 @@ def material_list(request, business_slug):
         'top_categories': top_categories,
         'section': 'material',
         'recent_events': recent_events,
+        'archived_count': archived_count,
 
         # HTMX
         'cart_count': sum(item['quantity'] for item in cart.values()),
@@ -359,8 +363,8 @@ def adding_preset_to_cart(request, preset_id, business_slug):
                     'id': item.material.id,
                     'name': item.material.name,
                     'quantity': item.quantity,
-                    'price': str(item.material.price),
-                    'discount': str(item.discount),
+                    'price': f"{item.material.price:.2f}",
+                    'discount': f"{item.discount:.2f}",
                 }
                 added_count += 1
                 
@@ -397,7 +401,7 @@ def preset_list(request, business_slug):
     
     business = get_business_for_user(request.user, business_slug)
     
-    presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).filter(business=business).order_by('-created_at')
+    presets = get_queryset_for_user(request.user, MaterialPreset.objects.all()).filter(business=business).order_by('is_locked', 'name')
     
     form = PresetFilterForm(request.GET or None)
     
@@ -499,16 +503,54 @@ def delete_preset(request, business_slug, id, slug):
     return render(request, 'Supplier/delete_preset.html', context)
 
 @login_required(login_url='login')
+@permission_required('staff_delete')
+def remove_preset_item(request, business_slug, id, item_id):
+    business = get_business_for_user(request.user, business_slug)
+    preset = get_object_or_404(MaterialPreset, business=business, id=id)
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    # Empty-preset guard
+    if preset.preset_items.count() <= 1:
+        messages.error(request, "A preset needs at least one item. Delete the preset instead.")
+        return HttpResponse(status=204, headers={'HX-Refresh': 'true'})
+
+    item = get_object_or_404(MaterialPresetItem, id=item_id, preset=preset)
+    name = item.material.name
+    item.delete()
+    messages.success(request, f"{name} removed from {preset.name}.")
+    return HttpResponse("")  # htmx swaps the row out with empty content
+
 def supplier_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('name')
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('is_locked', 'name')
     form = SupplierFilterForm(request.GET or None)
-    
+
+    # Always annotate MTD spend + last order (independent of the search filter)
+    month_start = timezone.localdate().replace(day=1)
+    suppliers = suppliers.annotate(
+        last_order=Max('materials__items__purchase__purchase_date'),
+        spend_mtd=Coalesce(
+            Sum(
+                (F('materials__items__price') * F('materials__items__quantity'))
+                    - F('materials__items__discount'),
+                filter=Q(materials__items__purchase__purchase_date__gte=month_start),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        ),
+    )
+
     if form.is_valid():
         search = form.cleaned_data.get('search')
-        
         if search:
-            suppliers = suppliers.filter(name__icontains=search)
+            suppliers = suppliers.filter(
+                Q(name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(contact_number__icontains=search)
+            )
+
         
     pagination = Paginator(suppliers, 6)
     page = request.GET.get('page')

@@ -37,14 +37,6 @@ document.addEventListener("DOMContentLoaded", function () {
         {{ business.get_business_type_display }} · Business profile details
       </p>
     </div>
-    {% comment %} <div class="page-header-right">
-      <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back
-      </a>
-      <a href="{% url 'business-profile-update' business_id=business.id slug=business.slug %}" class="btn btn-primary">
-        <i class="bi bi-pencil sl-me-1"></i> Edit
-      </a>
-    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -58,12 +50,14 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-card-header-left">
             <div class="sd-header-icon"
                  style="background:
-                   {% if business.is_retail %}var(--accent-light); color:var(--accent);
-                   {% elif business.is_cafe %}var(--warning-light); color:var(--warning);
+                   {% if business.business_type == 'retail' %}var(--accent-light); color:var(--accent);
+                   {% elif business.business_type == 'cafe' %}var(--warning-light); color:var(--warning);
+                   {% elif business.business_type == 'pharmacy' %}var(--info-light); color:var(--info);
                    {% else %}var(--danger-light); color:var(--danger);
                    {% endif %}">
-              {% if business.is_retail %}<i class="bi bi-shop"></i>
-              {% elif business.is_cafe %}<i class="bi bi-cup-hot"></i>
+              {% if business.business_type == 'retail' %}<i class="bi bi-basket3"></i>
+              {% elif business.business_type == 'cafe' %}<i class="bi bi-cup-hot"></i>
+              {% elif business.business_type == 'pharmacy' %}<i class="bi bi-capsule"></i>
               {% else %}<i class="bi bi-egg-fried"></i>
               {% endif %}
             </div>
@@ -73,8 +67,9 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
           <span class="status-badge
-            {% if business.is_retail %}status-success
-            {% elif business.is_cafe %}status-warning
+            {% if business.business_type == 'retail' %}status-success
+            {% elif business.business_type == 'cafe' %}status-warning
+            {% elif business.business_type == 'pharmacy' %}status-info
             {% else %}status-danger
             {% endif %}">
             {{ business.get_business_type_display }}
@@ -83,25 +78,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- QUICK STATS -->
+          <!-- QUICK STATS (distinct facts, no longer mirrors the rows below) -->
           <div class="sd-stats-row">
             <div class="sd-stat-box">
               <div class="sd-stat-label">Type</div>
               <div class="sd-stat-value">{{ business.get_business_type_display }}</div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Phone</div>
+              <div class="sd-stat-label">Service Fees</div>
               <div class="sd-stat-value">
-                {% if business.business_phone_number %}
-                  {{ business.business_phone_number }}
+                {% if business.offers_services %}
+                  <span style="color:var(--accent);">Enabled</span>
                 {% else %}
-                  <span class="sl-text-muted">—</span>
+                  <span class="sl-text-muted">Off</span>
                 {% endif %}
               </div>
             </div>
             <div class="sd-stat-box">
-              <div class="sd-stat-label">Owner</div>
-              <div class="sd-stat-value">{{ business.user }}</div>
+              <div class="sd-stat-label">Member Since</div>
+              <div class="sd-stat-value">{{ business.created_at|date:"M Y" }}</div>
             </div>
           </div>
 
@@ -151,8 +146,13 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
 
           <div class="sd-info-row">
-            <span class="sd-info-label">Owner</span>
-            <span class="sd-info-value">{{ business.user }}</span>
+            <span class="sd-info-label">Created</span>
+            <span class="sd-info-value">{{ business.created_at|date:"M d, Y" }}</span>
+          </div>
+
+          <div class="sd-info-row">
+            <span class="sd-info-label">Last Updated</span>
+            <span class="sd-info-value">{{ business.updated_at|date:"M d, Y" }}</span>
           </div>
 
         </div>
@@ -221,10 +221,12 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">{{ business.get_business_type_display }}</div>
             <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
-              {% if business.is_retail %}
+              {% if business.business_type == 'retail' %}
                 Small shops, sari-sari stores, and general merchandise. Optimized for inventory tracking and daily sales.
-              {% elif business.is_cafe %}
+              {% elif business.business_type == 'cafe' %}
                 Coffee shops, juice bars, and beverage stands. Manage menu items, drinks, and daily transactions.
+              {% elif business.business_type == 'pharmacy' %}
+                Drugstores and pharmacies. Track medicines, expiry-sensitive stock, and daily sales.
               {% else %}
                 Food service businesses with full kitchen operations. Track meals, ingredients, and employee shifts.
               {% endif %}
@@ -241,7 +243,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
 
-      <!-- ACTIONS -->
+      {% comment %} <!-- ACTIONS -->
       <div class="card">
         <div class="card-header">
           <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
@@ -250,7 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'business-profile-update' business_id=business.id slug=business.slug %}" class="btn btn-primary btn-sm btn-block">
+            <a href="{% url 'business-profile-update' business_id=business.id business_slug=business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-pencil"></i> Edit Business
             </a>
             <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
@@ -258,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
           </div>
         </div>
-      </div>
+      </div> {% endcomment %}
 
     </div>
 

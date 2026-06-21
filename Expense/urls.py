@@ -30,13 +30,6 @@ urlpatterns = [
     # clear cart sessions
     path('view/cart/clear/', views.clear_cart, name='clear-cart'),
     
-    # employee
-    path('view/employees-list/', views.employee_list, name='employee-list'),
-    # path('create/employee-detail/', views.employee_create, name='employee-create'),
-    path('view/<str:employee_id>/<str:slug>/employee-detail/', views.employee_detail, name='employee-detail'),
-    path('update/<str:employee_id>/<str:slug>/employee-update/', views.employee_update, name='employee-update'),
-    path('delete/<str:employee_id>/<str:slug>/employee-delete/', views.employee_delete, name='employee-delete'),
-    
     # waste
     path('view/waste-list/', views.waste_list, name='expense-waste-list'),
     path('view/<str:waste_id>/material-waste/detail/', views.waste_material_detail, name='material-waste-detail'),
@@ -55,11 +48,6 @@ urlpatterns = [
     path('misc/<str:misc_expense_id>/update/', views.misc_expense_update, name='misc-expense-update'),
     path('misc/<str:misc_expense_id>/delete/', views.misc_expense_delete, name='misc-expense-delete'),
     
-    # daily rate
-    # path('add-employee/', views.add_daily_rate_to_expense, name='add-salary-to-expense'),
-    path('create/add/shift/employees', views.shift_log_create, name='add-shift-employee'),
-
-
 
     path('return/<int:return_id>/', views.purchase_return_detail, name='purchase-return-detail'),
     path('purchase/<int:purchase_id>/payment/add/', views.add_purchase_payment, name='add-purchase-payment'),

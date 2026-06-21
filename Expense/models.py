@@ -295,7 +295,7 @@ class PurchaseReturn(TimeStampModel):
             self.reference = f"PRR-{year}-{next_n:04d}"
 
         super().save(*args, **kwargs)
-
+        
 class PurchaseReturnItem(models.Model):
     purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE,
         related_name='items')
@@ -309,71 +309,13 @@ class PurchaseReturnItem(models.Model):
 
     def __str__(self):
         return f"{self.name} × {self.quantity}"
-    
-class EmployeeQuerySet(models.QuerySet):
-    def total_daily_rate(self):
-        return self.aggregate(total_daily_rate=Sum('daily_rate'))['total_daily_rate'] or 0
-    
-    def average_daily_rate(self):
-        return self.aggregate(average_daily_rate=Avg('daily_rate'))['average_daily_rate'] or 0
-    
-class Employee(TimeStampModel, SlugModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='employees')
-    staff_user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='employee_profile', null=True, blank=True)
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='employees', null=True, blank=True)
-    name = models.CharField(max_length=255)
-    daily_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_locked = models.BooleanField(default=False, db_index=True)
-    locked_at = models.DateTimeField(null=True, blank=True)
-    
-    objects = EmployeeQuerySet.as_manager()
-    
-    class Meta:
-        unique_together = ('user', 'business', 'slug')
-    
-    def __str__(self):
-        return f"{self.staff_user} "
-    
-    def save(self, *args, **kwargs):
-        base_slug = slugify(self.name)  # or whatever name field
-        slug = base_slug
-        counter = 1
-        
-        # include business in collision check
-        while Employee.objects.filter(user=self.user, business=self.business, slug=slug).exclude(id=self.id).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-        
-        self.slug = slug
-        
-        super().save(*args, **kwargs)
-    
-class Shift(TimeStampModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shift_logs')
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='shifts', null=True, blank=True)
-    date = models.DateField(db_index=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_shift_logs')
-    
-    def __str__(self):
-        return f"{self.id} - {self.amount} — {self.date}"
-    
-    def save(self, *args, **kwargs):
-        if not self.date:
-            self.date = timezone.localdate()
-        super().save(*args, **kwargs)
 
-
-class ShiftEmployee(models.Model):
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='shift_employees')
-    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name='shift_employees', null=True, blank=True)
-    name = models.CharField(max_length=255) # snapshot
-    daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
+    @property
+    def line_total(self):
+        return self.unit_refund * self.quantity
     
     
-    def __str__(self):
-        return f"{self.employee}"
-
+    
 class WasteQuerySet(models.QuerySet):
     def total_waste_cost(self):
         return self.aggregate(total_waste_cost=Sum('total_cost'))['total_waste_cost'] or 0
@@ -385,6 +327,7 @@ class Waste(TimeStampModel):
         ('damage',       'Damage'),
         ('defective',    'Defective'),   
         ('personal_use', 'Personal Use'),
+        ('service',      'Service Use'),
         ('theft',        'Theft'),
         ('other',        'Other'),
     ]

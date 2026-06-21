@@ -1,0 +1,108 @@
+{% extends 'main.html' %}
+{% load static %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="mf-page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>CATALOG</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'service-list' business_slug=current_business.slug %}" class="breadcrumb-link">
+          <span>SERVICE FEES</span>
+        </a>
+        <i class="bi bi-chevron-right"></i>
+        <span>ARCHIVE</span>
+      </div>
+      <h1 class="page-title">Archived Service Fees</h1>
+      <p class="page-subtitle">Hidden from your active list. Restore anytime — sales history is preserved.</p>
+    </div>
+    <div class="page-header-right"></div>
+  </div>
+
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        {% if services %}
+        <span class="card-header-title">
+          <i class="bi bi-ticket-perforated"></i> Service Fee
+        </span>
+        {% endif %}
+      </div>
+      {% if services %}
+        <span class="card-header-sub">{{ services|length }} item{{ services|length|pluralize }}</span>
+      {% endif %}
+    </div>
+
+    <div class="card-body" style="padding: 0;">
+      {% if services %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th class="sl-text-center">Fee</th>
+            <th class="sl-text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in services %}
+          <tr>
+            <td>
+              <div class="list-name-cell">
+                {% if s.image %}
+                  <img src="{{ s.image.url }}" alt="" class="list-thumb">
+                {% else %}
+                  <span class="list-thumb-placeholder"><i class="bi bi-ticket-perforated"></i></span>
+                {% endif %}
+                <div class="name-text">
+                  <strong>{{ s.name|capfirst }}</strong>
+                  {% if s.description %}
+                    <small class="text-muted">{{ s.description }}</small>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="sl-text-center">₱{{ s.selling_price|floatformat:2 }}</td>
+            <td class="table-actions">
+              <form method="POST" action="{% url 'restore-service' business_slug=current_business.slug service_id=s.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-success" type="submit">
+                  <i class="bi bi-arrow-counterclockwise"></i> Restore
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding: 3rem 1.5rem;">
+        <div class="empty-icon"><i class="bi bi-archive-fill"></i></div>
+        <h3 class="empty-title">No archived service fees</h3>
+        <p class="empty-text">
+          Service fees you remove will appear here. They stay out of your active catalog but their sales history is preserved.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

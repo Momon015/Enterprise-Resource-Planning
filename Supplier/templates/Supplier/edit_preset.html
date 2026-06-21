@@ -1,146 +1,164 @@
 {% extends "main.html" %}
 {% block content %}
 
-<div class="page-wrapper">
+<div class="mf-page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">PURCHASING / PRESET BUNDLES</div>
+      <div class="page-breadcrumb">
+        <span>PURCHASING</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'material-list' business_slug=current_business.slug %}" class="breadcrumb-link">MATERIALS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESET</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>EDIT</span>
+      </div>
       <h1 class="page-title">Edit Preset</h1>
       <p class="page-subtitle">Adjust quantities and discounts for this preset.</p>
     </div>
-    {% comment %} <a href="{% url 'material-preset-detail' preset.id business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Back to presets
-    </a> {% endcomment %}
   </div>
 
   <form method="POST" action="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}">
     {% csrf_token %}
 
-    <div class="two-col-layout">
+    <!-- CENTERED SINGLE CARD -->
+    <div class="card" style="max-width: 900px; margin: 0 auto;">
 
-      <!-- LEFT: ITEMS TABLE -->
-      <div class="left-panel">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-header-left-group">
-              <span class="card-header-title">Items in this preset</span>
-              <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
-            </div>
-            <span class="card-header-sub">Adjust quantities and discounts</span>
+      <!-- HEADER -->
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-bookmark-fill"></i>
           </div>
-
-          <div class="table-responsive">
-            {% if items %}
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Material</th>
-                  <th class="sl-text-center">Quantity</th>
-                  <th class="sl-text-end">Discount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in items %}
-                <tr>
-                  <td>
-                    <div class="cell-primary">{{ item.material.name }}</div>
-                    <div class="cell-sub">{{ item.material.supplier.name|default:"No supplier" }}</div>
-                  </td>
-                  <td class="sl-text-center">
-                    <div class="qty-stepper">
-                      <button type="button" class="qty-btn qty-ctrl"
-                              data-target="quantity_{{ item.id }}" data-step="-1">−</button>
-                      <input type="number"
-                             class="qty-input"
-                             name="quantity_{{ item.id }}"
-                             value="{{ item.quantity }}"
-                             min="1" readonly>
-                      <button type="button" class="qty-btn qty-ctrl"
-                              data-target="quantity_{{ item.id }}" data-step="1">+</button>
-                    </div>
-                  </td>
-                  <td class="sl-text-end">
-                    <div class="qty-stepper" style="justify-content:flex-end;">
-                      <button type="button" class="qty-btn qty-ctrl"
-                              data-target="discount_{{ item.id }}" data-step="-1">−</button>
-                      <input type="number"
-                             class="qty-input"
-                             name="discount_{{ item.id }}"
-                             value="{{ item.discount|floatformat:0 }}"
-                             min="0" step="1" readonly>
-                      <button type="button" class="qty-btn qty-ctrl"
-                              data-target="discount_{{ item.id }}" data-step="1">+</button>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% else %}
-            <div class="empty-state">
-              <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
-              <h3 class="empty-title">No items in this preset</h3>
-              <p class="empty-text">This preset has no saved materials to edit.</p>
-            </div>
-            {% endif %}
+          <div>
+            <div class="card-header-title">{{ preset.name }}</div>
+            <div class="card-header-sub">Adjust the name, quantities and discounts</div>
           </div>
-
-          <!-- FORM ACTIONS BELOW TABLE -->
-          <div class="card-body" style="border-top:1px solid var(--border);">
-            <div class="mf-form-actions">
-              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle sl-me-1"></i> Save changes
-              </button>
-            </div>
-          </div>
-
         </div>
+        <span class="sl-badge sl-badge-light">
+          {{ items|length }} item{{ items|length|pluralize }}
+        </span>
       </div>
 
-      <!-- RIGHT: PRESET SNAPSHOT -->
-      <div class="right-panel">
-        <div class="card">
-          <div class="card-header dark">
-            <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-              <i class="bi bi-bookmark-fill"></i> Preset Snapshot
-            </span>
+      <div class="card-body">
+
+        <!-- Editing scope tip -->
+        <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+          <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+          <div>
+            <div class="sd-note-title">Editing scope</div>
+            <div class="sd-note-text">Changes here only affect the preset — not past purchases. Add or remove materials from the purchase screen.</div>
           </div>
-          <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        </div>
 
-            <div class="sd-summary-block highlight">
-              <div class="sd-summary-block-label">Preset details</div>
-              <div class="sd-info-row">
-                <span class="sd-info-label">Preset ID</span>
-                <span class="sd-info-value">#{{ preset.id }}</span>
-              </div>
-              <div class="sd-info-row">
-                <span class="sd-info-label">Total Items</span>
-                <span class="sd-info-value">{{ items|length }}</span>
-              </div>
-            </div>
+        <!-- PRESET NAME -->
+        <div class="mf-field-group" style="margin-bottom: 1.25rem;">
+          <label for="preset_{{ preset.id }}" class="mf-form-label">
+            Preset Name <span class="mf-required">*</span>
+          </label>
+          <input type="text"
+                 id="preset_{{ preset.id }}"
+                 class="form-control"
+                 name="preset_{{ preset.id }}"
+                 value="{{ preset.name }}"
+                 placeholder="e.g. Weekly delivery bundle">
+          <div class="mf-help">Shown on the presets list and when adding to a purchase.</div>
+        </div>
 
-            <!-- PRESET NAME INPUT -->
-            <div class="sd-summary-block">
-              <div class="sd-summary-block-label">Preset Name</div>
-              <input type="text"
-                     class="form-control"
-                     name="preset_{{ preset.id }}"
-                     value="{{ preset.name }}"
-                     placeholder="e.g. Weekly delivery bundle">
-            </div>
+        <!-- Materials section label -->
+        <div class="sd-section-label">
+          <i class="bi bi-box-seam sl-me-1"></i> Materials in this preset
+        </div>
 
-            <div class="sd-note-box">
-              <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-              <div>
-                <div class="sd-note-title">Tip</div>
-                <div class="sd-note-text">Changes here only affect the preset — not past purchases.</div>
-              </div>
-            </div>
+      </div>
 
-          </div>
+      <!-- TABLE (full-bleed inside card) -->
+      <div class="table-responsive">
+        {% if items %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th class="sl-text-center">Quantity</th>
+              <th class="sl-text-center">Discount</th>
+              <th class="sl-text-end">Remove</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr id="preset-row-{{ item.id }}">
+              <td>
+                <div class="cell-primary">{{ item.material.name }}</div>
+                <div class="cell-sub">{{ item.material.supplier.name|default:"No supplier" }}</div>
+              </td>
+              <td class="sl-text-center">
+                <div class="qty-stepper">
+                  <button type="button" class="qty-btn qty-ctrl"
+                          data-target="quantity_{{ item.id }}" data-step="-1">−</button>
+                  <input type="number"
+                         class="qty-input"
+                         name="quantity_{{ item.id }}"
+                         value="{{ item.quantity }}"
+                         min="1" readonly>
+                  <button type="button" class="qty-btn qty-ctrl"
+                          data-target="quantity_{{ item.id }}" data-step="1">+</button>
+                </div>
+              </td>
+              <td class="sl-text-center">
+                <div class="qty-stepper" style="justify-content:flex-end;">
+                  <button type="button" class="qty-btn qty-ctrl"
+                          data-target="discount_{{ item.id }}" data-step="-1">−</button>
+                  <input type="number"
+                         class="qty-input"
+                         name="discount_{{ item.id }}"
+                         value="{{ item.discount|floatformat:0 }}"
+                         min="0" step="1" readonly>
+                  <button type="button" class="qty-btn qty-ctrl"
+                          data-target="discount_{{ item.id }}" data-step="1">+</button>
+                </div>
+              </td>
+
+              <td class="sl-text-end">
+                <div class="table-actions">
+                  <button type="button"
+                          class="action-btn action-btn--danger"
+                          title="Remove from preset"
+                          hx-post="{% url 'material-preset-remove-item' business_slug=current_business.slug id=preset.id item_id=item.id %}"
+                          hx-target="#preset-row-{{ item.id }}"
+                          hx-swap="outerHTML">
+                          
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            </tr>
+            {% empty %}
+            <tr class="sl-empty-row">
+              <td colspan="3">No saved materials found for this preset.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+          <h3 class="empty-title">No items in this preset</h3>
+          <p class="empty-text">This preset has no saved materials to edit.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="card-body" style="border-top: 1px solid var(--border-light);">
+        <div class="mf-form-actions">
+          <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Save changes
+          </button>
         </div>
       </div>
 

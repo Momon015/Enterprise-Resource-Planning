@@ -1,0 +1,436 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'shift-dashboard' business_slug=current_business.slug %}" class="breadcrumb-link">TIMECARDS</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>{{ shift_emp.employee.name|default:shift_emp.name|upper }}</span>
+      </div>
+      <h1 class="page-title">Shift Detail</h1>
+      <p class="page-subtitle">{{ shift_emp.clock_in|date:"l, M d, Y" }}</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT -->
+    <div class="left-panel">
+
+      <!-- CLOSED BY OWNER -->
+      {% if shift_emp.closed_by %}
+      <div class="card" style="border-left:3px solid {% if shift_emp.close_dispute_unresolved %}var(--danger){% else %}var(--warning){% endif %};">
+        <div class="card-header">
+          <span class="card-header-title"><i class="bi bi-person-lock"></i> Shift Closed - Owner</span>
+          {% if shift_emp.close_dispute_unresolved %}<span class="status-badge status-danger"><i class="bi bi-flag-fill"></i> Unresolved</span>
+          {% elif shift_emp.close_disputed %}<span class="status-badge status-success">Resolved</span>
+          {% elif shift_emp.close_acknowledged %}<span class="status-badge status-success">Confirmed</span>
+          {% else %}<span class="status-badge status-warning"><i class="bi bi-hourglass-split hourglass-real"></i> Awaiting confirmation</span>{% endif %}
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title">The owner timed you out</div>
+              <div class="sd-note-text">Reason: {{ shift_emp.close_reason }}</div>
+            </div>
+          </div>
+
+          {% if show_reconciliation %}
+            {% if shift_emp.counted_cash is None and shift_emp.counted_gcash is None and shift_emp.counted_bank is None %}
+            <p class="sl-text-muted" style="font-size:0.8rem; margin:0;">No cash count was recorded at close.</p>
+            {% else %}
+            <p class="sl-text-muted" style="font-size:0.8rem; margin:0;">The owner recorded the cash count below — check it against the Expected amounts before you confirm.</p>
+            {% endif %}
+          {% endif %}
+
+          {% if shift_emp.close_disputed %}
+          <div class="sd-note-box" style="background:#fdecec;">
+            <i class="bi bi-flag-fill sd-note-icon" style="color:var(--danger);"></i>
+            <div>
+              <div class="sd-note-title">Flagged for review — {{ shift_emp.get_close_dispute_reason_display }}</div>
+              {% if shift_emp.close_dispute_note %}<div class="sd-note-text">"{{ shift_emp.close_dispute_note }}"</div>{% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          {% if request.user.role == 'staff' and shift_emp.close_needs_ack %}
+          <form method="post" action="{% url 'acknowledge-shift-close' business_slug=current_business.slug shift_id=shift_emp.id %}">
+            {% csrf_token %}
+            {% if show_reconciliation and shift_emp.counted_cash is None and shift_emp.counted_gcash is None and shift_emp.counted_bank is None %}
+            {# Owner closed without counting → staff supplies the count #}
+            <div class="sd-info-label" style="margin-bottom:0.5rem;">The owner didn't count the drawer — enter what was in it:</div>
+            {% if business.track_coins_separately %}
+            <div class="sd-info-row"><label class="sd-info-label" for="counted_bills">Actual bills</label><input type="number" step="0.01" min="0" name="counted_bills" id="counted_bills" class="form-control" style="max-width:180px;" placeholder="0.00"></div>
+            <div class="sd-info-row"><label class="sd-info-label" for="counted_coins">Actual coins</label><input type="number" step="0.01" min="0" name="counted_coins" id="counted_coins" class="form-control" style="max-width:180px;" placeholder="0.00"></div>
+            {% else %}
+            <div class="sd-info-row"><label class="sd-info-label" for="counted_cash">Actual cash</label><input type="number" step="0.01" min="0" name="counted_cash" id="counted_cash" class="form-control" style="max-width:180px;" placeholder="0.00"></div>
+            {% endif %}
+            <div class="sd-info-row"><label class="sd-info-label" for="counted_gcash">GCash balance</label><input type="number" step="0.01" min="0" name="counted_gcash" id="counted_gcash" class="form-control" style="max-width:180px;" placeholder="0.00"></div>
+            <div class="sd-info-row"><label class="sd-info-label" for="counted_bank">Bank balance</label><input type="number" step="0.01" min="0" name="counted_bank" id="counted_bank" class="form-control" style="max-width:180px;" placeholder="0.00"></div>
+            <textarea name="closing_note" class="form-control" rows="2" placeholder="Note (optional)" style="margin:0.5rem 0;"></textarea>
+            <button type="submit" name="response" value="count" class="btn btn-primary btn-sm btn-block"><i class="bi bi-cash-coin"></i> Save cash count</button>
+            <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+              <button type="submit" name="response" value="agree" class="btn btn-outline-secondary btn-sm" style="flex:1;">Can't count now — just acknowledge</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" style="flex:1;" id="flagToggle"><i class="bi bi-flag"></i> Something's not right</button>
+            </div>
+            {% else %}
+            {# Owner counted (or no reconciliation) → confirm / flag #}
+            <div style="display:flex; gap:0.5rem;">
+              <button type="submit" name="response" value="agree" class="btn btn-primary btn-sm" style="flex:1;"><i class="bi bi-check2"></i> Acknowledge</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" style="flex:1;" id="flagToggle"><i class="bi bi-flag"></i> Something's not right</button>
+            </div>
+            {% endif %}
+
+            <div id="flagBox" style="display:none; margin-top:0.75rem;">
+              <div class="sd-info-label" style="margin-bottom:0.4rem;">What's wrong?</div>
+              <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.85rem;">
+                {% for val, label in shift_emp.CLOSE_DISPUTE_REASONS %}
+                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                  <input type="radio" name="close_dispute_reason" value="{{ val }}"> {{ label }}
+                </label>
+                {% endfor %}
+              </div>
+              <textarea name="close_dispute_note" class="form-control" rows="2" placeholder="Add a comment (optional)" style="margin-top:0.5rem;"></textarea>
+              <button type="submit" name="response" value="disagree" class="btn btn-sm btn-block" style="background:var(--danger); color:#fff; border:none; margin-top:0.5rem;"><i class="bi bi-flag-fill"></i> Flag for Review</button>
+            </div>
+
+          </form>
+          <script>
+          (function(){
+            var t = document.getElementById('flagToggle'), b = document.getElementById('flagBox');
+            if(!t || !b) return;
+            t.addEventListener('click', function(){ b.style.display = (b.style.display === 'none') ? 'block' : 'none'; });
+          })();
+          </script>
+          {% elif shift_emp.close_acknowledged and not shift_emp.close_disputed %}
+          <div class="sl-text-muted" style="font-size:0.8rem;"><i class="bi bi-check2-circle"></i> {% if request.user.role == 'staff' %}You acknowledged this{% else %}Staff acknowledged this{% endif %}{% if shift_emp.close_acknowledged_at %} on {{ shift_emp.close_acknowledged_at|date:"M d, g:i A" }}{% endif %}.</div>
+          {% endif %}
+
+          {% if request.user.role == 'owner' and shift_emp.close_dispute_unresolved %}
+          <form method="post" action="{% url 'resolve-shift-dispute' business_slug=current_business.slug shift_id=shift_emp.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm btn-block"><i class="bi bi-check2-all"></i> Mark resolved</button>
+          </form>
+          {% elif shift_emp.close_disputed and shift_emp.close_dispute_resolved %}
+          <div class="sl-text-muted" style="font-size:0.8rem;"><i class="bi bi-check2-all"></i> Resolved.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% endif %}
+
+      <!-- SUMMARY -->
+      <div class="card">
+        <div class="card-header"><span class="card-header-title">Shift Summary</span></div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          <div class="sd-info-row"><span class="sd-info-label">Employee</span><span class="sd-info-value">{{ shift_emp.employee.name|default:shift_emp.name|capfirst }}</span></div>
+          <div class="sd-info-row"><span class="sd-info-label">Time in</span><span class="sd-info-value">{{ shift_emp.clock_in|date:"M d, g:i A" }}</span></div>
+          <div class="sd-info-row"><span class="sd-info-label">Time out</span><span class="sd-info-value">{% if shift_emp.clock_out %}{{ shift_emp.clock_out|date:"M d, g:i A" }}{% else %}<span class="sl-text-muted">Still on shift</span>{% endif %}</span></div>
+          <div class="sd-info-row"><span class="sd-info-label">Hours worked</span><span class="sd-info-value">{% if shift_emp.clock_out %}{{ shift_emp.hours_worked_display }}{% else %}<span class="sl-text-muted">—</span>{% endif %}</span></div>
+          <div class="sd-info-row"><span class="sd-info-label">Daily rate</span><span class="sd-info-value">₱{{ shift_emp.daily_rate|floatformat:2|intcomma }}</span></div>
+        </div>
+      </div>
+
+      <!-- CASH COUNT -->
+      {% if show_reconciliation %}
+      <div class="card">
+        <div class="card-header"><span class="card-header-title">Cash Count</span></div>
+        <div class="card-body">
+          {% if shift_emp.clock_out %}
+          <table class="data-table">
+            <thead>
+              <tr><th>Method</th><th class="sl-text-end">Expected</th><th class="sl-text-end">Actual</th><th class="sl-text-end">Difference</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cash</td>
+                <td class="sl-text-end">₱{{ shift_emp.expected_cash|floatformat:2|intcomma }}</td>
+                <td class="sl-text-end">{% if shift_emp.counted_cash is not None %}₱{{ shift_emp.counted_cash|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="sl-text-end">
+                  {% with v=shift_emp.cash_variance %}{% if v is not None %}<span style="{% if v < 0 %}color:var(--danger);{% elif v > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">{% if v > 0 %}+{% endif %}₱{{ v|floatformat:2|intcomma }}</span>{% else %}—{% endif %}{% endwith %}
+                </td>
+              </tr>
+              <tr>
+                <td>GCash</td>
+                <td class="sl-text-end">₱{{ shift_emp.expected_gcash|floatformat:2|intcomma }}</td>
+                <td class="sl-text-end">{% if shift_emp.counted_gcash is not None %}₱{{ shift_emp.counted_gcash|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="sl-text-end">
+                  {% with v=shift_emp.gcash_variance %}{% if v is not None %}<span style="{% if v < 0 %}color:var(--danger);{% elif v > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">{% if v > 0 %}+{% endif %}₱{{ v|floatformat:2|intcomma }}</span>{% else %}—{% endif %}{% endwith %}
+                </td>
+              </tr>
+              <tr>
+                <td>Bank</td>
+                <td class="sl-text-end">₱{{ shift_emp.expected_bank|floatformat:2|intcomma }}</td>
+                <td class="sl-text-end">{% if shift_emp.counted_bank is not None %}₱{{ shift_emp.counted_bank|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="sl-text-end">
+                  {% with v=shift_emp.bank_variance %}{% if v is not None %}<span style="{% if v < 0 %}color:var(--danger);{% elif v > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">{% if v > 0 %}+{% endif %}₱{{ v|floatformat:2|intcomma }}</span>{% else %}—{% endif %}{% endwith %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="sd-info-row" style="margin-top:0.75rem; border-top:2px solid var(--border); padding-top:0.75rem;">
+            <span class="sd-info-label" style="font-weight:700;">Total Difference</span>
+            {% if shift_emp.is_counted %}
+            <span class="sd-info-value" style="{% if shift_emp.total_variance < 0 %}color:var(--danger);{% elif shift_emp.total_variance > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %} font-weight:700;">
+              {% if shift_emp.total_variance > 0 %}+{% endif %}₱{{ shift_emp.total_variance|floatformat:2|intcomma }}
+            </span>
+            {% else %}
+            <span class="sd-info-value sl-text-muted" style="font-weight:700;">Not counted</span>
+            {% endif %}
+          </div>
+
+          {% if shift_emp.closing_note %}
+          <div class="sd-note-box" style="margin-top:0.75rem;">
+            <i class="bi bi-chat-left-text sd-note-icon" style="color:var(--info);"></i>
+            <div><div class="sd-note-title">Notes</div><div class="sd-note-text">{{ shift_emp.closing_note }}</div></div>
+          </div>
+          {% endif %}
+          {% else %}
+          <p class="sl-text-muted" style="font-size:0.85rem; margin:0;">Cash count appears after time-out.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- DRAWER HANDOVER -->
+      {% if shift_emp.handovers_in.all or shift_emp.handovers_out.all %}
+      <div class="card">
+        <div class="card-header"><span class="card-header-title"><i class="bi bi-arrow-left-right"></i> Drawer Handover</span></div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.6rem;">
+          {% for h in shift_emp.handovers_in.all %}
+          <div class="sd-summary-block" style="{% if h.has_mismatch %}border-left:3px solid var(--danger);{% endif %}">
+            <div class="cell-primary">Took over from {{ h.from_shift.name|default:'previous cashier'|capfirst }}</div>
+            <div class="cell-sub">They handed over ₱{{ h.claimed_amount|floatformat:2|intcomma }} · you counted ₱{{ h.counted_amount|floatformat:2|intcomma }}</div>
+            {% if h.has_mismatch %}
+            <div class="cell-sub" style="color:var(--danger); font-weight:600;">Difference {% if h.variance > 0 %}+{% endif %}₱{{ h.variance|floatformat:2|intcomma }} — flagged for the owner</div>
+            {% if h.reviewed %}
+            <div class="cell-sub" style="color:var(--accent);"><i class="bi bi-check2-all"></i> Reviewed</div>
+            {% elif request.user.role == 'owner' %}
+            <form method="post" action="{% url 'review-handover' business_slug=current_business.slug handover_id=h.id %}" style="margin-top:0.4rem;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check2-all"></i> Mark reviewed</button>
+            </form>
+            {% endif %}
+            {% else %}
+            <div class="cell-sub" style="color:var(--accent);">Matched ✓</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+          {% for h in shift_emp.handovers_out.all %}
+          <div class="sd-summary-block" style="{% if h.has_mismatch %}border-left:3px solid var(--danger);{% endif %}">
+            <div class="cell-primary">Handed over to {{ h.to_shift.name|default:'next cashier'|capfirst }}</div>
+            <div class="cell-sub">You handed over ₱{{ h.claimed_amount|floatformat:2|intcomma }} · they counted ₱{{ h.counted_amount|floatformat:2|intcomma }}</div>
+            {% if h.has_mismatch %}
+            <div class="cell-sub" style="color:var(--danger); font-weight:600;">Difference {% if h.variance > 0 %}+{% endif %}₱{{ h.variance|floatformat:2|intcomma }} — flagged</div>
+            {% if h.reviewed %}
+            <div class="cell-sub" style="color:var(--accent);"><i class="bi bi-check2-all"></i> Reviewed</div>
+            {% elif request.user.role == 'owner' %}
+            <form method="post" action="{% url 'review-handover' business_slug=current_business.slug handover_id=h.id %}" style="margin-top:0.4rem;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check2-all"></i> Mark reviewed</button>
+            </form>
+            {% endif %}
+            {% else %}
+            <div class="cell-sub" style="color:var(--accent);">Matched ✓</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>       
+      </div>         
+      {% endif %}    
+
+    </div> 
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+
+      <!-- SHIFT AT A GLANCE -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title"><i class="bi bi-clipboard-data"></i> Shift</span>
+          {% if shift_emp.is_active %}<span class="status-badge status-warning">On shift</span>
+          {% else %}<span class="status-badge status-success">Closed</span>{% endif %}
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+          {% if shift_emp.is_cashier %}
+          <div class="sd-summary-block highlight" style="text-align:center;">
+            <div class="sd-summary-block-label">Starting Cash</div>
+            <div class="sd-total-amount" style="color:var(--accent);">₱{{ shift_emp.opening_cash|floatformat:2|intcomma }}</div>
+            {% if business.track_coins_separately %}
+            <div class="sd-total-sub">Bills ₱{{ shift_emp.opening_bills|floatformat:2|intcomma }} · Coins ₱{{ shift_emp.opening_coins|floatformat:2|intcomma }}</div>
+            {% endif %}
+            {% if shift_emp.has_pending_opening_change %}<div class="sd-total-sub" style="color:var(--warning);"><i class="bi bi-hourglass-split hourglass-real"></i> Awaiting staff acknowledgement</div>{% endif %}
+          </div>
+          {% else %}
+          <div class="sd-summary-block highlight" style="text-align:center;">
+            <div class="sd-summary-block-label">Role this shift</div>
+            <div class="sd-total-amount" style="color:var(--accent); font-size:1.1rem;">Sales Clerk</div>
+            <div class="sd-total-sub">No cash drawer to count</div>
+          </div>
+          {% endif %}
+          {% if show_reconciliation and shift_emp.clock_out %}
+          <div class="sd-info-row">
+            <span class="sd-info-label">Difference</span>
+            {% if shift_emp.is_counted %}
+            <span class="sd-info-value" style="{% if shift_emp.total_variance < 0 %}color:var(--danger);{% elif shift_emp.total_variance > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">
+              {% if shift_emp.total_variance > 0 %}+{% endif %}₱{{ shift_emp.total_variance|floatformat:2|intcomma }}
+            </span>
+            {% else %}
+            <span class="sd-info-value sl-text-muted">Not counted</span>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if show_reconciliation and shift_emp.clock_out %}
+          <div class="sd-info-row">
+            <span class="sd-info-label">Difference</span>
+            <span class="sd-info-value" style="{% if shift_emp.total_variance < 0 %}color:var(--danger);{% elif shift_emp.total_variance > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">
+              {% if shift_emp.total_variance > 0 %}+{% endif %}₱{{ shift_emp.total_variance|floatformat:2|intcomma }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ACTIONS (only while on shift) -->
+      {% if shift_emp.is_active %}
+      <div class="card">
+        <div class="card-header"><span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;"><i class="bi bi-lightning"></i> Actions</span></div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <a href="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=shift_emp.id %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-box-arrow-right"></i> Time Out
+            </a>
+          {% if request.user.role == 'owner' and shift_emp.is_cashier %}
+            <a href="{% url 'shift-edit-opening-cash' business_slug=current_business.slug shift_id=shift_emp.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-pencil"></i> Update Starting Cash
+            </a>
+            {% endif %}
+          </div>
+
+          {% if request.user.role == 'owner' and shift_emp.is_cashier %}
+          <hr class="sd-section-divider">
+          <div class="sd-section-label">Record Cash Taken Out</div>
+          <form method="post" action="{% url 'record-cash-payout' business_slug=current_business.slug shift_id=shift_emp.id %}" style="display:flex; flex-direction:column; gap:0.5rem;">
+            {% csrf_token %}
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" placeholder="Amount" required>
+            <div style="position:relative;">
+              <select name="purpose" class="form-control" id="payoutPurpose"
+                      style="appearance:none; -webkit-appearance:none; -moz-appearance:none; padding-right:2rem;">
+                <option value="business_expense">For the business (added to expenses)</option>
+                <option value="owner_drawing">Owner took personal use</option>
+                <option value="change_float">For change money</option>
+                <option value="petty_cash">Small expense</option>
+                <option value="other">Other</option>
+              </select>
+              <i class="bi bi-chevron-down" style="position:absolute; right:0.75rem; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--muted); font-size:0.8rem;"></i>
+            </div>
+            <input type="text" name="note" class="form-control" placeholder="Note (e.g. what it was for)">
+            <div class="sl-text-muted" style="font-size:0.75rem;" id="payoutHint"></div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-cash-coin"></i> Record</button>
+          </form>
+          <script>
+          (function(){
+            var sel = document.getElementById('payoutPurpose');
+            var hint = document.getElementById('payoutHint');
+            if(!sel) return;
+            function sync(){
+              hint.textContent = (sel.value === 'business_expense')
+                ? 'For non-stock costs (food, transport, supplies). Bought inventory? Record a Purchase instead. Added to Expenses, no acknowledgement needed.'
+                : 'Staff on this shift will be asked to acknowledge this.';
+            }
+            sel.addEventListener('change', sync); sync();
+          })();
+          </script>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- CASH TAKEN OUT -->
+      {% if shift_emp.cash_payouts.all %}
+      <div class="card">
+        <div class="card-header"><span class="card-header-title">Cash Taken Out</span></div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          {% for p in shift_emp.cash_payouts.all %}
+          <div class="sd-summary-block" style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div class="cell-primary">₱{{ p.amount|floatformat:2|intcomma }} · {{ p.get_purpose_display }}</div>
+              {% if p.note %}<div class="cell-sub">Note: {{ p.note }}</div>{% endif %}
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              {% if p.is_business_expense %}
+                <span class="status-badge" style="background:var(--info-light); color:var(--info);">Added to Expenses</span>
+              {% elif p.status == 'acknowledged' %}
+                <span class="status-badge status-success">Acknowledged</span>
+              {% elif p.status == 'expired' %}
+                <span class="status-badge status-danger">Expired</span>
+              {% else %}
+                <span class="status-badge status-warning"><i class="bi bi-hourglass-split hourglass-real"></i> Pending</span>
+              {% endif %}
+              {% if request.user.role == 'staff' and p.needs_ack and p.status == 'pending' %}
+              <form method="post" action="{% url 'acknowledge-cash-payout' business_slug=current_business.slug payout_id=p.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Acknowledge</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- STARTING CASH CHANGES -->
+      {% if opening_changes %}
+      <div class="card">
+        <div class="card-header"><span class="card-header-title">Starting Cash Changes</span></div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+          {% for c in opening_changes %}
+          <div class="sd-summary-block" style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div class="cell-primary">₱{{ c.old_amount|floatformat:2|intcomma }} → ₱{{ c.new_amount|floatformat:2|intcomma }}</div>
+              <div class="cell-sub">Reason: {{ c.note }}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              {% if c.status == 'acknowledged' %}<span class="status-badge status-success">Acknowledged</span>
+              {% elif c.status == 'expired' %}<span class="status-badge status-danger">Expired</span>
+              {% else %}<span class="status-badge status-warning"><i class="bi bi-hourglass-split hourglass-real"></i> Pending</span>{% endif %}
+              {% if request.user.role == 'staff' and c.status == 'pending' %}
+              <form method="post" action="{% url 'acknowledge-opening-cash' business_slug=current_business.slug change_id=c.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Acknowledge</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

@@ -22,31 +22,124 @@
 
 <div class="page-wrapper">
 
-  <div class="kpi-row">
-    {% include 'partials/_kpi_card.html' with label="Total Stocks"  value=kpis.current.total        delta=kpis.deltas.total %}
-    {% include 'partials/_kpi_card.html' with label="Low Stock"     value=kpis.current.low_stock    delta=kpis.deltas.low_stock %}
-    {% include 'partials/_kpi_card.html' with label="Out of Stock"  value=kpis.current.out_of_stock delta=kpis.deltas.out_of_stock %}
-    {% include 'partials/_kpi_card.html' with label="Total Value"   value=kpis.current.total_value|floatformat:2 delta=kpis.deltas.total_value is_money=True %}
-</div>
-
-
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">INVENTORY</div>
+      <div class="page-breadcrumb">
+        <span>INVENTORY</span>
+      </div>
       <h1 class="page-title">Stock Levels</h1>
       <p class="page-subtitle">Current stock across all materials.</p>
     </div>
-    <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-box-seam"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> stock{{ page_obj.paginator.count|pluralize }}
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- IN STOCK (natural direction) -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-check2-circle"></i>
       </div>
-      <div class="header-stat accent">
-        <i class="bi bi-tag"></i>
-        Top category: <strong>{{ most_stock_category_name|capfirst }}</strong>
+      <div class="kpi-body">
+        <div class="kpi-label">In Stock</div>
+        <div class="kpi-value">{{ kpis.current.in_stock|default:"0" }}</div>
+        {% if kpis.deltas.in_stock == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.in_stock > 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.in_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% elif kpis.deltas.in_stock < 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.in_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
       </div>
     </div>
+
+    <!-- LOW STOCK (inverse: up = bad) -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--warning">
+        <i class="bi bi-exclamation-triangle"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Low Stock</div>
+        <div class="kpi-value">{{ kpis.current.low_stock|default:"0" }}</div>
+        {% if kpis.deltas.low_stock == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.low_stock > 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
+          </div>
+        {% elif kpis.deltas.low_stock < 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- OUT OF STOCK (inverse: up = bad) -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--danger">
+        <i class="bi bi-slash-circle"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Out of Stock</div>
+        <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
+        {% if kpis.deltas.out_of_stock == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.out_of_stock > 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
+          </div>
+        {% elif kpis.deltas.out_of_stock < 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- TOTAL INVENTORY VALUE (money, natural direction) -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Inventory Value</div>
+        <div class="kpi-value">₱{{ kpis.current.total_value|default:"0"|floatformat:2 }}</div>
+        {% if kpis.deltas.total_value == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.total_value > 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-up"></i>
+            ₱{{ kpis.deltas.total_value|floatformat:2|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% elif kpis.deltas.total_value < 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-down"></i>
+            ₱{{ kpis.deltas.total_value|floatformat:2|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
   </div>
 
   <div class="two-col-layout">
@@ -54,30 +147,21 @@
     <!-- ========== LEFT PANEL ========== -->
     <div class="left-panel">
 
-      <!-- FILTER DRAWER -->
-      <details class="filter-card"
-               {% if request.GET.search or request.GET.category %}open{% endif %}>
-        <summary>
-          <i class="bi bi-sliders"></i>
-          <span>Advanced filters</span>
-          {% if request.GET.search or request.GET.category %}
-            <span class="filter-badge">Active</span>
-          {% endif %}
-        </summary>
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
         <div class="filter-body">
-          <!-- FILTER BAR -->
           <form method="get" autocomplete="off">
-            <div class="d-flex flex-wrap gap-2 align-items-center w-100" style="margin-bottom:0.75rem;">
+            <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">
                   <span class="input-group-icon"><i class="bi bi-search"></i></span>
                   <input type="search" name="search" class="form-control"
-                        placeholder="Search material, supplier..."
-                        value="{{ request.GET.search|default:'' }}">
+                         placeholder="Search material, supplier..."
+                         value="{{ request.GET.search|default:'' }}">
                 </div>
               </div>
-              <div>
-                <select name="category" class="form-select form-select-sm" style="width:auto;">
+              <div style="position:relative;">
+                <select name="category" class="form-control" style="padding-right:2rem; appearance:none; -webkit-appearance:none;">
                   <option value="">All categories</option>
                   {% for cat in categories %}
                     <option value="{{ cat.id }}"
@@ -86,18 +170,19 @@
                     </option>
                   {% endfor %}
                 </select>
+                <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
               </div>
-              <div style="display:flex; gap:0.5rem;">
-                <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                  <i class="bi bi-funnel"></i> Filter
-                </button>
-                <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
-              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>Reset
+              </a>
             </div>
           </form>
-
         </div>
-      </details>
+      </div>
+
 
       <!-- STOCK TABLE -->
       <div class="card table-card">
@@ -106,7 +191,41 @@
             <span class="card-header-title">Stock Records</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Sorted by name</span>
+
+          <div class="activity-header-right">
+            <span class="card-header-sub" style="margin: 0;">
+              {% if request.GET.stock == 'high' %}In Stock
+              {% elif request.GET.stock == 'low' %}Low Stock
+              {% elif request.GET.stock == 'none' %}Out of Stock
+              {% else %}All status
+              {% endif %}
+            </span>
+            <details class="activity-filter-pop">
+              <summary class="activity-filter-trigger" title="Filter by status">
+                <i class="bi bi-sliders"></i>
+              </summary>
+              <div class="activity-filter-menu">
+                {% with q=request.GET.search cat=request.GET.category %}
+                <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
+                   class="{% if not request.GET.stock %}is-active{% endif %}">
+                  <i class="bi bi-grid"></i> All
+                </a>
+                <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
+                  <i class="bi bi-box-seam"></i> In Stock
+                </a>
+                <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
+                  <i class="bi bi-slash-circle"></i> Out of Stock
+                </a>
+                {% endwith %}
+              </div>
+            </details>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -144,7 +263,13 @@
                 </td>
 
                 <td class="col-mobile-hidden">
-                  <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"No category" }}</div>
+                  {% if use_product_category %}
+                    {% with lp=stock.material.products.first %}
+                      <div class="cell-primary">{{ lp.category.name|capfirst|default:"No category" }}</div>
+                    {% endwith %}
+                  {% else %}
+                    <div class="cell-primary">{{ stock.material.category.name|capfirst|default:"No category" }}</div>
+                  {% endif %}
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
@@ -173,11 +298,12 @@
                 <td class="sl-text-end sl-fw-semibold" style="color:var(--accent);">
                   ₱{{ stock.total_value|floatformat:2|intcomma }}
                 </td>
-                
+
                 <td class="sl-text-center">
                   {% if stock.quantity == 0 %}
-                      <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">
-                       <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Inactive
+                    <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">
+                      <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Inactive
+                    </span>
                   {% else %}
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
                       <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Active
@@ -204,7 +330,7 @@
           {% endif %}
         </div>
 
-        <!-- PAGINATION -->
+        <!-- PAGINATION (preserves search, category, stock filter) -->
         {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
@@ -245,91 +371,25 @@
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
 
+      <!-- Recent Activities (scoped to stock.adjusted / stock.low / stock.out) -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-graph-up"></i> Stock Overview
-          </span>
+        <div class="card-body" style="padding: 0;">
+          {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+      </div>
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Total Inventory Value</div>
-            <div class="sd-total-amount" style="color:var(--accent);">
-              ₱{{ grand_total_value|floatformat:2|intcomma }}
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Availability</div>
-            {% comment %} <div class="sd-info-row">
-              <span class="sd-info-label">Total Materials</span>
-              <span class="sd-info-value">{{ all_stocks|default:0 }}</span>
-            </div> {% endcomment %}
-            <div class="sd-info-row">
-              <span class="sd-info-label">In stock</span>
-              <span class="sd-info-value" style="color:var(--accent);">{{ in_stock|default:0 }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Low stock</span>
-              <span class="sd-info-value" style="color:var(--warning);">{{ low_stock|default:0 }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Out of stock</span>
-              <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Filter by Status</div>
-            <div class="quick-range-grid">
-              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=high"
-                class="quick-range-btn"
-                style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent); font-weight:600;{% endif %}">
-                <i class="bi bi-box-seam"></i> In stock
-              </a>
-              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=low"
-                class="quick-range-btn"
-                style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning); font-weight:600;{% endif %}">
-                <i class="bi bi-exclamation-triangle"></i> Low stock
-              </a>
-              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=none"
-                class="quick-range-btn"
-                style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger); font-weight:600;{% endif %}">
-                <i class="bi bi-slash-circle"></i> Out of stock
-              </a>
-              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
-                class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.category %}quick-range-btn--selected{% endif %}">
-                <i class="bi bi-grid"></i> All
-              </a>
-            </div>
-          </div>
-
-          {% comment %} <hr class="sl-quick-divider"> {% endcomment %}
-        <div class="sd-summary-block">
-          <div class="sd-summary-block-label">Quick Links</div>
-           <div class="btn-grid">
-             <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-               <i class="bi bi-receipt"></i> Purchases
-             </a>
-             <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-               <i class="bi bi-building"></i> Supplier
-             </a>
-           </div>
-        </div>
-
-          <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-            <div>
-              <div class="sd-note-title">About stock</div>
-              <div class="sd-note-text">Stock is updated automatically when a purchase or waste is recorded.</div>
-            </div>
-          </div>
-
+      <!-- About stock -->
+      <div class="sd-note-box">
+        <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+        <div>
+          <div class="sd-note-title">About stock</div>
+          <div class="sd-note-text">Stock is updated automatically when a purchase, sale, or waste is recorded.</div>
         </div>
       </div>
 
     </div>
+
+
 
   </div>
 </div>

@@ -7,191 +7,140 @@
 {% load humanize %}
 {% block content %}
 
-<div class="mf-page-wrapper">
+<div class="page-wrapper">
 
   <div class="mobile-back-row">
-  <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
+    <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
-  
+  <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">TEMPLATES &gt; EDIT</div>
+      <div class="page-breadcrumb">
+          <span>TRANSACTIONS</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>EDIT</span>
+      </div>
       <h1 class="page-title">Edit Template</h1>
       <p class="page-subtitle">Update this expense template's defaults.</p>
     </div>
-    <div class="page-header-right">
-      <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to templates
-      </a>
-    </div>
   </div>
 
-  <div class="mf-layout" style="grid-template-columns: 1fr 400px;">
-
-      <div class="mobile-back-row">
-        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-          <i class="bi bi-chevron-left"></i>
-          <span>Back</span>
-        </a>
-      </div>
-
-    <!-- LEFT: FORM -->
+  <!-- CENTERED FORM CARD -->
+  <div class="form-page-wrap">
     <div class="card">
-      <div class="card-header col-mobile-hidden">
-        <div class="sd-card-header-left">
-          <div class="sd-header-icon">
-            <i class="bi bi-pencil-square"></i>
-          </div>
-          <div>
-            <p class="card-header-title">Update Template</p>
-            <p class="card-header-sub">Edit the name, amount, or category for this expense template.</p>
-          </div>
-        </div>
-        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to templates
-        </a>
+
+      <div class="card-header">
+        <span class="card-header-title">
+          <i class="bi bi-pencil-square"></i> Update Template
+        </span>
+        <span class="card-header-sub">{{ form.instance.name|capfirst }}</span>
       </div>
 
-      <div class="card-body">
+      <div class="card-body" style="padding: 1.25rem;">
+
         <form method="POST" autocomplete="off" novalidate>
           {% csrf_token %}
 
-          <div class="mf-fields-grid">
+          <!-- Name -->
+          <div class="form-field">
+            <label class="form-label" for="{{ form.name.id_for_label }}">
+              <i class="bi bi-tag"></i> {{ form.name.label }}
+              {% if form.name.field.required %}<span class="form-required">*</span>{% endif %}
+            </label>
+            <input type="text"
+              name="{{ form.name.html_name }}"
+              id="{{ form.name.id_for_label }}"
+              value="{{ form.name.value|default_if_none:'' }}"
+              class="form-control form-control--polish"
+              autocomplete="off">
+            {% if form.name.errors %}<div class="form-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
 
-            <!-- NAME -->
-            <div class="mf-field-group" style="grid-column: 1 / -1;">
-              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-                {{ form.name.label }}
-                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              <input
-                type="text"
-                name="{{ form.name.html_name }}"
-                id="{{ form.name.id_for_label }}"
-                value="{{ form.name.value|default_if_none:'' }}"
-                class="form-control"
-                style="width:100%;"
-                autocomplete="off">
-              
-              
-              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
+          <div class="form-grid-2col" style="margin-top: 1rem;">
 
-            <!-- AMOUNT -->
-            <div class="mf-field-group">
-              <label for="{{ form.amount.id_for_label }}" class="mf-form-label">
-                {{ form.amount.label }}
-                {% if form.amount.field.required %}<span class="mf-required">*</span>{% endif %}
+            <!-- Amount -->
+            <div class="form-field">
+              <label class="form-label" for="{{ form.amount.id_for_label }}">
+                <i class="bi bi-cash"></i> {{ form.amount.label }}
+                {% if form.amount.field.required %}<span class="form-required">*</span>{% endif %}
               </label>
-              <div style="display:flex; align-items:center; width:100%; border:1px solid #dee2e6; border-radius:0.45rem; overflow:hidden; background:#fff;">
-                <span class="mf-peso-prefix" style="border:none; border-right:1px solid #dee2e6; border-radius:0; height:38px;">₱</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+              <div class="input-with-prefix" style="display: flex; align-items: stretch; width: 100%;">
+                <span class="input-prefix">₱</span>
+                <input type="number"
                   name="{{ form.amount.html_name }}"
                   id="{{ form.amount.id_for_label }}"
                   value="{{ form.amount.value|default_if_none:'' }}"
-                  style="width:100%; min-width:0; border:none; outline:none; box-shadow:none; padding:0.35rem 0.65rem; font-size:0.85rem; background:#fff;"
-                >
+                  class="form-control form-control--polish"
+                  style="flex: 1; min-width: 0;"
+                  step="0.01" min="0">
               </div>
-              
-              {% if form.amount.errors %}<div class="mf-error">{{ form.amount.errors|striptags }}</div>{% endif %}
+              {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|striptags }}</div>{% endif %}
             </div>
 
-            <!-- CATEGORY -->
+            <!-- Category -->
             {% if form.category %}
-            <div class="mf-field-group">
-              <label for="{{ form.category.id_for_label }}" class="mf-form-label">
-                {{ form.category.label }}
+            <div class="form-field">
+              <label class="form-label" for="{{ form.category.id_for_label }}">
+                <i class="bi bi-tags"></i> {{ form.category.label }}
               </label>
-              <select
-                name="{{ form.category.html_name }}"
+              <select name="{{ form.category.html_name }}"
                 id="{{ form.category.id_for_label }}"
-                class="form-control"
-                style="width:100%; height:38px; background:#fff;"
-              >
+                class="form-control form-control--polish">
                 {% for value, label in form.category.field.choices %}
-                  <option value="{{ value }}" {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                  <option value="{{ value }}"
+                    {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
                     {{ label }}
                   </option>
                 {% endfor %}
               </select>
-              
-              {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+              {% if form.category.errors %}<div class="form-error">{{ form.category.errors|striptags }}</div>{% endif %}
             </div>
             {% endif %}
 
           </div>
 
           {% if form.non_field_errors %}
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border); margin-bottom:0.75rem;">
-            <i class="bi bi-exclamation-circle-fill sd-note-icon" style="color:var(--danger);"></i>
-            <div class="sd-note-text" style="color:var(--danger);">{{ form.non_field_errors }}</div>
+          <div class="sd-note-box" style="background: var(--danger-light); border-color: var(--danger-border); margin-top: 1rem;">
+            <div class="sd-note-icon">
+              <i class="bi bi-exclamation-circle-fill" style="color: var(--danger);"></i>
+            </div>
+            <div class="sd-note-text" style="color: var(--danger);">{{ form.non_field_errors|striptags }}</div>
           </div>
           {% endif %}
 
-          <div class="mf-form-actions">
-            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light col-mobile-hidden">Cancel</a>
+          <!-- Note about scope -->
+          <div class="sd-note-box" style="margin-top: 1rem;">
+            <div class="sd-note-icon">
+              <i class="bi bi-info-circle-fill"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">Heads up</div>
+              <div class="sd-note-text">Changes apply to future expense logs only. Past records are not affected.</div>
+            </div>
+          </div>
+
+          <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
+            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+              Cancel
+            </a>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+              <i class="bi bi-check-circle"></i> Save Changes
             </button>
           </div>
 
         </form>
       </div>
     </div>
-
-    <!-- RIGHT: SNAPSHOT -->
-    <div class="card">
-      <div class="card-header dark">
-        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-          <i class="bi bi-info-circle"></i> Current Values
-        </span>
-      </div>
-      <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-        <div class="sd-summary-block highlight">
-          <div class="mf-guide-title">Before changes</div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Name</span>
-            <span class="sd-info-value">{{ form.instance.name|capfirst }}</span>
-          </div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Amount</span>
-            <span class="sd-info-value">₱{{ form.instance.amount|floatformat:2|intcomma }}</span>
-          </div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Category</span>
-            <span class="sd-info-value">{{ form.instance.category.name|default:"No category" }}</span>
-          </div>
-        </div>
-
-        <div class="sd-note-box">
-          <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-          <div>
-            <div class="sd-note-title">Note</div>
-            <div class="sd-note-text">Changes apply to future expense logs only. Past records are not affected.</div>
-          </div>
-        </div>
-
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Danger Zone</div>
-          <a href="{% url 'misc-expense-delete' current_business.slug form.instance.id %}"
-             class="btn btn-sm btn-block"
-             style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
-            <i class="bi bi-trash3 sl-me-1"></i> Delete Template
-          </a>
-        </div>
-
-      </div>
-    </div>
-
   </div>
+
 </div>
 
 {% endblock %}

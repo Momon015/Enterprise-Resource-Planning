@@ -136,7 +136,7 @@ def feature_required(feature_check):
             if not check():
                 messages.warning(
                     request,
-                    f"This feature requires a higher plan. Upgrade this business to unlock it."
+                    f"Dashboard requires a higher plan. Upgrade this business to unlock it."
                 )
                 return redirect(target, business_slug=business.slug)
 

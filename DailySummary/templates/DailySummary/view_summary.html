@@ -107,12 +107,12 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
 
             <div class="form-actions-inline">
-              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-                <i class="bi bi-arrow-counterclockwise"></i> Reset
-              </a>
               <button class="btn btn-primary btn-sm" type="submit">
                 <i class="bi bi-funnel-fill"></i> Apply
               </button>
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
             </div>
 
           </form>
@@ -316,7 +316,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div><dt>Revenue</dt><dd class="text-success">₱{{ grand_total_revenue|floatformat:2|default:"0.00"|intcomma }}</dd></div>
             <div><dt>Material Cost</dt><dd class="text-danger">₱{{ grand_total_material_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
             <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ grand_total_waste_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
-            <div><dt>Labor Cost</dt><dd class="text-danger">₱{{ grand_total_salary_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Salary Cost</dt><dd class="text-danger">₱{{ grand_total_salary_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
             <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ grand_total_expense_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
           </dl>
         </div>

@@ -1,0 +1,134 @@
+{% extends "main.html" %}
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-wrapper">
+
+<div class="mobile-back-row">
+  <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
+  <!-- PAGE HEADER -->
+  <div class="sl-page-header col-mobile-hidden">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>TEAM</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="breadcrumb-link">Employee</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>Edit</span>
+      </div>
+      <h1 class="page-title">Edit Employee</h1>
+      <p class="page-subtitle">Update the name and daily rate of this employee.</p>
+    </div>
+  </div>
+
+
+  <div style="max-width:680px; margin:0 auto;">
+
+    <!-- LEFT: FORM -->
+    <div class="card">
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-person-gear"></i>
+          </div>
+          <div>
+            <p class="card-header-title"> {{ employee.name }} </p>
+            <p class="card-header-sub">Update the details below.</p>
+          </div>
+        </div>
+        {% comment %} <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+          <i class="bi bi-arrow-left sl-me-1"></i> Back to employees
+        </a> {% endcomment %}
+      </div>
+
+      <div class="card-body">
+        <form method="POST" novalidate autocomplete="off">
+          {% csrf_token %}
+
+          <div class="mf-fields-grid">
+
+            {# Name #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="id_name" class="mf-form-label">
+                Name <span class="mf-required">*</span>
+              </label>
+              <input type="text" name="name" id="id_name"
+                     class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                     value="{{ form.name.value|default_if_none:'' }}"
+                     placeholder="e.g. Juan Dela Cruz">
+              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors.0 }}</div>{% endif %}
+            </div>
+
+            {# Daily Rate #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label for="id_daily_rate" class="mf-form-label">
+                Daily Rate <span class="mf-required">*</span>
+              </label>
+              <div class="mf-peso-wrap">
+                <span class="mf-peso-prefix">₱</span>
+                <div class="mf-stepper">
+                  <button class="qty-btn" type="button" onclick="changeRate(-50)">−</button>
+                  <input type="number" step="0.01" min="0" name="daily_rate" id="id_daily_rate"
+                         class="form-control {% if form.daily_rate.errors %}is-invalid{% endif %}"
+                         value="{{ form.daily_rate.value|default_if_none:'' }}"
+                         placeholder="e.g. 600.00">
+                  <button class="qty-btn" type="button" onclick="changeRate(50)">+</button>
+                </div>
+              </div>
+              <div style="font-size:0.78rem; color:var(--muted); margin-top:0.3rem;">Used for computing pay based on days worked.</div>
+              {% if form.daily_rate.errors %}<div class="mf-error">{{ form.daily_rate.errors.0 }}</div>{% endif %}
+            </div>
+            
+            {# Cashier role #}
+            <div class="mf-field-group" style="grid-column: 1 / -1;">
+              <label class="mf-form-label">Cash drawer</label>
+              <label style="display:flex; align-items:flex-start; gap:0.6rem; cursor:pointer; padding:0.85rem 1rem; border:1px solid var(--border); border-radius:10px;">
+                <input type="checkbox" name="is_cashier" id="id_is_cashier" style="margin-top:0.2rem;"
+                       {% if form.is_cashier.value %}checked{% endif %}>
+                <span>
+                  <strong>This employee handles a cash drawer</strong>
+                  <span style="display:block; font-size:0.78rem; color:var(--muted); margin-top:0.25rem;">
+                    Cashiers confirm starting cash at time-in and count the drawer at time-out. Leave off for staff who only clock in for attendance — baggers, helpers, stockers.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+
+
+          </div>
+
+          <div class="mf-form-actions">
+            <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light col-mobile-hidden">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function changeRate(delta) {
+  const input = document.getElementById('id_daily_rate');
+  let value = parseFloat(input.value || 0);
+  value = isNaN(value) ? 0 : value;
+  value = Math.max(0, value + delta);
+  input.value = value.toFixed(2);
+}
+</script>
+
+{% endblock %}

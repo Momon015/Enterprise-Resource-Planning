@@ -1,0 +1,216 @@
+{% extends "main.html" %}
+
+{% block locked_banner %}
+  <div class="locked-banner-hide-mobile">
+    {% include 'partials/_locked_items_banner.html' %}
+  </div>
+{% endblock %}
+
+{% load humanize %}
+{% block content %}
+
+<div class="page-wrapper">
+
+<div class="mobile-back-row">
+  <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="mobile-back-link">
+    <i class="bi bi-chevron-left"></i>
+    <span>Back</span>
+  </a>
+</div>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header col-mobile-hidden">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>TEAM</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="breadcrumb-link">EMPLOYEE</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">Employee Record</h1>
+      <p class="page-subtitle">Daily rate and payroll info.</p>
+    </div>
+  </div>
+
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: MAIN INFO -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="sd-card-header-left">
+            <div class="sd-header-icon">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div>
+              <div class="card-header-title">{{ employee.name|capfirst }}</div>
+              {% comment %} <div class="card-header-sub">ID: {{ employee.id }}</div> {% endcomment %}
+            </div>
+          </div>
+          <div class="sd-card-header-right">
+            <div class="label">Daily Rate</div>
+            <div class="amount" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2 }}</div>
+          </div>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Employee Info</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Full Name</span>
+              <span class="sd-info-value">{{ employee.name|capfirst }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Daily Rate</span>
+              <span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2|intcomma }}</span>
+            </div>
+            {% if employee.created_at %}
+            <div class="sd-info-row">
+              <span class="sd-info-label">Date Added</span>
+              <span class="sd-info-value">{{ employee.created_at|date:"M d, Y" }}</span>
+            </div>
+            {% endif %}
+            {% if employee.updated_at %}
+            <div class="sd-info-row">
+              <span class="sd-info-label">Last Updated</span>
+              <span class="sd-info-value">{{ employee.updated_at|date:"M d, Y" }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+            <div class="card table-card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Shifts — {{ month_label }}</span>
+            <span class="sl-badge sl-badge-light">{{ days_worked }} day{{ days_worked|pluralize }}</span>
+          </div>
+        </div>
+        <div class="table-responsive">
+          {% if page_obj.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="sl-text-center">Length</th>
+                <th class="sl-text-end">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in page_obj %}
+              <tr>
+                <td>
+                  <div class="cell-primary">{{ s.shift.date|date:"M d, Y" }}</div>
+                  {% if s.clock_in %}<div class="cell-sub">{{ s.clock_in|date:"g:i A" }}{% if s.clock_out %} – {{ s.clock_out|date:"g:i A" }}{% endif %}</div>{% endif %}
+                </td>
+                <td class="sl-text-center">{% if s.clock_out %}{{ s.hours_worked_display }}{% else %}<span class="sl-text-muted">—</span>{% endif %}</td>
+                <td class="sl-text-end sl-fw-semibold" style="color:var(--accent);">₱{{ s.daily_rate|floatformat:2|intcomma }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-calendar-x"></i></div>
+            <h3 class="empty-title">No shifts this month</h3>
+            <p class="empty-text">Logged shifts and clock-ins for {{ month_label }} will show here.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: PAY SUMMARY -->
+    <div class="right-panel">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-cash-stack"></i> Pay Summary
+          </span>
+        </div>
+
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <div class="sd-summary-block highlight">
+            <div class="sd-summary-block-label">{{ month_label }}</div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Daily Rate</span>
+              <span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="sd-info-row">
+              <span class="sd-info-label">Days worked</span>
+              <span class="sd-info-value">{{ days_worked }}</span>
+            </div>
+            <hr style="border-color:#e9ecef; margin:0.4rem 0;">
+            <div class="sd-info-row">
+              <span class="sd-info-label" style="font-weight:600;">Wage this month</span>
+              <span class="sd-total-amount" style="color:var(--accent);">₱{{ monthly_wage|default:"0.00"|floatformat:2|intcomma }}</span>
+            </div>
+          </div>
+
+
+          {% comment %} <div class="sd-summary-block">
+            <div class="mf-guide-title">Quick Actions</div>
+            <div class="btn-grid">
+              <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-pencil-square"></i> Edit Details
+              </a>
+              <a href="{% url 'employee-archive' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" class="btn btn-sm btn-block"
+                 style="background:var(--danger-light); color:var(--danger); border:1px solid #f0d0ce;">
+                <i class="bi bi-trash"></i> Delete Employee
+              </a>
+            </div>
+          </div> {% endcomment %}
+
+          <div class="sd-note-box">
+            <i class="bi bi-info-circle sd-note-icon"></i>
+            <div>
+              <div class="sd-note-title">How this is computed</div>
+              <div class="sd-note-text">Wage this month adds up the daily rate for each day worked — {{ days_worked }} day{{ days_worked|pluralize }} so far in {{ month_label }}.</div>
+            </div>
+          </div>
+
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

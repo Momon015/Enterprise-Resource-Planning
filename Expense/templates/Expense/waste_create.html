@@ -73,6 +73,15 @@ function toggleRow(checkbox) {
     counter.style.display = n > 0 ? "inline-flex" : "none";
   }
 }
+
+function selectAllVisible(master) {
+  document.querySelectorAll('.waste-row').forEach(function (r) {
+    if (r.style.display === 'none') return;        // skip filtered/paged-out rows
+    const c = r.querySelector('.waste-cb');
+    if (c && !c.disabled) { c.checked = master.checked; toggleRow(c); }
+  });
+}
+
 </script>
 
 <div class="page-wrapper">
@@ -80,18 +89,16 @@ function toggleRow(checkbox) {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
+      <div class="page-breadcrumb">    
+        <span>TRANSACTIONS</span>
+        <i class="bi bi-chevron-right"></i>
         <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="breadcrumb-link">WASTE</a>
         <i class="bi bi-chevron-right"></i>
+        
         <span>NEW</span>
       </div>
       <h1 class="page-title">Record Stock Waste</h1>
       <p class="page-subtitle">Log wasted stock as an expense</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to inventory
-      </a>
     </div>
   </div>
 
@@ -166,17 +173,27 @@ function toggleRow(checkbox) {
             {% csrf_token %}
             <div class="table-responsive">
 
-              {# ── REASON FOR WASTE ──────────────────────────────── #}
-              <div class="form-group">
-                  <label for="reason">Reason</label>
-                  <select name="reason" id="reason" required>
-                      <option value="">Select a reason…</option>
-                      <option value="spoilage">Spoilage / Expired</option>
-                      <option value="damage">Damage / Breakage</option>
-                      <option value="personal_use">Personal Use</option>
-                      <option value="theft">Theft / Missing</option>
-                      <option value="other">Other</option>
+              {# ── FILTER + REASON ──────────────────────────────── #}
+              <div class="d-flex gap-2 align-items-center w-100" style="margin-bottom:1rem;">
+                <div class="input-group flex-grow-1" style="max-width:360px;">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" id="wasteSearch" class="form-control"
+                         placeholder="Filter materials…" autocomplete="off"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+                </div>
+                <div style="position:relative;">
+                  <select name="reason" id="reason" class="form-control" required
+                          style="padding-right:2rem; appearance:none; -webkit-appearance:none; min-width:190px;">
+                    <option value="">Select a reason…</option>
+                    <option value="spoilage">Spoilage / Expired</option>
+                    <option value="damage">Damage / Breakage</option>
+                    <option value="personal_use">Personal Use</option>
+                    <option value="service">Service Use</option>
+                    <option value="theft">Theft / Missing</option>
+                    <option value="other">Other</option>
                   </select>
+                  <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
+                </div>
               </div>
 
 
@@ -184,9 +201,10 @@ function toggleRow(checkbox) {
                 <thead>
                   <tr>
                     <th style="width:2.5rem; text-align:center;">
-                      <input type="checkbox" class="waste-cb" title="Select all"
+                         <input type="checkbox" class="waste-cb" title="Select all"
                             {% if not stocks %}disabled{% endif %}
-                            onchange="document.querySelectorAll('.waste-cb:not([title])').forEach(c => { c.checked = this.checked; toggleRow(c); })">
+                            onchange="selectAllVisible(this)">
+
                     </th>
 
                     <th>Material</th>
@@ -197,7 +215,9 @@ function toggleRow(checkbox) {
                 </thead>
                 <tbody>
                   {% for stock in stocks %}
-                  <tr>
+                   <tr class="waste-row"
+                      data-search="{{ stock.material.name|default:stock.name|lower }} {{ stock.supplier|lower }}">
+
                     <td style="text-align:center;">
                       <input type="checkbox"
                              name="waste_expense"
@@ -250,8 +270,17 @@ function toggleRow(checkbox) {
                   </tr>
                   {% endfor %}
                 </tbody>
-              </table>
+                            </table>
+
+              <div id="wasteNoMatch" class="empty-text"
+                   style="display:none; text-align:center; padding:1rem;">
+                No materials match your search.
+              </div>
+              <div id="wastePager" class="pagination-wrapper" style="display:none;">
+                <nav><ul class="pagination" id="wastePagerList"></ul></nav>
+              </div>
             </div>
+
             <div class="mf-form-actions" style="margin-top:1rem;">
               <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
               <button type="submit" class="btn btn-danger">
@@ -320,5 +349,62 @@ function toggleRow(checkbox) {
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const pageSize = 5;
+  const search   = document.getElementById('wasteSearch');
+  const rows     = Array.from(document.querySelectorAll('.waste-row'));
+  const pager     = document.getElementById('wastePager');
+  const pagerList = document.getElementById('wastePagerList');
+  const noMatch   = document.getElementById('wasteNoMatch');
+  if (!rows.length) return;          // empty-state already shown server-side
+  let currentPage = 1;
+
+  function getFiltered() {
+    const q = (search.value || '').trim().toLowerCase();
+    return q ? rows.filter(r => (r.dataset.search || '').includes(q)) : rows;
+  }
+
+  function render() {
+    const filtered  = getFiltered();
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (currentPage > pageCount) currentPage = pageCount;
+
+    rows.forEach(r => r.style.display = 'none');     // hide only — inputs stay in DOM
+    const start = (currentPage - 1) * pageSize;
+    filtered.slice(start, start + pageSize).forEach(r => r.style.display = '');
+
+    noMatch.style.display = filtered.length === 0 ? '' : 'none';
+    renderPager(pageCount);
+  }
+
+  function renderPager(pageCount) {
+    if (pageCount <= 1) { pager.style.display = 'none'; pagerList.innerHTML = ''; return; }
+    pager.style.display = '';
+    let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" data-page="${currentPage - 1}"><i class="bi bi-chevron-left"></i></a></li>`;
+    for (let p = 1; p <= pageCount; p++) {
+      html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+          <a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+    }
+    html += `<li class="page-item ${currentPage === pageCount ? 'disabled' : ''}">
+        <a class="page-link" href="#" data-page="${currentPage + 1}"><i class="bi bi-chevron-right"></i></a></li>`;
+    pagerList.innerHTML = html;
+  }
+
+  pagerList.addEventListener('click', function (e) {
+    const a = e.target.closest('a[data-page]');
+    if (!a) return;
+    e.preventDefault();
+    const p = parseInt(a.dataset.page, 10);
+    if (!isNaN(p) && p >= 1) { currentPage = p; render(); }
+  });
+
+  search.addEventListener('input', function () { currentPage = 1; render(); });
+
+  render();
+});
+</script>
 
 {% endblock %}

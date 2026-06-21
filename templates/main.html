@@ -25,18 +25,20 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=53" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=55" />
 
     {% block extra_css %}{% endblock %}
   </head>
   <div class="toast-container" id="globalToast" aria-live="polite" aria-atomic="true"></div>
   <body>
     <!-- Navbar -->
-      {% include 'navbar.html' %}
+      {% block sidebar %}{% include 'navbar.html' %}{% endblock %}
+
     <!-- Main Content -->
     <main>
       {% block locked_banner %}
         {% include 'partials/_locked_items_banner.html' %}
+        {% include 'partials/_pending_acks_banner.html' %}
       {% endblock %}
       {% block content %}
       <div class="text-center py-5">
@@ -64,7 +66,6 @@
           .forEach(el => new bootstrap.Tooltip(el));
       });
     </script>
-
 
     <!-- htmx (add this line) -->
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
@@ -108,6 +109,14 @@
       document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.qty-stepper-input').forEach(syncStepperButtons);
       });
+    </script>
+
+    <script>
+      document.addEventListener('keydown', function (e) {
+        if (e.target.matches('input[type="number"]') && ['e', 'E', '+', '-'].includes(e.key)) {
+          e.preventDefault();
+        }
+      }, true);
     </script>
 
 

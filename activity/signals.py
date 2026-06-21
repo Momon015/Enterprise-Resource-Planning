@@ -51,8 +51,9 @@ def log_stock_threshold_events(sender, instance, created, **kwargs):
         return  # don't double-log low on the same save
 
     # Crossed into LOW (was above threshold or new, now 1-49)
-    if 1 <= new_qty <= LOW_STOCK_THRESHOLD:
-        was_above = old_qty is None or old_qty > LOW_STOCK_THRESHOLD
+    threshold = getattr(instance, 'low_stock_threshold', LOW_STOCK_THRESHOLD)
+    if 1 <= new_qty <= threshold:
+        was_above = old_qty is None or old_qty > threshold
         if was_above:
             log_activity(
                 business=instance.business,
@@ -60,6 +61,41 @@ def log_stock_threshold_events(sender, instance, created, **kwargs):
                 verb='stock.low',
                 target=instance,
                 description=f"{material_name} is very low ({new_qty} left)",
-                metadata={'quantity': new_qty, 'threshold': LOW_STOCK_THRESHOLD},
+                metadata={'quantity': new_qty, 'threshold': threshold},
                 important=True,
             )
+
+from Product.models import Product
+
+@receiver(pre_save, sender=Product)
+def capture_old_margin(sender, instance, **kwargs):
+    """Stash margin status before save so post_save can detect a crossing."""
+    if not instance.pk:
+        instance._old_margin_status = None
+        return
+    try:
+        old = Product.objects.select_related('category').get(pk=instance.pk)
+        instance._old_margin_status = old.margin_status
+    except Product.DoesNotExist:
+        instance._old_margin_status = None
+
+
+@receiver(post_save, sender=Product)
+def log_margin_low_event(sender, instance, created, **kwargs):
+    """Fire `product.margin_low` ONLY when a product newly crosses under the 10% floor —
+    covers both supplier cost-hikes and owner price edits."""
+    if not instance.business:
+        return
+    new_status = instance.margin_status
+    old_status = getattr(instance, '_old_margin_status', None)
+    if new_status == 'critical' and old_status != 'critical':
+        log_activity(
+            business=instance.business,
+            actor=None,  # system-detected, like stock.out
+            verb='product.margin_low',
+            target=instance,
+            description=f"{instance.name} margin critically low at {instance.current_margin:.0f}%",
+            metadata={'margin': float(instance.current_margin),
+                      'target': instance.effective_target_margin},
+            important=True,
+        )

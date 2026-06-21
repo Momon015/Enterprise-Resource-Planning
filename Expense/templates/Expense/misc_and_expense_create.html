@@ -25,15 +25,14 @@
 </div>
 
 <style>
-  tr.row-selected { background: var(--accent-light) !important; }
-  tr.row-selected td { border-color: var(--accent-border, #c7d7f5) !important; }
-  .expense-cb { width: 1.1rem; height: 1.1rem; cursor: pointer; accent-color: var(--accent); }
+  tr.row-selected { background: #ecfdf5 !important; }
+  tr.row-selected td { border-color: #a7f3d0 !important; }
+  .expense-cb { width: 1.1rem; height: 1.1rem; cursor: pointer; accent-color: #16a34a; }
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message")
-    .forEach(t => setTimeout(() => t.remove(), 3200));
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
   const checkboxes = document.querySelectorAll(".expense-cb:not(#checkAll)");
   const counter = document.getElementById("selectedCount");
@@ -41,9 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateCounter() {
     if (!counter) return;
-
     const n = document.querySelectorAll(".expense-cb:not(#checkAll):checked").length;
-
     counter.textContent = n + " selected";
     counter.style.display = n > 0 ? "inline-flex" : "none";
   }
@@ -59,16 +56,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // FIXED select all
   if (selectAll) {
     selectAll.addEventListener("change", function () {
-      const all = document.querySelectorAll(".expense-cb:not(#checkAll)");
-
-      all.forEach(cb => {
+      document.querySelectorAll(".expense-cb:not(#checkAll)").forEach(cb => {
         cb.checked = this.checked;
         updateRow(cb);
       });
-
       updateCounter();
     });
   }
@@ -76,222 +69,241 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 {% if form %}
-{# ── MISC EXPENSE CREATE: create a reusable template ── #}
+{# ───────────────────────────────────────────────────────────────── #}
+{# MISC EXPENSE CREATE — create a reusable template                  #}
+{# ───────────────────────────────────────────────────────────────── #}
 <div class="page-wrapper">
 
   <div class="mobile-back-row">
-  <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
+    <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
-  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
-
-    <!-- LEFT: FORM -->
-    <div class="card">
-      <div class="card-header col-mobile-hidden">
-        <div class="sd-card-header-left">
-          <div class="sd-header-icon">
-            <i class="bi bi-bookmark-plus"></i>
-          </div>
-          <div>
-            <p class="card-header-title">New Expense Template</p>
-            <p class="card-header-sub">Add a reusable expense you record regularly.</p>
-          </div>
-        </div>
-        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to templates
-        </a>
+  <!-- PAGE HEADER -->
+  <div class="page-header col-mobile-hidden">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>TRANSACTIONS</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">Expenses</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>NEW</span>
       </div>
+      <h1 class="page-title">New Expense Template</h1>
+      <p class="page-subtitle">Add a reusable expense you record regularly.</p>
+    </div>
+  </div>
 
-      <div class="card-body">
-        <form method="POST" action="{% url 'misc-expense-create' business_slug=current_business.slug %}" autocomplete="off" novalidate>
-          {% csrf_token %}
+  <div class="two-col-layout">
 
-          <div class="mf-fields-grid">
+    <!-- LEFT PANEL: FORM -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-bookmark-plus"></i> Template Details
+          </span>
+        </div>
 
-            {# Name — full width #}
-            <div class="mf-field-group" style="grid-column: 1 / -1;">
-              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-                {{ form.name.label }}
-                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+        <div class="card-body" style="padding: 1.25rem;">
+          <form method="POST" action="{% url 'misc-expense-create' business_slug=current_business.slug %}" autocomplete="off" novalidate>
+            {% csrf_token %}
+
+            <!-- Name -->
+            <div class="form-field">
+              <label class="form-label" for="{{ form.name.id_for_label }}">
+                <i class="bi bi-tag"></i> {{ form.name.label }}
+                {% if form.name.field.required %}<span class="form-required">*</span>{% endif %}
               </label>
-              <input
-                type="text"
+              <input type="text"
                 name="{{ form.name.html_name }}"
                 id="{{ form.name.id_for_label }}"
                 value="{{ form.name.value|default_if_none:'' }}"
-                class="form-control"
-                style="width:100%;"
+                class="form-control form-control--polish"
                 autocomplete="off"
-                placeholder='e.g. Electric Bill'>
-              
-              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+                placeholder="e.g. Electric Bill">
+              {% if form.name.errors %}<div class="form-error">{{ form.name.errors|striptags }}</div>{% endif %}
             </div>
 
-            {# Amount #}
-            <div class="mf-field-group">
-              <label for="{{ form.amount.id_for_label }}" class="mf-form-label">
-                {{ form.amount.label }}
-                {% if form.amount.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
+            <div class="form-grid-2col" style="margin-top: 1rem;">
 
-              <div style="display:flex; align-items:center; width:100%; border:1px solid #dee2e6; border-radius:0.45rem; overflow:hidden; background:#fff;">
-                <span class="mf-peso-prefix" style="border:none; border-right:1px solid #dee2e6; border-radius:0; height:38px;">₱</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+              <!-- Amount -->
+            <div class="form-field">
+              <label class="form-label" for="{{ form.amount.id_for_label }}">
+                <i class="bi bi-cash"></i> {{ form.amount.label }}
+                {% if form.amount.field.required %}<span class="form-required">*</span>{% endif %}
+              </label>
+              <div class="input-with-prefix" style="display: flex; align-items: stretch; width: 100%;">
+                <span class="input-prefix">₱</span>
+                <input type="number"
                   name="{{ form.amount.html_name }}"
                   id="{{ form.amount.id_for_label }}"
                   value="{{ form.amount.value|default_if_none:'' }}"
-                  class="form-control"
-                  style="width:100%; min-width:0; border:none; outline:none; box-shadow:none; padding:0.35rem 0.65rem; font-size:0.85rem; background:#fff;"
+                  class="form-control form-control--polish"
+                  style="flex: 1; min-width: 0;"
+                  step="0.01" min="0"
                   placeholder="0.00">
-                
+              </div>
+              {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|striptags }}</div>{% endif %}
+            </div>
+
+
+              <!-- Category -->
+              <div class="form-field">
+                <label class="form-label" for="{{ form.category.id_for_label }}">
+                  <i class="bi bi-tags"></i> {{ form.category.label }}
+                  {% if form.category.field.required %}<span class="form-required">*</span>{% endif %}
+                </label>
+                <select name="{{ form.category.html_name }}"
+                  id="{{ form.category.id_for_label }}"
+                  class="form-control form-control--polish">
+                  {% for value, label in form.category.field.choices %}
+                    <option value="{{ value }}"
+                      {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+                {% if form.category.errors %}<div class="form-error">{{ form.category.errors|striptags }}</div>{% endif %}
               </div>
 
-              
-              {% if form.amount.errors %}<div class="mf-error">{{ form.amount.errors|striptags }}</div>{% endif %}
             </div>
 
-            {# Category #}
-            <div class="mf-field-group">
-              <label for="{{ form.category.id_for_label }}" class="mf-form-label">
-                {{ form.category.label }}
-                {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
+            {% if form.non_field_errors %}
+            <div class="sd-note-box" style="background: var(--danger-light); border-color: var(--danger-border); margin-top: 1rem;">
+              <div class="sd-note-icon">
+                <i class="bi bi-exclamation-circle-fill" style="color: var(--danger);"></i>
+              </div>
+              <div class="sd-note-text" style="color: var(--danger);">{{ form.non_field_errors|striptags }}</div>
+            </div>
+            {% endif %}
 
-              <select
-                name="{{ form.category.html_name }}"
-                id="{{ form.category.id_for_label }}"
-                class="form-control"
-                style="width:100%; height:38px; background:#fff;">
-              
-                {% for value, label in form.category.field.choices %}
-                  <option value="{{ value }}"
-                    {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
-                    {{ label }}
-                  </option>
-                {% endfor %}
-              </select>
-
-              
-              {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+            <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
+              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+                Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-bookmark-check"></i> Save Template
+              </button>
             </div>
 
-          </div>
-
-          {% if form.non_field_errors %}
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border); margin-bottom:0.75rem;">
-            <i class="bi bi-exclamation-circle-fill sd-note-icon" style="color:var(--danger);"></i>
-            <div class="sd-note-text" style="color:var(--danger);">{{ form.non_field_errors }}</div>
-          </div>
-          {% endif %}
-
-          <div class="mf-form-actions">
-            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-bookmark-check sl-me-1"></i> Save Template
-            </button>
-          </div>
-
-        </form>
+          </form>
+        </div>
       </div>
     </div>
 
-    <!-- RIGHT: GUIDE -->
-    <div class="card">
-      <div class="card-header dark">
-        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-          <i class="bi bi-info-circle"></i> Template Guide
-        </span>
-      </div>
-      <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+    <!-- RIGHT PANEL: GUIDE -->
+    <div class="right-panel">
 
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">What is a template?</div>
-          <p style="font-size:0.8125rem; color:var(--muted); margin:0;">
-            A template is a <strong>saved expense</strong> you pay repeatedly — like rent or utilities.
-            Instead of typing the details every time, you just check it when logging.
-          </p>
+      <!-- About -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-info-circle"></i> Template Guide
+          </span>
         </div>
+        <div class="card-body" style="padding: 1rem;">
 
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Checklist</div>
-          <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Use a clear name (e.g. "Electricity", "Rent").</li>
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set a realistic default amount.</li>
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Assign a category for better reporting.</li>
-          </ul>
-        </div>
-
-        <div class="sd-summary-block">
-          <div class="sd-summary-block-label">Quick links</div>
-          <div class="btn-grid">
-            <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-receipt"></i> Log expense
-            </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-list-ul"></i> Expense records
-            </a>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">What is a template?</div>
+            <p style="font-size: 0.825rem; color: var(--muted); margin: 0; line-height: 1.5;">
+              A <strong>saved expense</strong> you pay repeatedly — like rent or utilities. Check it once when logging instead of re-typing.
+            </p>
           </div>
-        </div>
 
-        <div class="mf-tip-box">
-          <i class="bi bi-lightbulb"></i>
-          <div>
-            <div class="mf-tip-title">Tip</div>
-            <div class="mf-tip-text">You can override the default amount each time you log — the template just fills it in as a starting point.</div>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Checklist</div>
+            <ul class="mf-guide-list" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.825rem;">
+              <li><i class="bi bi-check-circle-fill" style="color: #16a34a;"></i> Use a clear name (e.g. "Electric Bill", "Rent")</li>
+              <li><i class="bi bi-check-circle-fill" style="color: #16a34a;"></i> Set a realistic default amount</li>
+              <li><i class="bi bi-check-circle-fill" style="color: #16a34a;"></i> Assign a category for better reporting</li>
+            </ul>
           </div>
-        </div>
 
+          <div class="sd-note-box">
+            <div class="sd-note-icon">
+              <i class="bi bi-lightbulb-fill" style="color: #d97706;"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">Tip</div>
+              <div class="sd-note-text">You can override the default amount each time you log — the template is just a starting point.</div>
+            </div>
+          </div>
+
+        </div>
       </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i> Quick Actions
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-light btn-block">
+            <i class="bi bi-receipt-cutoff"></i> Log expense
+          </a>
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">
+            <i class="bi bi-wallet2"></i> Expense
+          </a>
+        </div>
+      </div>
+
     </div>
 
   </div>
 </div>
 
 {% else %}
-{# ── EXPENSE CREATE: log actual expense from templates ── #}
+{# ───────────────────────────────────────────────────────────────── #}
+{# EXPENSE CREATE — log actual expenses from templates               #}
+{# ───────────────────────────────────────────────────────────────── #}
 <div class="page-wrapper">
 
   <div class="mobile-back-row">
-  <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
+    <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
-
+  <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EXPENSES</div>
+      <div class="page-breadcrumb">
+        <span>TRANSACTIONS</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>LOG</span>
+      </div>
       <h1 class="page-title">Log Expense</h1>
       <p class="page-subtitle">Select templates, enter actual amounts, and set the date.</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
-        <i class="bi bi-arrow-left"></i> Back to expenses
-      </a>
     </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT: LOG FORM -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
 
       {% if misc_expenses %}
       <form method="POST" action="{% url 'expense-create' business_slug=current_business.slug %}" autocomplete="off">
         {% csrf_token %}
+
         <div class="card table-card">
           <div class="card-header">
             <div class="card-header-left-group">
-              <span class="card-header-title">Expense Templates</span>
+              <span class="card-header-title">
+                <i class="bi bi-bookmark-check"></i> Expense Templates
+              </span>
               <span class="sl-badge sl-badge-light">{{ misc_expenses|length }} template{{ misc_expenses|length|pluralize }}</span>
-              <span id="selectedCount" class="sl-badge" style="background:var(--accent-light); color:var(--accent); display:none;"></span>
+              <span id="selectedCount" class="sl-badge sl-badge-success" style="display: none;"></span>
             </div>
             <span class="card-header-sub">Check the ones you paid, enter actual amount</span>
           </div>
@@ -300,62 +312,67 @@ document.addEventListener("DOMContentLoaded", function () {
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width:2.5rem; text-align:center;">
-                    <input type="checkbox" class="expense-cb" id="checkAll" title="Select all"
-                          onchange="document.querySelectorAll('.expense-cb:not(#checkAll)').forEach(c => { c.checked = this.checked; c.closest('tr').classList.toggle('row-selected', this.checked); }); document.getElementById('selectedCount').textContent = this.checked ? '{{ misc_expenses|length }} selected' : '0 selected'; document.getElementById('selectedCount').style.display = this.checked ? 'inline-flex' : 'none';">
+                  <th style="width: 2.5rem; text-align: center;">
+                    <input type="checkbox" class="expense-cb" id="checkAll" title="Select all">
                   </th>
                   <th>Expense</th>
-                  <th class="sl-text-end mobile-center">Default</th>
+                  <th class="sl-text-end col-mobile-hidden">Default</th>
                   <th class="sl-text-end">Actual Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {% for misc in misc_expenses %}
                 <tr>
-                  <td style="text-align:center;">
+                  <td style="text-align: center;">
                     <input type="checkbox" name="misc_expense" value="{{ misc.id }}"
-                          class="expense-cb" id="misc_{{ misc.id }}">
+                      class="expense-cb" id="misc_{{ misc.id }}">
                   </td>
                   <td>
-                    <label for="misc_{{ misc.id }}" style="cursor:pointer; margin:0;">
+                    <label for="misc_{{ misc.id }}" style="cursor: pointer; margin: 0;">
                       <div class="cell-primary">{{ misc.name|capfirst }}</div>
                       <div class="cell-sub">{{ misc.category.name|default:"No category" }}</div>
                     </label>
                   </td>
-                  <td class="sl-text-end mobile-center">
+                  <td class="sl-text-end col-mobile-hidden">
                     <span class="sl-fw-semibold">₱{{ misc.amount|floatformat:2|intcomma }}</span>
                   </td>
                   <td class="sl-text-end">
-                    <div class="mf-peso-wrap" style="justify-content:flex-end;">
-                      <span class="mf-peso-prefix">₱</span>
+                    <div class="input-with-prefix" style="max-width: 140px; margin-left: auto;">
+                      <span class="input-prefix">₱</span>
                       <input type="number" name="amount_{{ misc.id }}"
-                            class="form-control" style="width:120px; text-align:right;"
-                            step="0.01" min="0"
-                            value="{{ misc.amount|floatformat:2 }}"
-                            placeholder="0.00">
+                        class="form-control form-control--polish"
+                        style="text-align: right;"
+                        step="0.01" min="0"
+                        value="{{ misc.amount|floatformat:2 }}"
+                        placeholder="0.00">
                     </div>
                   </td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
-
           </div>
 
           <!-- DATE + SUBMIT -->
-          <div class="card-body" style="border-top:1px solid var(--border);">
-            <div class="mf-fields-grid" style="margin-bottom:1rem;">
-              <div class="mf-field-group" style="grid-column: 1 / -1;">
-                <label class="mf-form-label">Date <span class="mf-required">*</span></label>
-                <input type="date" name="date" class="form-control"
-                  value="{% now 'Y-m-d' %}" max="{{ today|date:'Y-m-d' }}" required>
-              </div>
+          <div class="card-body" style="border-top: 1px solid #f3f4f6; padding: 1.25rem;">
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-event"></i> Date <span class="form-required">*</span>
+              </label>
+              <input type="date" name="date"
+                class="form-control form-control--polish"
+                style="max-width: 240px;"
+                value="{% now 'Y-m-d' %}" max="{{ today|date:'Y-m-d' }}" required>
             </div>
-            <div class="mf-form-actions">
-              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+
+            <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
+              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+                Cancel
+              </a>
               <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle sl-me-1"></i> Log Selected
+                <i class="bi bi-check-circle"></i> Log Selected
               </button>
+
             </div>
           </div>
 
@@ -364,52 +381,46 @@ document.addEventListener("DOMContentLoaded", function () {
 
       {% else %}
       <div class="card">
-        <div class="empty-state">
-          <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
-          <h3 class="empty-title">No expense templates yet</h3>
-          <p class="empty-text">Create templates first, then you can log actual expenses from them.</p>
-          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-            <i class="bi bi-plus-circle"></i> Create your first template
-          </a>
+        <div class="card-body">
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+            <h3 class="empty-title">No expense templates yet</h3>
+            <p class="empty-text">Create templates first, then you can log actual expenses from them.</p>
+            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create your first template
+            </a>
+          </div>
         </div>
       </div>
       {% endif %}
 
     </div>
 
-    <!-- RIGHT: INFO -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      <!-- How it works -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-info-circle"></i> How it works
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body" style="padding: 1rem;">
 
           <div class="sd-summary-block">
-            <div class="mf-guide-title">Steps</div>
-            <ul class="mf-guide-list">
-              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Check the expense(s) you paid.</li>
-              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Adjust the actual amount if different from default.</li>
-              <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set the date and click Log Selected.</li>
+            <div class="sd-summary-block-label">Steps</div>
+            <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.825rem;">
+              <li><i class="bi bi-1-circle-fill" style="color: #2563eb;"></i> Check the expense(s) you paid</li>
+              <li><i class="bi bi-2-circle-fill" style="color: #2563eb;"></i> Adjust the actual amount if different</li>
+              <li><i class="bi bi-3-circle-fill" style="color: #2563eb;"></i> Set the date and click Log Selected</li>
             </ul>
           </div>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick links</div>
-            <div class="btn-grid">
-              <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create template
-              </a>
-              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-bookmarks-fill"></i> Manage templates
-              </a>
-            </div>
-          </div>
-
           <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+            <div class="sd-note-icon">
+              <i class="bi bi-info-circle-fill"></i>
+            </div>
             <div>
               <div class="sd-note-title">Note</div>
               <div class="sd-note-text">Each checked template creates one expense record. Uncheck items you did not pay today.</div>
@@ -418,6 +429,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
         </div>
       </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i> Quick Actions
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+            <i class="bi bi-plus-circle"></i> Create template
+          </a>
+          <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">
+            <i class="bi bi-bookmark-fill"></i> Manage templates
+          </a>
+        </div>
+      </div>
+
     </div>
 
   </div>

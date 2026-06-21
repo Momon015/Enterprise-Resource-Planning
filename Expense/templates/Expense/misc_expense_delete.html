@@ -8,126 +8,91 @@
 {% block content %}
 
 <div class="page-wrapper">
-  <div class="mobile-back-row">
-  <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
 
+  <div class="mobile-back-row">
+    <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EXPENSES / TEMPLATES</div>
+      <div class="page-breadcrumb">
+        <span>TRANSACTIONS</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DELETE</span>
+      </div>
       <h1 class="page-title">Delete Template</h1>
       <p class="page-subtitle">This action is permanent and cannot be undone.</p>
     </div>
-    <div class="page-header-right">
-      <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
-        <i class="bi bi-arrow-left"></i> Back to templates
-      </a>
-    </div>
   </div>
 
-  <div class="two-col-layout">
+  <!-- CENTERED CONFIRMATION CARD -->
+  <div class="form-page-wrap">
+    <div class="card">
 
-    <!-- LEFT: DETAILS + CONFIRM -->
-    <div class="left-panel">
-      <div class="card">
-        <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-bookmark-fill"></i>
+      <div class="card-header">
+        <span class="card-header-title" style="color: #b91c1c;">
+          <i class="bi bi-exclamation-triangle-fill"></i> Confirm Delete
+        </span>
+        <span class="card-header-sub">{{ misc_expense.name|capfirst }}</span>
+      </div>
+
+      <div class="card-body" style="padding: 1.25rem;">
+        <!-- Template snapshot -->
+          <dl class="period-breakdown" style="margin-top: -0.7rem;">
+            <div>
+              <dt><i class="bi bi-tag"></i> Name</dt>
+              <dd>{{ misc_expense.name|capfirst }}</dd>
             </div>
             <div>
-              <div class="card-header-title">{{ misc_expense.name|capfirst }}</div>
-              <div class="card-header-sub">{{ misc_expense.category.name|default:"No category" }}</div>
+              <dt><i class="bi bi-cash"></i> Amount</dt>
+              <dd class="sl-fw-bold">₱{{ misc_expense.amount|floatformat:2|intcomma }}</dd>
             </div>
-          </div>
-          {% comment %} <div class="sd-card-header-right">
-            <div class="label">Default Amount</div>
-            <div class="amount" style="color:var(--danger);">₱{{ misc_expense.amount|floatformat:2|intcomma }}</div>
-          </div> {% endcomment %}
-        </div>
+            <div>
+              <dt><i class="bi bi-tags"></i> Category</dt>
+              <dd>{{ misc_expense.category.name|default:"No category" }}</dd>
+            </div>
+          </dl>
 
-        <div class="card-body">
-          <div class="sd-section-label">Template details</div>
-          <div class="sd-summary-block">
-            <div class="sd-info-row">
-              <span class="sd-info-label">Name</span>
-              <span class="sd-info-value">{{ misc_expense.name|capfirst }}</span>
+          <!-- Impact (with danger styling) -->
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+            <div style="font-size: 0.7rem; font-weight: 600; color: #b91c1c; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5rem;">
+              <i class="bi bi-exclamation-triangle-fill"></i> What happens
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Default Amount</span>
-              <span class="sd-info-value">₱{{ misc_expense.amount|floatformat:2|intcomma }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Category</span>
-              <span class="sd-info-value">{{ misc_expense.category.name|default:"No category" }}</span>
-            </div>
+            <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.825rem;">
+              <li><i class="bi bi-x-circle-fill" style="color: #b91c1c;"></i> Template <strong>"{{ misc_expense.name|capfirst }}"</strong> will be permanently removed</li>
+              <li><i class="bi bi-check-circle-fill" style="color: #16a34a;"></i> Past logged expenses stay intact (link removed, amounts kept)</li>
+              <li><i class="bi bi-check-circle-fill" style="color: #16a34a;"></i> Other templates are not affected</li>
+            </ul>
           </div>
-        </div>
 
-        <div class="card-body" style="border-top:1px solid var(--border);">
-          <form method="POST">
-            {% csrf_token %}
-            <div class="mf-form-actions">
-              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light col-mobile-hidden">Cancel</a>
-              <button type="submit" class="btn btn-sm"
-                style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
-                <i class="bi bi-trash3-fill sl-me-1"></i> Delete Template
-              </button>
-            </div>
-          </form>
-        </div>
+
+        <!-- Actions -->
+        <form method="POST" style="margin: 0;">
+          {% csrf_token %}
+          <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.5rem; justify-content: flex-end;">
+            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+              Cancel
+            </a>
+            <button type="submit" class="btn"
+              style="background: #dc2626; color: #fff; border-color: #dc2626; font-weight: 600;">
+              <i class="bi bi-trash3-fill"></i> Delete Template
+            </button>
+
+          </div>
+        </form>
 
       </div>
     </div>
-
-    <!-- RIGHT: DELETION IMPACT -->
-    <div class="right-panel">
-      <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-exclamation-triangle-fill"></i> Deletion Impact
-          </span>
-        </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-          <div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
-            <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color:var(--danger);"></i>
-            <div>
-              <div class="sd-note-title" style="color:var(--danger);">This action cannot be undone</div>
-              <div class="sd-note-text">This expense template will be permanently deleted.</div>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Will be removed</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-x-circle sl-me-1" style="color:var(--danger);"></i> Template</span>
-              <span class="sd-info-value">{{ misc_expense.name|capfirst }}</span>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Will be preserved</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-check-circle sl-me-1" style="color:var(--success);"></i> Logged expenses</span>
-              <span class="sd-info-value">Link removed, data kept</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label"><i class="bi bi-check-circle sl-me-1" style="color:var(--success);"></i> Other templates</span>
-              <span class="sd-info-value">Not affected</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
   </div>
+
 </div>
 
 {% endblock %}

@@ -18,133 +18,104 @@
 </div>
 
 <div class="mf-page-wrapper">
-  
+
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">PURCHASING &gt; EDIT</div>
-      <h1 class="page-title">Edit Supplier</h1>
-      <p class="page-subtitle">Update this supplier's details.</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to suppliers
-      </a>
+      <div class="page-breadcrumb">
+        <span>PURCHASING</span>
+        <a href={% url 'supplier-list' business_slug=current_business.slug %} class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
+        <span>SUPPLIER</span>
+        </a>
+        <i class="bi bi-chevron-right"></i>
+        <span>EDIT</span>
+      </div>
+      <p class="page-subtitle">Update the supplier's details.</p>
     </div>
   </div>
 
-  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
-
-    <!-- LEFT: FORM -->
-    <div class="card">
-      <div class="card-header">
-        <div class="sd-card-header-left">
-          <div class="sd-header-icon">
-            <i class="bi bi-pencil-square"></i>
-          </div>
-          <div>
-            <p class="card-header-title">Update Supplier</p>
-            <p class="card-header-sub">Edit supplier details.</p>
-          </div>
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 760px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon">
+          <i class="bi bi-pencil-square"></i>
         </div>
-        {% comment %} <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to supplier
-        </a> {% endcomment %}
+        <div>
+          <p class="card-header-title">Update Supplier</p>
+          <p class="card-header-sub">Edit supplier details.</p>
+        </div>
       </div>
+    </div>
 
-      <div class="card-body">
-        <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
-          {% csrf_token %}
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+        {% csrf_token %}
 
-          <div class="mf-fields-grid">
+        <div class="mf-fields-grid">
 
-            {# Name #}
-            <div class="mf-field-group" style="grid-column: 1 / -1;">
-              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-                {{ form.name.label }}
-                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.name }}
-              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
-
-            <div class="form-group">
-              <label class="mf-form-label">Supplier Image</label>
-
-              <div class="file-input-wrapper">
-
-                {# Hidden native input + styled label as button #}
-                <label for="{{ form.image.id_for_label }}" class="file-input-button">
-                  <i class="bi bi-cloud-arrow-up"></i>
-                  <span id="image-label-{{ form.image.id_for_label }}">
-                    {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
-                  </span>
-                </label>
-                {{ form.image }}
-
-                <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
-                  {% if form.instance.image %}
-                    Image uploaded
-                  {% else %}
-                    No file chosen
-                  {% endif %}
-                </span>
-
-                <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically.</small>
-                {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
-              </div>
-            </div>
-
-
+          {# Name #}
+          <div class="mf-field-group">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}
+              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
           </div>
+
+          {# Image #}
+          <div class="mf-field-group">
+            <label class="mf-form-label">Supplier Image</label>
+            <div class="file-input-wrapper">
+              <label for="{{ form.image.id_for_label }}" class="file-input-button">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <span id="image-label-{{ form.image.id_for_label }}">
+                  {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
+                </span>
+              </label>
+              {{ form.image }}
+              <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
+                {% if form.instance.image %}Image uploaded{% else %}No file chosen{% endif %}
+              </span>
+              <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically.</small>
+              {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          {# Email #}
+          <div class="mf-field-group">
+            <label for="{{ form.email.id_for_label }}" class="mf-form-label">
+              {{ form.email.label }}
+              {% if form.email.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.email }}
+            {% if form.email.errors %}<div class="mf-error">{{ form.email.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Contact #}
+          <div class="mf-field-group">
+            <label for="{{ form.contact_number.id_for_label }}" class="mf-form-label">
+              {{ form.contact_number.label }}
+              {% if form.contact_number.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.contact_number }}
+            {% if form.contact_number.errors %}<div class="mf-error">{{ form.contact_number.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+            <a href="{% url 'supplier-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>
           </div>
 
-        </form>
-      </div>
+
+      </form>
     </div>
-
-    <!-- RIGHT: SNAPSHOT -->
-    <div class="card">
-      <div class="card-header dark">
-        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-          <i class="bi bi-speedometer2"></i> Supplier Snapshot
-        </span>
-      </div>
-      <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-
-        <div class="sd-summary-block highlight">
-          <div class="sd-summary-block-label">Current Values</div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Name</span>
-            <span class="sd-info-value">{{ supplier.name|capfirst }}</span>
-          </div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Materials linked</span>
-            <span class="sd-info-value">{{ supplier.materials.count }}</span>
-          </div>
-          <div class="sd-info-row">
-            <span class="sd-info-label">Date added</span>
-            <span class="sd-info-value">{{ supplier.created_at|date:"M d, Y" }}</span>
-          </div>
-        </div>
-
-        <div class="sd-summary-block">
-          <div class="sd-summary-block-label">Danger Zone</div>
-          <a href="{% url 'supplier-archive' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}" class="btn btn-sm btn-block"
-             style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); width:100%; text-align:center;">
-            <i class="bi bi-trash sl-me-1"></i> Delete Supplier
-          </a>
-        </div>
-
-      </div>
-    </div>
-
   </div>
+
 </div>
 
 <script>
@@ -155,16 +126,11 @@ document.addEventListener("DOMContentLoaded", function () {
 (function() {
   const fileInput = document.getElementById('{{ form.image.id_for_label }}');
   if (!fileInput) return;
-
   const label = document.getElementById('image-label-{{ form.image.id_for_label }}');
   const filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
-
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
-    if (!file) {
-      filename.textContent = 'No file chosen';
-      return;
-    }
+    if (!file) { filename.textContent = 'No file chosen'; return; }
     label.textContent = 'Change image';
     filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
   });

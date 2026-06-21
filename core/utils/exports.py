@@ -9,7 +9,8 @@ def _build_datasets(business):
     from Product.models import Product
     from Supplier.models import Material, Supplier
     from Sales.models import Sale
-    from Expense.models import Purchase, Waste, Expense, Employee
+    from Expense.models import Purchase, Waste, Expense
+    from Employee.models import Employee
 
     def d(val):
         return val.strftime('%Y-%m-%d') if val else ''

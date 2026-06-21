@@ -20,20 +20,16 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  // Date / month input cross-clearing (page-specific)
   const monthInput = document.querySelector('input[name="select_month"]');
   const startDateInput = document.querySelector('input[name="start_date"]');
   const endDateInput = document.querySelector('input[name="end_date"]');
 
-  // If month selected → clear dates
   if (monthInput) {
     monthInput.addEventListener("change", function () {
       if (startDateInput) startDateInput.value = "";
       if (endDateInput) endDateInput.value = "";
     });
   }
-
-  // If date used → clear month
   [startDateInput, endDateInput].forEach(el => {
     if (!el) return;
     el.addEventListener("change", function () {
@@ -48,19 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EXPENSES</div>
+      <div class="page-breadcrumb">Transactions</div>
       <h1 class="page-title">Expenses</h1>
       <p class="page-subtitle">Track your business operating expenses.</p>
-    </div>
-    <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-file-earmark-text"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
-      </div>
-      <div class="header-stat danger">
-        <i class="bi bi-calculator"></i>
-        Avg: <strong>₱{% if average_amount_cost %}{{ average_amount_cost|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
-      </div>
     </div>
   </div>
 
@@ -71,45 +57,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
-               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
+        {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
-          {% if request.GET.search or request.GET.select_month %}
-            <span class="filter-badge">Active</span>
+          {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+          <span class="filter-badge">Active</span>
           {% endif %}
         </summary>
+
         <div class="filter-body">
-          <form method="GET" id="filterForm" class="filter-form" autocomplete="off">
-            <div class="form-group filter-search-row">
-              <div class="input-group">
-                
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Period (month)</label>
-              <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:current_year }}">
-            </div>
-            <div class="form-group">
-              <label class="form-label small text-muted">From date</label>
-              <input type="date" name="start_date"
-                    class="form-control form-control-sm"
-                    value="{{ request.GET.start_date|default:'' }}">
+          <form method="GET" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar3"></i> Month
+              </label>
+              <input type="month" name="select_month" class="form-control form-control--polish"
+                value="{{ request.GET.select_month|default:current_year }}">
             </div>
 
-            <div class="form-group">
-              <label class="form-label small text-muted">To date</label>
-              <input type="date" name="end_date"
-                    class="form-control form-control-sm"
-                    value="{{ request.GET.end_date|default:'' }}">
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-event"></i> From
+              </label>
+              <input type="date" name="start_date" class="form-control form-control--polish"
+                value="{{ request.GET.start_date|default:'' }}">
             </div>
-            <div class="filter-actions">
-              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+
+            <div class="form-range-sep">→</div>
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-check"></i> To
+              </label>
+              <input type="date" name="end_date" class="form-control form-control--polish"
+                value="{{ request.GET.end_date|default:'' }}">
+            </div>
+
+            <div class="form-actions-inline">
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
             </div>
+
           </form>
         </div>
       </details>
@@ -130,87 +124,48 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th class='sl-text-center col-mobile-hidden'>Salary Cost</th>
+                <th class="sl-text-center col-mobile-hidden">Salary Cost</th>
                 <th class="sl-text-center col-mobile-hidden">Expense Cost</th>
-                <th class="sl-text-center">Total Cost</th>
-                {% comment %} <th class="sl-text-center">Actions</th> {% endcomment %}
+                <th class="sl-text-end">Total Cost</th>
               </tr>
             </thead>
             <tbody>
               {% for record in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}'">
                 <td class="cell-primary">
-                  {{ record.date|date:"M d" }}<span class="col-mobile-hidden">, {{ record.date|date:"Y" }}</span></div>
+                  {{ record.date|date:"M d" }}<span class="col-mobile-hidden">, {{ record.date|date:"Y" }}</span>
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
-                {% if record.total_shift %}
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--danger);">
-                  ₱{{ record.total_shift|floatformat:2|intcomma }}
+
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_shift %}var(--danger){% else %}var(--muted){% endif %};">
+                  ₱{{ record.total_shift|default:0|floatformat:2|intcomma }}
                 </td>
-                {% else %}
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--muted);">₱0.00</td>
-                {% endif %}
 
-
-                {% if record.total_amount %}
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--danger);">
-                  ₱{{ record.total_amount|floatformat:2|intcomma }}
+                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_amount %}var(--danger){% else %}var(--muted){% endif %};">
+                  ₱{{ record.total_amount|default:0|floatformat:2|intcomma }}
                 </td>
-                {% else %}
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color:var(--muted);">₱0.00</td>
-                {% endif %}
 
-
-                <td class="sl-text-center sl-fw-semibold sl-fw-bold" style="color:var(--danger);">
+                <td class="sl-text-end sl-fw-bold sl-text-danger">
                   ₱{{ record.total_amount|add:record.total_shift|floatformat:2|intcomma }}
                 </td>
 
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    {% comment %} {% if record.first_expense_id %} {% endcomment %}
-                    <a href="{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}" 
-                      class="row-chevron" title="View Detail">
-                       <i class="bi bi-chevron-right"></i>
+                    <a href="{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                       class="row-chevron" title="View Detail">
+                      <i class="bi bi-chevron-right"></i>
                     </a>
-                    {% comment %} {% else %}
-                    <span class="sl-text-muted">—</span> {% endcomment %}
-                    {% comment %} {% endif %} {% endcomment %}
                   </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
-            {% comment %} <tfoot>
-              <tr>
-                <td><strong>Filtered Total</strong></td>
-                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
-                  ₱{{ total_salary_filtered|floatformat:2|intcomma }}
-                </td>
-                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
-                  ₱{{ total_amount|floatformat:2|intcomma }}
-                </td>
-                <td class="sl-text-center sl-fw-bold" style="color:var(--danger);">
-                  ₱{{ total_salary_filtered|add:total_amount|floatformat:2|intcomma }}
-                </td>
-                <td></td>
-              </tr>
-            </tfoot> {% endcomment %}
           </table>
-        {% else %}
+          {% else %}
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-receipt"></i></div>
             <h3 class="empty-title">No expenses found</h3>
-            <p class="empty-text">
-              {% if request.GET.search %}
-                No results for "{{ request.GET.search }}". Try a different expense name.
-              {% else %}
-                Adjust your filters or log your first expense.
-              {% endif %}
-            </p>
-             
-            {% comment %} <a href="{% url 'expense-create' %}" class="btn btn-primary btn-sm">
-              <i class="bi bi-plus-circle"></i> Log your first expense
-            </a> {% endcomment %}
+            <p class="empty-text">Adjust your filters or log your first expense.</p>
           </div>
           {% endif %}
         </div>
@@ -220,30 +175,34 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with q=request.GET.search m=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date %}
+              {% with sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date pd=request.GET.period %}
+
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
                 {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
+
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">{{ p }}</a>
+                <a class="page-link" href="?page={{ p }}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">{{ p }}</a>
               </li>
               {% endfor %}
+
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if m %}&select_month={{ m }}{% endif %}">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
                 {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
+
               {% endwith %}
             </ul>
           </nav>
@@ -255,108 +214,118 @@ document.addEventListener("DOMContentLoaded", function () {
 
     <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      <!-- Period Summary -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-wallet2"></i> Expense Summary
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-graph-up-arrow"></i> Expense Summary
+          </span>
+          <span class="card-header-sub">
+            {% if request.GET.period == 'month' %}This month
+            {% elif request.GET.period == 'last_month' %}Last month
+            {% elif request.GET.select_month %}{{ request.GET.select_month }}
+            {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
+            {% else %}All time
+            {% endif %}
           </span>
         </div>
-        <div class="card-body">
 
-          <div class="sd-summary-block" style="background:var(--danger-light); border-color:var(--danger-border);">
-            <div class="sd-summary-block-label">Total Expenses</div>
-            
-              <div class="sd-info-row">
-              <span class="sd-info-label">Total records</span>
-              <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
-            </div>
+        <div class="card-body" style="padding: 1rem;">
 
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total amount</span>
-              {% if grand_total_expense %}
-              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|add:grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
-              {% else %}
-              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
-              {% endif %}
-            </div>
-            
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total expense</span>
-              {% if grand_total_expense %}
-              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_expense|floatformat:2|intcomma }}</span>
-              {% else %}
-              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
-              {% endif %}
-            
-            </div>
-
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total salary</span>
-              {% if grand_total_salary %}
-              <span class="sd-info-value" style="color:var(--danger); font-weight:700;">₱{{ grand_total_salary|floatformat:2|intcomma|default:"0.00" }}</span>
-              {% else %}
-              <span class="sd-info-value" style="color:var(--muted); font-weight:700;">₱0.00</span>
-              {% endif %}
-            </div>
-
-            <div class="sd-info-row">
-              <span class="sd-info-label">Avg. per expense</span>
-              <span class="sd-info-value">₱{% if average_expense %}{{ average_expense|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
-            </div> 
-
-            <div class="sd-info-row">
-              <span class="sd-info-label">Avg. per salary</span>
-              <span class="sd-info-value">₱{% if average_salary %}{{ average_salary|floatformat:2|intcomma }}{% else %}0.00{% endif %}</span>
-            </div> 
-          </div>
-
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick links</div>
-            <div class="btn-grid">
-              <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Log expense
-              </a>
-              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-bookmark-fill"></i> Manage templates
-              </a>
+          <!-- Featured Total -->
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">TOTAL OPERATING COST</div>
+            <div class="period-net-value">₱{{ grand_total_expense|add:grand_total_salary|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-file-earmark-text"></i>
+              {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </div>
           </div>
 
-          <hr class="sl-quick-divider">
+          <dl class="period-breakdown">
+            <div>
+              <dt>Total expense</dt>
+              <dd class="text-danger">₱{{ grand_total_expense|default:0|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>Total salary</dt>
+              <dd class="text-danger">₱{{ grand_total_salary|default:0|floatformat:2|intcomma }}</dd>
+            </div>
+            {% comment %} <div>
+              <dt>Avg per expense</dt>
+              <dd>₱{{ average_expense|default:0|floatformat:2|intcomma }}</dd>
+            </div> {% endcomment %}
+            {% comment %} <div>
+              <dt>Avg per salary</dt>
+              <dd>₱{{ average_salary|default:0|floatformat:2|intcomma }}</dd>
+            </div> {% endcomment %}
+          </dl>
 
-          <div class="sl-quick-label">Quick ranges</div>
-          <div class="quick-range-grid">
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=month"
-               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-              <i class="bi bi-calendar-month"></i> This month
-            </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=last_month"
-               class="quick-range-btn {% if request.GET.period == 'last_month' %}active{% endif %}">
-              <i class="bi bi-clock-history"></i> Last month
-            </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?select_month={{ current_year }}"
-               class="quick-range-btn {% if request.GET.select_month == current_year %}active{% endif %}">
-              <i class="bi bi-calendar"></i> This year
-            </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}"
-               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.search %}active{% endif %}">
-              <i class="bi bi-grid"></i> All records
-            </a>
-          </div>
+        </div>
+      </div>
 
-          <div class="sd-note-box" style="margin-top:0.75rem;">
-            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i> Quick Actions
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+            <i class="bi bi-plus-circle"></i> Log expense
+          </a>
+          <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">
+            <i class="bi bi-bookmark-fill"></i> Manage templates
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Ranges -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-calendar-range"></i> Quick Ranges
+          </span>
+        </div>
+        <div class="card-body quick-ranges">
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=month"
+            class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+            <i class="bi bi-calendar-month"></i> This month
+          </a>
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=last_month"
+            class="quick-range-btn {% if request.GET.period == 'last_month' %}active{% endif %}">
+            <i class="bi bi-clock-history"></i> Last month
+          </a>
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}?select_month={{ current_year }}"
+            class="quick-range-btn {% if request.GET.select_month == current_year %}active{% endif %}">
+            <i class="bi bi-calendar"></i> This year
+          </a>
+          <a href="{% url 'expense-list' business_slug=current_business.slug %}"
+            class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
+            <i class="bi bi-grid"></i> All records
+          </a>
+        </div>
+      </div>
+
+      <!-- About note -->
+      <div class="card">
+        <div class="card-body" style="padding: 1rem;">
+          <div class="sd-note-box" style="margin: 0;">
+            <div class="sd-note-icon">
+              <i class="bi bi-info-circle-fill" style="color: var(--info);"></i>
+            </div>
             <div>
               <div class="sd-note-title">About expenses</div>
               <div class="sd-note-text">Expenses are logged from your saved templates. Create templates first, then log actual amounts.</div>
             </div>
           </div>
-
         </div>
       </div>
+
     </div>
-    
+
   </div>
 </div>
 

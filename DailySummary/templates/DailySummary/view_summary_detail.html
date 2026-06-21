@@ -23,7 +23,7 @@
       <div class="page-breadcrumb">REPORTS</div>
       <h4 class="sd-page-title">
         {% comment %} <i class="bi bi-calendar2-check"></i> {% endcomment %}
-        Profit Detail
+        Daily Profit Details
       </h4>
       <p class="sd-page-breadcrumb">
         Summary<span>•</span>Daily Breakdown
@@ -31,11 +31,6 @@
           <span>|</span>{{ sales.first.date|date:"F d, Y" }}
         {% endif %}
       </p>
-    </div>
-    <div>
-      <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm col-mobile-hidden">
-        <i class="bi bi-arrow-left"></i> Back to summary
-      </a>
     </div>
   </div>
 
@@ -70,6 +65,11 @@
               </thead>
               <tbody>
                 {% for item in sale_items %}
+                {% if item.product.is_service %}{% ifchanged item.product.is_service %}
+                <tr>
+                  <td colspan="3" style="padding-top:.6rem; font-weight:600; font-size:.76rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);">Services</td>
+                </tr>
+                {% endifchanged %}{% endif %}
                 <tr>
                   <td><div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div></td>
                   <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
@@ -268,7 +268,7 @@
               <div><dt>Revenue</dt><dd class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</dd></div>
               <div><dt>Material Cost</dt><dd class="text-danger">₱{{ total_material_cost|floatformat:2|intcomma }}</dd></div>
               <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ total_waste_cost|floatformat:2|intcomma }}</dd></div>
-              <div><dt>Labor Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Salary Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
               <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
             </dl>
           </div>

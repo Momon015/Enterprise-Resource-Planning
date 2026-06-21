@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.core.validators import RegexValidator
 import random
 
+from decimal import Decimal
+
 # Create your models here.
 
 class DeleteUnverifiedUserManager(models.Manager):
@@ -135,8 +137,47 @@ class BusinessProfile(models.Model):
     business_name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, max_length=255, db_index=True, null=True, blank=True)
     business_type = models.CharField(max_length=255, choices=BUSINESS_TYPE_CHOICE, default='retail')
+    offers_services = models.BooleanField(
+        default=False,
+        help_text="Show the Service Fees catalog (xerox, GCash, bills payment, etc.).",
+    )
+
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     address = models.TextField(null=True, blank=True, max_length=255)
+    default_opening_cash = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        default=Decimal('500.00'),
+        help_text="This amount is auto-used as cash float at every clock-in. "
+                  "Only set a one-day override below if a specific day needs a different amount."
+    )
+
+    # Cash reconciliation feature toggles
+    enable_cash_reconciliation = models.BooleanField(
+        default=True,
+        help_text="When off, staff just clock in/out (no money handling form). "
+                  "Turn off if owner is always the cashier."
+    )
+    
+    shared_cash_drawer = models.BooleanField(
+        default=True,
+        help_text="On: one drawer handed over between cashiers across shifts (AM→PM), "
+                  "with a recount at each handover. Off: each cashier has their own till."
+    )
+
+    track_coins_separately = models.BooleanField(
+        default=False,
+        help_text="Split cash float into bills + coins (for shops that leave coins overnight)."
+    )
+    default_opening_bills = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        default=Decimal('500.00'),
+        help_text="Pre-filled bills portion of cash float (only used when track_coins_separately is on)."
+    )
+    default_opening_coins = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Pre-filled coins portion of cash float (only used when track_coins_separately is on)."
+    )
     
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

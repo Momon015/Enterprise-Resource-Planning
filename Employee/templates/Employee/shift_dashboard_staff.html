@@ -1,0 +1,287 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const monthInput = document.querySelector('input[name="select_month"]');
+  const startDateInput = document.querySelector('input[name="start_date"]');
+  const endDateInput = document.querySelector('input[name="end_date"]');
+
+  if (monthInput) {
+    monthInput.addEventListener("change", function () {
+      if (startDateInput) startDateInput.value = "";
+      if (endDateInput) endDateInput.value = "";
+    });
+  }
+  [startDateInput, endDateInput].forEach(el => {
+    if (!el) return;
+    el.addEventListener("change", function () {
+      if (monthInput) monthInput.value = "";
+    });
+  });
+});
+</script>
+
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">MY SHIFT</div>
+      <h1 class="page-title">Hi, {{ employee.name|capfirst }}</h1>
+      <p class="page-subtitle">Time in to start your shift at {{ business.business_name }}.</p>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+    <!-- LEFT -->
+    <div class="left-panel">
+
+      <!-- ADVANCED FILTER -->
+      <details class="filter-card"
+               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+
+        <div class="filter-body">
+          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar3"></i> Month
+              </label>
+              <input type="month" name="select_month" class="form-control form-control--polish"
+                    value="{{ request.GET.select_month|default:current }}">
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-event"></i> From
+              </label>
+              <input type="date" name="start_date" class="form-control form-control--polish"
+                    value="{{ request.GET.start_date|default:'' }}">
+            </div>
+
+            <div class="form-range-sep">→</div>
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-check"></i> To
+              </label>
+              <input type="date" name="end_date" class="form-control form-control--polish"
+                    value="{{ request.GET.end_date|default:'' }}">
+            </div>
+
+            <div class="form-actions-inline">
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'shift-dashboard' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
+            </div>
+
+          </form>
+        </div>
+      </details>
+
+      <!-- RECENT SHIFTS -->
+      <div class="card table-card">
+        <div class="card-header">
+          <span class="card-header-title">My Recent Shifts</span>
+        </div>
+        <div class="table-responsive">
+          {% if recent_shifts.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="col-mobile-hidden">Time in</th>
+                <th class="col-mobile-hidden">Time out</th>
+                <th class="sl-text-center">Hours</th>
+                <th class="sl-text-end">Status</th>
+              </tr>
+
+            </thead>
+            <tbody>
+              {% for s in recent_shifts %}
+              <tr onclick="window.location='{% url 'shift-detail' business_slug=current_business.slug shift_id=s.id %}'" style="cursor:pointer;">
+                <td>
+                  <div class="cell-primary">{{ s.clock_in|date:"M d, Y" }}</div>
+                  <div class="cell-sub">{{s.clock_in|date:"l"}}</div>
+                </td>
+                <td class="col-mobile-hidden">{{ s.clock_in|date:"g:i A" }}</td>
+                <td class="col-mobile-hidden">{% if s.clock_out %}{{ s.clock_out|date:"g:i A" }}{% else %}<span class="sl-text-muted">—</span>{% endif %}</td>
+                <td class="sl-text-center">{% if s.clock_out %}{{ s.hours_worked_display }}{% else %}<span class="sl-text-muted">—</span>{% endif %}</td>
+                <td class="sl-text-end">
+                  {% if s.is_active %}<span class="status-badge status-warning">On shift</span>
+                  {% else %}<span class="status-badge status-success">Closed</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+         {% if recent_shifts.paginator.num_pages > 1 %}
+          <div class="pagination-wrapper">
+            <nav>
+              <ul class="pagination">
+                <li class="page-item {% if not recent_shifts.has_previous %}disabled{% endif %}">
+                  {% if recent_shifts.has_previous %}<a class="page-link" href="?page={{ recent_shifts.previous_page_number }}&start_date={{ request.GET.start_date }}&end_date={{ request.GET.end_date }}&select_month={{ request.GET.select_month}}"><i class="bi bi-chevron-left"></i></a>{% else %}<span class="page-link"><i class="bi bi-chevron-left"></i></span>{% endif %}
+                </li>
+                {% for p in recent_shifts.paginator.page_range %}
+                <li class="page-item {% if p == recent_shifts.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}&start_date={{ request.GET.start_date }}&end_date={{ request.GET.end_date }}&select_month={{ request.GET.select_month}}">{{ p }}</a></li>
+                {% endfor %}
+                <li class="page-item {% if not recent_shifts.has_next %}disabled{% endif %}">
+                  {% if recent_shifts.has_next %}<a class="page-link" href="?page={{ recent_shifts.next_page_number }}&start_date={{ request.GET.start_date }}&end_date={{ request.GET.end_date }}&select_month={{ request.GET.select_month}}"><i class="bi bi-chevron-right"></i></a>{% else %}<span class="page-link"><i class="bi bi-chevron-right"></i></span>{% endif %}
+                </li>
+              </ul>
+            </nav>
+          </div>
+          {% endif %}
+
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+            <h3 class="empty-title">No shifts yet</h3>
+            <p class="empty-text">Your shifts will appear here.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+
+      {% if active_shift %}
+      <!-- CLOCKED IN -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">You're on shift</span>
+          <span class="status-badge status-warning">Active</span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+          <div class="sd-summary-block highlight" style="text-align:center;">
+            <div class="sd-summary-block-label">Timed in at</div>
+            <div class="sd-total-amount" style="color:var(--accent);">{{ active_shift.clock_in|date:"g:i A" }}</div>
+            <div class="sd-total-sub">{{ active_shift.clock_in|timesince }} ago</div>
+          </div>
+          <a href="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=active_shift.id %}" class="btn btn-primary btn-block">
+            <i class="bi bi-box-arrow-right"></i> Time Out
+          </a>
+          <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=active_shift.id %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <i class="bi bi-eye"></i> View shift details
+          </a>
+        </div>
+      </div>
+      {% else %}
+
+      {% if drawer_busy %}
+      <!-- DRAWER IN USE -->
+      <div class="card">
+        <div class="card-header"><span class="card-header-title">Drawer in use</span></div>
+        <div class="card-body">
+          <div class="sd-note-box">
+            <i class="bi bi-lock sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title">{{ drawer_busy.name|capfirst }} is on the cash drawer</div>
+              <div class="sd-note-text">You can take over once they time out and hand it over. Refresh after they do.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- CLOCK IN -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">{% if pending_handover %}Take over the drawer{% else %}Start your shift{% endif %}</span>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'shift-clock-in' business_slug=current_business.slug %}">
+            {% csrf_token %}
+            {% if employee.is_cashier %}
+              {% if pending_handover %}
+              <div class="sd-summary-block">
+                <div class="sd-summary-block-label">Taking over the cash drawer</div>
+                <div class="sd-total-sub">{{ pending_handover.current_holder.name|capfirst }} handed it over at {{ pending_handover.current_holder.clock_out|date:"g:i A" }}.</div>
+              </div>
+              <div style="margin:1rem 0;">
+                <label class="sd-info-label" for="recount_cash">Count the cash in the drawer now</label>
+                <input type="number" step="0.01" min="0" name="recount_cash" id="recount_cash" class="form-control" placeholder="0.00" required>
+                <div class="sl-text-muted" style="font-size:0.78rem; margin-top:0.3rem;">Count it yourself — this becomes your starting cash and protects you if it's short.</div>
+              </div>
+              {% else %}
+              <div class="sd-summary-block">
+                <div class="sd-summary-block-label">Starting cash in drawer</div>
+                <div class="sd-total-amount" style="color:var(--accent);">₱{{ opening_info.amount|floatformat:2|intcomma }}</div>
+                <div class="sd-total-sub">
+                  {% if opening_info.source == 'override' %}Set for today{% if opening_info.note %} · {{ opening_info.note }}{% endif %}
+                  {% else %}Business default{% endif %}
+                </div>
+              </div>
+              <label class="d-flex align-items-start gap-2" style="margin:1rem 0; font-size:0.85rem; cursor:pointer;">
+                <input type="checkbox" name="confirm_opening_cash" required style="margin-top:0.2rem;">
+                <span>I confirm the drawer holds <strong>₱{{ opening_info.amount|floatformat:2|intcomma }}</strong> before I start.</span>
+              </label>
+              {% endif %}
+            {% else %}
+            <p class="sl-text-muted" style="font-size:0.9rem; margin-bottom:1rem;">
+              Time in to record your hours. You don't handle a cash drawer, so there's nothing to count.
+            </p>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary btn-block">
+              <i class="bi bi-box-arrow-in-right"></i> {% if pending_handover %}Time In & Take Over{% else %}Time In{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      {% if employee.is_cashier %}
+      <!-- NOTE -->
+      <div class="card">
+        <div class="card-body" style="padding:1.25rem;">
+          <div class="sd-note-box">
+            <i class="bi bi-shield-check sd-note-icon" style="color:var(--accent);"></i>
+            <div>
+              <div class="sd-note-title">Confirm before you start</div>
+              <div class="sd-note-text">Counting your drawer at time-in keeps the end-of-shift cash count accurate.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+
+    </div>
+
+
+  </div>
+</div>
+
+{% endblock %}

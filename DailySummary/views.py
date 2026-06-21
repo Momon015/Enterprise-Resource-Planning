@@ -23,8 +23,9 @@ from Sales.forms import SaleForm, SaleFilterForm
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, Shift, ShiftEmployee
-from Expense.forms import EmployeeForm
+from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
+from Employee.models import Employee, Shift, ShiftEmployee
+from Employee.forms import EmployeeForm
 
 from core.models import StatusModel
 
@@ -263,7 +264,7 @@ def view_summary(request, business_slug):
     
     sorted_list=sorted(summary_list, key=lambda x: x['date'], reverse=True)
             
-    pagination = Paginator(sorted_list, 11)
+    pagination = Paginator(sorted_list, 7)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -342,7 +343,7 @@ def view_summary_detail(request, business_slug, date):
     net_profit = 0
     
     sales = Sale.objects.filter(business=business, date=date)
-    sale_items  = SaleItem.objects.filter(sale__in=sales)
+    sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product').order_by('product__is_service', 'id')
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
     total_revenue = sales.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
     

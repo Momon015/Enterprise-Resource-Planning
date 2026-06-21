@@ -1,0 +1,34 @@
+{% if pending_acks and pending_acks.has_any %}
+  <div class="locked-banner">
+    <div class="locked-banner__icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+    <div class="locked-banner__body">
+      <div class="locked-banner__title">Action needed — please review and acknowledge</div>
+      <div class="locked-banner__text">
+        {% if pending_acks.closes %}
+          The owner closed your shift and needs you to confirm.
+          {% if pending_acks.payouts or pending_acks.opening_changes %} Also: {% endif %}
+        {% endif %}
+        {% if pending_acks.payouts or pending_acks.opening_changes %}
+          The owner
+          {% if pending_acks.payouts %}took cash out {{ pending_acks.payouts|length }} time{{ pending_acks.payouts|length|pluralize }}{% endif %}
+          {% if pending_acks.payouts and pending_acks.opening_changes %} and {% endif %}
+          {% if pending_acks.opening_changes %}updated starting cash {{ pending_acks.opening_changes|length }} time{{ pending_acks.opening_changes|length|pluralize }}{% endif %}
+          on your shift. Please review and acknowledge.
+        {% endif %}
+      </div>
+    </div>
+    {% if pending_acks.closes %}
+      <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=pending_acks.closes.0.id %}" class="locked-banner__cta">
+        <i class="bi bi-arrow-up-right"></i> Review
+      </a>
+    {% elif pending_acks.payouts %}
+      <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=pending_acks.payouts.0.shift.id %}" class="locked-banner__cta">
+        <i class="bi bi-arrow-up-right"></i> Review
+      </a>
+    {% elif pending_acks.opening_changes %}
+      <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=pending_acks.opening_changes.0.shift.id %}" class="locked-banner__cta">
+        <i class="bi bi-arrow-up-right"></i> Review
+      </a>
+    {% endif %}
+  </div>
+{% endif %}

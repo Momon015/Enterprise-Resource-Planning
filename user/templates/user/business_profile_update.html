@@ -1,6 +1,12 @@
 {% extends 'main.html' %}
 {% block content %}
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
 <div class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
   {% for message in messages %}
@@ -15,12 +21,6 @@
   {% endfor %}
 {% endif %}
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-});
-</script>
 
 <div class="page-wrapper">
 
@@ -38,11 +38,6 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">
         Update your business details — changes reflect across reports, transactions, and receipts
       </p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'user-profile' user_id=current_user.id slug=current_user.slug %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to profile
-      </a>
     </div>
   </div>
 
@@ -134,6 +129,26 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="mf-help">Optional — full street address for your business</div>
             </div>
 
+            <!-- FEATURES -->
+            <hr class="sd-section-divider" style="margin: 1rem 0;">
+            <div class="sd-section-label">Features</div>
+
+            <div class="mf-field-group">
+              <div class="form-check form-switch">
+                {{ form.offers_services }}
+                <label class="form-check-label" for="{{ form.offers_services.id_for_label }}">
+                  Enable Service Fees
+                </label>
+              </div>
+              {% if form.offers_services.errors %}
+                <div class="mf-error">{{ form.offers_services.errors.0 }}</div>
+              {% endif %}
+              <div class="mf-help">
+                Adds a <strong>Service Fees</strong> catalog under Catalog — for xerox, GCash, and bills payment.
+              </div>
+            </div>
+
+
             <!-- ACTIONS -->
             <div class="mf-form-actions">
               <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-outline-secondary">
@@ -154,11 +169,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- TIPS -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-lightbulb"></i> Editing Tips
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle" style="color:var(--accent);"></i> About Categories
           </span>
         </div>
+
         <div class="card-body">
           <div class="mf-guide-section">
             <p class="mf-guide-title">Best Practices</p>

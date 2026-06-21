@@ -1,0 +1,198 @@
+{% extends "main.html" %}
+{% load static %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div id='messages' hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">Catalog</div>
+      <h1 class="page-title">Service Fees</h1>
+      <p class="page-subtitle">Manage additional charges and service fees offered by your business.</p>
+    </div>
+    <div class="page-header-right">
+      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-cart3"></i>
+        {% if cart_count %}
+          <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">{{ cart_count }}</span>
+        {% endif %}
+      </a>
+      <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Add service fee
+      </a>
+      {% if request.user.role == 'owner' %}
+      <a href="{% url 'archived-services' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm" title="Archived service fees">
+        <i class="bi bi-archive-fill"></i> Archive
+      </a>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+  <!-- TABLE CARD -->
+  <div class="card table-card">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">Service Fees</span>
+        <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
+      </div>
+      <div class="activity-header-right">
+        <form method="get" autocomplete="off" style="display:flex; gap:0.4rem; align-items:center;">
+          <div class="input-group">
+            <span class="input-group-icon"><i class="bi bi-search"></i></span>
+            <input type="search" name="search" class="form-control" placeholder="Search service..."
+                   value="{{ search|default:'' }}">
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel-fill"></i></button>
+          {% if search %}
+          <a href="{% url 'service-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      {% if page_obj and page_obj.object_list %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>SKU</th>
+            <th class="sl-text-center col-mobile-hidden">Type</th>
+            <th class="sl-text-center">Fee</th>
+            <th class="sl-text-end mobile-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for service in page_obj %}
+          <tr class="{% if service.is_locked %}is-locked{% endif %}">
+            <td>
+              <div class="list-name-cell">
+                {% if service.image %}
+                  <img src="{{ service.image.url }}" alt="" class="list-thumb">
+                {% else %}
+                  <span class="list-thumb-placeholder"><i class="bi bi-ticket-perforated"></i></span>
+                {% endif %}
+
+                <div class="name-text">
+                  <strong>{{ service.name|capfirst }}</strong>
+                  {% if service.description %}
+                    <small class="text-muted">{{ service.description }}</small>
+                  {% endif %}
+                </div>
+                  {% if service.is_locked %}
+                    <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                  {% endif %}
+            </td>
+
+            <td>
+              <div class="cell-primary">{{ service.sku }}</div>
+            </td>
+            <td class="sl-text-center col-mobile-hidden">
+              <span class="sl-badge sl-badge-light">Service</span>
+            </td>
+            <td class="sl-text-center sl-fw-semibold">
+              ₱{{ service.selling_price|floatformat:2 }}
+            </td>
+            <td class="sl-text-center mobile-center">
+              <div class="table-actions">
+                <button hx-post="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                        hx-target="#cart-badge"
+                        hx-swap="outerHTML"
+                        class="action-btn action-btn--add" title="Add to sale">
+                  <i class="bi bi-plus"></i>
+                </button>
+                <a href="{% url 'service-update' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                   class="action-btn action-btn--edit" title="Edit service">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                {% if request.user.role == 'owner' %}
+                <form method="POST"
+                      action="{% url 'service-archive' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                      onsubmit="return confirm('Remove {{ service.name|escapejs }}?');"
+                      style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="action-btn action-btn--warning" title="Remove service">
+                    <i class="bi bi-archive-fill"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-ticket-perforated"></i></div>
+        <h3 class="empty-title">No service fees yet</h3>
+        <p class="empty-text">
+          {% if search %}
+            No results for "{{ search }}". Try a different name.
+          {% else %}
+            Add fees for services you offer — xerox, GCash cash in/out, bills payment.
+          {% endif %}
+        </p>
+        {% if not search %}
+        <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-circle"></i> Add your first service fee
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+    <!-- PAGINATION -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination-wrapper">
+      <nav>
+        <ul class="pagination">
+          <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            {% if page_obj.has_previous %}
+              <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-left"></i></a>
+            {% else %}
+              <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+            {% endif %}
+          </li>
+          {% for p in page_obj.paginator.page_range %}
+          <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+            <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}">{{ p }}</a>
+          </li>
+          {% endfor %}
+          <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            {% if page_obj.has_next %}
+              <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-right"></i></a>
+            {% else %}
+              <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+            {% endif %}
+          </li>
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock content %}

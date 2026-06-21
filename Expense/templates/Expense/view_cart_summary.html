@@ -30,7 +30,6 @@ function togglePaymentFields() {
     document.getElementById('amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
     document.getElementById('due_date_group').style.display = (status === 'utang' || status === 'partial') ? 'block' : 'none';
 }
-
 </script>
 
 <div class="container-fluid py-3 py-lg-4">
@@ -42,34 +41,23 @@ function togglePaymentFields() {
       <h1 class="page-title">Purchase Summary</h1>
       <p class="page-subtitle">Review this purchase before posting it to inventory</p>
     </div>
-    {% if cart_items %}
-    <div class="page-header-right">
-      <div class="header-stat">
-        <i class="bi bi-basket3"></i>
-        <strong>{{ cart_items|length }}</strong> line{{ cart_items|length|pluralize }}
-      </div>
-      <div class="header-stat accent">
-        Total: <strong>₱{{ total_after_discount|floatformat:2|intcomma }}</strong>
-      </div>
-    </div>
-    {% endif %}
   </div>
 
   {% if cart_items %}
   <div class="row g-3 g-lg-4">
 
-    <!-- LEFT: ITEMS TABLE -->
+    <!-- LEFT: ITEMS TABLE + TOTALS FOOTER -->
     <div class="col-lg-8">
       <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-basket3 me-1"></i>
-            Supplier
+            <i class="bi bi-basket3 me-1"></i> Supplier
           </span>
-          <span style="font-size:.8rem; color:var(--muted);">Items, quantities and cost per line</span>
+          <span class="sl-badge sl-badge-light">{{ cart_items|length }} line{{ cart_items|length|pluralize }}</span>
         </div>
 
-        <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
+
+        <div style="overflow-x:auto;">
           <table class="pos-table">
             <thead>
               <tr>
@@ -81,7 +69,7 @@ function togglePaymentFields() {
               </tr>
             </thead>
             <tbody>
-              {% for item in cart_items %}
+              {% for item in page_obj %}
               <tr>
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
@@ -106,141 +94,156 @@ function togglePaymentFields() {
             </tbody>
           </table>
         </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
-    <!-- RIGHT: TOTALS + ACTIONS -->
+    <!-- RIGHT: PAYMENT + ACTIONS -->
     <div class="col-lg-4">
-
-      <!-- TOTALS CARD -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-graph-up-arrow"></i>
-            Purchase Totals
-          </span>
-        </div>
-        <div style="padding:1.25rem;">
-
-          <div class="summary-stats">
-            <div class="summary-stat-row">
-              <span class="summary-stat-label">Line Items</span>
-              <span class="summary-stat-value">{{ cart_items|length }}</span>
+        <!-- ORDER SUMMARY -->
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-graph-up-arrow"></i> Purchase Totals
+            </span>
+          </div>
+          <div style="padding:1.25rem;">
+            <div class="total-row">
+              <span class="total-label">Subtotal</span>
+              <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
+            </div>
+            {% if total_discount %}
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-percent"></i> Discount</span>
+              <span class="total-value" style="color:var(--success);">−₱{{ total_discount|floatformat:2|intcomma }}</span>
+            </div>
+            {% endif %}
+            <hr class="divider">
+            <div class="total-row" style="margin-bottom:0;">
+              <span class="total-label" style="font-weight:600; color:var(--text);">
+                <i class="bi bi-cash-stack"></i> Total Cost
+              </span>
+              <span class="total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
             </div>
           </div>
-
-          <hr class="divider">
-
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-calculator"></i> Subtotal</span>
-            <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
-          </div>
-
-          {% if total_discount %}
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
-            <span class="total-value" style="color:var(--success);">-₱{{ total_discount|floatformat:2|intcomma }}</span>
-          </div>
-          {% endif %}
-
-          <hr class="divider">
-
-          <div class="total-row" style="margin-bottom:0;">
-            <span class="total-label" style="font-weight:600; color:var(--text);">
-              <i class="bi bi-cash-stack"></i> Total Cost
-            </span>
-            <span class="total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
-          </div>
-
         </div>
-      </div>
 
-            {# ── PAYMENT SECTION ───────────────────────────────────── #}
-  <form method="POST" action="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}">
-    {% csrf_token %}
-      <div class="payment-section">
-          <h3>Payment</h3>
+      <form method="POST" action="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}">
+        {% csrf_token %}
 
-          <div class="form-group">
-              <label>Payment status</label>
-              <div>
-                  <label>
-                      <input type="radio" name="payment_status" value="full" checked
-                            onchange="togglePaymentFields()">
-                      Paid in full
-                  </label>
-                  <label>
-                      <input type="radio" name="payment_status" value="partial"
-                            onchange="togglePaymentFields()">
-                      Partial (DP)
-                  </label>
-                  <label>
-                      <input type="radio" name="payment_status" value="utang"
-                            onchange="togglePaymentFields()">
-                      Utang (pay later)
-                  </label>
-              </div>
+        <!-- PAYMENT CARD -->
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-wallet2"></i> Payment
+            </span>
           </div>
+          <div style="padding:1.25rem;">
 
-          <div class="form-group" id="payment_method_group">
+            <!-- Status -->
+            <div class="pay-field">
+              <label>Payment status</label>
+              <div class="pay-status-grid">
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="full" checked onchange="togglePaymentFields()">
+                  <span><i class="bi bi-check-circle"></i> Paid in full</span>
+                </label>
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="partial" onchange="togglePaymentFields()">
+                  <span><i class="bi bi-hourglass-split"></i> Partial (DP)</span>
+                </label>
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="utang" onchange="togglePaymentFields()">
+                  <span><i class="bi bi-clock-history"></i> Utang</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Method -->
+            <div class="pay-field" id="payment_method_group">
               <label>Method</label>
               <select name="payment_method">
-                  <option value="cod">Cash on Delivery</option>
-                  <option value="cash">Cash</option>
-                  <option value="gcash">GCash</option>
-                  <option value="bank">Bank Transfer</option>
-                  <option value="credit">Credit / Other</option>
+                <option value="cod">Cash on Delivery</option>
+                <option value="cash">Cash</option>
+                <option value="gcash">GCash</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="credit">Credit / Other</option>
               </select>
-          </div>
+            </div>
 
-          <div class="form-group" id="amount_paid_group" style="display:none;">
+            <!-- Amount paid (partial only) -->
+            <div class="pay-field" id="amount_paid_group" style="display:none;">
               <label>Amount paid now</label>
-              <input type="number" name="amount_paid" step="0.01" min="0"
-                    placeholder="0.00">
-          </div>
+              <input type="number" name="amount_paid" step="0.01" min="0" placeholder="0.00">
+            </div>
 
-          <div class="form-group" id="due_date_group" style="display:none;">
+            <!-- Due date (partial / utang) -->
+            <div class="pay-field" id="due_date_group" style="display:none;">
               <label>Due date (optional)</label>
-              <input type="date"
-                    name="due_date"
-                    min="{{ today_iso }}"
-                    max="{{ max_due_date_iso }}">
+              <input type="date" name="due_date" min="{{ today_iso }}" max="{{ max_due_date_iso }}">
               <small>Up to 30 days from today</small>
-          </div>
+            </div>
 
-          <div class="form-group">
+            <!-- Reference -->
+            <div class="pay-field" style="margin-bottom:0;">
               <label>Reference / Note (optional)</label>
               <input type="text" name="payment_note" maxlength="255"
-                    placeholder="e.g. GCash ref 9821-AKJ4, Supplier OR #00123">
-          </div>
-      </div>
-  
-      <!-- ACTIONS CARD -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-lightning"></i>
-            Actions
-          </span>
-        </div>
-        <div style="padding:1.25rem;">
-          <div class="action-info-box">
-            <i class="bi bi-info-circle"></i>
-            <p style="font-size: 14px;">
-              Once confirmed, materials are added to inventory and the total cost is locked in. This can't be undone.
-            </p>
-          </div>
-          <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-secondary-action">
-            <i class="bi bi-pencil-square"></i> Edit session
-          </a>
-        <button type="submit" class="btn-confirm">
-            <i class="bi bi-check2-circle"></i> Confirm Purchase
-        </button>
-          </a>
-        </div>
-      </div>
-    </form>
+                     placeholder="e.g. GCash ref 9821-AKJ4, Supplier OR #00123">
+            </div>
 
+          </div>
+        </div>
+
+        <!-- ACTIONS CARD -->
+        <div class="pos-card">
+          <div style="padding:1.25rem;">
+            <div class="action-info-box">
+              <i class="bi bi-info-circle"></i>
+              <p style="font-size: 14px;">
+                Once confirmed, materials are added to inventory and the total cost is locked in. This can't be undone.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-secondary-action"
+                 style="flex:1; width:auto; margin:0;">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+              <button type="submit" class="btn-confirm" style="flex:1; width:auto; margin:0;">
+                <i class="bi bi-check2-circle"></i> Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </form>
     </div>
   </div>
 

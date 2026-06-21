@@ -24,8 +24,9 @@ from Sales.forms import SaleForm, SaleFilterForm, SalesReturnFilterForm
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee
-from Expense.forms import EmployeeForm
+from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
+from Employee.models import Employee, Shift, ShiftEmployee
+from Employee.forms import EmployeeForm
 
 from Inventory.models import Stock
 from Expense.models import Waste, WasteItem
@@ -43,6 +44,7 @@ from django.core.paginator import Paginator
 from datetime import date, datetime
 import calendar
 from django.db.models import Sum, Avg, Max, Q, F
+from django.db.models.functions import Coalesce
 
 from decimal import Decimal, InvalidOperation
 
@@ -54,7 +56,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user
+from activity.utils import log_activity, scope_events_for_user, summarize_items
 
 # logging
 import logging
@@ -75,7 +77,7 @@ def clear_sale(request, business_slug):
             'cart_items':     0,
             'total':          Decimal('0'),
             'cart_url':       'view-sale',
-            'icon':           'bi-file-text',
+            'icon':           'bi bi-cart3',
             'label':          'Sales Record',
             'clear_sessions': 'clear-sale',
             'name':           'Products',
@@ -268,10 +270,12 @@ def sale_list(request, business_slug):
 def sale_detail(request, sale_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
-    sale_items = sale.sale_items.select_related('product')
+    sale_items = sale.sale_items.select_related('product').order_by('product__is_service', 'id')
     sale_employees = sale.sale_employees.select_related('employee')
     total_salary_cost = sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
     payments = sale.payments.select_related('created_by').order_by('created_at')
+    
+    
     
     context = {
         'sale': sale, 
@@ -291,10 +295,12 @@ def add_to_sales(request, product_id, business_slug):
     sale = request.session.get('sale', {})
     product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
-
-    if product.prepared_quantity >= 1:
+    
+    if product.is_locked:
+        messages.warning(request, f"{product.name} is locked - upgrade your plan or unlock it to sell.")
+    elif product.is_service or product.prepared_quantity >= 1:
         if product_key in sale:
-            if sale[product_key]['quantity'] < product.prepared_quantity:
+            if product.is_service or sale[product_key]['quantity'] < product.prepared_quantity:
                 sale[product_key]['quantity'] += 1
                 messages.success(request, f"{product.name}'s quantity has increased.")
             else:
@@ -323,7 +329,7 @@ def add_to_sales(request, product_id, business_slug):
 
         return render(request, 'core/partials/_cart_response.html', {
             'label': 'Sales Record',
-            'icon': 'bi-file-text',
+            'icon': 'bi bi-cart3',
             'total': total,
             'messages': get_messages(request),
             'cart_items': len(sale),
@@ -337,8 +343,11 @@ def add_to_sales(request, product_id, business_slug):
         })
     
     query_string = request.META.get('QUERY_STRING', '')
+    if request.GET.get('next') == 'view-sale':
+        return redirect('view-sale', business_slug=business.slug)
     url = reverse('product-list', kwargs={'business_slug': business.slug})
     return redirect(f"{url}?{query_string}" if query_string else url)
+
 
 @login_required(login_url='login')
 @permission_required('view') # dev
@@ -385,6 +394,7 @@ def view_sale(request, business_slug):
             items.append({
                 'supplier': product.material.supplier.name if product.material else '',
                 'id': product.id,
+                'image': product.image.url if product.image else '',
                 'name': product.name,
                 'selling_price': selling_price,
                 'quantity': quantity,
@@ -399,12 +409,20 @@ def view_sale(request, business_slug):
     request.session['line_count'] = line_count
     request.session.modified = True
     
-    paginator = Paginator(items, 7)
+    paginator = Paginator(items, 5)
     page = request.GET.get('page')
     page_obj =  paginator.get_page(page)
     
     # How many filler rows to reach a full page
     blank_rows = range(paginator.per_page - len(page_obj.object_list))
+    
+    services = []
+    if business.offers_services:
+        services = (
+            Product.services.filter(business=business)
+            .annotate(units_sold=Coalesce(Sum('sale_items__quantity'), 0))
+            .order_by('-units_sold', 'name')   # most-bought first
+        )
     
     context = {
         'items': items, 
@@ -412,7 +430,8 @@ def view_sale(request, business_slug):
         'total_cost_price': total_cost_price,
         'page_obj': page_obj,
         'blank_rows': blank_rows,
-        'section': 'sale'
+        'services': services,
+        'section': 'product',
         # 'employees': employees, 
         # 'selected_employee_ids': selected_employee_ids, 
         # 'total_salary_cost': total_salary_cost,
@@ -459,16 +478,22 @@ def view_session_summary(request, business_slug):
                 'total_cost_price_per_line': total_cost_price_per_line,
 
             })
+            
+    paginator = Paginator(items, 8)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+    
     request.session['sale'] = sale
     request.session.modified = True
     
     context = {
         'items': items, 
+        'page_obj': page_obj,
         'total_revenue': total_revenue, 
         'total_cost_price': total_cost_price, 
         'employees': 'employees', 
         'total_salary_cost': total_salary_cost, 
-        'section': 'sale'
+        'section': 'product',
         }
     
     return render(request, 'Sales/view_session_summary.html', context)
@@ -531,11 +556,12 @@ def confirm_view_summary(request, business_slug):
                     cost_price=cost_price,
                     quantity=quantity,
                 )
-                if product.prepared_quantity < quantity:
-                    messages.warning(request, f"{product.name} - Insufficient stock.")
+                if not product.is_service:
+                    if product.prepared_quantity < quantity:
+                        messages.warning(request, f"{product.name} - Insufficient stock.")
                 
-                product.prepared_quantity -= quantity
-                product.save()
+                    product.prepared_quantity -= quantity
+                    product.save()
                 
             # for employee in employees:
             #     SaleEmployee.objects.create(
@@ -574,8 +600,9 @@ def confirm_view_summary(request, business_slug):
             else:
                 payment_amount = Decimal('0')
                 
+            method_display = None
             if payment_amount > 0:
-                SalesPayment.objects.create(
+                payment = SalesPayment.objects.create(
                     sale=sale_obj,
                     business=business,
                     amount=payment_amount,
@@ -583,19 +610,42 @@ def confirm_view_summary(request, business_slug):
                     note=payment_note,
                     created_by=request.user,
                 )
-                
-            payment_label = (
-                "fully paid" if payment_status == 'full'
-                else f"partial ₱{payment_amount:.2f}" if payment_status == 'partial'
-                else "utang"
-            )
+                method_display = payment.get_method_display()
+
+                paid_desc = f"via {method_display}"
+                if payment_status == 'partial':
+                    paid_desc += f" (partial) · ₱{sale_obj.outstanding:.2f} outstanding"
+
+                log_activity(
+                    business, request.user, 'sale.paid',
+                    target=payment,
+                    description=paid_desc,
+                    metadata={
+                        'reference': sale_obj.reference,
+                        'amount': f"{payment_amount:.2f}",
+                        'method': payment.method,
+                        'outstanding': str(sale_obj.outstanding),
+                    },
+                )
+
+            if not sale_obj.total_revenue or sale_obj.total_revenue == 0:
+                payment_text = "Free"
+            elif payment_status == 'full' and method_display:
+                payment_text = f"via {method_display}"
+            elif payment_status == 'partial' and method_display:
+                payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
+            else:
+                payment_text = "Utang"
+
+
+            items_text = summarize_items(sale_obj.sale_items.all(), prefix='-')
             log_activity(
                 business, request.user, 'sale.completed',
                 target=sale_obj,
-                description=f"{sale_obj.reference}: {sale_obj.quantity_item()} item(s) — ₱{sale_obj.total_revenue:.2f} ({payment_label})",
+                description=f"{payment_text} · {items_text}",
                 metadata={
                     'reference': sale_obj.reference,
-                    'total': str(sale_obj.total_revenue),
+                    'total': f"{sale_obj.total_revenue:.2f}",
                     'line_count': sale_obj.line_count,
                     'payment_status': payment_status,
                     'payment_method': payment_method if payment_status != 'utang' else None,
@@ -657,15 +707,20 @@ def add_sales_payment(request, business_slug, sale_id):
                 created_by=request.user,
             )
 
+            paid_desc = f"via {payment.get_method_display()}"
+            if sale.outstanding > 0:
+                paid_desc += f" (partial) · ₱{sale.outstanding:.2f} outstanding"
+
             log_activity(
                 business, request.user, 'sale.paid',
                 target=payment,
-                description=f"₱{amount:.2f} paid toward {sale.reference} ({payment.get_method_display()})",
+                description=paid_desc,
                 metadata={
-                    'sale_reference': sale.reference,
+                    'reference': sale.reference,
                     'amount': str(amount),
                     'method': method,
                     'note': note,
+                    'outstanding': str(sale.outstanding),
                 },
             )
             
@@ -728,8 +783,9 @@ def view_sale_summary(request, sale_id, business_slug):
             'cost_price':                 cost_price,
             'total_cost_price_per_line':  total_cost_price_per_line,
             'total_selling_price':        total_selling_price,
+            'is_service':                 product.is_service if product else False,
         })
-
+    items.sort(key=lambda x: x['is_service'])  # goods first, services last
         
     paginator = Paginator(items, 6)
     page = request.GET.get('page')
@@ -761,11 +817,15 @@ def sale_receipt(request, business_slug, sale_id):
         return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
     
     sale = get_object_or_404(Sale, business=business, id=sale_id)
-    items = sale.sale_items.all()
+    sale_items = sale.sale_items.select_related('product').all()
+    goods_items = [i for i in sale_items if not (i.product and i.product.is_service)]
+    service_items = [i for i in sale_items if i.product and i.product.is_service]
     
     context = {
         'sale': sale,
-        'items': items,
+        'items': sale_items,
+        'goods_items': goods_items,
+        'service_items': service_items,
         'business': business,
     }
     
@@ -780,6 +840,7 @@ RETURN_TO_WASTE_REASON = {
 
 @login_required(login_url='login')
 @permission_required('add')
+  # owner-only (blocks staff)
 def sales_return_create(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
@@ -915,21 +976,29 @@ def sales_return_create(request, business_slug, sale_id):
                         quantity=d['qty'],
                         name=si.name,
                     )
-
+                    
+                items_text = ", ".join(f"-{d['qty']} {d['sale_item'].name}" for d in damaged_items[:2])
+                extras = len(damaged_items) - 2
+                if extras > 0:
+                    items_text += f", +{extras} more"
                 log_activity(
                     business, request.user, 'waste.recorded',
                     target=waste,
-                    description=f"₱{total_waste_cost:.2f} — {waste.get_reason_display()} (from return {return_obj.reference})",
-                    metadata={'reason': waste_reason, 'total': str(total_waste_cost),
+                    description=f"{waste.get_reason_display()} · {items_text}",
+                    metadata={'reason': waste_reason, 'total': f"{total_waste_cost:.2f}",
                               'sales_return_id': return_obj.id},
                 )
-
+                
+            items_text = summarize_items(
+                return_obj.items.all(),
+                sign_for=lambda it: '+' if it.resellable else '-',
+            )
             log_activity(
                 business, request.user, 'sale.refunded',
                 target=return_obj,
-                description=f"{return_obj.reference} — ₱{total_refund:.2f} refunded ({return_obj.get_refund_method_display()})",
+                description=f"{items_text}",
                 metadata={'reference': return_obj.reference,
-                          'total': str(total_refund),
+                          'total': f"{total_refund:.2f}",
                           'reason': reason,
                           'refund_method': refund_method},
             )
@@ -948,6 +1017,7 @@ def sales_return_create(request, business_slug, sale_id):
 
 @login_required(login_url='login')
 @permission_required('add') # dev
+@permission_required('staff_view')   # owner-only (blocks staff)
 def return_recorded(request, business_slug, return_id):
     business = get_business_for_user(request.user, business_slug)
     return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
@@ -961,6 +1031,7 @@ def return_recorded(request, business_slug, return_id):
     return render(request, 'Sales/return_recorded.html', context)
     
 @login_required(login_url='login')
+@permission_required('staff_view')   # owner-only (blocks staff)
 def sales_return_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     returns = SalesReturn.objects.filter(business=business).select_related(
@@ -1045,6 +1116,7 @@ def sales_return_list(request, business_slug):
     })
 
 @login_required(login_url='login')
+@permission_required('staff_view')   # owner-only (blocks staff)
 def sales_return_detail(request, business_slug, return_id):
     business = get_business_for_user(request.user, business_slug)
     return_obj = get_object_or_404(SalesReturn, business=business, id=return_id)
@@ -1057,7 +1129,7 @@ def sales_return_detail(request, business_slug, return_id):
     })
 
 @login_required(login_url='login')
-@permission_required('staff_view')
+
 @permission_required('add') # dev
 def payment_recorded(request, business_slug, sale_id, payment_id):
     business = get_business_for_user(request.user, business_slug)
@@ -1171,13 +1243,13 @@ def edit_view_sale_quantity(request, product_id, business_slug):
         raw_qty = request.POST.get(f"new_quantity", 1)
         new_quantity = int(raw_qty) if raw_qty else None
         
-        if product.prepared_quantity >= new_quantity:
+        if product.is_service or product.prepared_quantity >= new_quantity:
                 
             if new_quantity < 1:
                 new_quantity = 1
                 
             sale[product_key]['quantity'] = new_quantity
-            messages.success(request, f"{product.name}'s quantity has been updated.")
+            # messages.success(request, f"{product.name}'s quantity has been updated.")
         else:
             messages.warning(request, f"{product.name} - Insufficient stock.")
     
@@ -1206,7 +1278,7 @@ def edit_total_selling_price(request, product_id, business_slug):
         
         if new_total_selling_price and new_total_selling_price != Decimal(selling_price):
             sale[product_key]['selling_price'] = str(new_total_selling_price)
-            messages.success(request, f"The revenue for {product.name} has been updated.")
+            # messages.success(request, f"The revenue for {product.name} has been updated.")
     request.session['sale'] = sale
     request.session.modified = True
     

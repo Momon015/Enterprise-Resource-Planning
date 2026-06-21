@@ -1,10 +1,106 @@
-{% extends 'main.html' %}
-
-{% include 'navbar.html' %}
-
-
+{% extends "main.html" %}
 {% block content %}
 
-{{businesses}}
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
 
-{% endblock content %}
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">ACCOUNT</div>
+      <h1 class="page-title">Your Businesses</h1>
+      <p class="page-subtitle">Switch between your businesses or manage their details.</p>
+    </div>
+  </div>
+
+  {% if businesses %}
+  <div class="biz-grid">
+    {% for biz in businesses %}
+    <div class="card biz-card {% if current_business.id == biz.id %}biz-card--active{% endif %}">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem; height:100%;">
+
+        <!-- HEAD: icon + name + active badge -->
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div class="sd-header-icon" style="background:var(--accent-light); color:var(--accent); flex-shrink:0;">
+            {% if biz.business_type == 'cafe' or biz.business_type == 'restaurant' %}<i class="bi bi-cup-hot"></i>
+            {% elif biz.business_type == 'pharmacy' %}<i class="bi bi-capsule"></i>
+            {% elif biz.business_type == 'retail' %}<i class="bi bi-basket3"></i>
+            {% else %}<i class="bi bi-shop"></i>{% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div class="card-header-title" style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ biz.business_name }}</div>
+            <div class="card-header-sub" style="margin:0;">{{ biz.get_business_type_display }}</div>
+          </div>
+          {% if current_business.id == biz.id %}
+          <span class="sl-badge" style="margin-left:auto; background:var(--accent-light); color:var(--accent);">
+            <i class="bi bi-check-circle-fill" style="font-size:0.6rem;"></i> Active
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- META -->
+        <div class="sd-summary-block" style="margin:0;">
+          <div class="sd-info-row">
+            <span class="sd-info-label">Phone</span>
+            <span class="sd-info-value">{{ biz.business_phone_number|default:"—" }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Address</span>
+            <span class="sd-info-value">{{ biz.address|default:"—"|truncatechars:32 }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Added</span>
+            <span class="sd-info-value">{{ biz.created_at|date:"M d, Y" }}</span>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div style="display:flex; gap:0.5rem; margin-top:auto;">
+          <a href="{% url 'dashboard' business_slug=biz.slug %}" class="btn btn-primary btn-sm" style="flex:1;">
+            <i class="bi bi-box-arrow-in-right"></i> {% if current_business.id == biz.id %}Open{% else %}Switch{% endif %}
+          </a>
+          <a href="{% url 'business-profile-detail' business_id=biz.id business_slug=biz.slug %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-eye"></i> Detail
+          </a>
+
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="max-width:560px; margin:0 auto;">
+    <div class="empty-state" style="padding:3rem 1.5rem;">
+      <div class="empty-icon"><i class="bi bi-building"></i></div>
+      <h3 class="empty-title">No businesses yet</h3>
+      <p class="empty-text">Create your first business to start tracking sales, inventory, and purchases.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<style>
+  .biz-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:1rem; }
+  .biz-card { flex:0 1 320px; max-width:100%; }
+  .biz-card--active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+</style>
+
+
+{% endblock %}

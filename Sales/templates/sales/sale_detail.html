@@ -59,7 +59,7 @@
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">
-              <i class="bi bi-box-seam"></i> Line Items
+              <i class="bi bi-basket"></i> Line Items
             </span>
             <span class="sl-badge sl-badge-light">{{ sale_items|length }} item{{ sale_items|length|pluralize }}</span>
           </div>
@@ -78,11 +78,20 @@
             </thead>
             <tbody>
               {% for item in sale_items %}
+              {% if item.product.is_service %}{% ifchanged item.product.is_service %}
+              <tr>
+                <td colspan="4" style="padding-top:.7rem; font-weight:600; font-size:.78rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);">
+                  Services
+                </td>
+              </tr>
+              {% endifchanged %}{% endif %}
               <tr>
                 <td>
                   <div class="cell-primary">{{ item.name|capfirst|default:"Unnamed" }}</div>
+                  {% if item.product.product_preset_items.first %}
                   <div class="cell-sub">{{ item.product.product_preset_items.first.supplier_name|default:"No supplier" }}</div>
                 </td>
+                  {% endif %}
                 <td class="sl-text-center">
                   <span class="sl-badge sl-badge-light">{{ item.quantity|intcomma }}</span>
                 </td>
@@ -174,7 +183,7 @@
           {% else %}
           <div class="empty-state" style="padding: 1.5rem;">
             <div class="empty-icon" style="font-size: 1.5rem;">
-              <i class="bi bi-hourglass-split"></i>
+              <i class="bi bi-hourglass-split hourglass-real"></i>
             </div>
             <h3 class="empty-title" style="font-size: 0.9rem;">Awaiting first payment</h3>
             <p class="empty-text" style="font-size: 0.8rem;">No payments have been recorded for this sale yet.</p>
@@ -203,8 +212,9 @@
             <div class="period-net-label">TOTAL REVENUE</div>
             <div class="period-net-value">₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
-              <i class="bi bi-box-seam"></i>
-              {{ sale_items|length }} item{{ sale_items|length|pluralize }} · {{ sale.quantity_item }} units
+              <i class="bi bi-basket"></i>
+              {% regroup sale_items by product.is_service as kind_groups %}
+              {% for g in kind_groups %}{{ g.list|length }} {% if g.grouper %}service{% else %}product{% endif %}{{ g.list|length|pluralize }}{% if not forloop.last %} · {% endif %}{% endfor %} · {{ sale.quantity_item }} units
             </div>
           </div>
 

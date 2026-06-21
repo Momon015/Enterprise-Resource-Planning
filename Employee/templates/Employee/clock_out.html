@@ -1,0 +1,170 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=shift_emp.id %}" class="breadcrumb-link">SHIFT</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>TIME OUT</span>
+      </div>
+      <h1 class="page-title">Time Out</h1>
+      <p class="page-subtitle">{{ shift_emp.employee.name|default:shift_emp.name|capfirst }} · timed in since {{ shift_emp.clock_in|date:"g:i A" }}</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:620px; margin:0 auto;">
+    <div class="card-header">
+      <span class="card-header-title">
+        {% if needs_reconciliation %}Count your drawer{% else %}End your shift{% endif %}
+      </span>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=shift_emp.id %}">
+        {% csrf_token %}
+        {% if owner_closing %}
+          <div class="sd-note-box" style="margin-bottom:1rem;">
+            <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--warning);"></i>
+            <div>
+              <div class="sd-note-title">You're closing {{ shift_emp.employee.name|default:shift_emp.name|capfirst }}'s shift</div>
+              <div class="sd-note-text">A reason is required, and they'll be asked to confirm it.</div>
+            </div>
+          </div>
+          <div style="margin-bottom:1.25rem;">
+            <label class="sd-info-label" for="close_reason">Reason for closing on their behalf <span style="color:var(--danger);">*</span></label>
+            <textarea name="close_reason" id="close_reason" class="form-control" rows="2" placeholder="e.g. staff went home without timing out" required></textarea>
+          </div>
+
+          <div style="margin-bottom:1.25rem;">
+            <label class="sd-info-label">Actual time they left <span class="sl-text-muted">(adjust if earlier)</span></label>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="date" name="actual_date" class="form-control" style="flex:1;"
+                     value="{% now 'Y-m-d' %}"
+                     min="{{ shift_emp.clock_in|date:'Y-m-d' }}"
+                     max="{% now 'Y-m-d' %}">
+              <input type="time" name="actual_time" class="form-control" style="flex:0 0 140px;"
+                     value="{% now 'H:i' %}">
+            </div>
+            <div class="sl-text-muted" style="font-size:0.78rem; margin-top:0.3rem;">Defaults to now. Set it earlier if they left before you closed the shift, so their hours aren't over-counted.</div>
+          </div>
+
+
+        {% endif %}
+
+
+      {% if needs_reconciliation %}
+        {% if owner_closing %}
+        <label class="d-flex align-items-start gap-2" style="margin-bottom:1rem; font-size:0.9rem; cursor:pointer;">
+          <input type="checkbox" name="owner_counted" id="ownerCounted" style="margin-top:0.2rem;">
+          <span>I counted the drawer myself.
+            <span class="sl-text-muted">Leave this off to just close the shift — you can have {{ shift_emp.employee.name|default:shift_emp.name|capfirst }} confirm the count later.</span>
+          </span>
+        </label>
+        {% endif %}
+
+        <div id="countFields"{% if owner_closing %} style="display:none;"{% endif %}>
+          {% if owner_closing %}
+          <p class="sl-text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+            Enter what you counted in {{ shift_emp.employee.name|default:shift_emp.name|capfirst }}'s drawer. They'll see these amounts and can confirm them — or let you know if their own count was different — when they log in.
+          </p>
+          {% else %}
+          <p class="sl-text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+            Enter the actual amounts you counted. Don't worry about matching a target — just count honestly.
+          </p>
+          {% endif %}
+
+
+          {% if business.track_coins_separately %}
+          <div class="sd-info-row">
+            <label class="sd-info-label" for="counted_bills">Actual bills</label>
+            <input type="number" step="0.01" min="0" name="counted_bills" id="counted_bills" class="form-control" style="max-width:200px;" placeholder="0.00">
+          </div>
+          <div class="sd-info-row">
+            <label class="sd-info-label" for="counted_coins">Actual coins</label>
+            <input type="number" step="0.01" min="0" name="counted_coins" id="counted_coins" class="form-control" style="max-width:200px;" placeholder="0.00">
+          </div>
+          {% else %}
+          <div class="sd-info-row">
+            <label class="sd-info-label" for="counted_cash">Actual cash</label>
+            <input type="number" step="0.01" min="0" name="counted_cash" id="counted_cash" class="form-control" style="max-width:200px;" placeholder="0.00">
+          </div>
+          {% endif %}
+
+          <div class="sd-info-row">
+            <label class="sd-info-label" for="counted_gcash">GCash balance</label>
+            <input type="number" step="0.01" min="0" name="counted_gcash" id="counted_gcash" class="form-control" style="max-width:200px;" placeholder="0.00">
+          </div>
+          <div class="sd-info-row">
+            <label class="sd-info-label" for="counted_bank">Bank balance</label>
+            <input type="number" step="0.01" min="0" name="counted_bank" id="counted_bank" class="form-control" style="max-width:200px;" placeholder="0.00">
+          </div>
+
+          <div style="margin-top:1rem;">
+            <label class="sd-info-label" for="closing_note">Note (explain any difference)</label>
+            <textarea name="closing_note" id="closing_note" class="form-control" rows="2" placeholder="Optional — e.g. gave change shortage, tips kept separate"></textarea>
+          </div>
+        </div>
+
+        {% if shift_emp.drawer_session and shift_emp.drawer_session.is_open %}
+        <div style="margin-top:1.25rem; border-top:1px solid var(--border); padding-top:1rem;">
+          <div class="sd-info-label" style="margin-bottom:0.5rem;">What happens to the drawer?</div>
+          <label style="display:flex; align-items:flex-start; gap:0.5rem; cursor:pointer; margin-bottom:0.5rem;">
+            <input type="radio" name="drawer_action" value="close" checked style="margin-top:0.2rem;">
+            <span>Close the drawer <span class="sl-text-muted">— end of day, no one takes over.</span></span>
+          </label>
+          <label style="display:flex; align-items:flex-start; gap:0.5rem; cursor:pointer;">
+            <input type="radio" name="drawer_action" value="handover" style="margin-top:0.2rem;">
+            <span>Hand over to the next cashier <span class="sl-text-muted">— they'll recount the drawer to take over.</span></span>
+          </label>
+        </div>
+        {% endif %}
+
+
+        {% if owner_closing %}
+        <script>
+        (function(){
+          var cb = document.getElementById('ownerCounted');
+          var box = document.getElementById('countFields');
+          if(!cb || !box) return;
+          function sync(){ box.style.display = cb.checked ? '' : 'none'; }
+          cb.addEventListener('change', sync); sync();
+        })();
+        </script>
+        {% endif %}
+        {% else %}
+        <p class="sl-text-muted" style="font-size:0.9rem;">
+          You'll be timed out as of now. Hours worked are recorded automatically.
+        </p>
+        {% endif %}
+
+
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.5rem;">
+          <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=shift_emp.id %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-box-arrow-right"></i> Confirm Time Out
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

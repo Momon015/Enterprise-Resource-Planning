@@ -34,4 +34,7 @@ urlpatterns = [
     path('settings/business-profile/create/', views.business_profile_create, name='business-profile-create'),
     path('settings/business/<int:business_id>/<slug:business_slug>/business-profile/detail/', views.business_profile_detail, name='business-profile-detail'),
     path('settings/business/<int:business_id>/<slug:business_slug>/business-profile/update/', views.business_profile_update, name='business-profile-update'),
+
+    path('settings/business/<int:business_id>/<slug:business_slug>/cash-drawer/', views.cash_drawer_settings, name='cash-drawer-settings'),
+
 ]

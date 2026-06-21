@@ -24,7 +24,7 @@ class MaterialFilterForm(forms.Form):
 class MaterialForm(ModelForm):
     class Meta:
         model = Material
-        fields = ['name', 'price', 'category', 'quantity', 'unit', 'supplier', 'piece_per_unit']
+        fields = ['name', 'price', 'quantity', 'unit', 'supplier', 'piece_per_unit']
 
         widgets = {
             'name': forms.TextInput(attrs={
@@ -61,13 +61,6 @@ class MaterialForm(ModelForm):
         if self.instance.pk and self.instance.price:
             self.initial['price'] = f"{self.instance.price:.2f}"
 
-        # Category dropdown scoped to this business
-        self.fields['category'].queryset = Category.objects.filter(
-            category_type='material', business=business
-        )
-        self.fields['category'].empty_label = None
-        self.fields['category'].label_from_instance = lambda obj: obj.name.title()
-
         # Supplier dropdown scoped to this business
         self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
         self.fields['supplier'].empty_label = None
@@ -85,7 +78,7 @@ class MaterialForm(ModelForm):
 class SupplierForm(ModelForm):
     class Meta:
         model = Supplier
-        fields = ['name', 'image']
+        fields = ['name', 'image', 'email', 'contact_number']
 
         widgets = {
             'name': forms.TextInput(attrs={
@@ -97,7 +90,23 @@ class SupplierForm(ModelForm):
                 'accept': 'image/*',
                 'class': 'form-control',
             }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'e.g. orders@vendor.com', 
+                'autocomplete': 'off'
+            }),
+            'contact_number': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'e.g. 09171234567', 
+                'inputmode': 'numeric', 
+                'autocomplete': 'off'
+            }),
         }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.fields['name'].required = True
         
     def clean_name(self):
         name = self.cleaned_data.get('name').strip()

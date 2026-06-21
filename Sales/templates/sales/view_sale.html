@@ -1,19 +1,8 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load static %}
 
 {% block content %}
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-});
-
-function toggleCostInput(itemId) {
-  const el = document.getElementById('cost_input_' + itemId);
-  if (!el) return;
-  el.style.display = el.style.display === 'none' || !el.style.display ? 'block' : 'none';
-}
-</script>
 
 <!-- FLASH MESSAGES -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
@@ -31,7 +20,7 @@ function toggleCostInput(itemId) {
 {% endif %}
 </div>
 
-<div class="container-fluid py-3 py-lg-4">
+<div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
@@ -40,22 +29,12 @@ function toggleCostInput(itemId) {
       <h1 class="page-title">Sales Record</h1>
       <p class="page-subtitle">Add products and confirm to record today's sales</p>
     </div>
-    {% if items %}
-    <div class="page-header-right">
-      <div class="header-stat">
-        Lines: <strong>{{ items|length }}</strong>
-      </div>
-      <div class="header-stat accent">
-        Revenue: <strong>₱{{ total_revenue|floatformat:2 }}</strong>
-      </div>
-    </div>
-    {% endif %}
   </div>
 
   {% if items %}
   <div class="row g-3 g-lg-4">
 
-    <!-- LEFT: PRODUCT LINES TABLE -->
+    <!-- LEFT: CART ROWS -->
     <div class="col-lg-8">
       <div class="pos-card">
         <div class="pos-card-header">
@@ -68,263 +47,223 @@ function toggleCostInput(itemId) {
           </a>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table class="pos-table">
-            <thead>
-              <tr>
-                <th class="ps-4">Product</th>
-                <th>Qty Sold</th>
-                <th>Unit Cost</th>
-                <th>Unit Price</th>
-                <th>Revenue</th>
-                <th class="pe-4">Remove</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in page_obj %}
-              <tr>
-                <!-- PRODUCT -->
-                <td class="ps-4">
-                  <div class="product-name">{{ item.name }}</div>
-                  {% if item.supplier %}
-                  <div class="product-id">{{ item.supplier}}</div>
-                  {% endif %}
-                </td>
+        <div>
+          {% for item in page_obj %}
+          <div class="sale-row">
 
-                <!-- QTY SOLD -->
-                <td>
-                  <div class="qty-stepper">
-                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="new_quantity"
-                             value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
-                      <button type="submit" class="qty-btn"
-                              {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
-                    </form>
-                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="number" min="1" name="new_quantity"
-                             class="qty-input"
-                             value="{{ item.quantity }}"
-                             onchange="this.form.submit()">
-                    </form>
-                    <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="new_quantity" value="{{ item.quantity|add:'1' }}">
-                      <button type="submit" class="qty-btn">+</button>
-                    </form>
-                  </div>
-                </td>
-
-                <!-- UNIT COST -->
-                <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
-
-                <!-- UNIT PRICE -->
-                <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
-
-                <!-- TOTAL UNIT PRICE / SELLING PRICE (editable) -->
-                <td>
-                  <form method="POST" action="{% url 'sale-edit-selling-price' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
-                    {% csrf_token %}
-                    <div style="display:flex; flex-direction:column; align-items:center;">
-                      <div class="cost-display">
-                        <span>₱{{ item.total_selling_price|floatformat:2 }}</span>
-                        <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')">
-                          <i class="bi bi-pencil-square"></i>
-                        </button>
-                      </div>
-                      <div id="cost_input_{{ item.id }}" class="cost-edit-wrap">
-                        <div class="cost-input-group">
-                          <span class="cost-input-prefix">₱</span>
-                          <input type="number" step="0.01" min="0"
-                                 name="new_total_selling_price"
-                                 class="cost-input"
-                                 value="{{ item.total_selling_price|floatformat:2 }}">
-                          <button type="submit" class="cost-confirm-btn">
-                            <i class="bi bi-check2"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </form>
-                </td>
-
-                <!-- REMOVE -->
-                <td class="pe-4">
-                  <a href="{% url 'sale-delete-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="remove-btn">
-                    <i class="bi bi-trash"></i>
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-
-              {% if page_obj.paginator.num_pages > 1 %}
-                {% for _ in blank_rows %}
-                  <tr class="blank-row">
-                    <td colspan="5">&nbsp;</td>
-                  </tr>
-                {% endfor %}
-              {% endif %}
-
-            </tbody>
-          </table>
-
-          <!-- PAGINATION -->
-          {% if page_obj.paginator.num_pages > 1 %}
-          <div class="pagination-wrapper">
-            <nav>
-              <ul class="pagination">
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                      <i class="bi bi-chevron-left"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                  {% endif %}
-                </li>
-                {% for p in page_obj.paginator.page_range %}
-                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                  <a class="page-link" href="?page={{ p }}">{{ p }}</a>
-                </li>
-                {% endfor %}
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                  {% endif %}
-                </li>
-              </ul>
-            </nav>
-          </div>
-          {% endif %}
-
-        </div>
-      </div>
-    </div>
-
-    <!-- RIGHT PANEL -->
-    <div class="col-lg-4">
-
-      <!-- RECEIPT PREVIEW -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-receipt"></i>
-            Receipt Preview
-          </span>
-        </div>
-        <div style="padding: 1.25rem;">
-          <div class="receipt-scroll">
-            {% for item in items %}
-            <div class="receipt-line">
-              <div>
-                <div class="receipt-item-name">{{ item.name }}</div>
-                <div class="receipt-item-meta">{{ item.quantity }} × ₱{{ item.selling_price|floatformat:2 }}</div>
-              </div>
-              <div class="receipt-line-total">₱{{ item.total_selling_price|floatformat:2 }}</div>
-            </div>
-            {% endfor %}
-          </div>
-
-          {% if total_salary_cost %}
-          <div class="total-row">
-            <span class="total-label">
-              <i class="bi bi-person-workspace"></i> Labor cost
-            </span>
-            <span class="total-value text-danger-soft">₱{{ total_salary_cost|floatformat:2 }}</span>
-          </div>
-          {% endif %}
-
-          <hr class="divider">
-
-          <div class="total-row">
-            <span class="total-label">
-              <i class="bi bi-calculator"></i> Total Revenue
-            </span>
-            <span class="total-value total-grand">₱{{ total_revenue|floatformat:2 }}</span>
-          </div>
-
-          <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="btn-clear">
-            <i class="bi bi-trash3"></i> Clear session
-          </a>
-          <a href="{% url 'view-session-summary' business_slug=current_business.slug %}" class="btn-confirm">
-            <i class="bi bi-check2-circle"></i> Confirm Sales
-          </a>
-        </div>
-      </div>
-
-      {% comment %} <!-- EMPLOYEE SHIFT — owner only -->
-      {% if request.user.role == 'owner' %}
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-people-fill"></i>
-            Assign Employees
-          </span>
-        </div>
-        <div style="padding: 1.25rem;">
-          <form method="POST" action="{% url 'add-salary-to-sale' %}">
-            {% csrf_token %}
-            {% if employees %}
-              <p style="font-size:.84rem; color:var(--muted); margin-bottom:.85rem;">
-                Select employees working this shift.
-              </p>
-              {% for employee in employees %}
-              <label class="emp-check-label">
-                <input type="checkbox" name="employees"
-                       value="{{ employee.id }}"
-                       {% if employee.id|stringformat:"s" in selected_employee_ids %}checked{% endif %}>
-                <span>{{ employee.name }}</span>
-                <span class="emp-rate">₱{{ employee.daily_rate }}</span>
-              </label>
-              {% endfor %}
-              <button type="submit" class="btn-shift">
-                <i class="bi bi-people-fill"></i> Confirm Shift
-              </button>
+            <!-- THUMBNAIL -->
+            {% if item.image %}
+              <img src="{{ item.image }}" alt="" class="sale-row-thumb">
             {% else %}
-              <p style="font-size:.88rem; color:var(--muted); margin:0;">No employees found. <a href="{% url 'employee-list' business_slug=current_business.slug' %}" style="color:var(--accent);">Add staff</a></p>
+              <img src="{% static 'images/no-image.png' %}" alt="No image" class="sale-row-thumb">
             {% endif %}
-          </form>
-        </div>
-      </div>
-      {% endif %} {% endcomment %}
 
-      <!-- PRESETS -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-bookmark-fill"></i>
-            Product Presets
-          </span>
-          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" style="font-size:.82rem; color:var(--muted); text-decoration:none;">
-            View all <i class="bi bi-arrow-right"></i>
-          </a>
-        </div>
-        <div style="padding: 1.25rem;">
-          <form method="POST" action="{% url 'product-add-to-preset' business_slug=current_business.slug %}">
-            {% csrf_token %}
-            <input type="text" name="product_name" autocomplete="off"
-                   class="preset-input" placeholder="e.g. Service Fees">
-            <label style="display:flex; align-items:center; gap:.55rem; font-size:.85rem; margin-bottom:.85rem; cursor:pointer;">
-              <input type="checkbox" value="checkbox" name="product_checkbox" style="accent-color:var(--accent);">
-              Save for future use
-            </label>
-            <button type="submit" class="btn-preset">
-              <i class="bi bi-bookmark-check"></i> Save as preset
-            </button>
-          </form>
-        </div>
-      </div>
+            <div class="sale-row-body">
 
+              <!-- HEAD -->
+              <div class="sale-row-head">
+                <div class="sale-row-info">
+                  <div class="sale-row-name">{{ item.name }}</div>
+                  {% if item.supplier %}<div class="sale-row-sub">{{ item.supplier }}</div>{% endif %}
+                  <div class="sale-row-cost">Cost ₱{{ item.cost_price|floatformat:2 }} · ₱{{ item.selling_price|floatformat:2 }} each</div>
+                </div>
+                <a href="{% url 'sale-delete-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                   class="sale-row-remove" title="Remove">
+                  <i class="bi bi-trash"></i>
+                </a>
+              </div>
+
+              <!-- CONTROLS: qty + revenue (editable) -->
+              <div class="sale-row-controls">
+                <div class="qty-stepper">
+                  <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_quantity"
+                           value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
+                    <button type="submit" class="qty-btn" {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
+                  </form>
+                  <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
+                    {% csrf_token %}
+                    <input type="number" min="1" name="new_quantity" class="qty-input"
+                           value="{{ item.quantity }}" onchange="this.form.submit()">
+                  </form>
+                  <form method="POST" action="{% url 'sale-edit-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_quantity" value="{{ item.quantity|add:'1' }}">
+                    <button type="submit" class="qty-btn">+</button>
+                  </form>
+                </div>
+
+                <div class="sale-row-price">
+                  <!-- DISPLAY -->
+                  <div id="disp_{{ item.id }}" class="cost-display">
+                    <span class="sale-row-total">₱{{ item.total_selling_price|floatformat:2 }}</span>
+                    <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')" title="Edit price">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                  </div>
+                  <!-- EDIT -->
+                  <form method="POST" action="{% url 'sale-edit-selling-price' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                        id="cost_input_{{ item.id }}" style="display:none; align-items:center; gap:0.35rem;">
+                    {% csrf_token %}
+                    <div class="row-price-chip">
+                      <span style="color:var(--muted); font-size:0.85rem;">₱</span>
+                      <input type="number" step="0.01" min="0" name="new_total_selling_price"
+                             value="{{ item.total_selling_price|floatformat:2 }}" class="mono">
+                    </div>
+                    <button type="submit" class="apply-check-btn" title="Save price">
+                      <i class="bi bi-check2"></i>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
+      </div>
     </div>
+
+    <!-- RIGHT: STICKY ORDER SUMMARY + PRESETS -->
+    <div class="col-lg-4">
+      <div class="order-summary">
+
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-receipt"></i> Order Summary
+            </span>
+          </div>
+          <div style="padding: 1.25rem;">
+            <div class="total-row">
+              <span class="total-label">Subtotal</span>
+              <span class="total-value">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Items</span>
+              <span class="total-value">{{ items|length }}</span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="total-row">
+              <span class="total-label">
+                <i class="bi bi-calculator"></i> Total Revenue
+              </span>
+              <span class="total-value total-grand">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+            </div>
+
+            <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+              <a href="{% url 'view-session-summary' business_slug=current_business.slug %}" class="btn-confirm"
+                 style="flex:1; padding:0.6rem; font-size:0.875rem; margin:0;">
+                <i class="bi bi-check2-circle"></i> Confirm
+              </a>
+              <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="btn-clear"
+                 style="flex:0 0 auto; width:auto; padding:0.6rem 0.85rem; font-size:0.8rem; margin:0;">
+                Clear
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {% if current_business.offers_services and services %}
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-plus-circle"></i> Add Service Fee
+            </span>
+          </div>
+          <div style="padding: 1rem 1.25rem;">
+            <div class="input-group" style="margin-bottom:.6rem;">
+              <span class="input-group-icon"><i class="bi bi-search"></i></span>
+              <input type="search" id="svcSearch" class="form-control" placeholder="Search service…" autocomplete="off">
+            </div>
+            <div id="svcList">
+              {% for s in services %}
+              <form method="POST"
+                    action="{% url 'add-to-sale' product_id=s.id business_slug=current_business.slug %}?next=view-sale"
+                    class="svc-row" data-name="{{ s.name|lower }}"
+                    {% if forloop.counter > 3 %}data-extra="1" style="display:none;"{% endif %}>
+                {% csrf_token %}
+                {% if s.image %}<img src="{{ s.image.url }}" class="svc-thumb" alt="">{% endif %}
+                <span class="svc-name">{{ s.name }}</span>
+                <span class="svc-price">₱{{ s.selling_price|floatformat:2 }}</span>
+                <button type="submit" class="svc-add" title="Add to order"><i class="bi bi-plus"></i></button>
+              </form>
+              {% endfor %}
+              <div id="svcEmpty" style="display:none; font-size:.82rem; color:var(--muted); padding:.4rem 0;">No service found.</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+
+        <div class="pos-card" style="margin-bottom:0;">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-bookmark-fill"></i> Product Presets
+            </span>
+            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" style="font-size:.82rem; color:var(--muted); text-decoration:none;">
+              View all <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div style="padding: 1.25rem;">
+            <form method="POST" action="{% url 'product-add-to-preset' business_slug=current_business.slug %}">
+              {% csrf_token %}
+              <input type="text" name="product_name" autocomplete="off"
+                     class="preset-input" placeholder="e.g. Service Fees">
+              <label style="display:flex; align-items:center; gap:.55rem; font-size:.85rem; margin-bottom:.85rem; cursor:pointer;">
+                <input type="checkbox" value="checkbox" name="product_checkbox" style="accent-color:var(--accent);">
+                Save for future use
+              </label>
+              <button type="submit" class="btn-preset">
+                <i class="bi bi-bookmark-check"></i> Save as preset
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
   {% else %}
-  <!-- EMPTY STATE -->
   <div class="empty-state">
     <div class="empty-icon"><i class="bi bi-receipt"></i></div>
     <div class="empty-title">No products yet</div>
@@ -336,5 +275,65 @@ function toggleCostInput(itemId) {
   {% endif %}
 
 </div>
+
+<style>
+  .svc-row { display:flex; align-items:center; gap:.5rem; padding:.45rem 0; margin:0;
+             border-bottom:1px solid var(--border-light); }
+  .svc-row:last-of-type { border-bottom:none; }
+  .svc-name { flex:1; font-size:.85rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .svc-price { font-size:.85rem; font-weight:600; color:var(--text); }
+  .svc-add { width:28px; height:28px; flex:0 0 auto; border:1px solid var(--accent);
+             background:var(--accent-light); color:var(--accent); border-radius:8px;
+             display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .svc-add:hover { background:var(--accent); color:#fff; }
+  #svcList { max-height:180px; overflow-y:auto; }   /* internal scroll → page never grows */
+</style>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+
+function toggleCostInput(itemId) {
+  const disp = document.getElementById('disp_' + itemId);
+  const edit = document.getElementById('cost_input_' + itemId);
+  if (!edit) return;
+  const showing = edit.style.display === 'flex';
+  edit.style.display = showing ? 'none' : 'flex';
+  if (disp) disp.style.display = showing ? 'flex' : 'none';
+}
+
+
+(function () {
+  var search = document.getElementById('svcSearch');
+  if (!search) return;
+  var rows  = Array.prototype.slice.call(document.querySelectorAll('#svcList .svc-row'));
+  var empty = document.getElementById('svcEmpty');
+
+  function showDefault() {                       // empty search → top 3 only
+    rows.forEach(function (r) {
+      r.style.display = r.hasAttribute('data-extra') ? 'none' : 'flex';
+    });
+    if (empty) empty.style.display = 'none';
+  }
+  function showFiltered(q) {                     // typing → match across ALL
+    var any = false;
+    rows.forEach(function (r) {
+      var match = r.getAttribute('data-name').indexOf(q) !== -1;
+      r.style.display = match ? 'flex' : 'none';
+      if (match) any = true;
+    });
+    if (empty) empty.style.display = any ? 'none' : 'block';
+  }
+  search.addEventListener('input', function () {
+    var q = search.value.trim().toLowerCase();
+    q ? showFiltered(q) : showDefault();
+  });
+  showDefault();
+})();
+</script>
+
+
 
 {% endblock content %}

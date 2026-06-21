@@ -1,0 +1,145 @@
+{% extends "main.html" %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="mf-page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>CATALOG</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'service-list' business_slug=current_business.slug %}" class="breadcrumb-link">
+          <span>SERVICE FEES</span>
+        </a>
+        <i class="bi bi-chevron-right"></i>
+        <span>NEW</span>
+      </div>
+      <h1 class="page-title">Add Service Fee</h1>
+      <p class="page-subtitle">Fees you charge for services — xerox, GCash, bills payment.</p>
+    </div>
+  </div>
+
+  <!-- SINGLE CARD FORM -->
+  <div class="card" style="max-width: 760px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon">
+          <i class="bi bi-ticket-perforated"></i>
+        </div>
+        <div>
+          <p class="card-header-title" style="margin: 0;">Service Fee</p>
+          <p class="card-header-sub" style="margin: 0;">No stock, no cost — just a name and a fee.</p>
+        </div>
+      </div>
+      <span class="card-header-sub">Charged as revenue when sold.</span>
+    </div>
+
+    <div class="card-body">
+
+      <!-- tip callout -->
+      <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+        <i class="bi bi-lightbulb sd-note-icon" style="color: var(--warning);"></i>
+        <div>
+          <div class="sd-note-title">Quick tip</div>
+          <div class="sd-note-text">
+            Create one entry per fee tier — e.g. "Cash In/Out Below 1000" at ₱40. The full fee is your income; no cost is tracked.
+          </div>
+        </div>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        <div class="mf-fields-grid">
+
+          {# Name — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}
+              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Image — left half #}
+          <div class="mf-field-group">
+            <label for="{{ form.image.id_for_label }}" class="mf-form-label">{{ form.image.label }}</label>
+            {{ form.image }}
+            <div class="mf-help">Optional — a logo like GCash, Meralco, or PLDT.</div>
+            {% if form.image.errors %}<div class="mf-error">{{ form.image.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Fee — right half #}
+          <div class="mf-field-group">
+            <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+              {{ form.selling_price.label }}
+              {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.selling_price.id_for_label }}', -1)">−</button>
+                <input type="number" name="{{ form.selling_price.html_name }}" id="{{ form.selling_price.id_for_label }}"
+                       class="form-control" step="0.01" min="0"
+                       value="{{ form.selling_price.value|default_if_none:'0.00' }}">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.selling_price.id_for_label }}', 1)">+</button>
+              </div>
+            </div>
+            {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Description — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.description.id_for_label }}" class="mf-form-label">
+              {{ form.description.label }}
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
+
+
+        <div class="mf-form-actions">
+          <a href="{% url 'service-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> Save Service Fee
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function stepDecimal(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseFloat(input.value || 0);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 0) value = 0;
+  input.value = value.toFixed(2);
+}
+</script>
+
+{% endblock %}

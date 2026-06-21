@@ -17,162 +17,134 @@
 {% endif %}
 </div>
 
-<div class="page-wrapper">
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
+<div class="mf-page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">PURCHASING / PRESET BUNDLES</div>
-      <h1 class="page-title">{{ preset.name }}</h1>
+      <div class="page-breadcrumb">
+        <span>PURCHASING</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'material-list' business_slug=current_business.slug %}" class="breadcrumb-link">MATERIALS</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESET</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
+      <h1 class="page-title">Preset Details</h1>
       <p class="page-subtitle">Saved items and quantities you can drop into any purchase.</p>
     </div>
-    <div class="page-header-right">
-      <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
-        <i class="bi bi-arrow-left"></i> Back to presets
-      </a>
-    </div>
   </div>
 
-  <div class="two-col-layout">
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
 
-    <!-- LEFT: ITEMS TABLE -->
-    <div class="left-panel">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-header-left-group">
-            <span class="card-header-title">Items in this preset</span>
-            <span class="sl-badge sl-badge-light">{{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}</span>
+    <!-- HEADER -->
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon">
+          <i class="bi bi-bookmark-fill"></i>
+        </div>
+        <div>
+          <div class="card-header-title">{{ preset.name }}</div>
+          <div class="card-header-sub">
+            {{ preset.created_at|date:"M d, Y" }} - {{ preset.created_by }}
           </div>
-          <span class="card-header-sub">Prices are current material prices; discounts apply per line.</span>
         </div>
-
-        <div class="table-responsive">
-          {% if preset.preset_items.exists %}
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th class="sl-text-center">Quantity</th>
-                <th class="sl-text-center">Price</th>
-                <th class="sl-text-center">Discount</th>
-                <th class="sl-text-end">Line Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in preset.preset_items.all %}
-              {% with unit=item.material.price qty=item.quantity disc=item.discount|default:0 %}
-              <tr>
-                <td>
-                  <div class="cell-primary">{{ item.material.name }}</div>
-                  <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
-                </td>
-                <td class="sl-text-center">
-                  <span class="sl-badge sl-badge-light">{{ qty }}</span>
-                </td>
-                <td class="sl-text-center sl-fw-semibold">₱{{ unit|floatformat:2 }}</td>
-                <td class="sl-text-center">
-                  {% if item.discount %}
-                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">
-                      ₱{{ disc|floatformat:0 }}
-                    </span>
-                  {% else %}
-                    <span class="sl-text-muted">₱0</span>
-                  {% endif %}
-                </td>
-                <td class="sl-text-end sl-fw-semibold">₱{{ item.total_line_cost }}</td>
-              </tr>
-              {% endwith %}
-              {% endfor %}
-            </tbody>
-          </table>
-          {% else %}
-          <div class="empty-state">
-            <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
-            <h3 class="empty-title">No items in this preset</h3>
-            <p class="empty-text">This preset has no materials saved yet.</p>
-          </div>
-          {% endif %}
-        </div>
-
-        <!-- ACTIONS BELOW TABLE -->
-        <div class="card-body" style="border-top:1px solid var(--border); display:flex; gap:0.5rem; flex-wrap:wrap;">
-          {% comment %} <a href="{% url 'material-add-preset-to-cart' preset.user.username preset.id %}?next={{request.path}}" class="btn btn-primary btn-sm">
-            <i class="bi bi-cart-plus"></i> Add to current purchase
-          </a>
-          <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-file-text"></i> Go to purchase screen
-          </a> {% endcomment %}
-          {% comment %} <hr style="border-color: #f0f0f0; margin: 0.25rem 0;">
-          <a href="{% url 'material-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-block">
-            <i class="bi bi-pencil-square"></i> Edit preset
-          </a>
-          <a href="{% url 'material-delete-preset' preset.id %}" class="btn btn-block"
-             style="background:var(--danger-light); color:var(--danger); border-color:#f0d0ce; font-weight:600;">
-            <i class="bi bi-trash3"></i> Delete preset
-          </a> {% endcomment %}
-        </div>
-
       </div>
+      <span class="sl-badge sl-badge-light">
+        {{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}
+      </span>
     </div>
 
-    <!-- RIGHT: PRESET SNAPSHOT -->
-    <div class="right-panel">
-      <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-bookmark-fill"></i> Preset Snapshot
-          </span>
-        </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+    <!-- Materials in this preset (section label) -->
+    <div class="card-body" style="padding-bottom: 0.5rem;">
+      <div class="sd-section-label" style="margin: 0;">
+        <i class="bi bi-box-seam sl-me-1"></i> Materials in this preset
+      </div>
+      <p class="mf-help" style="margin: 0.25rem 0 0; color: var(--muted);">
+        Prices are current material prices; discounts apply per line.
+      </p>
+    </div>
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Details</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Name</span>
-              <span class="sd-info-value">{{ preset.name }}</span>
-            </div>
-            {% comment %} <div class="sd-info-row">
-              <span class="sd-info-label">Preset ID</span>
-              <span class="sd-info-value">#{{ preset.id }}</span>
-            </div> {% endcomment %}
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total items</span>
-              <span class="sd-info-value">{{ preset.preset_items.count }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Recorded by</span>
-              <span class="sd-info-value">{{ preset.created_by|capfirst }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Date created</span>
-              <span class="sd-info-value">{{ preset.created_at|date:"M d, Y" }}</span>
-            </div>
-          </div>
+    <!-- TABLE (full-bleed inside card) -->
+    <div class="table-responsive">
+      {% if preset.preset_items.exists %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th class="sl-text-center">Quantity</th>
+            <th class="sl-text-center">Price</th>
+            <th class="sl-text-center">Discount</th>
+            <th class="sl-text-end">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in preset.preset_items.all %}
+          {% with unit=item.material.price qty=item.quantity disc=item.discount|default:0 %}
+          <tr>
+            <!-- ITEM -->
+            <td>
+              <div class="cell-primary">{{ item.material.name }}</div>
+              <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
+            </td>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick links</div>
-            <div class="btn-grid">
-              <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-primary btn-sm">
-                <i class="bi bi-cart-plus"></i> Add to current purchase
-              </a>
-              <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-file-text"></i> Go to purchase screen
-              </a>
-              {% comment %} <a href="{% url 'material-edit-preset' preset.user.username preset.id %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-pencil"></i> Edit preset
-              </a>
-              <a href="{% url 'material-delete-preset' preset.id %}" class="btn btn-sm btn-block"
-                 style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
-                <i class="bi bi-trash3"></i> Delete
-              </a> {% endcomment %}
-            </div>
-          </div>
+            <!-- QUANTITY -->
+            <td class="sl-text-center">
+              <span class="sl-badge sl-badge-light">{{ qty }}</span>
+            </td>
 
-        </div>
+            <!-- PRICE -->
+            <td class="sl-text-center sl-fw-semibold">₱{{ unit|floatformat:2 }}</td>
+
+            <!-- DISCOUNT -->
+            <td class="sl-text-center">
+              {% if item.discount %}
+                <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">
+                  ₱{{ disc|floatformat:0 }}
+                </span>
+              {% else %}
+                <span class="sl-text-muted">₱0</span>
+              {% endif %}
+            </td>
+
+            <!-- LINE TOTAL -->
+            <td class="sl-text-end sl-fw-semibold">₱{{ item.total_line_cost }}</td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+        <h3 class="empty-title">No items in this preset</h3>
+        <p class="empty-text">This preset has no materials saved yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="card-body" style="border-top: 1px solid var(--border-light);">
+      <div class="mf-form-actions">
+        <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-outline-primary">
+          <i class="bi bi-plus-circle"></i> Add 
+        </a>
+        <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary">
+          <i class="bi bi-cart3"></i> Cart
+        </a>
       </div>
     </div>
 
   </div>
+
 </div>
 
 {% endblock content %}

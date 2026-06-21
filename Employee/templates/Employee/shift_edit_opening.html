@@ -1,0 +1,67 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=shift_emp.id %}" class="breadcrumb-link">SHIFT</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>UPDATE STARTING CASH</span>
+      </div>
+      <h1 class="page-title">Update Starting Cash</h1>
+      <p class="page-subtitle">{{ shift_emp.employee.name|default:shift_emp.name|capfirst }} · {{ shift_emp.clock_in|date:"M d, Y" }}</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px; margin:0 auto;">
+    <div class="card-header"><span class="card-header-title">Update starting cash</span></div>
+    <div class="card-body">
+      <div class="sd-summary-block" style="text-align:center; margin-bottom:1rem;">
+        <div class="sd-summary-block-label">Current starting cash</div>
+        <div class="sd-total-amount" style="color:var(--accent);">₱{{ shift_emp.opening_cash|floatformat:2|intcomma }}</div>
+      </div>
+
+      <form method="post" action="{% url 'shift-edit-opening-cash' business_slug=current_business.slug shift_id=shift_emp.id %}">
+        {% csrf_token %}
+        <div style="margin-bottom:0.85rem;">
+          <label class="sd-info-label" for="new_amount">New amount</label>
+          <input type="number" step="0.01" min="0" name="new_amount" id="new_amount" class="form-control" value="{{ shift_emp.opening_cash|floatformat:2 }}" required>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label class="sd-info-label" for="note">Reason (required)</label>
+          <textarea name="note" id="note" class="form-control" rows="2" placeholder="e.g. miscounted, added change" required></textarea>
+        </div>
+
+        <div class="sd-note-box" style="margin-bottom:1rem;">
+          <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+          <div><div class="sd-note-title">Staff will be notified</div><div class="sd-note-text">This change is logged and the staff on this shift must acknowledge it.</div></div>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+          <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=shift_emp.id %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save Change</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

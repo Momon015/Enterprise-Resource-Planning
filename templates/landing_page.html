@@ -1154,7 +1154,7 @@
 
   <div class="lp-nav-actions">
     <a href="{% url 'login' %}" class="btn-lp btn-outline">Sign in</a>
-    <a href="{% url 'register-form' %}" class="btn-lp btn-accent">Get Started</a>
+    {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}" class="btn-lp btn-accent">Get Started</a>{% endif %}
     <button class="lp-hamburger" id="hamburgerBtn" aria-label="Open menu">
       <i class="bi bi-list"></i>
     </button>
@@ -1170,7 +1170,7 @@
   <a href="#pricing">Pricing</a> 
   <a href="#contact">Contact</a>
   <a href="{% url 'login' %}">Sign in</a>
-  <a href="{% url 'register-form' %}">Get Started →</a>
+  {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}">Get Started →</a>{% endif %}
 </div>
 
 
@@ -1190,9 +1190,11 @@
   </p>
 
   <div class="lp-hero-actions anim-4">
+    {% if ALLOW_REGISTRATION %}
     <a href="{% url 'register-form' %}" class="btn-lp btn-accent btn-lg">
       <i class="bi bi-rocket-takeoff"></i> Start for free
     </a>
+    {% endif %}
     <a href="{% url 'login' %}" class="btn-lp btn-ghost btn-lg">
       <i class="bi bi-box-arrow-in-right"></i> Sign in
     </a>
@@ -1289,7 +1291,7 @@
                 <div class="lp-mock-stat-val red">₱30</div>
                 </div>
                 <div class="lp-mock-stat">
-                <div class="lp-mock-stat-lbl">Labor Cost</div>
+                <div class="lp-mock-stat-lbl">Salary Cost</div>
                 <div class="lp-mock-stat-val red">₱150</div>
                 </div>
                 <div class="lp-mock-stat">
@@ -1444,7 +1446,7 @@
                       <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#22c55e;display:inline-block;"></span>Rev</span>
                       <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#f97316;display:inline-block;"></span>Mat</span>
                       <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#ef4444;display:inline-block;"></span>Waste</span>
-                      <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#6366f1;display:inline-block;"></span>Labor</span>
+                      <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#6366f1;display:inline-block;"></span>Salary</span>
                       <span style="font-size:0.36rem; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:2px;"><span style="width:4px;height:4px;border-radius:50%;background:#ec4899;display:inline-block;"></span>Exp</span>
                     </div>
                 </div>
@@ -1695,9 +1697,11 @@
     <h2>Ready to take control of your business?</h2>
     <p>Create your free account in minutes. No setup fees, no hidden costs — just a cleaner way to manage your operations.</p>
     <div class="lp-cta-actions">
+      {% if ALLOW_REGISTRATION %}
       <a href="{% url 'register-form' %}" class="btn-lp btn-white btn-lg">
         <i class="bi bi-rocket-takeoff"></i> Get started free
       </a>
+      {% endif %}
       <a href="{% url 'login' %}" class="btn-lp btn-white-ghost btn-lg">
         <i class="bi bi-box-arrow-in-right"></i> Sign in
       </a>
@@ -1753,7 +1757,7 @@
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
         </ul>
-        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Start Free</a>
+        {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Start Free</a>{% endif %}
       </div>
 
       <!-- STANDARD -->
@@ -1775,7 +1779,7 @@
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
         </ul>
-        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;"><p class="cta-text">Subscribe</p></a>
+        {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;"><p class="cta-text">Subscribe</p></a>{% endif %}
       </div>
 
       <!-- PREMIUM -->
@@ -1798,7 +1802,7 @@
           <li><i class="bi bi-check-lg"></i> Monthly + daily summaries</li>
           <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
         </ul>
-        <a href="{% url 'register-form' %}" class="btn-lp btn-accent" style="justify-content:center;">Start 14-Day Free Trial</a>
+        {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}" class="btn-lp btn-accent" style="justify-content:center;">Start 14-Day Free Trial</a>{% endif %}
       </div>
 
       <!-- PRO -->
@@ -1820,7 +1824,7 @@
           <li><i class="bi bi-check-lg"></i> Full dashboard</li>
           <li><i class="bi bi-check-lg"></i> Daily + weekly + monthly summaries</li>
         </ul>
-        <a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Start 14-Day Free Trial</a>
+        {% if ALLOW_REGISTRATION %}<a href="{% url 'register-form' %}" class="btn-lp btn-outline" style="justify-content:center;">Start 14-Day Free Trial</a>{% endif %}
       </div>
 
     </div>
@@ -1949,7 +1953,7 @@
     <div>
       <div class="lp-footer-col-title">Account</div>
       <ul class="lp-footer-links">
-        <li><a href="{% url 'register-form' %}">Create account</a></li>
+        {% if ALLOW_REGISTRATION %}<li><a href="{% url 'register-form' %}">Create account</a></li>{% endif %}
         <li><a href="{% url 'login' %}">Sign in</a></li>
       </ul>
     </div>

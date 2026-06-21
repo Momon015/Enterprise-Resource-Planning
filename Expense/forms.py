@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 
-from Expense.models import Purchase, PurchaseItem, Employee, WasteItem, Expense, ExpenseItem, MiscExpense
+from Expense.models import Purchase, PurchaseItem, WasteItem, Expense, ExpenseItem, MiscExpense
 from Inventory.models import Material
 
 from Supplier.models import Supplier
@@ -32,18 +32,7 @@ class PurchaseFilterForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        
-class EmployeeForm(ModelForm):
-    class Meta:
-        model = Employee
-        fields = ['name', 'daily_rate']
-        
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-class EmployeeFilterForm(forms.Form):
-    search = forms.CharField(required=False)
-        
+    
 class MaterialWasteForm(ModelForm):
     class Meta:
         model = WasteItem

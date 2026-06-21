@@ -1,6 +1,6 @@
 {% extends 'main.html' %}
 {% block content %}
-<div class="page-wrapper" style="max-width:720px;">
+<div class="page-wrapper">
 
   <div class="mobile-back-row">
     <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
@@ -20,7 +20,8 @@
     {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
   {% endif %}
 
-  <div class="settings-card">
+  <div class="settings-card" style="max-width:720px; margin:0 auto;">
+
     <div class="settings-card__header">
       <div class="settings-card__header-icon tone-account">
         <i class="bi bi-envelope-paper-fill"></i>

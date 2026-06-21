@@ -1,10 +1,10 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load static %}
 
 {% block content %}
 
 <style>
-.discount-col { width: 80px; text-align: center; }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; appearance: textfield; }
@@ -15,12 +15,6 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
 
-function toggleCostInput(itemId) {
-  const el = document.getElementById('cost_input_' + itemId);
-  if (!el) return;
-  el.style.display = el.style.display === 'block' ? 'none' : 'block';
-}
-
 function stepDiscount(id, delta) {
   const input = document.getElementById(id);
   if (!input) return;
@@ -28,7 +22,20 @@ function stepDiscount(id, delta) {
   value = isNaN(value) ? 0 : value + delta;
   if (value < 0) value = 0;
   input.value = value.toFixed(2);
+  const form = document.getElementById('discountForm');
+  if (form) form.submit();
 }
+
+function toggleCostInput(itemId) {
+  const disp = document.getElementById('disp_' + itemId);
+  const edit = document.getElementById('cost_input_' + itemId);
+  if (!edit) return;
+  const showing = edit.style.display === 'flex';
+  edit.style.display = showing ? 'none' : 'flex';
+  if (disp) disp.style.display = showing ? 'flex' : 'none';
+}
+
+
 </script>
 
 <!-- FLASH MESSAGES -->
@@ -56,16 +63,6 @@ function stepDiscount(id, delta) {
       <h1 class="page-title">Purchase Record</h1>
       <p class="page-subtitle">Items bought from the market — track cost for your inventory</p>
     </div>
-    {% if cart_items %}
-    <div class="page-header-right">
-      <div class="header-stat">
-        Lines: <strong>{{ cart_items|length }}</strong>
-      </div>
-      <div class="header-stat accent">
-        Total: <strong>₱{{ total_after_discount|floatformat:2|intcomma }}</strong>
-      </div>
-    </div>
-    {% endif %}
   </div>
 
   {% if cart_items %}
@@ -76,48 +73,56 @@ function stepDiscount(id, delta) {
       <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-list-ul me-1"></i> Order lines
+            <i class="bi bi-list-ul"></i> Order lines
           </span>
           <a href="{% url 'material-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn-browse">
             <i class="bi bi-search"></i> Browse supplier
           </a>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table class="pos-table">
-            <thead>
-              <tr>
-                <th class="ps-4">Item</th>
-                <th>Qty</th>
-                <th>Unit Cost</th>
-                <th>Total Price</th>
-                <th class="discount-col">Disc</th>
-                <th>Line Total</th>
-                <th class="pe-4">Remove</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in page_obj %}
-              <tr>
-                <td class="ps-4">
-                  <div class="product-name">{{ item.material }}</div>
-                  <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
-                </td>
-                <td>
+        <div>
+          {% for item in page_obj %}
+          <div class="sale-row">
+
+            <!-- THUMBNAIL -->
+            {% if item.image %}
+              <img src="{{ item.image }}" alt="" class="sale-row-thumb">
+            {% else %}
+              <img src="{% static 'images/no-image.png' %}" alt="No image" class="sale-row-thumb">
+            {% endif %}
+
+            <div class="sale-row-body">
+
+              <!-- HEAD -->
+              <div class="sale-row-head">
+                <div class="sale-row-info">
+                  <div class="sale-row-name">{{ item.material }}</div>
+                  <div class="sale-row-sub">{{ item.supplier|default:"No supplier" }}</div>
+                  <div class="sale-row-cost">Unit cost ₱{{ item.price|floatformat:2 }}</div>
+                </div>
+                <a href="{% url 'cart-remove-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}"
+                   class="sale-row-remove" title="Remove">
+                  <i class="bi bi-trash"></i>
+                </a>
+              </div>
+
+              <!-- CONTROLS -->
+              <div class="sale-row-ctrls-purchase">
+
+                <!-- QTY (immediate) -->
+                <div class="row-ctrl">
+                  <span class="row-ctrl-label">Qty</span>
                   <div class="qty-stepper">
                     <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
                       {% csrf_token %}
                       <input type="hidden" name="quantity"
-                             value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
-                      <button type="submit" class="qty-btn"
-                              {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
+                            value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
+                      <button type="submit" class="qty-btn" {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
                     </form>
                     <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
                       {% csrf_token %}
-                      <input type="number" min="1" name="quantity"
-                             class="qty-input"
-                             value="{{ item.quantity }}"
-                             onchange="this.form.submit()">
+                      <input type="number" min="1" name="quantity" class="qty-input"
+                            value="{{ item.quantity }}" onchange="this.form.submit()">
                     </form>
                     <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
                       {% csrf_token %}
@@ -125,190 +130,171 @@ function stepDiscount(id, delta) {
                       <button type="submit" class="qty-btn">+</button>
                     </form>
                   </div>
-                </td>
-                <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
-                <td>
-                  <form method="POST" action="{% url 'edit-total-price' business_slug=current_business.slug material_id=item.id %}?{{ request.GET.urlencode }}">
-                    {% csrf_token %}
-                    <div style="display:flex; flex-direction:column; align-items:center;">
-                      <div class="cost-display">
-                        <span>₱{{ item.item_total|floatformat:2 }}</span>
-                        <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')">
-                          <i class="bi bi-pencil-square"></i>
-                        </button>
-                      </div>
-                      <div id="cost_input_{{ item.id }}" class="cost-edit-wrap">
-                        <div class="cost-input-group">
-                          <span class="cost-input-prefix">₱</span>
-                          <input type="number" step="0.01" min="0"
-                                 name="new_total_price"
-                                 class="cost-input"
-                                 value="{{ item.item_total|floatformat:2 }}">
-                          <button type="submit" class="cost-confirm-btn">
-                            <i class="bi bi-check2"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </form>
-                </td>
-                <td class="text-center discount-col">
-                  <div class="qty-stepper" style="justify-content:center;">
-                    <button type="button" class="qty-btn"
-                            onclick="stepDiscount('discount_{{ item.id }}', -1)">−</button>
-                    <input type="number"
-                           name="discount_{{ item.id }}"
-                           id="discount_{{ item.id }}"
-                           form="discountForm"
-                           min="0" step="0.01"
-                           class="qty-input"
-                           value="{{ item.discount|floatformat:2 }}">
-                    <button type="button" class="qty-btn"
-                            onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
+                </div>
+
+                <!-- DISCOUNT (immediate — +/- and typing auto-apply, no check) -->
+                <div class="row-ctrl">
+                  <span class="row-ctrl-label">Discount</span>
+                  <div class="qty-stepper">
+                    <button type="button" class="qty-btn" onclick="stepDiscount('discount_{{ item.id }}', -1)">−</button>
+                    <input type="number" name="discount_{{ item.id }}" id="discount_{{ item.id }}"
+                          form="discountForm" min="0" step="0.01" class="qty-input"
+                          value="{{ item.discount|floatformat:2 }}"
+                          onchange="document.getElementById('discountForm').submit()">
+                    <button type="button" class="qty-btn" onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
                   </div>
-                </td>
-                <td>
-                  <span class="mono" style="font-weight:700 ">₱{{ item.item_discount|floatformat:2 }}</span>
-                </td>
-                <td class="pe-4">
-                  <a href="{% url 'cart-remove-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}" class="remove-btn">
-                    <i class="bi bi-trash"></i>
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
+                </div>
 
-              {% if page_obj.paginator.num_pages > 1 %}
-                {% for _ in blank_rows %}
-                  <tr class="blank-row">
-                    <td colspan="5">&nbsp;</td>
-                  </tr>
-                {% endfor %}
-              {% endif %}
-            </tbody>
-          </table>
+                <!-- TOTAL PRICE (display → flip to edit + check) -->
+                <div class="row-ctrl row-ctrl--total">
+                  <span class="row-ctrl-label">Total</span>
 
-          <!-- PAGINATION -->
-          {% if page_obj.paginator.num_pages > 1 %}
-          <div class="pagination-wrapper">
-            <nav>
-              <ul class="pagination">
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                      <i class="bi bi-chevron-left"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                  <!-- DISPLAY -->
+                  <div id="disp_{{ item.id }}" class="cost-display">
+                    <span class="sale-row-total">₱{{ item.item_total|floatformat:2 }}</span>
+                    <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')" title="Edit total price">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                  </div>
+
+                  <!-- EDIT -->
+                  <div id="cost_input_{{ item.id }}" style="display:none; align-items:center; gap:0.3rem;">
+                    <div class="row-price-chip">
+                      <span style="color:var(--muted); font-size:0.85rem;">₱</span>
+                      <input type="number" step="0.01" min="0"
+                            name="total_price_{{ item.id }}" form="discountForm"
+                            value="{{ item.item_total|floatformat:2 }}" class="mono">
+                    </div>
+                    <button type="submit" form="discountForm" class="apply-check-btn" title="Update total price">
+                      <i class="bi bi-check2"></i>
+                    </button>
+                  </div>
+
+                  {% if item.discount %}
+                  <span class="row-ctrl-hint">− ₱{{ item.discount|floatformat:2 }} → ₱{{ item.item_discount|floatformat:2 }}</span>
                   {% endif %}
-                </li>
-                {% for p in page_obj.paginator.page_range %}
-                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                  <a class="page-link" href="?page={{ p }}">{{ p }}</a>
-                </li>
-                {% endfor %}
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                  {% endif %}
-                </li>
-              </ul>
-            </nav>
+                </div>
+
+
+              </div>
+
+
+            </div>
           </div>
-          {% endif %}
+          {% endfor %}
+        </div>
 
-      </div>
-
+        <!-- Batch form — discount steppers & Total check submit this (holds CSRF + action) -->
         <form id="discountForm" method="POST" action="{% url 'cart-discount-material' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" autocomplete="off">
           {% csrf_token %}
-          <div style="border-top:1px solid var(--border); padding:.6rem 1.25rem; display:flex; justify-content:flex-end; background:#fafaf8;">
-            <button class="btn-preset" type="submit" style="width:auto; padding:.45rem 1.1rem;" >
-              <i class="bi bi-check2"></i> Apply discounts
-            </button>
-          </div>
         </form>
+
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
-    <!-- RIGHT PANEL -->
+    <!-- RIGHT: STICKY ORDER SUMMARY + PRESETS -->
     <div class="col-lg-4">
+      <div class="order-summary">
 
-      <!-- RECEIPT PREVIEW -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title"><i class="bi bi-receipt me-1"></i> Receipt preview</span>
-        </div>
-        <div style="padding:1rem;">
-          <div class="receipt-scroll">
-            {% for item in cart_items %}
-            <div class="receipt-line">
-              <div>
-                <div class="receipt-item-name">{{ item.material }}</div>
-                <div class="receipt-item-meta">
-                  {{ item.quantity }} × ₱{{ item.price|floatformat:2 }}
-                  {% if item.discount %}<span style="color:var(--accent);">(-{{ item.discount }})</span>{% endif %}
-                </div>
-              </div>
-              <div class="receipt-line-total">₱{{ item.item_discount|floatformat:2 }}</div>
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-receipt"></i> Order Summary
+            </span>
+          </div>
+          <div style="padding: 1.25rem;">
+            <div class="total-row">
+              <span class="total-label">Subtotal</span>
+              <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
             </div>
-            {% endfor %}
-          </div>
+            {% if total_discount %}
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
+              <span class="total-value text-success-soft">₱{{ total_discount|floatformat:2|intcomma }}</span>
+            </div>
+            {% endif %}
 
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-calculator"></i> Subtotal</span>
-            <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
-          </div>
-          {% if total_discount %}
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
-            <span class="total-value text-success-soft">₱{{ total_discount|floatformat:2|intcomma }}</span>
-          </div>
-          {% endif %}
+            <hr class="divider">
 
-          <hr class="divider">
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-cash-stack"></i> Total Cost</span>
+              <span class="total-value total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
+            </div>
 
-          <div class="total-row">
-            <span class="total-label"><i class="bi bi-cash-stack"></i> Total Cost</span>
-            <span class="total-value total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
+            <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+              <a href="{% url 'view-cart-summary' business_slug=current_business.slug %}" class="btn-confirm"
+                 style="flex:1; padding:0.6rem; font-size:0.875rem; margin:0;">
+                <i class="bi bi-check2-circle"></i> Confirm
+              </a>
+              <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn-clear"
+                 style="flex:0 0 auto; width:auto; padding:0.6rem 0.85rem; font-size:0.8rem; margin:0;">
+                Clear
+              </a>
+            </div>
           </div>
-
-          <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn-clear">
-            <i class="bi bi-trash3"></i> Clear session
-          </a>
-          <a href="{% url 'view-cart-summary' business_slug=current_business.slug %}" class="btn-confirm">
-            <i class="bi bi-check2-circle"></i> Confirm Purchase
-          </a>
         </div>
+
+        <div class="pos-card" style="margin-bottom:0;">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-bookmark-fill"></i> Supplier Presets
+            </span>
+            <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" style="font-size:.8rem; color:var(--muted); text-decoration:none;">
+              View all <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div style="padding: 1.25rem;">
+            <form method="POST" id="presetForm" autocomplete="off" action="{% url 'material-save-items' business_slug=current_business.slug %}">
+              {% csrf_token %}
+              <input type="text" name="name" class="preset-input" placeholder="e.g. Supplier">
+              <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
+                <input type="checkbox" value="checkbox" name="checkbox" style="accent-color:var(--accent);">
+                Save for future use
+              </label>
+              <button type="submit" class="btn-preset">
+                <i class="bi bi-bookmark-check"></i> Save as preset
+              </button>
+            </form>
+          </div>
+        </div>
+
       </div>
-
-      <!-- PRESETS -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title"><i class="bi bi-bookmark-fill me-1"></i> Supplier Presets</span>
-          <a href="{% url 'material-preset-list' business_slug=current_business.slug  %}" style="font-size:.8rem; color:var(--muted); text-decoration:none;">
-            View all <i class="bi bi-arrow-right"></i>
-          </a>
-        </div>
-        <div style="padding:1rem;">
-          <form method="POST" id="presetForm" autocomplete="off" action="{% url 'material-save-items' business_slug=current_business.slug %}">
-            {% csrf_token %}
-            <input type="text" name="name" class="preset-input" placeholder="e.g. Supplier">
-            <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
-              <input type="checkbox" value="checkbox" name="checkbox" style="accent-color:var(--accent);">
-              Save for future use
-            </label>
-            <button type="submit" class="btn-preset">
-              <i class="bi bi-bookmark-check"></i> Save as preset
-            </button>
-          </form>
-        </div>
-      </div>
-
     </div>
+
   </div>
 
   {% else %}
@@ -316,7 +302,7 @@ function stepDiscount(id, delta) {
     <div class="empty-icon"><i class="bi bi-receipt"></i></div>
     <div class="empty-title">No items yet</div>
     <p class="empty-sub">Browse the supplier list and add items to start recording this purchase.</p>
-    <a href="{% url 'material-list' business_slug=current_business.slug  %}" class="btn-add-product">
+    <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn-add-product">
       <i class="bi bi-plus-circle"></i> Add item
     </a>
   </div>

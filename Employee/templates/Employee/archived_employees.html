@@ -1,0 +1,87 @@
+{% extends 'main.html' %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>TEAM</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="breadcrumb-link">Employee</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>Archived</span>
+      </div>
+      <h1 class="page-title">Archived Employees</h1>
+      <p class="page-subtitle">Hidden from your active roster. Restore anytime — they'll be able to log in again.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:760px; margin:0 auto;">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">{% if employees %}<i class="bi bi-people"></i> Employees{% endif %}</span>
+      </div>
+      {% if employees %}<span class="card-header-sub">{{ employees|length }} archived</span>{% endif %}
+    </div>
+
+    <div class="card-body" style="padding:0;">
+      {% if employees %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th class="sl-text-center">Daily Rate</th>
+            <th class="sl-text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in employees %}
+          <tr>
+            <td>
+              <div class="name-text">
+                <strong>{{ e.name|capfirst }}</strong>
+                {% if e.staff_user %}<small class="text-muted">{{ e.staff_user.username }}</small>{% endif %}
+              </div>
+            </td>
+            <td class="sl-text-center"><span style="color:var(--accent);">₱{{ e.daily_rate|floatformat:2|intcomma }}</span></td>
+            <td class="table-actions">
+              <form method="POST" action="{% url 'restore-employee' business_slug=current_business.slug employee_id=e.id slug=e.slug %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-success" type="submit">
+                  <i class="bi bi-arrow-counterclockwise"></i> Restore
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding:3rem 1.5rem;">
+        <div class="empty-icon"><i class="bi bi-archive"></i></div>
+        <h3 class="empty-title">No archived employees</h3>
+        <p class="empty-text">Employees you archive will appear here. They stay out of your active roster but their shift and payroll history is preserved.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

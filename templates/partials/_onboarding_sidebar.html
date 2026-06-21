@@ -1,0 +1,119 @@
+{% load static %}
+
+<!-- MOBILE OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- MOBILE TOP BAR -->
+<div class="sidebar-mobile-bar" id="sidebarMobileBar">
+  <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
+    <i class="bi bi-list"></i>
+  </button>
+  <div class="sidebar-mobile-brand-wrap">
+    <div class="sidebar-mobile-brand">Swift ERP</div>
+    <div class="sidebar-mobile-brand__sub">Sales · Inventory · Operations</div>
+  </div>
+  <div class="sidebar-mobile-actions">
+    <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="mb-avatar" aria-label="Profile">
+      {{ user.username|first|upper }}
+    </a>
+  </div>
+</div>
+
+<!-- SIDEBAR (ONBOARDING — locked until first business exists) -->
+<nav class="sidebar onboard-sidebar" id="sidebar">
+
+  <!-- BRAND -->
+  <span class="sidebar-brand onboard-locked" data-onboard-item style="cursor:pointer;">
+    <div class="sidebar-brand__icon"><img src="{% static 'images/logo.png' %}" alt="Swift ERP"></div>
+    <div class="sidebar-brand__text">
+      <div class="sidebar-brand__name">Swift ERP</div>
+      <div class="sidebar-brand__sub">Sales · Inventory · Operations</div>
+    </div>
+  </span>
+
+  <!-- NO BUSINESS YET -->
+  <div class="sidebar-business">
+    <div class="sidebar-business__label">Getting started</div>
+    <div class="sidebar-business__display">
+      <div class="sidebar-business__icon"><i class="bi bi-shop"></i></div>
+      <div class="sidebar-business__text">
+        <div class="sidebar-business__name">No business yet</div>
+        <div class="sidebar-business__type">Create one to begin</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV BODY (all locked) -->
+  <div class="sidebar-nav" id="sidebarNav">
+
+    <div class="sidebar-group" data-group="home">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-home">
+        <span class="sidebar-group__label">Home</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-home"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-speedometer2"></i><span>Dashboard</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-calendar-check"></i><span>Reports</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+    <div class="sidebar-group" data-group="transactions">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-transactions">
+        <span class="sidebar-group__label">Transactions</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-transactions"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-cash-coin"></i><span>Sales</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-receipt"></i><span>Purchases</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-arrow-return-left"></i><span>Sales Returns</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-arrow-return-right"></i><span>Purchase Returns</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-wallet2"></i><span>Expenses</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-recycle"></i><span>Waste</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+    <div class="sidebar-group" data-group="catalog">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-catalog">
+        <span class="sidebar-group__label">Catalog</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-catalog"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-basket"></i><span>Products</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-receipt"></i><span>Service Fees</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+    <div class="sidebar-group" data-group="inventory">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-inventory">
+        <span class="sidebar-group__label">Inventory</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-inventory"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-box"></i><span>Stock</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+    <div class="sidebar-group" data-group="purchasing">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-purchasing">
+        <span class="sidebar-group__label">Purchasing</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-purchasing"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-box-seam"></i><span>Materials</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-building"></i><span>Suppliers</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+    <div class="sidebar-group" data-group="cashflow">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-cashflow">
+        <span class="sidebar-group__label">Cash Flow</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-cashflow"><ul>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-cash-stack"></i><span>Receivables</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+        <li><span class="sidebar-nav__link onboard-locked" data-onboard-item><i class="bi bi-credit-card"></i><span>Payables</span><i class="bi bi-lock-fill onboard-lock-ico"></i></span></li>
+      </ul></div>
+    </div>
+
+  </div>
+</nav>

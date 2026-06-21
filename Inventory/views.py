@@ -40,6 +40,8 @@ from activity.utils import scope_events_for_user
 
 from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
 
+from activity.models import ActivityEvent 
+
 # Create your views here.
 
 @login_required(login_url='login')
@@ -48,15 +50,23 @@ def view_inventory_stock(request, business_slug):
     stocks = get_queryset_for_user(request.user, Stock.objects.all()) \
         .filter(business=business) \
         .exclude(material__status='inactive') \
-        .order_by('-name')
+        .order_by('name')
 
     most_stock_category_name = (stocks.values('material__category__name') \
     .annotate(total_count=Sum('material')).order_by('-total_count').first()
     )
     
+    
+    # Retail / Grocery / Pharmacy classify stock by the linked PRODUCT's category.
+    # Cafe / Restaurant keep the MATERIAL's (ingredient) category.
+    user_product_category = (
+        business.business_type != 'cafe' and business.business_type != 'restaurant'
+    )
+    category_type = 'product' if user_product_category else 'material'
+    
     most_stock_category_name = most_stock_category_name['material__category__name'] if most_stock_category_name else 'N/A'
     
-    form = StockFilterForm(request.GET or None, business=business)
+    form = StockFilterForm(request.GET or None, business=business, category_type=category_type)
     categories = form.fields['category'].queryset
     
     all_stocks = stocks.count()
@@ -93,7 +103,7 @@ def view_inventory_stock(request, business_slug):
         
     grand_total_value = sum(stock.price * stock.quantity for stock in stocks)
     
-    pagination = Paginator(stocks, 8)
+    pagination = Paginator(stocks, 5)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -107,8 +117,22 @@ def view_inventory_stock(request, business_slug):
     recent_events = scope_events_for_user(recent_events, request.user)[:4]
     
     from core.utils.kpis import get_inventory_kpis
+    
     kpis = get_inventory_kpis(business)
     
+    INVENTORY_VERBS = [
+        'stock.adjusted',   # fires for purchase/sale/waste/returns — captures all movement
+        'stock.low',        # threshold alert
+        'stock.out',        # threshold alert
+    ]
+
+    recent_events = (
+        ActivityEvent.objects
+        .filter(business=business, verb__in=INVENTORY_VERBS)
+        .select_related('actor')
+        .order_by('-created_at')[:4]
+    )
+
     context = {
                'page_obj': page_obj, 
                'section': 'inventory',

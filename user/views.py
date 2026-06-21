@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
@@ -11,6 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 import random
 
+from django.db import IntegrityError
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 
@@ -23,7 +25,7 @@ from core.models import Category
 from core.utils.email import send_email
 
 from user.models import User, EmailOTP, BusinessProfile
-from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm
+from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm, BusinessCashDrawerForm
 
 from core.utils.owner import get_owner, get_queryset_for_user, permission_required
 
@@ -33,12 +35,14 @@ import pprint
 from django.db import transaction
 from django.contrib.auth.hashers import make_password
 
-from Expense.models import Employee
+from Employee.models import Employee
 
 from django.utils.text import slugify
 from django.core.cache import cache
 
 import datetime
+
+from Employee.utils import is_opening_cash_locked
 
 # Create your views here.
 
@@ -53,6 +57,11 @@ def landing(request):
     return render(request, 'landing_page.html')
 
 def register_form(request):
+    # Feature flag: public sign-up can be disabled for a private QA build.
+    if not settings.ALLOW_REGISTRATION:
+        messages.info(request, "Registration is currently closed.")
+        return redirect('login')
+
     page = 'register-form'
 
     if request.method == 'POST':
@@ -62,7 +71,7 @@ def register_form(request):
             return redirect('login')
         
         # MANAGER: CLEANING UNVERIFIED USERS
-        User.cleanup.unverified_users(minutes=5) # override the 1 hr 
+        User.cleanup.unverified_users(minutes=5).delete() # override the 1 hr 
         
         form = RegisterForm(request.POST)
 
@@ -105,6 +114,7 @@ def register_form(request):
                         
                     else:
                         user.role = 'owner'
+                        
                     user.save()  # single write
 
                     otp = EmailOTP.generate_otp()
@@ -115,9 +125,9 @@ def register_form(request):
             except BusinessProfile.DoesNotExist:
                 messages.error(request, "Business name or Owner username not found.")
                 return redirect('register-form')
-            # except Exception:
-            #     messages.error(request, "Couldn't send verification email. Please try again.")
-            #     return redirect('register-form')
+            except IntegrityError:
+                messages.error(request, "That username or email is already registered.")
+                return redirect('register-form')
 
             request.session['user_id'] = user.id
             request.session['otp_id'] = otp_obj.id
@@ -337,8 +347,9 @@ def user_edit_profile(request, user_id, slug):
             user.first_name = user.first_name.title()
             user.last_name = user.last_name.title()
             user.save()
+            request.session['active_business_slug'] = user.slug
             messages.success(request, f"Your profile has been updated.")
-            return redirect('user-profile', slug=user.slug, user_id=user_id)
+            return redirect('settings', business_slug=user.slug)
         
         else:
             print(form.errors)
@@ -361,11 +372,12 @@ def user_edit_password(request):
         
         if form.is_valid():
             user = form.save()
+            request.session['active_business_slug'] = user.slug
             user.password_changed_at = timezone.now()
             user.save(update_fields=['password_changed_at'])
             update_session_auth_hash(request, user) # keeps the user logged in
             messages.success(request, f"Your Password has succesfully updated.")
-            return redirect('user-profile', user_id=user.id, slug=user.slug)
+            return redirect('settings', business_slug=user.slug)
         else:
             print(form.errors)
         
@@ -394,7 +406,6 @@ def user_edit_password(request):
 @login_required(login_url='login')
 def user_deactivate(request, user_id, slug):
     user = get_object_or_404(User, slug=slug, id=user_id)
-    # print('user', request.user)
     if user != request.user:
         return render(request, 'core/no_access.html', status=403)
     
@@ -455,10 +466,11 @@ def business_profile_create(request):
             profile = form.save(commit=False)
             profile.user = request.user
             profile.save()
-            # Set 60s cooldown so this user can't spam creates
+            request.session['active_business_slug'] = profile.slug   # land in the new business
             cache.set(rate_key, True, timeout=60)
             messages.success(request, "Your business profile has been created successfully.")
             return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
+
         else:
             messages.error(request, "Cafe and Restaurant are coming soon.")
             return redirect('business-profile-create')
@@ -495,8 +507,9 @@ def business_profile_update(request, business_slug, business_id):
             obj = form.save(commit=False)
             obj.business_name = obj.business_name.title()
             obj.save()
-            messages.success(request, f"Your business name changed successfully.")
-            return redirect('user-profile', user_id=obj.user.id, slug=obj.user.slug)
+            request.session['active_business_slug'] = obj.slug
+            
+            return redirect('settings', business_slug=obj.user.slug)
     else:
         form = BusinessProfileForm(instance=business)
     
@@ -603,3 +616,29 @@ def change_email_verify(request):
         'expires_at_iso': otp_obj.expires_at.isoformat() if hasattr(otp_obj, 'expires_at') else (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat(),
     }
     return render(request, 'user/change_email_verify.html', context)
+
+
+
+@login_required(login_url='login')
+def cash_drawer_settings(request, business_slug, business_id):
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+
+    plan = getattr(business, 'plan', None)
+    if not plan or not plan.has_timecards():
+        messages.warning(request, 'Cash drawer settings are available on Standard plan and up.')
+        return redirect('settings', business_slug=request.user.slug)
+
+    locked = is_opening_cash_locked(business)
+
+    if request.method == 'POST':
+        form = BusinessCashDrawerForm(request.POST, instance=business, locked=locked)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Cash drawer settings updated.')
+            return redirect('settings', business_slug=request.user.slug)
+    else:
+        form = BusinessCashDrawerForm(instance=business, locked=locked)
+
+    context = {'form': form, 'business': business, 'locked': locked, 'section': 'user'}
+    return render(request, 'user/cash_drawer_settings.html', context)
+

@@ -1,0 +1,69 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <span>TEAM</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="breadcrumb-link">Employee</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>Archive</span>
+      </div>
+      <h1 class="page-title">Archive Employee</h1>
+      <p class="page-subtitle">Remove from your active shifts.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px; margin:0 auto;">
+    <div class="card-header">
+      <span class="card-header-title"><i class="bi bi-archive-fill"></i> Archive </span>
+    </div>
+    <div class="card-body">
+
+      <div class="sd-note-box" style="margin-bottom:1rem;">
+        <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--warning);"></i>
+        <div>
+          <div class="sd-note-title">This also signs them out</div>
+          <div class="sd-note-text">Archiving removes {{ employee.name|capfirst }} from your active employee list and signs out their account — they won't be able to log in. Their shift and payroll history stays intact, and you can restore them anytime.</div>
+        </div>
+      </div>
+
+      <div class="sd-summary-block" style="margin-bottom:1rem;">
+        <div class="sd-info-row"><span class="sd-info-label">Name</span><span class="sd-info-value">{{ employee.name|capfirst }}</span></div>
+        <div class="sd-info-row"><span class="sd-info-label">Daily Rate</span><span class="sd-info-value" style="color:var(--accent);">₱{{ employee.daily_rate|floatformat:2|intcomma }}</span></div>
+      </div>
+
+      <form method="POST" action="{% url 'employee-archive' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}">
+        {% csrf_token %}
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+          <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-sm" style="background:var(--warning); color:#fff;">
+            <i class="bi bi-archive"></i> Archive Employee
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

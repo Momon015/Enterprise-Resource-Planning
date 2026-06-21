@@ -16,9 +16,8 @@
 
 <a id="preset-badge"
    href="{% url cart_url business_slug=current_business.slug %}"
-   class="btn btn-primary btn-sm position-relative">
-  <i class="bi bi-file-text"></i>
-  {{ label }}
+   class="btn btn-outline-secondary btn-sm position-relative">
+  <i class="bi bi-cart3"></i>
   {% if cart_count %}
     <span class="badge bg-danger position-absolute top-0 start-100 translate-middle">
       {{ cart_count }}

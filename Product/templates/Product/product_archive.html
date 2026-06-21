@@ -2,140 +2,133 @@
 {% load humanize %}
 {% block content %}
 
-<div class="page-wrapper">
+<div class="mf-page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCTS</a>
+        <span>CATALOG</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href={% url 'product-list' business_slug=current_business.slug %} class="breadcrumb-link">
+        <span>PRODUCT</span>
+        </a>
         <i class="bi bi-chevron-right"></i>
         <span>ARCHIVE</span>
       </div>
-      <h1 class="page-title" style="color: var(--warning);">Archive Product</h1>
-      <p class="page-subtitle">You are about to archive <strong>{{ product.name }}</strong>. You can restore it anytime.</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to products
-      </a>
+      <h1 class="page-title">Archive Product</h1>  <!-- style="color: var(--warning);"  -->
+      <p class="page-subtitle">You can restore it anytime.</p>
     </div>
   </div>
 
-  <div class="two-col-layout">
-
-    <!-- LEFT: DETAILS -->
-    <div class="left-panel">
-      <div class="card">
-        <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon" style="background: var(--warning-light); color: var(--warning);">
-              <i class="bi bi-box-seam"></i>
-            </div>
-            <div>
-              <div class="card-header-title" style="margin: 0;">{{ product.name|capfirst }}</div>
-              <div class="card-header-sub" style="margin: 0;">Product to be archived</div>
-            </div>
-          </div>
-          <span class="sl-badge sl-badge-light">ID: {{ product.id }}</span>
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        {% if product.image %}
+        <div class="sd-header-icon" style="padding:0; overflow:hidden;">
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:100%; height:100%; object-fit:cover;">
         </div>
-
-        <div class="card-body">
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Product Details</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Category</span>
-              <span class="sd-info-value">{{ product.category.name|default:"No category" }}</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Stock on hand</span>
-              <span class="sd-info-value">{{ product.prepared_quantity }} units</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Unit Price</span>
-              <span class="sd-info-value">₱{{ product.selling_price|floatformat:2 }}</span>
-            </div>
-          </div>
-
-          <div class="sd-note-box" style="background: var(--warning-light); border-color: #ffe2b3;">
-            <div class="sd-note-icon">
-              <i class="bi bi-info-circle-fill" style="color: var(--warning);"></i>
-            </div>
-            <div>
-              <div class="sd-note-title" style="color: var(--warning);">This is reversible</div>
-              <div class="sd-note-text">This product will be hidden from listings and stock tracking. Past sales records are preserved. Restore anytime from Archived Products.</div>
-            </div>
-          </div>
-
-          <form method="POST">
-            {% csrf_token %}
-            <div class="mf-form-actions">
-              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn" style="background: var(--warning); color:#fff; border-color: var(--warning); font-weight:600;">
-                <i class="bi bi-archive"></i> Confirm Archive
-              </button>
-            </div>
-          </form>
-
+        {% else %}
+        <div class="sd-header-icon"> <!-- style="background: var(--warning-light); color: var(--warning);"  -->
+          <i class="bi bi-basket"></i>
         </div>
+        {% endif %}
+          <div>
+            <div class="card-header-title" style="margin: 0;">{{ product.name }}</div>
+            <div class="card-header-sub" style="margin: 0;">
+              {{ product.category.name|default:"No category" }} · SKU: {{ product.sku }}{% if product.barcode %} · Barcode: {{ product.barcode }}{% endif %}
+            </div>
+          </div>
+
       </div>
+      <span class="sl-badge sl-badge-light">ID: {{ product.id }}</span>
     </div>
 
-    <!-- RIGHT: IMPACT PANEL -->
-    <div class="right-panel">
-      <div class="card">
-        <div class="card-header" style="background: var(--warning); border-bottom: none;">
-          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="bi bi-info-circle"></i>
-            What happens when you archive
-          </span>
+    <div class="card-body">
+
+      <!-- Product details -->
+      <div class="sd-summary-block">
+        <div class="sd-summary-block-label">Product Details</div>
+        <div class="sd-info-row">
+          <span class="sd-info-label">Category</span>
+          <span class="sd-info-value">{{ product.category.name|default:"No category" }}</span>
         </div>
-        <div class="card-body">
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color: var(--warning);">
-              <i class="bi bi-eye-slash"></i> Will be hidden
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Product listing</span>
-              <span class="sd-info-value" style="color: var(--warning);">Hidden</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Stock tracking</span>
-              <span class="sd-info-value" style="color: var(--warning);">Paused</span>
-            </div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label" style="color: var(--success);">
-              <i class="bi bi-check-circle"></i> Will be preserved
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Past sales history</span>
-              <span class="sd-info-value" style="color: var(--success);">Kept</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Revenue records</span>
-              <span class="sd-info-value" style="color: var(--success);">Kept</span>
-            </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Restore option</span>
-              <span class="sd-info-value" style="color: var(--success);">Anytime</span>
-            </div>
-          </div>
-
-          <div class="btn-grid">
-            <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-pencil-square"></i> Edit Instead
-            </a>
-          </div>
-
+        <div class="sd-info-row">
+          <span class="sd-info-label">Stock on hand</span>
+          <span class="sd-info-value">{{ product.prepared_quantity }} units</span>
+        </div>
+        <div class="sd-info-row">
+          <span class="sd-info-label">Unit Price</span>
+          <span class="sd-info-value">₱{{ product.selling_price|floatformat:2 }}</span>
         </div>
       </div>
-    </div>
 
+      <!-- What happens when you archive — two-col inside the same card -->
+      <div class="sd-section-label" style="margin-top: 1.25rem;">
+        <i class="bi bi-info-circle sl-me-1"></i> What happens when you archive
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+
+        <div class="sd-summary-block">
+          <div class="sd-summary-block-label" style="color: var(--warning);">
+            <i class="bi bi-eye-slash"></i> Will be hidden
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Product listing</span>
+            <span class="sd-info-value" style="color: var(--warning);">Hidden</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Stock tracking</span>
+            <span class="sd-info-value" style="color: var(--warning);">Paused</span>
+          </div>
+        </div>
+
+        <div class="sd-summary-block">
+          <div class="sd-summary-block-label" style="color: var(--success);">
+            <i class="bi bi-check-circle"></i> Will be preserved
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Past sales history</span>
+            <span class="sd-info-value" style="color: var(--success);">Kept</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Revenue records</span>
+            <span class="sd-info-value" style="color: var(--success);">Kept</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Restore option</span>
+            <span class="sd-info-value" style="color: var(--success);">Anytime</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Reversible note -->
+      <div class="sd-note-box" style="background: var(--warning-light); border-color: #ffe2b3; margin-top: 1.25rem;">
+        <div class="sd-note-icon">
+          <i class="bi bi-info-circle-fill" style="color: var(--warning);"></i>
+        </div>
+        <div>
+          <div class="sd-note-title" style="color: var(--warning);">This is reversible</div>
+          <div class="sd-note-text">This product will be hidden from listings and stock tracking. Past sales records are preserved. Restore anytime from Archived Products.</div>
+        </div>
+      </div>
+
+      <form method="POST">
+        {% csrf_token %}
+        <div class="mf-form-actions">
+          <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn" style="background: var(--warning); color:#fff; border-color: var(--warning); font-weight:600;">
+            <i class="bi bi-archive-fill"></i> Confirm Archive
+          </button>
+        </div>
+      </form>
+
+    </div>
   </div>
+
 </div>
 
 {% endblock content %}

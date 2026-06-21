@@ -22,7 +22,8 @@ def bust_dashboard_cache(sender, instance, **kwargs):
 def register():
     """Wire bust_dashboard_cache to every model that feeds the dashboard KPI block."""
     from Sales.models import Sale
-    from Expense.models import Purchase, Waste, Expense, Shift
+    from Expense.models import Purchase, Waste, Expense
+    from Employee.models import Shift
 
     for model in (Sale, Purchase, Waste, Expense, Shift):
         post_save.connect(

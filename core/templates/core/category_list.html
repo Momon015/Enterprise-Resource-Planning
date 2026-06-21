@@ -45,15 +45,8 @@
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
-      <!-- FILTER DRAWER -->
-      <details class="filter-card" {% if request.GET.search %}open{% endif %}>
-        <summary>
-          <i class="bi bi-sliders"></i>
-          <span>Advanced filters</span>
-          {% if request.GET.search %}
-            <span class="filter-badge">Active</span>
-          {% endif %}
-        </summary>
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
             <div class="d-flex gap-2 align-items-center w-100">
@@ -65,14 +58,17 @@
                          value="{{ request.GET.search|default:'' }}">
                 </div>
               </div>
-              <button class="btn btn-outline-primary btn-sm" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>Reset
+              </a>
             </div>
           </form>
         </div>
-      </details>
+      </div>
+
 
 
       <div class="card table-card">
@@ -107,8 +103,10 @@
                   <div class="cell-sub">by {{category.created_by|default:"System"|capfirst}}</div>
                 </td>
                 <td class="sl-text-center">
+                  
                   {% if category.category_type == 'material' %}
-                    <span class="status-badge status-success">Material</span>
+                   {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}<span class="status-badge status-success">Material</span>{% endif %}
+                  
                   {% elif category.category_type == 'product' %}
                     <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
                   {% elif category.category_type == 'expense' %}
@@ -194,19 +192,22 @@
     <!-- RIGHT: INFO PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-info-circle"></i> About Categories
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-info-circle" style="color:var(--accent);"></i> About Categories
           </span>
         </div>
+
         <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
 
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Category Types</div>
+            {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}
             <div class="sd-info-row">
               <span class="status-badge status-success">Material</span>
               <span class="sd-info-value">Market purchases &amp; stock</span>
             </div>
+            {% endif %}
             <div class="sd-info-row">
               <span class="status-badge" style="background:var(--info-light); color:var(--info);">Product</span>
               <span class="sd-info-value">Items you sell to customers</span>
@@ -220,11 +221,13 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>
             <div class="quick-range-grid">
+              {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}
               <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material"
                 class="quick-range-btn {% if request.GET.category_type == 'item' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'item' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
                 <i class="bi bi-box-seam"></i> Material
               </a>
+              {% endif %}
               <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product"
                 class="quick-range-btn {% if request.GET.category_type == 'product' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'product' %}background:var(--info-light); border-color:var(--info); color:var(--info);{% endif %}">
@@ -235,10 +238,12 @@
                 style="{% if request.GET.category_type == 'expense' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
                 <i class="bi bi-receipt"></i> Expense
               </a>
+              {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}
               <a href="{% url 'category-list' business_slug=current_business.slug %}"
                 class="quick-range-btn {% if not request.GET.category_type and not request.GET.search %}quick-range-btn--selected{% endif %}">
                 <i class="bi bi-grid"></i> All
               </a>
+              {% endif %}
             </div>
           </div>
 

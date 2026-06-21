@@ -89,9 +89,9 @@
             {% elif current_business.business_type == 'pharmacy' %}
               <i class="bi bi-capsule"></i>
             {% elif current_business.business_type == 'grocery' or current_business.business_type == 'retail' %}
-              <i class="bi bi-basket3"></i>
+              <i class="bi bi-shop-window"></i>
             {% elif current_business.business_type == 'sari_sari' %}
-              <i class="bi bi-shop"></i>
+              <i class="bi bi-shop-window"></i>
             {% else %}
               {{ current_business.business_name|slice:":1"|upper }}
             {% endif %}
@@ -108,7 +108,7 @@
 
    <!-- NAV BODY -->
   <div class="sidebar-nav" id="sidebarNav">
-
+    {% if current_business.plan.has_dashboard or current_business.plan.has_daily_summary %}
     <!-- HOME -->
     <div class="sidebar-group" data-group="home">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-home">
@@ -146,6 +146,7 @@
         </ul>
       </div>
     </div>
+    {% endif %}
 
     <!-- TRANSACTIONS -->
     <div class="sidebar-group" data-group="transactions">
@@ -219,13 +220,13 @@
       </div>
     </div>
 
-    <!-- INVENTORY -->
-    <div class="sidebar-group" data-group="inventory">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-inventory">
-        <span class="sidebar-group__label">Inventory</span>
+    <!-- CATALOG -->
+    <div class="sidebar-group" data-group="catalog">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-catalog">
+        <span class="sidebar-group__label">Catalog</span>
         <i class="bi bi-chevron-down sidebar-group__chevron"></i>
       </button>
-      <div class="sidebar-group__items" id="group-inventory">
+      <div class="sidebar-group__items" id="group-catalog">
         <ul>
           <li>
             <a class="sidebar-nav__link {% if section == 'product' %}is-active{% endif %}"
@@ -234,6 +235,27 @@
               <span>Products</span>
             </a>
           </li>
+          {% if current_business.offers_services %}
+          <li>
+            <a class="sidebar-nav__link {% if section == 'service' %}is-active{% endif %}"
+               href="{% url 'service-list' business_slug=current_business.slug %}">
+              <i class="bi bi-ticket-perforated"></i>
+              <span>Service Fees</span>
+            </a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="sidebar-group" data-group="inventory">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-inventory">
+        <span class="sidebar-group__label">Inventory</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-inventory">
+        <ul>
           <li>
             <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}"
                href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
@@ -244,6 +266,7 @@
         </ul>
       </div>
     </div>
+
 
     <!-- PURCHASING -->
     <div class="sidebar-group" data-group="purchasing">
@@ -311,8 +334,7 @@
         </ul>
       </div>
     </div>
-
-    {% if request.user.role == 'owner' or current_business.plan.has_timecards %}
+    {% if current_business.plan.has_timecards %}
     <!-- TEAM -->
     <div class="sidebar-group" data-group="team">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-team">
@@ -330,15 +352,26 @@
             </a>
           </li>
           {% endif %}
-          {% if current_business.plan.has_timecards %}
-          <li>
-            {% comment %} <a class="sidebar-nav__link {% if section == 'shift' %}is-active{% endif %}"
-               href="{% url 'shift-dashboard' business_slug=current_business.slug %}">
-              <i class="bi bi-clock-history"></i>
-              <span>Shifts</span>
-            </a> {% endcomment %}
-          </li>
-          {% endif %}
+          
+            {% if request.user.role == 'owner' %}
+            <li>
+              <a class="sidebar-nav__link {% if section == 'shift' %}is-active{% endif %}"
+                 href="{% url 'shift-dashboard' business_slug=current_business.slug %}">
+                <i class="bi bi-clock-history"></i>
+                <span>Timecards</span>
+              </a>
+            </li>
+            {% elif request.user.role == 'staff' %}
+            <li>
+              <a class="sidebar-nav__link {% if section == 'shift' %}is-active{% endif %}"
+                 href="{% url 'shift-dashboard' business_slug=current_business.slug %}">
+                <i class="bi bi-stopwatch"></i>
+                <span>My Shift</span>
+              </a>
+            </li>
+            {% endif %}
+          
+
         </ul>
       </div>
     </div>

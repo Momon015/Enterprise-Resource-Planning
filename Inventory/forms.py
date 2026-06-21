@@ -14,9 +14,10 @@ class StockFilterForm(forms.Form):
         
     def __init__(self, *args, **kwargs):
         business = kwargs.pop('business', None)
+        category_type = kwargs.pop('category_type', 'material')
         super().__init__(*args, **kwargs)
         
-        qs = Category.objects.filter(category_type='material', business=business)
+        qs = Category.objects.filter(category_type=category_type, business=business)
         self.fields['category'].queryset = qs
         
 class StockForm(ModelForm):

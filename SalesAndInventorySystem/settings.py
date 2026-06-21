@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    
+    'https://echo-external-abraham-limit.trycloudflare.com'
     ]
 
 # Application definition
@@ -139,6 +139,7 @@ INSTALLED_APPS = [
     'Supplier.apps.SupplierConfig',
     'activity.apps.ActivityConfig',
     'chatbot.apps.ChatbotConfig',
+    'Employee.apps.EmployeeConfig',
     
     'user.apps.UserConfig',
     'core.apps.CoreConfig',
@@ -167,6 +168,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'SalesAndInventorySystem.urls'
 
+# Feature flags
+# Set to False to lock down public sign-up (e.g. for a private QA build).
+# When False, the register_form view redirects to login and all
+# "Create account / Get Started" links are hidden from templates.
+ALLOW_REGISTRATION = False
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -181,7 +188,8 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 
                 # custom
-                'core.context_processors.business_context', 
+                'core.context_processors.business_context',
+                'core.context_processors.feature_flags',
                 'activity.context_processors.notification_badge',
             ],
         },

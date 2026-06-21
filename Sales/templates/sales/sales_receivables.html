@@ -281,7 +281,7 @@
                 </a>
                 <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=last_week"
                 class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-                <i class="bi bi-clock-history"></i> Last 7 days
+                <i class="bi bi-clock-history"></i> Last week
                 </a>
                 <a href="{% url 'sales-receivables' business_slug=current_business.slug %}?period=week"
                 class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">

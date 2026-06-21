@@ -16,40 +16,83 @@
   {% endif %}
 </div>
 
-<div class="page-wrapper">
+<div class="mf-page-wrapper">
+
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">Suppliers</div>
-      <h1 class="page-title">Archived Supplier</h1>
-      <p class="page-subtitle">Hidden from your active list. Restore anytime — sales history is preserved.</p>
+      <div class="page-breadcrumb">
+        <span>PURCHASING</span>
+        <a href={% url 'supplier-list' business_slug=current_business.slug %} class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
+        <span>SUPPLIER</span>
+        </a>
+        <i class="bi bi-chevron-right"></i>
+        <span>ARCHIVE</span>
+      </div>
+      <h1 class="page-title">Archived Suppliers</h1>
+      <p class="page-subtitle">Hidden from your active list. Restore anytime — purchase history is preserved.</p>
     </div>
-    <a href="{% url 'supplier-list' business_slug=business.slug %}" class="btn btn-light">
-      <i class="bi bi-arrow-left"></i> Back to suppliers
-    </a>
   </div>
 
-  {% if suppliers %}
-  <table class="data-table">
-    <thead><tr><th>Name</th><th>Unit</th><th class="sl-text-end">Action</th></tr></thead>
-    <tbody>
-      {% for m in suppliers %}
-      <tr>
-        <td>{{ m.name }}</td>
-        <td>{{ m.unit }}</td>
-        <td class="table-actions">
-          <form method="POST" action="{% url 'restore-supplier' business_slug=business.slug supplier_id=m.id %}" style="display:inline;">
-            {% csrf_token %}
-            <button class="btn btn-sm btn-success" type="submit">
-              <i class="bi bi-arrow-counterclockwise"></i> Restore
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="text-muted">No archived suppliers.</p>
-  {% endif %}
+  <!-- CENTERED SINGLE CARD -->
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">
+          {% if suppliers %}<i class="bi bi-building"></i> Suppliers{% endif %}
+        </span>
+      </div>
+      {% if suppliers %}
+        <span class="card-header-sub">{{ suppliers|length }} supplier{{ suppliers|length|pluralize }}</span>
+      {% endif %}
+    </div>
+
+    <div class="card-body" style="padding: 0;">
+      {% if suppliers %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th class="sl-text-center">Items</th>
+            <th class="sl-text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in suppliers %}
+          <tr>
+            <td>
+              <div class="name-text">
+                <strong>{{ m.name }}</strong>
+                {% if m.email or m.contact_number %}
+                <small class="text-muted">{{ m.email|default:"No email" }} · {{ m.contact_number|default:"No contact" }}</small>
+                {% endif %}
+              </div>
+            </td>
+            <td class="sl-text-center">
+              <span class="sl-badge sl-badge-light">{{ m.materials.count }}</span>
+            </td>
+            <td class="table-actions">
+              <form method="POST" action="{% url 'restore-supplier' business_slug=current_business.slug supplier_id=m.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-success" type="submit">
+                  <i class="bi bi-arrow-counterclockwise"></i> Restore
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding: 3rem 1.5rem;">
+        <div class="empty-icon"><i class="bi bi-archive-fill"></i></div>
+        <h3 class="empty-title">No archived suppliers</h3>
+        <p class="empty-text">
+          Suppliers you archive will appear here. Archived suppliers stay out of your active list but their purchase history is preserved.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
 {% endblock %}

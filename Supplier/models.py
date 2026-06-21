@@ -119,30 +119,31 @@ class ActiveManager(models.Manager):
 class Material(TimeStampModel, SlugModel):
     # RETAIL — sellable units (sold as-is to customer)
     RETAIL_UNIT_CHOICES = (
-        ('pc', 'Piece'),        # single item
-        ('pack', 'Pack'),       # small bundle
-        ('box', 'Box'),         # larger container
-        ('bottle', 'Bottle'),
-        ('can', 'Can'),
-        ('bag', 'Bag'),
-        ('tray', 'Tray'),
-        ('dozen', 'Dozen'),     # 12 pcs
-        ('bundle', 'Bundle'),   # variable pcs
-        ('carton', 'Carton'),   # bulk box
-        ('sachet', 'Sachet'),   # small pouch
-        ('liter', 'Liter'),
+        ('pc',      'Piece'),        # single item
+        ('pack',    'Pack'),       # small bundle
+        ('box',     'Box'),         # larger container
+        ('bottle',  'Bottle'),
+        ('can',     'Can'),
+        ('bag',     'Bag'),
+        ('tray',    'Tray'),
+        ('dozen',   'Dozen'),     # 12 pcs
+        ('bundle',  'Bundle'),   # variable pcs
+        ('carton',  'Carton'),   # bulk box
+        ('sachet',  'Sachet'),   # small pouch
+        ('liter',   'Liter'),
+        ('kg',      'Kilogram'),
     )
     
     # RESTAURANT — raw ingredients by weight/volume
     RESTAURANT_UNIT_CHOICES = (
-        ('kg', 'Kilogram'),
-        ('g', 'Gram'),
-        ('liter', 'Liter'),
-        ('ml', 'Milliliter'),
-        ('pc', 'Piece'),        # eggs, onions, etc.
-        ('tbsp', 'Tablespoon'),
-        ('tsp', 'Teaspoon'),
-        ('cup', 'Cup'),
+        ('kg',     'Kilogram'),
+        ('g',      'Gram'),
+        ('liter',  'Liter'),
+        ('ml',     'Milliliter'),
+        ('pc',     'Piece'),        # eggs, onions, etc.
+        ('tbsp',   'Tablespoon'),
+        ('tsp',    'Teaspoon'),
+        ('cup',    'Cup'),
     )
     name = models.CharField(max_length=100)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='materials')

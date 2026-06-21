@@ -37,3 +37,5 @@ updated_prices.py
 seed_test_data.py
 
 *.local.json
+old_style.css
+old_navbar.html

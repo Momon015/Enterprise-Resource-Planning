@@ -1,7 +1,9 @@
 {% if request.user.is_authenticated and request.user.role == 'owner' and current_business %}
   {% with bp=current_business.plan %}
     {% if bp and bp.has_locked_items %}
-      <div class="locked-banner">
+      <div class="locked-banner" id="lockedBanner"
+           data-session="{{ request.session.session_key }}"
+           data-biz="{{ current_business.slug }}">
         <div class="locked-banner__icon">
           <i class="bi bi-lock-fill"></i>
         </div>
@@ -16,7 +18,24 @@
         <a href="{% url 'subscription-settings' business_slug=current_business.slug %}" class="locked-banner__cta">
           <i class="bi bi-arrow-up-right"></i> Manage
         </a>
+        <button type="button" class="locked-banner__dismiss" aria-label="Dismiss until next login" title="Dismiss until next login">
+          <i class="bi bi-x-lg"></i>
+        </button>
       </div>
+
+      <script>
+      (function () {
+        var el = document.getElementById('lockedBanner');
+        if (!el) return;
+        var key = 'lockedBannerDismissed:' + (el.dataset.session || '') + ':' + el.dataset.biz;
+        if (sessionStorage.getItem(key)) { el.style.display = 'none'; return; }
+        var btn = el.querySelector('.locked-banner__dismiss');
+        if (btn) btn.addEventListener('click', function () {
+          sessionStorage.setItem(key, '1');
+          el.style.display = 'none';
+        });
+      })();
+      </script>
     {% endif %}
   {% endwith %}
 {% endif %}

@@ -4,7 +4,6 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-
 <div id='messages' hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">
   {% if messages %}
     {% for message in messages %}
@@ -22,13 +21,6 @@
 
 <div class="page-wrapper">
 
-    {# ── PRODUCT KPI ROW ──────────────────────────────────── #}
-<div class="kpi-row">
-    {% include 'partials/_kpi_card.html' with label="Total Products"    value=kpis.current.total           delta=kpis.deltas.total %}
-    {% include 'partials/_kpi_card.html' with label="Low Stock Items"   value=kpis.current.low_stock       delta=kpis.deltas.low_stock %}
-    {% include 'partials/_kpi_card.html' with label="Out of Stock"      value=kpis.current.out_of_stock    delta=kpis.deltas.out_of_stock %}
-</div>
-
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
@@ -37,22 +29,14 @@
       <p class="page-subtitle">Products available for sale and used in transactions</p>
     </div>
     <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-box-seam"></i>
-        <strong>{{ page_obj.paginator.count|default:0 }}</strong>
-        product{{ page_obj.paginator.count|pluralize }}
-      </div>
       {% comment %} {% if out_of_stock %}
       <div class="header-stat danger">
         <i class="bi bi-slash-circle"></i>
         <strong>{{ out_of_stock }}</strong> out of stock 
       </div>
       {% endif %} {% endcomment %}
-      <a href="{% url 'archived-products' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-archive-fill"></i> View Archived
-      </a>
-      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-file-text"></i> Sales Record
+      <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-cart3"></i>
         {% if cart_count %}
           <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
             {{ cart_count }}
@@ -63,20 +47,121 @@
     </div>
   </div>
 
+  <!-- KPI STATS ROW (4-col) -->
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- TOTAL PRODUCTS -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Products</div>
+        <div class="kpi-value">{{ kpis.current.total|default:"0" }}</div>
+        {% if kpis.deltas.total == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.total > 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.total|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% elif kpis.deltas.total < 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.total|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+        <!-- UNITS SOLD (THIS MONTH) -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-cart-check"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Units Sold</div>
+        <div class="kpi-value">{{ kpis.current.units_sold_month|default:"0" }}</div>
+        {% if kpis.current.units_sold_delta > 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.current.units_sold_delta }} <span class="kpi-delta-note">vs last month</span>
+          </div>
+        {% elif kpis.current.units_sold_delta < 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.current.units_sold_delta|cut:"-" }} <span class="kpi-delta-note">vs last month</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs last month</div>
+        {% endif %}
+      </div>
+    </div>
+
+
+    <!-- LOW STOCK -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--warning">
+        <i class="bi bi-exclamation-triangle"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Low Stock</div>
+        <div class="kpi-value">{{ kpis.current.low_stock|default:"0" }}</div>
+        {% if kpis.deltas.low_stock == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.low_stock > 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
+          </div>
+        {% elif kpis.deltas.low_stock < 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- OUT OF STOCK -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--danger">
+        <i class="bi bi-slash-circle"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Out of Stock</div>
+        <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
+        {% if kpis.deltas.out_of_stock == None %}
+          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
+        {% elif kpis.deltas.out_of_stock > 0 %}
+          <div class="kpi-delta kpi-delta--down">
+            <i class="bi bi-arrow-up"></i>
+            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
+          </div>
+        {% elif kpis.deltas.out_of_stock < 0 %}
+          <div class="kpi-delta kpi-delta--up">
+            <i class="bi bi-arrow-down"></i>
+            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
   <div class="two-col-layout">
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
-      <!-- FILTER DRAWER -->
-      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
-        <summary>
-          <i class="bi bi-sliders"></i>
-          <span>Advanced filters</span>
-          {% if request.GET.search or request.GET.category %}
-            <span class="filter-badge">Active</span>
-          {% endif %}
-        </summary>
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
             <div class="d-flex gap-2 align-items-center w-100">
@@ -100,14 +185,16 @@
                 </select>
                 <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
               </div>
-              <button class="btn btn-outline-primary btn-sm" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>Reset
+              </a>
             </div>
           </form>
         </div>
-      </details>
+      </div>
 
 
       <!-- TABLE CARD -->
@@ -117,8 +204,61 @@
             <span class="card-header-title">Product Catalog</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
           </div>
-          <span class="card-header-sub">Prices, stock level, and status</span>
+          <div class="activity-header-right">
+            <span class="card-header-sub" style="margin: 0;">
+              {% if request.GET.stock == 'high' %}In Stock
+              {% elif request.GET.stock == 'low' %}Low Stock
+              {% elif request.GET.stock == 'none' %}Out of Stock
+              {% elif request.GET.velocity == 'best' %}Best sellers
+              {% elif request.GET.velocity == 'slow' %}Slow movers
+              {% elif request.GET.velocity == 'never' %}Never sold
+              {% else %}All status
+              {% endif %}
+            </span>
+            <details class="activity-filter-pop">
+              <summary class="activity-filter-trigger" title="Filter products">
+                <i class="bi bi-sliders"></i>
+              </summary>
+              <div class="activity-filter-menu">
+                {% with q=request.GET.search cat=request.GET.category %}
+                <a href="{% url 'product-list' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
+                   class="{% if not request.GET.stock and not request.GET.velocity %}is-active{% endif %}">
+                  <i class="bi bi-grid"></i> All
+                </a>
+                <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
+                  <i class="bi bi-box-seam"></i> In Stock
+                </a>
+                <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
+                  <i class="bi bi-slash-circle"></i> Out of Stock
+                </a>
+
+                <div style="border-top:1px solid var(--border-light); margin:.3rem 0;"></div>
+
+                <a href="?velocity=best{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'best' %}is-active{% endif %}">
+                  <i class="bi bi-trophy"></i> Best sellers
+                </a>
+                <a href="?velocity=slow{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'slow' %}is-active{% endif %}">
+                  <i class="bi bi-hourglass-split"></i> Slow movers
+                </a>
+                <a href="?velocity=never{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'never' %}is-active{% endif %}">
+                  <i class="bi bi-moon-stars"></i> Never sold
+                </a>
+                {% endwith %}
+              </div>
+            </details>
+          </div>
+
         </div>
+
 
         <div class="table-responsive">
           {% if page_obj and page_obj.object_list %}
@@ -132,8 +272,8 @@
                 <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center col-mobile-hidden">Cost</th>
                 <th class="sl-text-center">Price</th>
-                <th class="sl-text-end">Stock</th>
-                <th class="sl-text-center col-mobile-hidden">Status</th>
+                <th class="sl-text-center col-mobile-hidden">Stock / Status</th>
+                <th class="sl-text-end col-mobile-hidden">Sold</th>
                 <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
@@ -159,7 +299,7 @@
                   <small class="text-muted">{{ product.material.supplier.name}}</small>
                     {% endif %}
                 </div>
-                  
+
                   {% if product.is_locked %}
                       <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                     {% endif %}
@@ -170,9 +310,6 @@
                   {% if product.barcode %}
                   <span class="cell-sub">{{ product.barcode|default:"-" }}</span>
                   {% endif %}
-                  {% if product.is_locked %}
-                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
-                    {% endif %}
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
@@ -192,49 +329,58 @@
                     <span class="cell-sub col-mobile-hidden">N/A</span>
                   {% endif %}
                 </td>
+
                 <td class="sl-text-center col-mobile-hidden">
                   ₱{% if product.cost_price %}{{ product.cost_price|floatformat:2 }}{% else %}0.00{% endif %}
                 </td>
-                <td class="sl-text-center sl-fw-semibold">₱{{ product.selling_price|floatformat:2 }}</td>
-                <td class="sl-text-end">
-                  <span class="sl-badge sl-badge-light">{{ product.prepared_quantity }}</span>
+                <td class="sl-text-center sl-fw-semibold">
+                  ₱{{ product.selling_price|floatformat:2 }}
+                  {% if product.margin_status %}
+                  <div class="margin-chip margin-chip--{{ product.margin_status }}">{{ product.current_margin|floatformat:0 }}%</div>
+                  {% endif %}
                 </td>
-                <td class="sl-text-center col-mobile-hidden">
+
+                <td class="sl-text-center">
+                  <div class="cell-primary">{{ product.prepared_quantity }}</div>
                   {% if product.prepared_quantity <= 0 %}
                     <span class="status-badge status-danger">Out of stock</span>
-                  {% elif product.prepared_quantity <= 25 and product.prepared_quantity > 0 %}
+                  {% elif product.prepared_quantity <= product.low_stock_threshold %}
                     <span class="status-badge status-warning">Low stock</span>
                   {% else %}
                     <span class="status-badge status-success">In stock</span>
                   {% endif %}
                 </td>
 
+                <td class="sl-text-end col-mobile-hidden">
+                  <span class="sl-fw-semibold">{{ product.units_sold|default:0 }}</span>
+                </td>
+
                 <td class="sl-text-center mobile-center">
-                  
+
                   <div class="table-actions">
                     <button hx-post="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                             hx-target="#cart-badge"
                             hx-swap="outerHTML"
                             class="action-btn action-btn--add" title="Add to sale">
                       <i class="bi bi-plus"></i>
-                    </button> 
+                    </button>
                     {% comment %} <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="action-btn action-btn--add" title="Add to sale">
                       <i class="bi bi-plus"></i>
                     </a> {% endcomment %}
-                    
-                    <a href="{% url 'product-detail' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+
+                    <a href="{% url 'product-detail' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
                        class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                    <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
                        class="action-btn action-btn--edit" title="Edit product">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                        <a href="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                          class="action-btn action-btn--warning" 
-                          title="Delete product">
+                        <a href="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                          class="action-btn action-btn--warning"
+                          title="Archive product">
                           <i class="bi bi-archive-fill"></i>
                         </a>
                     {% endif %}
@@ -267,10 +413,10 @@
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with q=request.GET.search cat=request.GET.category %}
+              {% with q=request.GET.search cat=request.GET.category stock=request.GET.stock vel=request.GET.velocity %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}{% if vel %}&velocity={{ vel }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                   </a>
                 {% else %}
@@ -279,12 +425,12 @@
               </li>
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">{{ p }}</a>
+                <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}{% if vel %}&velocity={{ vel }}{% endif %}">{{ p }}</a>
               </li>
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}">
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if stock %}&stock={{ stock }}{% endif %}{% if vel %}&velocity={{ vel }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                   </a>
                 {% else %}
@@ -300,118 +446,165 @@
       </div>
     </div>
 
-    <!-- RIGHT PANEL -->
+        <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      {% comment %} <!-- FILTER BY STATUS -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-cart-check"></i>
-            Selling Overview
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-funnel"></i> Filter by Status
           </span>
         </div>
-        <div class="card-body">
-          {% include 'core/partials/_cart_overview.html' %}
+        <div class="card-body quick-ranges">
+          <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=high"
+             class="quick-range-btn {% if request.GET.stock == 'high' %}active{% endif %}">
+            <i class="bi bi-box-seam"></i> In Stock
+          </a>
+          <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=low"
+             class="quick-range-btn {% if request.GET.stock == 'low' %}active{% endif %}">
+            <i class="bi bi-exclamation-triangle"></i> Low Stock
+          </a>
+          <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=none"
+             class="quick-range-btn {% if request.GET.stock == 'none' %}active{% endif %}">
+            <i class="bi bi-slash-circle"></i> Out of Stock
+          </a>
+          <a href="{% url 'product-list' business_slug=current_business.slug %}"
+             class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.category %}active{% endif %}">
+            <i class="bi bi-grid"></i> All
+          </a>
+        </div>
+      </div> {% endcomment %}
 
-          <hr class="sl-quick-divider">
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick links</div>
-            <div class="btn-grid">
-              <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create product
-              </a>
-              <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-bookmark-fill"></i> Presets
-              </a>
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-tags-fill"></i> Categories
-              </a>
-
-              {% include 'core/partials/_cart_clear.html' %}
-
-            </div>
+      <!-- SALES VELOCITY HERO -->
+      <div class="card">
+        <div class="card-header" style="padding: 0.55rem 1rem;">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-graph-up-arrow"></i> Sales Velocity
+            </span>
           </div>
-
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Availability</div>
-            {% comment %} <div class="sd-info-grid"> {% endcomment %}
-              {% comment %} <div class="sd-info-row">
-                <span class="sd-info-label">Total</span>
-                <span class="sd-info-value" style="color:var(--accent);">{{ all_products|default:0 }}</span>
-              </div> {% endcomment %}
-
-              <div class="sd-info-row">
-                <span class="sd-info-label">In stock</span>
-                <span class="sd-info-value" style="color:var(--success);">{{ in_stock|default:0 }}</span>
-              </div>
-
-              <div class="sd-info-row">
-                <span class="sd-info-label">Low stock</span>
-                <span class="sd-info-value" style="color:var(--warning);">{{ low_stock|default:0 }}</span>
-              </div>
-
-              <div class="sd-info-row">
-                <span class="sd-info-label">Out of stock</span>
-                <span class="sd-info-value" style="color:var(--danger);">{{ out_of_stock|default:0 }}</span>
-              </div>
-            {% comment %} </div> {% endcomment %}
+        </div>
+        <div class="card-body" style="padding: 0.6rem 0.85rem;">
+          <div class="period-net" style="padding: 0.85rem 1rem;">
+            <div class="period-net-label">UNITS SOLD · ALL-TIME</div>
+            <div class="period-net-value">{{ kpis.current.units_sold_all|default:"0" }}</div>
+            <div class="period-net-sub">across {{ kpis.current.total }} product{{ kpis.current.total|pluralize }}</div>
           </div>
-
-          <div class="sd-summary-block">
-           <div class="sd-summary-block-label">Filter by status</div>
-            <div class="quick-range-grid">
-             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=high"
-               class="quick-range-btn {% if request.GET.stock == 'high' %}active{% endif %}"
-               style="{% if request.GET.stock == 'high' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
-               <i class="bi bi-box-seam"></i> In Stock
-             </a>
-             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=low"
-               class="quick-range-btn {% if request.GET.stock == 'low' %}active{% endif %}"
-               style="{% if request.GET.stock == 'low' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
-               <i class="bi bi-exclamation-triangle"></i> Low Stock
-             </a>
-             <a href="{% url 'product-list' business_slug=current_business.slug %}?stock=none"
-               class="quick-range-btn {% if request.GET.stock == 'none' %}active{% endif %}"
-               style="{% if request.GET.stock == 'none' %}background:#fdf0ef; border-color:#f0d0ce; color:var(--danger);{% endif %}">
-               <i class="bi bi-slash-circle"></i> Out of Stock
-             </a>
-             <a href="{% url 'product-list' business_slug=current_business.slug %}"
-               class="quick-range-btn {% if not request.GET.stock and not request.GET.search and not request.GET.cat %}active{% endif %}">
-               <i class="bi bi-grid"></i> All
-             </a>
-           </div>
-         </div>
-
-          <div class="sl-quick-label">
-            {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
-          </div>
-          {% comment %} <div class="sd-summary-block">
-            <div class="sd-summary-block-label">What to review today</div>
-            <ul class="mf-guide-list">
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Check low-stock items and reorder if needed.</li>
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Verify prices on new or changed items.</li>
-              <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Remove items you no longer sell.</li>
-            </ul>
-          </div> {% endcomment %}
-
-
-
-
-          {% comment %} <div class="sd-note-box" style="margin-top:0.75rem;">
-
-            <i class="bi bi-megaphone"></i>
-            <div>
-              <div class="mf-tip-title">Merchandising tip</div>
-              <div class="mf-tip-text">Highlight best sellers so cashiers can find and suggest them quickly.</div>
-            </div>
-          </div>  {% endcomment %}
-
         </div>
       </div>
+
+      <!-- QUICK LINKS -->
+      <div class="card">
+        <div class="card-header" style="padding: 0.55rem 1rem;">
+          <span class="card-header-title">
+            <i class="bi bi-lightning-charge"></i> Quick links
+          </span>
+        </div>
+        <div class="card-body" style="padding: 0.6rem 0.85rem;">
+          <div class="btn-grid" style="gap: 0.4rem; grid-template-columns: 1fr 1fr;">
+            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> Create product
+            </a>
+            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-bookmark-fill"></i> Presets
+            </a>
+            <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-tags-fill"></i> Categories
+            </a>
+            <a href="{% url 'archived-products' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block position-relative">
+              <i class="bi bi-archive-fill"></i> Archive
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP ITEMS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-trophy"></i> Top Items
+            </span>
+          </div>
+          <div class="activity-header-right">
+            <button type="button" class="top-items-toggle is-active" data-range="month" onclick="switchTopItems('month')">This month</button>
+            <button type="button" class="top-items-toggle" data-range="all" onclick="switchTopItems('all')">All-time</button>
+          </div>
+        </div>
+
+        <div class="card-body" style="padding:0;">
+          <!-- This month -->
+          <ol class="top-items-list" id="topItemsMonth">
+            {% for item in kpis.current.top_items_month %}
+            <li class="top-item-row{% if forloop.counter > 3 %} top-item-row--extra{% endif %}">
+              <span class="top-item-rank">{{ forloop.counter }}</span>
+              <span class="top-item-name">{{ item.name|default:"—" }}</span>
+              <span class="top-item-units">{{ item.units }} sold</span>
+            </li>
+            {% empty %}
+            <li class="top-item-empty">No sales this month yet.</li>
+            {% endfor %}
+          </ol>
+          <!-- All-time -->
+          <ol class="top-items-list" id="topItemsAll" style="display:none;">
+            {% for item in kpis.current.top_items_all %}
+            <li class="top-item-row{% if forloop.counter > 3 %} top-item-row--extra{% endif %}">
+              <span class="top-item-rank">{{ forloop.counter }}</span>
+              <span class="top-item-name">{{ item.name|default:"—" }}</span>
+              <span class="top-item-units">{{ item.units }} sold</span>
+            </li>
+            {% empty %}
+            <li class="top-item-empty">No sales recorded yet.</li>
+            {% endfor %}
+          </ol>
+
+          {% if kpis.current.top_items_has_more %}
+            <button type="button" class="top-items-more-btn" onclick="toggleTopItemsMore(this)">
+              <span class="more-label">Show top 10</span>
+              <span class="less-label">Show top 3</span>
+              <i class="bi bi-chevron-down"></i>
+            </button>
+          {% endif %}
+        </div>
+
+
+        {% if kpis.current.never_sold %}
+        <div class="card-body" style="border-top:1px solid var(--border-light); padding:0.85rem 1rem;">
+          <a href="?velocity=never{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}"
+             class="top-items-deadstock">
+            <span><i class="bi bi-moon-stars"></i> Never sold</span>
+            <span class="sl-badge sl-badge-light">{{ kpis.current.never_sold }}</span>
+          </a>
+
+        </div>
+        {% endif %}
+      </div>
+
     </div>
 
   </div>
 </div>
 
+<script>
+  // Browser bfcache restores <details> open state; sync with server-rendered attribute
+  document.querySelectorAll('details.filter-card').forEach(d => {
+    if (!d.hasAttribute('open')) d.open = false;
+  });
+
+    function switchTopItems(range){
+    document.getElementById('topItemsMonth').style.display = range === 'month' ? '' : 'none';
+    document.getElementById('topItemsAll').style.display   = range === 'all'   ? '' : 'none';
+    document.querySelectorAll('.top-items-toggle').forEach(b =>
+      b.classList.toggle('is-active', b.dataset.range === range));
+  }
+
+function toggleTopItemsMore(btn){
+  btn.closest('.card').classList.toggle('is-expanded');
+}
+
+
+</script>
+
 {% endblock content %}
+

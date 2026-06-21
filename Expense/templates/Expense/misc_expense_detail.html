@@ -34,110 +34,126 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
   <div class="mobile-back-row">
-  <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
-    <i class="bi bi-chevron-left"></i>
-    <span>Back</span>
-  </a>
-</div>
-
+    <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="mobile-back-link">
+      <i class="bi bi-chevron-left"></i>
+      <span>Back</span>
+    </a>
+  </div>
 
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EXPENSES / TEMPLATES</div>
+      <div class="page-breadcrumb">
+        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>DETAIL</span>
+      </div>
       <h1 class="page-title">{{ misc_expense.name|capfirst }}</h1>
-      <p class="page-subtitle">{{ misc_expense.category.name|default:"No category" }}</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-back">
-        <i class="bi bi-arrow-left"></i> Back to templates
-      </a>
+      <p class="page-subtitle">Reusable expense template </p>
     </div>
   </div>
 
   <div class="two-col-layout">
 
-    <!-- LEFT -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
       <div class="card">
         <div class="card-header">
-          <div class="sd-card-header-left">
-            <div class="sd-header-icon">
-              <i class="bi bi-bookmark-fill"></i>
-            </div>
-            <div>
-              <div class="card-header-title">{{ misc_expense.name|capfirst }}</div>
-              <div class="card-header-sub">{{ misc_expense.category.name|default:"No category" }}</div>
-            </div>
-          </div>
-          <div class="sd-card-header-right">
-            <div class="label">Default Amount</div>
-            <div class="amount">₱{{ misc_expense.amount|floatformat:2|intcomma }}</div>
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-bookmark-fill"></i> Template Preview
+            </span>
+            <span class="sl-badge sl-badge-light">{{ misc_expense.category.name|default:"No category" }}</span>
           </div>
         </div>
 
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
-          <div class="sd-stats-row">
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Default Amount</div>
-              <div class="sd-stat-value">₱{{ misc_expense.amount|floatformat:2|intcomma }}</div>
-            </div>
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Category</div>
-              <div class="sd-stat-value">{{ misc_expense.category.name|default:"No category" }}</div>
-            </div>
-            <div class="sd-stat-box">
-              <div class="sd-stat-label">Date</div>
-              <div class="sd-stat-value">{{ misc_expense.created_at|date:"M d, Y" }}</div>
+        <div class="card-body" style="padding: 1.25rem;">
+
+          <!-- Featured Default Amount -->
+          <div class="period-net">
+            <div class="period-net-label">DEFAULT AMOUNT</div>
+            <div class="period-net-value">₱{{ misc_expense.amount|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-bookmark"></i>
+              {{ misc_expense.name|capfirst }}
             </div>
           </div>
+
+          <!-- Tip -->
+          <div class="sd-note-box" style="margin-top: 1rem;">
+            <div class="sd-note-icon">
+              <i class="bi bi-lightbulb-fill" style="color: #d97706;"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">How this template is used</div>
+              <div class="sd-note-text">When you log an expense, check this template and the default ₱{{ misc_expense.amount|floatformat:2|intcomma }} will pre-fill. You can adjust it per-entry without changing the template.</div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: SNAPSHOT + ACTIONS -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
+
+      <!-- Snapshot -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-            <i class="bi bi-bookmark-fill"></i> Template Snapshot
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-info-circle"></i> Template Snapshot
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body" style="padding: 1rem;">
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Details</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Name</span>
-              <span class="sd-info-value">{{ misc_expense.name|capfirst }}</span>
+          <dl class="period-breakdown">
+            <div>
+              <dt>Name</dt>
+              <dd>{{ misc_expense.name|capfirst }}</dd>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Default Amount</span>
-              <span class="sd-info-value">₱{{ misc_expense.amount|floatformat:2|intcomma }}</span>
+            <div>
+              <dt>Default Amount</dt>
+              <dd class="sl-fw-bold text-success">₱{{ misc_expense.amount|floatformat:2|intcomma }}</dd>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Category</span>
-              <span class="sd-info-value">{{ misc_expense.category.name|default:"No category" }}</span>
+            <div>
+              <dt>Category</dt>
+              <dd>{{ misc_expense.category.name|default:"No category" }}</dd>
             </div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Created</span>
-              <span class="sd-info-value">{{ misc_expense.created_at|date:"M d, Y" }}</span>
+            <div>
+              <dt>Created</dt>
+              <dd>{{ misc_expense.created_at|date:"M d, Y" }}</dd>
             </div>
-          </div>
-
-          <div class="btn-grid">
-            <a href="{% url 'misc-expense-update' misc_expense_id=misc_expense.id business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-pencil"></i> Edit
-            </a>
-            <a href="{% url 'misc-expense-delete' misc_expense_id=misc_expense.id business_slug=current_business.slug %}"
-               class="btn btn-sm btn-block"
-               style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border);">
-              <i class="bi bi-trash3"></i> Delete
-            </a>
-          </div>
+          </dl>
 
         </div>
       </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning"></i> Actions
+          </span>
+        </div>
+        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="{% url 'misc-expense-update' misc_expense_id=misc_expense.id business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+            <i class="bi bi-pencil"></i> Edit template
+          </a>
+          {% if request.user.role == 'owner' %}
+          <a href="{% url 'misc-expense-delete' misc_expense_id=misc_expense.id business_slug=current_business.slug %}"
+             class="btn btn-block"
+             style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;">
+            <i class="bi bi-trash3"></i> Delete template
+          </a>
+          {% endif %}
+          <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">
+            <i class="bi bi-bookmark-fill"></i> Manage templates
+          </a>
+        </div>
+      </div>
+
     </div>
 
   </div>

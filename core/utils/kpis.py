@@ -6,7 +6,7 @@ from django.db.models import Sum, F, Q, DecimalField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
+from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD
 
 CACHE_TTL = 60 * 60 * 24  # 24 hours
 
@@ -18,12 +18,24 @@ def compute_product_kpis(business, as_of=None):
     Counts active (non-archived) products only.
     """
     from Product.models import Product
+    from Sales.models import SaleItem
 
-    qs = Product.objects.filter(business=business, is_active=True)
+    today = as_of or timezone.localdate()
+    month_start = today.replace(day=1)
+    last_month_end = month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+    # same-pace window: first N days of last month, N = today's day-of-month
+    last_month_same_pace_end = min(
+        last_month_start + timedelta(days=today.day - 1),
+        last_month_end,
+    )
+
+    qs = Product.objects.filter(business=business, is_active=True, is_service=False)
 
     total = qs.count()
+    in_stock = qs.filter(prepared_quantity__gte=F('high_stock_threshold')).count()
     low_stock = qs.filter(
-        prepared_quantity__lte=LOW_STOCK_THRESHOLD,
+        prepared_quantity__lte=F('low_stock_threshold'),
         prepared_quantity__gte=1,
     ).count()
     out_of_stock = qs.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
@@ -35,13 +47,48 @@ def compute_product_kpis(business, as_of=None):
             Decimal('0'),
         )
     )['total']
-    
+
+    # ─── Sales velocity (units sold) ───
+    sale_items = SaleItem.objects.filter(sale__business=business, product__isnull=False, product__is_service=False)
+
+    def _units(items):
+        return items.aggregate(u=Coalesce(Sum('quantity'), 0))['u']
+
+    units_sold_month = _units(sale_items.filter(sale__date__gte=month_start))
+    units_sold_last_pace = _units(sale_items.filter(
+        sale__date__gte=last_month_start, sale__date__lte=last_month_same_pace_end))
+    units_sold_all = _units(sale_items)
+
+    def _top(items, n=10):
+        rows = (items.values('product__name')
+                     .annotate(units=Sum('quantity'))
+                     .order_by('-units')[:n])
+        return [{'name': r['product__name'], 'units': r['units']} for r in rows]
+
+    top_items_month = _top(sale_items.filter(sale__date__gte=month_start))
+    top_items_all = _top(sale_items)
+    top_items_has_more = max(len(top_items_month), len(top_items_all)) > 3
+
+    never_sold = qs.annotate(
+        u=Coalesce(Sum('sale_items__quantity'), 0)
+    ).filter(u=0).count()
+
     return {
         'total': total,
+        'in_stock': in_stock,
         'low_stock': low_stock,
         'out_of_stock': out_of_stock,
         'inventory_value': str(inventory_value),
+        # velocity
+        'units_sold_month': units_sold_month,
+        'units_sold_delta': units_sold_month - units_sold_last_pace,
+        'units_sold_all': units_sold_all,
+        'top_items_month': top_items_month,
+        'top_items_all': top_items_all,
+        'top_items_has_more': top_items_has_more,
+        'never_sold': never_sold,
     }
+
     
 
 def get_product_kpis(business, as_of=None):
@@ -121,6 +168,8 @@ def compute_inventory_kpis(business, as_of=None):
         quantity__lte=LOW_STOCK_THRESHOLD, quantity__gte=1
     ).count()
     out_of_stock = qs.filter(quantity=NO_STOCK_THRESHOLD).count()
+    in_stock = qs.filter(quantity__gt=LOW_STOCK_THRESHOLD).count()
+
 
     total_value = qs.aggregate(
         total=Coalesce(
@@ -133,6 +182,7 @@ def compute_inventory_kpis(business, as_of=None):
     return {
         'total': total,
         'low_stock': low_stock,
+        'in_stock': in_stock,
         'out_of_stock': out_of_stock,
         'total_value': str(total_value),
     }

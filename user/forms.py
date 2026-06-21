@@ -6,11 +6,12 @@ from django.contrib.auth.forms import PasswordChangeForm
 
 from user.models import password_validators, User, BusinessProfile, ROLE_CHOICES
 
-
-
 from django.core.exceptions import ValidationError 
 
 from datetime import date
+
+from decimal import Decimal
+
 # Create your forms here.
 
 class StyledPasswordChangeForm(PasswordChangeForm):
@@ -127,13 +128,21 @@ class UpdateUserForm(ModelForm):
         return birthday
     
 class BusinessProfileForm(ModelForm):
+    
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address', 'business_phone_number']
+        fields = ['business_name', 'business_type', 'address', 'business_phone_number', 'offers_services']
         
-        
+        widgets = {
+            'offers_services': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+        }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        self.fields['offers_services'].label = 'Enable Service Fees'
+        self.fields['offers_services'].required = False
+
 
         disabled_types = ['cafe', 'restaurant']
         choices = self.fields['business_type'].choices
@@ -159,3 +168,51 @@ class BusinessProfileForm(ModelForm):
         if business_type in ['cafe', 'restaurant']:
             raise forms.ValidationError(f"{business_type} is coming soon.")
         return cleaned_data
+    
+class BusinessCashDrawerForm(ModelForm):
+    class Meta:
+        model = BusinessProfile
+        fields = [
+            'default_opening_cash',
+            'enable_cash_reconciliation',
+            'shared_cash_drawer',
+            'track_coins_separately',
+            'default_opening_bills',
+            'default_opening_coins',
+        ]
+        widgets = {
+            'default_opening_cash':  forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'default_opening_bills': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'default_opening_coins': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'enable_cash_reconciliation': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'track_coins_separately':     forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'shared_cash_drawer':         forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+        }
+
+    def __init__(self, *args, locked=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['default_opening_cash'].label = 'Default starting cash'
+        self.fields['enable_cash_reconciliation'].label = 'Require cash count at time-out'
+        self.fields['track_coins_separately'].label = 'Track bills and coins separately'
+        self.fields['default_opening_bills'].label = 'Default bills'
+        self.fields['default_opening_coins'].label = 'Default coins'
+        self.fields['shared_cash_drawer'].label = 'Cashiers share one drawer'
+        for f in ('enable_cash_reconciliation', 'shared_cash_drawer', 'track_coins_separately',
+                  'default_opening_bills', 'default_opening_coins'):
+            self.fields[f].required = False
+
+
+        # Lock opening-cash fields while a staff member is mid-shift
+        if locked:
+            for f in ('default_opening_cash', 'default_opening_bills', 'default_opening_coins'):
+                self.fields[f].disabled = True
+
+
+    def clean(self):
+        cleaned = super().clean()
+        # When split is on, the float is the sum of bills + coins (mirrors clock_in logic)
+        if cleaned.get('track_coins_separately'):
+            bills = cleaned.get('default_opening_bills') or Decimal('0')
+            coins = cleaned.get('default_opening_coins') or Decimal('0')
+            cleaned['default_opening_cash'] = bills + coins
+        return cleaned

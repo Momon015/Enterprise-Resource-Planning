@@ -85,13 +85,13 @@ document.addEventListener("DOMContentLoaded", function () {
           </tr>
           {% endfor %}
 
-          {% if page_obj.paginator.num_pages > 1 %}
+          {% comment %} {% if page_obj.paginator.num_pages > 1 %}
             {% for _ in blank_rows %}
               <tr class="blank-row">
                 <td colspan="5">&nbsp;</td>
               </tr>
             {% endfor %}
-          {% endif %}
+          {% endif %} {% endcomment %}
         </tbody>
       </table>
 
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
 
     <!-- TOTALS FOOTER -->
-    <div style="border-top:1px solid var(--border); padding:1rem 1.25rem; background:#fafaf8;">
+    <div style="border-top: 1px solid var(--border); padding: 1rem 1.25rem; background: #fafaf8;">
 
       <div class="total-row">
         <span class="total-label"><i class="bi bi-calculator"></i> Total Cost</span>
@@ -144,24 +144,43 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
       {% endif %}
 
-      <hr class="divider">
-
+      {% if purchase.amount_paid and not purchase.is_fully_paid %}
       <div class="total-row">
-        <span class="total-label" style="font-weight:600; color:var(--text);">
-          <i class="bi bi-cash-stack"></i> Amount Paid
-        </span>
-        <span class="total-grand" style="color:var(--danger);">₱{{ purchase.amount_paid|floatformat:2|intcomma }}</span>
-      </div>
-      {% if purchase.outstanding %}
-      <div class="total-row">
-        <span class="total-label" style="font-weight:600; color:var(--text);">
-          <i class="bi bi-cash-stack"></i> Outstanding
-        </span>
-        <span class="total-grand" style="color:var(--danger);">₱{{ purchase.outstanding|floatformat:2|intcomma }}</span>
+        <span class="total-label"><i class="bi bi-wallet2"></i> Amount Paid</span>
+        <span class="total-value" style="color:var(--accent);">₱{{ purchase.amount_paid|floatformat:2|intcomma }}</span>
       </div>
       {% endif %}
+
+
+      {% if purchase.outstanding > 0 %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-exclamation-circle"></i> Outstanding</span>
+        <span class="total-value" style="color:var(--danger);">₱{{ purchase.outstanding|floatformat:2|intcomma }}</span>
+      </div>
+      {% endif %}
+
+      <hr class="divider">
+
+      <!-- Payment outcome -->
+      <div class="total-row" style="margin-bottom:0;">
+        <span class="total-label" style="font-weight:600; color:var(--text);">
+          <i class="bi bi-credit-card"></i> Payment
+        </span>
+        <span>
+          {% if purchase.is_fully_paid %}
+            <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">Paid in full</span>
+          {% elif purchase.amount_paid %}
+            <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Partial</span>
+          {% else %}
+            <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Utang</span>
+          {% endif %}
+          {% with fp=purchase.payments.first %}{% if fp %}<span style="color:var(--muted); font-size:.82rem; margin-left:.4rem;">via {{ fp.get_method_display }}</span>{% endif %}{% endwith %}
+        </span>
+      </div>
+
     </div>
   </div>
+
 
   <!-- ACTIONS -->
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.75rem;">

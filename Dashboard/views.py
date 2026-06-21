@@ -18,14 +18,15 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Sales.models import Sale, SaleItem, SaleEmployee
+from Sales.models import Sale, SaleItem, SalesReturn, SalesPayment
 from Sales.forms import SaleForm, SaleFilterForm
 
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Employee, Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, Shift, ShiftEmployee
-from Expense.forms import EmployeeForm
+from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, PurchaseReturn, PurchasePayment
+from Employee.models import Employee, Shift, ShiftEmployee
+from Employee.forms import EmployeeForm
 
 from core.models import StatusModel
 
@@ -51,6 +52,8 @@ import calendar
 import logging
 
 from subscription.decorators import feature_required
+
+from activity.utils import summarize_items
 
 # Create your views here.
 
@@ -107,7 +110,7 @@ def _compute_dashboard_metrics(business, today):
     y_opex     = y_salary + y_expense
     y_net      = y_revenue - y_material - y_waste - y_expense - y_salary
 
-    # Combined operating expenses (labor + overhead)
+    # Combined operating expenses (labor/salary + overhead)
     total_opex = total_salary_cost + total_expense_cost
 
     # Deltas vs yesterday
@@ -278,16 +281,36 @@ def dashboard(request, business_slug):
                 return v
         return None
 
-    raw_sales     = list(Sale.objects.filter(business=business).order_by('-id')[:10])
-    raw_purchases = list(Purchase.objects.filter(business=business).order_by('-id')[:10])
-    raw_wastes    = list(Waste.objects.filter(business=business).order_by('-id')[:10])
-    raw_expenses  = list(Expense.objects.filter(business=business).prefetch_related('expense_items').order_by('-id')[:10])
+    raw_sales              =  list(Sale.objects.filter(business=business).order_by('-id')[:10])
+    raw_purchases          =  list(Purchase.objects.filter(business=business).order_by('-id')[:10])
+    raw_wastes             =  list(Waste.objects.filter(business=business).order_by('-id')[:10])
+    raw_expenses           =  list(Expense.objects.filter(business=business).prefetch_related('expense_items').order_by('-id')[:10])
+    raw_sales_returns      =  list(SalesReturn.objects.filter(business=business).select_related('original_sale').order_by('-id')[:10])
+    raw_purchase_returns   =  list(PurchaseReturn.objects.filter(business=business).select_related('original_purchase').order_by('-id')[:10])
+    raw_sales_payments     =  list(SalesPayment.objects.filter(business=business).select_related('sale').order_by('-id')[:10])
+    raw_purchase_payments  =  list(PurchasePayment.objects.filter(business=business).select_related('purchase').order_by('-id')[:10])
     
+    def _payment_text(obj):
+        """Build 'Free' / 'via Cash' / 'via GCash (partial ₱X)' / 'Utang' from a Sale or Purchase."""
+        total = getattr(obj, 'total_revenue', None)
+        if total is None:
+            total = getattr(obj, 'total_cost', 0)
+        if not total:
+            return "Free"
+        first_payment = obj.payments.order_by('id').first() if hasattr(obj, 'payments') else None
+        if obj.is_fully_paid and first_payment:
+            return f"via {first_payment.get_method_display()}"
+        if first_payment:
+            return f"via {first_payment.get_method_display()} (partial ₱{first_payment.amount:.2f})"
+        return "Utang"
+
+
     activities = []
     for s in raw_sales:
         activities.append({
             'kind': 'sale', 'icon': 'bi-cash-coin', 'tint': 'success',
             'title': f"Sale {s.reference or '#'+str(s.id)}",
+            'description': f"{_payment_text(s)} · {summarize_items(s.sale_items.all(), prefix='-')}",
             'amount': s.total_revenue,
             'ts': _ts(s, 'created_at', 'date'),
             'url': reverse('sale-detail', kwargs={'business_slug': business.slug, 'sale_id': s.id}),
@@ -296,6 +319,7 @@ def dashboard(request, business_slug):
         activities.append({
             'kind': 'purchase', 'icon': 'bi-box-seam', 'tint': 'purple',
             'title': f"Purchase {p.reference or '#'+str(p.id)}",
+            'description': f"{_payment_text(p)} · {summarize_items(p.materials.all(), prefix='+')}",
             'amount': p.total_cost,
             'ts': _ts(p, 'created_at', 'purchase_date'),
             'url': reverse('purchase-detail', kwargs={'business_slug': business.slug, 'purchase_id': p.id}),
@@ -304,28 +328,77 @@ def dashboard(request, business_slug):
         activities.append({
             'kind': 'waste', 'icon': 'bi-trash3', 'tint': 'danger',
             'title': "Waste recorded",  # swap to f"Waste {w.reference}" after the WST migration
+            'description': f"{w.get_reason_display()} · {summarize_items(w.waste_items.all(), prefix='-')}",
             'amount': w.total_cost,
             'ts': _ts(w, 'created_at', 'date'),
             'url': reverse('material-waste-detail', kwargs={'business_slug': business.slug, 'waste_id': w.id}),
-
         })
     for e in raw_expenses:
         top_item = e.expense_items.first()
         label = top_item.name if top_item else 'Other'
+        more = e.expense_items.count() - 1
         activities.append({
-            
             'kind': 'expense', 'icon': 'bi-receipt', 'tint': 'warning',
             'title': f"Other Expense - {label}",
+            'description': f"+{more} more" if more > 0 else "",
             'amount': e.total_amount,
             'ts': _ts(e, 'created_at', 'date'),
             'url': reverse('expense-detail', kwargs={'business_slug': business.slug, 'date': e.date.isoformat() if e.date else ''}),
         })
-
+    for r in raw_sales_returns:
+        activities.append({
+            'kind': 'sale-return', 'icon': 'bi-arrow-return-left', 'tint': 'danger',
+            'title': f"Sale refunded · {r.reference}",
+            'description': summarize_items(
+                r.items.all(),
+                sign_for=lambda it: '+' if it.resellable else '-',
+            ),
+            'amount': r.refund_total,
+            'ts': _ts(r, 'created_at', 'date'),
+            'url': reverse('sales-return-detail', kwargs={'business_slug': business.slug, 'return_id': r.id}),
+        })
+    for r in raw_purchase_returns:
+        activities.append({
+            'kind': 'purchase-return', 'icon': 'bi-arrow-return-left', 'tint': 'danger',
+            'title': f"Purchase refunded · {r.reference}",
+            'description': summarize_items(r.items.all(), prefix='-'),
+            'amount': r.refund_total,
+            'ts': _ts(r, 'created_at', 'date'),
+            'url': reverse('purchase-return-detail', kwargs={'business_slug': business.slug, 'return_id': r.id}),
+        })
+    for pay in raw_sales_payments:
+        method = pay.get_method_display() if hasattr(pay, 'get_method_display') else ''
+        outstanding = pay.sale.outstanding if pay.sale else 0
+        desc = f"via {method}"
+        if outstanding > 0:
+            desc += f" (partial) · ₱{outstanding:.2f} outstanding"
+        activities.append({
+            'kind': 'sale-payment', 'icon': 'bi-cash-stack', 'tint': 'info',
+            'title': f"Payment received · {pay.sale.reference}",
+            'description': desc,
+            'amount': pay.amount,
+            'ts': _ts(pay, 'created_at', 'date'),
+            'url': reverse('sale-detail', kwargs={'business_slug': business.slug, 'sale_id': pay.sale_id}),
+        })
+    for pay in raw_purchase_payments:
+        method = pay.get_method_display() if hasattr(pay, 'get_method_display') else ''
+        outstanding = pay.purchase.outstanding if pay.purchase else 0
+        desc = f"via {method}"
+        if outstanding > 0:
+            desc += f" (partial) · ₱{outstanding:.2f} outstanding"
+        activities.append({
+            'kind': 'purchase-payment', 'icon': 'bi-cash-stack', 'tint': 'info',
+            'title': f"Payment sent · {pay.purchase.reference}",
+            'description': desc,
+            'amount': pay.amount,
+            'ts': _ts(pay, 'created_at', 'date'),
+            'url': reverse('purchase-detail', kwargs={'business_slug': business.slug, 'purchase_id': pay.purchase_id}),
+        })
         
     # Sort newest first, take top 10
     activities = [a for a in activities if a['ts'] is not None]
     activities.sort(key=lambda a: a['ts'], reverse=True)
-    activities = activities[:10]
+    activities = activities[:7]
     
 
     context = {

@@ -6,7 +6,7 @@ from user.models import User, BusinessProfile
 
 from django.db.models import Sum, Avg
 
-from Expense.models import Employee
+from Employee.models import Employee
 
 from decimal import Decimal
 
@@ -20,11 +20,15 @@ from core.utils.owner import get_owner
 # Create your models here.
 
 class SaleQuerySet(models.QuerySet):
+    def active(self):
+        """Excludes voided sales — use for all revenue/count aggregations."""
+        return self.filter(is_void=False)
+    
     def total_revenue(self):
-        return self.aggregate(total_revenue=Sum('total_revenue'))['total_revenue']
+        return self.active().aggregate(total_revenue=Sum('total_revenue'))['total_revenue']
 
     def average_total_revenue(self):
-        return self.aggregate(average_total_revenue=Avg('total_revenue'))['average_total_revenue']
+        return self.active().aggregate(average_total_revenue=Avg('total_revenue'))['average_total_revenue']
     
 
 class Sale(TimeStampModel):
@@ -283,7 +287,7 @@ class SalesReturnItem(models.Model):
 class SaleEmployee(TimeStampModel):
     """
     Tracks which employees worked during a sale session.
-    Currently used for labor cost tracking in summary/dashboard.
+    Currently used for labor / salary cost tracking in summary/dashboard.
     NOTE: Shift assignment will move to a shared cart flow in Phase 2.
     For now, owner logs shift manually after confirming sale.
     """

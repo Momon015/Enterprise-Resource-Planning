@@ -1,29 +1,53 @@
-{# ── RECENT ACTIVITY PANEL ──────────────────────────────── #}
-{# Usage: {% include 'activity/_recent_activity_panel.html' with events=recent_events %} #}
-<div class="recent-activity-panel">
-    <h3>Recent Activity</h3>
+    {# ── RECENT ACTIVITY PANEL ──────────────────────────────── #}
+    {# Usage: wrap in <div class="card"><div class="card-body" style="padding:0;">…</div></div> #}
+    {% load humanize %}
 
-    {% if events %}
+    <div class="recent-activity-panel">
+      <h3 class="activity-panel-title">
+        <i class="bi bi-clock-history"></i> Recent Activities
+      </h3>
+
+      {% if events %}
         <ul class="activity-list">
-            {% for event in events %}
-                <li class="activity-item activity--{{ event.tone }}">
-                    {# TODO: replace with icon set later #}
-                    <i class="fa {{ event.icon_class }}"></i>
+          {% for event in events %}
+          <li class="activity-item">
+            {% if event.computed_url %}
+              <a href="{{ event.computed_url }}" class="activity-link">
+            {% else %}
+              <div class="activity-link activity-link--static">
+            {% endif %}
+            <div class="activity-icon activity-icon--{{ event.tone|default:'info' }}">
+                <i class="bi {{ event.icon_class }}"></i>
+              </div>
+              <div class="activity-body">
+                <div class="activity-title">
+                    {{ event.get_verb_display }}{% if event.metadata.reference %} · {{ event.metadata.reference }}{% endif %}
+                </div>
+                {% if event.description %}
+                <div class="activity-desc">{{ event.description|truncatechars:80 }}</div>
+                {% endif %}
+                <div class="activity-time">{{ event.created_at|timesince }} ago</div>
+              </div>
+              {% if event.metadata.total %}
+                <div class="activity-amount">₱{{ event.metadata.total|floatformat:2 }}</div>
+              {% elif event.metadata.amount %}
+                <div class="activity-amount">₱{{ event.metadata.amount|floatformat:2 }}</div>
+              {% endif %}
 
-                    <div class="activity-body">
-                        <div class="activity-title">{{ event.get_verb_display }}</div>
-                        <div class="activity-desc">{{ event.description }}</div>
-                    </div>
 
-                    <span class="activity-time">{{ event.created_at|date:"g:i A" }}</span>
-                </li>
-            {% endfor %}
+            {% if event.computed_url %}
+              </a>
+            {% else %}
+              </div>
+            {% endif %}
+          </li>
+          {% endfor %}
         </ul>
 
-        <a href="{% url 'view-all-activity' business_slug=current_business.slug %}" class="view-all-link">
-            View all activity
+        <a href="{% url 'view-all-activity' business_slug=current_business.slug %}" class="activity-view-all">
+          See all activities <i class="bi bi-arrow-right"></i>
         </a>
-    {% else %}
-        <p class="empty-state">No recent activity yet.</p>
-    {% endif %}
-</div>
+      {% else %}
+        <div class="activity-empty">No recent activity yet.</div>
+      {% endif %}
+    </div>

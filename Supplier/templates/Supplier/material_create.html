@@ -2,198 +2,152 @@
 {% block content %}
 
 <div class="mf-page-wrapper">
-  
+
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">PURCHASING &gt; NEW</div>
-      <h1 class="page-title">New Supplier Item</h1>
-      <p class="page-subtitle">Add a new item from a supplier.</p>
-    </div>
-    <div class="page-header-right">
-      <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Back to supplier
-      </a>
+      <div class="page-breadcrumb">
+        <span>PURCHASING</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href={% url 'material-list' business_slug=current_business.slug %} class="breadcrumb-link">
+          <span>MATERIALS</span>
+        </a>
+        <i class="bi bi-chevron-right"></i>
+        <span>NEW</span>
+      </div>
+      <h1 class="page-title">Add Material</h1>
+      <p class="page-subtitle">Material items you buy from suppliers.</p>
     </div>
   </div>
 
-  <div class="mf-layout" style="grid-template-columns: 1fr 380px;">
-
-    <!-- LEFT: FORM -->
-    <div class="card">
-      <div class="card-header">
-        <div class="sd-card-header-left">
-          <div class="sd-header-icon">
-            <i class="bi bi-bag-plus"></i>
-          </div>
-          <div>
-            <p class="card-header-title">New Material</p>
-            <p class="card-header-sub">Add a material for stock tracking and costing.</p>
-          </div>
+  <!-- SINGLE CARD FORM (no right panel) -->
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+      <div class="sd-card-header-left">
+        <div class="sd-header-icon">
+          <i class="bi bi-box-seam"></i>
         </div>
-        {% comment %} <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left sl-me-1"></i> Back to supplier
-        </a> {% endcomment %}
+        <div>
+          <p class="card-header-title" style="margin: 0;">Material</p>
+          <p class="card-header-sub" style="margin: 0;">Add a material for stock tracking and costing.</p>
+        </div>
       </div>
-
-      <div class="card-body">
-        <form method="POST" autocomplete="off" novalidate>
-          {% csrf_token %}
-
-          <div class="mf-fields-grid">
-
-            {# Name #}
-            <div class="mf-field-group" style="grid-column: 1 / -1;">
-              <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-                {{ form.name.label }}
-                {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.name }}
-              {% if form.name.help_text %}<div class="mf-help">{{ form.name.help_text }}</div>{% endif %}
-              {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Quantity #}
-            <div class="mf-field-group">
-              <label for="{{ form.quantity.id_for_label }}" class="mf-form-label">
-                {{ form.quantity.label }}
-                {% if form.quantity.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              <div class="mf-stepper">
-                <button class="qty-btn" type="button" onclick="stepNumber('{{ form.quantity.id_for_label }}', -1)">−</button>
-                <input type="number" name="{{ form.quantity.html_name }}" id="{{ form.quantity.id_for_label }}"
-                       class="form-control" min="0" step="1"
-                       value="{{ form.quantity.value|default_if_none:0 }}">
-                <button class="qty-btn" type="button" onclick="stepNumber('{{ form.quantity.id_for_label }}', 1)">+</button>
-              </div>
-              {% if form.quantity.errors %}<div class="mf-error">{{ form.quantity.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Unit #}
-            <div class="mf-field-group">
-              <label for="{{ form.unit.id_for_label }}" class="mf-form-label">
-                {{ form.unit.label }}
-                {% if form.unit.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.unit }}
-              {% if form.unit.errors %}<div class="mf-error">{{ form.unit.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Piece per Unit #}
-            <div class="mf-field-group">
-              <label for="{{ form.piece_per_unit.id_for_label }}" class="mf-form-label">
-                {{ form.piece_per_unit.label }}
-                {% if form.piece_per_unit.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              <div class="mf-stepper">
-                <button class="qty-btn" type="button" onclick="stepNumber('{{ form.piece_per_unit.id_for_label }}', -1)">−</button>
-                <input type="number" name="{{ form.piece_per_unit.html_name }}" id="{{ form.piece_per_unit.id_for_label }}"
-                       class="form-control" min="1" step="1"
-                       value="{{ form.piece_per_unit.value|default_if_none:1 }}">
-                <button class="qty-btn" type="button" onclick="stepNumber('{{ form.piece_per_unit.id_for_label }}', 1)">+</button>
-              </div>
-              {% if form.piece_per_unit.errors %}<div class="mf-error">{{ form.piece_per_unit.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Price #}
-            <div class="mf-field-group">
-              <label for="{{ form.price.id_for_label }}" class="mf-form-label">
-                {{ form.price.label }}
-                {% if form.price.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              <div class="mf-peso-wrap">
-                <span class="mf-peso-prefix">₱</span>
-                <div class="mf-stepper">
-                  <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.price.id_for_label }}', -1)">−</button>
-                  <input type="number" name="{{ form.price.html_name }}" id="{{ form.price.id_for_label }}"
-                         class="form-control" step="0.01" min="0"
-                         value="{{ form.price.value|default_if_none:'0.00' }}">
-                  <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.price.id_for_label }}', 1)">+</button>
-                </div>
-              </div>
-              {% if form.price.errors %}<div class="mf-error">{{ form.price.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Category #}
-            <div class="mf-field-group">
-              <label for="{{ form.category.id_for_label }}" class="mf-form-label">
-                {{ form.category.label }}
-                {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.category }}
-              {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
-            </div>
-
-            {# Supplier #}
-            <div class="mf-field-group">
-              <label for="{{ form.supplier.id_for_label }}" class="mf-form-label">
-                {{ form.supplier.label }}
-                {% if form.supplier.field.required %}<span class="mf-required">*</span>{% endif %}
-              </label>
-              {{ form.supplier }}
-              {% if form.supplier.errors %}<div class="mf-error">{{ form.supplier.errors|striptags }}</div>{% endif %}
-            </div>
-
-          </div>
-
-          <div class="mf-form-actions">
-            <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-circle sl-me-1"></i> Save Material
-            </button>
-          </div>
-
-        </form>
-      </div>
+      <span class="card-header-sub">Set the unit and starting price for accurate costing.</span>
     </div>
 
-    <!-- RIGHT: GUIDE PANEL -->
-    <div class="card">
-      <div class="card-header dark">
-        <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-          <i class="bi bi-info-circle"></i> Material Setup Guide
-        </span>
-      </div>
-      <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+    <div class="card-body">
 
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Checklist</div>
-          <ul class="mf-guide-list">
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Use clear, descriptive names staff can recognize quickly.</li>
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set the correct unit before you start using this material.</li>
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Enter realistic starting quantity and price for accurate costing.</li>
-            <li><i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Set pieces per unit for bulk purchases (e.g. 1 dozen = 12).</li>
-          </ul>
-        </div>
-
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Pieces Per Unit</div>
-          <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Leave as 1 for single items like bottles or cans.</li>
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Set to 12 for a dozen, 6 for a pack, 30 for a tray.</li>
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Used to calculate actual stock quantity on purchase.</li>
-          </ul>
-        </div>
-
-        <div class="sd-summary-block">
-          <div class="mf-guide-title">Inventory Behavior</div>
-          <ul class="mf-guide-list">
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Included in stock counts and valuation reports.</li>
-            <li><i class="bi bi-info-circle" style="color:var(--info);"></i> Quantity updates automatically when used in purchases.</li>
-          </ul>
-        </div>
-
-        <div class="mf-tip-box">
-          <i class="bi bi-lightbulb"></i>
-          <div>
-            <div class="mf-tip-title">Tip</div>
-            <div class="mf-tip-text">Group similar materials with consistent naming (e.g. "Coke 1L") to make searching easier.</div>
+      <!-- Setup tip callout -->
+      <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+        <i class="bi bi-lightbulb sd-note-icon" style="color: var(--warning);"></i>
+        <div>
+          <div class="sd-note-title">Quick tips</div>
+          <div class="sd-note-text">
+            Use clear names staff recognize (e.g. "Coke 1L") · Set the correct unit before using this material · Pieces per unit handles bulk (1 dozen = 12) · Quantity auto-updates from purchases.
           </div>
         </div>
-
       </div>
-    </div>
 
+      <form method="POST" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        <div class="mf-fields-grid">
+
+          {# Name #}
+          <div class="mf-field-group">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}
+              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.help_text %}<div class="mf-help">{{ form.name.help_text }}</div>{% endif %}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Supplier #}
+          <div class="mf-field-group">
+            <label for="{{ form.supplier.id_for_label }}" class="mf-form-label">
+              {{ form.supplier.label }}
+              {% if form.supplier.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.supplier }}
+            {% if form.supplier.errors %}<div class="mf-error">{{ form.supplier.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Quantity #}
+          <div class="mf-field-group">
+            <label for="{{ form.quantity.id_for_label }}" class="mf-form-label">
+              {{ form.quantity.label }}
+              {% if form.quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-stepper">
+              <button class="qty-btn" type="button" onclick="stepNumber('{{ form.quantity.id_for_label }}', -1)">−</button>
+              <input type="number" name="{{ form.quantity.html_name }}" id="{{ form.quantity.id_for_label }}"
+                     class="form-control" min="0" step="1"
+                     value="{{ form.quantity.value|default_if_none:0 }}">
+              <button class="qty-btn" type="button" onclick="stepNumber('{{ form.quantity.id_for_label }}', 1)">+</button>
+            </div>
+            {% if form.quantity.errors %}<div class="mf-error">{{ form.quantity.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Unit #}
+          <div class="mf-field-group">
+            <label for="{{ form.unit.id_for_label }}" class="mf-form-label">
+              {{ form.unit.label }}
+              {% if form.unit.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.unit }}
+            {% if form.unit.errors %}<div class="mf-error">{{ form.unit.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Piece per Unit #}
+          <div class="mf-field-group">
+            <label for="{{ form.piece_per_unit.id_for_label }}" class="mf-form-label">
+              {{ form.piece_per_unit.label }}
+              {% if form.piece_per_unit.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-stepper">
+              <button class="qty-btn" type="button" onclick="stepNumber('{{ form.piece_per_unit.id_for_label }}', -1)">−</button>
+              <input type="number" name="{{ form.piece_per_unit.html_name }}" id="{{ form.piece_per_unit.id_for_label }}"
+                     class="form-control" min="1" step="1"
+                     value="{{ form.piece_per_unit.value|default_if_none:1 }}">
+              <button class="qty-btn" type="button" onclick="stepNumber('{{ form.piece_per_unit.id_for_label }}', 1)">+</button>
+            </div>
+            <div class="mf-help">Leave as 1 for single items; set to 12 for a dozen, 6 for a pack.</div>
+            {% if form.piece_per_unit.errors %}<div class="mf-error">{{ form.piece_per_unit.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Price #}
+          <div class="mf-field-group">
+            <label for="{{ form.price.id_for_label }}" class="mf-form-label">
+              {{ form.price.label }}
+              {% if form.price.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.price.id_for_label }}', -1)">−</button>
+                <input type="number" name="{{ form.price.html_name }}" id="{{ form.price.id_for_label }}"
+                       class="form-control" step="0.01" min="0"
+                       value="{{ form.price.value|default_if_none:'0.00' }}">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.price.id_for_label }}', 1)">+</button>
+              </div>
+            </div>
+            {% if form.price.errors %}<div class="mf-error">{{ form.price.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
+
+        <div class="mf-form-actions">
+          <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> Save Material
+          </button>
+        </div>
+
+      </form>
+    </div>
   </div>
+
 </div>
 
 <script>

@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from user.models import BusinessProfile
 
@@ -20,7 +21,6 @@ class SlugModel(models.Model):
 
 class Category(SlugModel):
     CATEGORY_TYPE_CHOICES = (
-        # ('item', 'Item'),
         ('product', 'Product'),
         ('expense', 'Expense'),
         ('material', 'Material')
@@ -28,6 +28,12 @@ class Category(SlugModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100)
     category_type = models.CharField(max_length=100, choices=CATEGORY_TYPE_CHOICES, default='material') # which app
+    target_margin = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(10), MaxValueValidator(90)],
+        help_text="Default profit margin % for products in this category (Product categories only). Blank = global default.",
+    )
+    
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='categories', null=True, blank=True)
     

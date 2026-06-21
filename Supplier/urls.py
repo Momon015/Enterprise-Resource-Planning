@@ -24,6 +24,8 @@ urlpatterns = [
     path('<int:id>/<str:slug>/view/preset-update/', views.edit_preset, name='material-edit-preset'),
     path('<int:id>/<str:slug>/view/preset-delete/', views.delete_preset, name='material-delete-preset'),
     
+    path('presets/<int:id>/items/<int:item_id>/remove/', views.remove_preset_item, name='material-preset-remove-item'),
+
     # adding preset to cart
     path('view/<int:preset_id>/apply-preset/', views.adding_preset_to_cart, name='material-add-preset-to-cart'),
     

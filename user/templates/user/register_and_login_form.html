@@ -223,9 +223,11 @@
           </form>
         </div>
 
+        {% if ALLOW_REGISTRATION %}
         <div class="auth-footer">
           Don't have an account? <a href="{% url 'register-form' %}">Create one</a>
         </div>
+        {% endif %}
 
       </div>
 
@@ -234,7 +236,7 @@
 
         <div class="auth-brand">
           <div class="auth-brand-icon">
-            <i class="bi bi-person-plus-fill"></i>
+            <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
           </div>
           <div class="auth-brand-name">Create Account</div>
           <div class="auth-brand-tagline">Swift ERP &mdash; Enterprise Resource Planning</div>

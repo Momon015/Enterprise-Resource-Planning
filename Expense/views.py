@@ -17,13 +17,15 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Expense.models import (PurchaseItem, Purchase, Employee, Waste, WasteItem, Expense, 
-    ExpenseItem, MiscExpense, Shift, ShiftEmployee, PurchaseReturn, PurchaseReturnItem,
+from Expense.models import (PurchaseItem, Purchase, Waste, WasteItem, Expense, 
+    ExpenseItem, MiscExpense, PurchaseReturn, PurchaseReturnItem,
     PurchasePayment)
 
-from Expense.forms import (PurchaseForm, PurchaseItemForm, PurchaseFilterForm, EmployeeForm,
+from Expense.forms import (PurchaseForm, PurchaseItemForm, PurchaseFilterForm,
     ProductWasteForm, MaterialWasteForm, WasteItemFilterForm, ExpenseForm, ExpenseFilterForm, 
-    MiscExpenseForm, EmployeeFilterForm, PurchaseReturnFilterForm)
+    MiscExpenseForm, PurchaseReturnFilterForm)
+
+from Employee.models import Shift, ShiftEmployee, Employee
 
 from Supplier.models import Material
 from Supplier.forms import MaterialForm
@@ -57,7 +59,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user
+from activity.utils import log_activity, scope_events_for_user, summarize_items
 # logging
 import logging
 
@@ -80,7 +82,7 @@ def clear_cart(request, business_slug):
             'cart_items':     0,
             'total':          Decimal('0'),
             'cart_url':       'view-cart',
-            'icon':           'bi-file-text',
+            'icon':           'bi bi-cart3',
             'label':          'Purchase Record',
             'clear_sessions': 'clear-cart',
             'name':           'Materials',
@@ -201,7 +203,6 @@ def purchase_history(request, business_slug):
                 'is_owner': True,
             })
 
-        from Expense.models import Employee
         employee_users = Employee.objects.filter(
             business=business,
             is_locked=False,
@@ -306,6 +307,7 @@ def purchase_detail(request, business_slug, purchase_id):
         'purchase_items': purchase_items, 
         'line_count': line_count,
         'payments': payments,
+        'section': 'purchase',
     }
     return render(request, 'Expense/purchase_detail.html', context)
 
@@ -361,7 +363,7 @@ def add_to_cart(request, business_slug, id):
             'messages':   get_messages(request),
             'total': total,
             'cart_url': 'view-cart',
-            'icon': 'bi-file-text',
+            'icon': 'bi bi-cart3',
             'label': 'Purchase Record',
             'clear_sessions': 'clear-cart',
             'name': 'Materials',
@@ -422,10 +424,13 @@ def view_cart(request, business_slug):
         total_discount += discount
         subtotal += item_total
         
+        linked_product = material.products.first()
+        
         
         cart_items.append({
             'supplier': material.supplier.name if material.supplier else 'No supplier',
             'id': material_id,
+            'image': linked_product.image.url if linked_product and linked_product.image else '',
             'slug': material_slug,
             'material': material.name,
             'quantity': quantity,
@@ -436,7 +441,7 @@ def view_cart(request, business_slug):
             'item_discount': item_discount,
         })
         
-    paginator = Paginator(cart_items, 7)
+    paginator = Paginator(cart_items, 4)
     page = request.GET.get('page')
     page_obj =  paginator.get_page(page)
     
@@ -449,13 +454,13 @@ def view_cart(request, business_slug):
     logger.debug(f" View Cart Sessions: {request.session.get('cart')}")
     
     context = {
-        'total_after_discount': total_after_discount, 
+        'total_after_discount': total_after_discount,
         'cart_items': cart_items,
         'page_obj': page_obj,
         'blank_rows': blank_rows,
         'subtotal': subtotal, 
         'total_discount': total_discount, 
-        'section': 'supplier'
+        'section': 'material'
         }
     return render(request, 'Expense/view_cart.html', context)
 
@@ -495,6 +500,10 @@ def view_cart_summary(request, business_slug):
             'item_discount': item_discount,
         })
         
+    paginator = Paginator(cart_items, 8)
+    page = request.GET.get('page')
+    page_obj =  paginator.get_page(page)
+        
     # save the cart length in session
     request.session['lines'] = len(cart_items)
     request.session.modified = True
@@ -509,12 +518,14 @@ def view_cart_summary(request, business_slug):
     max_due_date = today + timedelta(days=30)
     
     context = {
-        'subtotal': subtotal, 
+        'subtotal': subtotal,
+        'page_obj': page_obj,
         'total_after_discount': total_after_discount, 
         'cart_items': cart_items, 
         'total_discount': total_discount,
         'today_iso': today.isoformat(),               
-        'max_due_date_iso': max_due_date.isoformat(), 
+        'max_due_date_iso': max_due_date.isoformat(),
+        'section': 'material',
     }
     return render(request, 'Expense/view_cart_summary.html', context)
 
@@ -695,14 +706,32 @@ def confirm_purchase_summary(request, business_slug):
                 payment_amount = Decimal('0')
 
             # Create payment row if amount > 0
+            method_display = None
             if payment_amount > 0:
-                PurchasePayment.objects.create(
+                payment = PurchasePayment.objects.create(
                     purchase=purchase,
                     business=business,
                     amount=payment_amount,
                     method=payment_method,
                     note=payment_note,
                     created_by=request.user,
+                )
+                method_display = payment.get_method_display()
+
+                paid_desc = f"via {method_display}"
+                if payment_status == 'partial':
+                    paid_desc += f" (partial) · ₱{purchase.outstanding:.2f} outstanding"
+
+                log_activity(
+                    business, request.user, 'purchase.paid',
+                    target=payment,
+                    description=paid_desc,
+                    metadata={
+                        'reference': purchase.reference,
+                        'amount': f"{payment_amount:.2f}",
+                        'method': payment.method,
+                        'outstanding': str(purchase.outstanding),
+                    },
                 )
 
             # Status + is_paid based on actual outstanding
@@ -717,18 +746,24 @@ def confirm_purchase_summary(request, business_slug):
             purchase.save(update_fields=['status', 'is_paid', 'due_date'])
 
             # Activity log
-            payment_label = (
-                "fully paid" if payment_status == 'full'
-                else f"partial ₱{payment_amount:.2f}" if payment_status == 'partial'
-                else "utang"
-            )
+            if purchase.total_cost == 0:
+                payment_text = "Free"
+            elif payment_status == 'full' and method_display:
+                payment_text = f"via {method_display}"
+            elif payment_status == 'partial' and method_display:
+                payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
+            else:
+                payment_text = "Utang"
+
+
+            items_text = summarize_items(purchase.materials.all(), prefix='+')
             log_activity(
                 business, request.user, 'purchase.recorded',
                 target=purchase,
-                description=f"{purchase.reference} — ₱{purchase.total_cost:.2f} ({payment_label})",
+                description=f"{payment_text} · {items_text}",
                 metadata={
                     'reference': purchase.reference,
-                    'total': str(purchase.total_cost),
+                    'total': f"{purchase.total_cost:.2f}",
                     'line_count': purchase.line_count,
                     'payment_status': payment_status,
                     'payment_method': payment_method if payment_status != 'utang' else None,
@@ -799,15 +834,20 @@ def add_purchase_payment(request, business_slug, purchase_id):
             purchase.is_paid = purchase.is_fully_paid
             purchase.save(update_fields=['status', 'is_paid'])
 
+            paid_desc = f"via {payment.get_method_display()}"
+            if purchase.outstanding > 0:
+                paid_desc += f" (partial) · ₱{purchase.outstanding:.2f} outstanding"
+
             log_activity(
                 business, request.user, 'purchase.paid',
                 target=payment,
-                description=f"₱{amount:.2f} paid toward {purchase.reference} ({payment.get_method_display()})",
+                description=paid_desc,
                 metadata={
-                    'purchase_reference': purchase.reference,
-                    'amount': str(amount),
+                    'reference': purchase.reference,
+                    'amount': f"{amount:.2f}",
                     'method': method,
                     'note': note,
+                    'outstanding': str(purchase.outstanding),
                 },
             )
 
@@ -974,14 +1014,21 @@ def purchase_return_create(request, business_slug, purchase_id):
                     stock.save()
                 except Stock.DoesNotExist:
                     pass  # No stock entry for this material; skip silently
-
+                
+                # Decrement product (mirror the waste flow)
+                product = Product.objects.filter(business=business, material=pi.material).first()
+                if product:
+                    product.prepared_quantity = max(0, product.prepared_quantity - item['qty'])
+                    product.save()
+                    
+            items_text = summarize_items(return_obj.items.all(), prefix='-')    
             log_activity(
                 business, request.user, 'purchase.refunded',
                 target=return_obj,
-                description=f"{return_obj.reference} — ₱{total_refund:.2f} refunded ({return_obj.get_refund_method_display()})",
+                description=f"{items_text}",
                 metadata={
                     'reference': return_obj.reference,
-                    'total': str(total_refund),
+                    'total': f"{total_refund:.2f}",
                     'reason': reason,
                     'refund_method': refund_method,
                 }
@@ -1032,6 +1079,7 @@ def purchase_return_recorded(request, business_slug, return_id):
 
 
 @login_required(login_url='login')
+@permission_required('staff_view')   # owner-only (blocks staff)
 def purchase_return_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     returns = PurchaseReturn.objects.filter(business=business).select_related(
@@ -1116,6 +1164,7 @@ def purchase_return_list(request, business_slug):
     })
 
 @login_required(login_url='login')
+@permission_required('staff_view')   # owner-only (blocks staff)
 def purchase_return_detail(request, business_slug, return_id):
     business = get_business_for_user(request.user, business_slug)
     return_obj = get_object_or_404(PurchaseReturn, business=business, id=return_id)
@@ -1230,26 +1279,34 @@ def edit_total_price(request, business_slug, material_id):
     cart = request.session.get('cart', {})
     material = get_object_or_404(Material, business=business, id=material_id)
     material_key = str(material.id)
-    
-    if cart:
+
+    if cart and material_key in cart:
         data = cart[material_key]
         quantity = data.get('quantity', 0)
         price = data.get('price')
-        raw_price = request.POST.get('new_total_price') 
-        new_total_price = Decimal(raw_price) / quantity if raw_price else None
-        
-        if new_total_price and new_total_price != Decimal(price):
-            cart[material_key]['price'] = str(new_total_price)
-            messages.success(request, f"The unit cost has been updated.")
-            
+        raw_total = request.POST.get('new_total_price')
+
+        # Guard: need a value AND a usable quantity
+        if raw_total is not None and raw_total != '' and quantity > 0:
+            new_unit_price = Decimal(raw_total) / quantity
+
+            # Compare against existing unit price (use is not None, not truthiness)
+            if price is None or new_unit_price != Decimal(price):
+                cart[material_key]['price'] = str(new_unit_price)
+                if new_unit_price == 0:
+                    messages.success(request, f"{material.name} marked as free (₱0.00 unit cost).")
+                else:
+                    messages.success(request, f"{material.name}'s unit cost has been updated.")
+
     request.session['cart'] = cart
     request.session.modified = True
-    
+
     page = request.GET.get('page', '')
     url = reverse('view-cart', kwargs={'business_slug': business.slug})
     if page:
         url = f"{url}?page={page}"
     return redirect(url)
+
 
 @login_required(login_url='login')
 def cart_edit_material(request, business_slug, id):
@@ -1269,7 +1326,7 @@ def cart_edit_material(request, business_slug, id):
                 quantity = 1
             
             cart[material_key]['quantity'] = quantity
-            messages.success(request, f"{material.name}'s quantity has been updated.")
+            # messages.success(request, f"{material.name}'s quantity has been updated.")
             request.session.modified = True
         else:
              messages.warning(request, f"{material.name} - quantity limit reached.")
@@ -1284,202 +1341,29 @@ def cart_edit_material(request, business_slug, id):
 def cart_discount_material(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     cart = request.session.get('cart', {})
-    
+
     for material_id, data in cart.items():
+        # Discount
         raw_discount = request.POST.get(f"discount_{material_id}")
-        discount_input = Decimal(raw_discount) if raw_discount else 0
+        discount_input = Decimal(raw_discount) if raw_discount else Decimal('0')
         cart[material_id]['discount'] = str(discount_input)
-    
+
+        # Total price → derive unit price
+        raw_total = request.POST.get(f"total_price_{material_id}")
+        quantity = data.get('quantity', 0)
+        if raw_total is not None and raw_total != '' and quantity > 0:
+            new_unit_price = Decimal(raw_total) / quantity
+            cart[material_id]['price'] = str(new_unit_price)
+
     request.session['cart'] = cart
     request.session.modified = True
-    
+    # messages.success(request, "Cart updated.")
+
     page = request.GET.get('page', '')
     url = reverse('view-cart', kwargs={'business_slug': business.slug})
     if page:
         url = f"{url}?page={page}"
     return redirect(url)
-
-# @login_required(login_url='login')  
-# @permission_required('owner_only')
-# def employee_create(request):
-#     page = 'employee'
-#     business = get_business_for_user(request.user, business_slug)
-#     if request.method == 'POST':
-#         form = EmployeeForm(request.POST, business=business)
-#         if form.is_valid():
-#             obj = form.save(commit=False)
-#             obj.user = request.user
-#             obj.save()
-            
-#             messages.success(request, f"{obj.name}'s details has successfully created.")
-#             return redirect('employee-list')
-#         else:
-#             print(form.errors)
-#     else:
-#         form = EmployeeForm(business=business)
-
-#     context = {'form': form, 'section': 'employee'}
-#     return render(request, 'Expense/employee_create.html', context)
-
-@login_required(login_url='login')
-@permission_required('staff_view')
-@permission_required('read_only') # dev
-def employee_list(request, business_slug):
-    business = get_business_for_user(request.user, business_slug)
-    employees = get_queryset_for_user(request.user, Employee.objects.all()).filter(business=business).order_by('name')
-    
-    form = EmployeeFilterForm(request.GET or None)
-    
-    if form.is_valid():
-        search = form.cleaned_data.get('search')
-        
-        if search:
-            employees = employees.filter(name__icontains=search)
-            
-    avg_daily_rate = employees.average_daily_rate()
-    total_daily_rate = employees.total_daily_rate()
-    monthly_payroll_est = total_daily_rate * 30
-    
-    pagination = Paginator(employees, 5)
-    page = request.GET.get('page')
-    page_obj = pagination.get_page(page)
-
-    context = {
-        'page_obj': page_obj, 
-        'total_daily_rate': total_daily_rate,
-        'avg_daily_rate': avg_daily_rate,
-        'monthly_payroll_est': monthly_payroll_est,
-        'section': 'employee'
-        }
-    return render(request, 'Expense/employee_list.html', context)
-
-@login_required(login_url='login')
-@permission_required('staff_view')
-@permission_required('read_only') # dev
-def employee_detail(request, business_slug, employee_id, slug):
-    business = get_business_for_user(request.user, business_slug)
-    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
-    
-    monthly_rate = employee.daily_rate * 30
-    
-    context = {'employee': employee, 'monthly_rate': monthly_rate, 'section': 'employee'}
-    
-    return render(request, 'Expense/employee_detail.html', context)
-
-@login_required(login_url='login')
-@permission_required('staff_view')
-@permission_required('read_only') # dev
-def employee_update(request, business_slug, employee_id, slug):
-    business = get_business_for_user(request.user, business_slug)
-    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
-    
-    if request.method == 'POST':
-        form = EmployeeForm(request.POST, instance=employee)
-        
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.save()
-            messages.success(request, f"{obj.name}'s daily rate has been updated.")
-            return redirect('employee-list', business_slug=business.slug)
-        else:
-            print(form.errors)
-    else:
-        form = EmployeeForm(instance=employee)
-        
-    context = {'form': form, 'employee': employee, 'section': 'employee'}
-    return render(request, 'Expense/employee_update.html', context)
-
-@login_required(login_url='login')
-@permission_required('staff_delete')
-@permission_required('read_only') # dev
-def employee_delete(request, business_slug, employee_id, slug):
-    business = get_business_for_user(request.user, business_slug)
-    employee = get_object_or_404(Employee, business=business, id=employee_id, slug=slug)
-    
-    print(employee.user)
-    print(employee.staff_user)
-    
-    if request.method == 'POST':
-        staff = employee.staff_user # save reference FIRST
-        staff.is_active = False
-        staff.save()
-
-        employee.delete() # then delete the employee record
-        
-        messages.success(request, f"{employee.name} - has been deleted from employee record.")
-        return redirect('employee-list', business_slug=business.slug)
-    context = {'employee': employee, 'section': 'employee'}
-    return render(request, 'Expense/employee_delete.html', context)
-
-@login_required(login_url='login')
-@permission_required('staff_view')
-@permission_required('read_only') # dev
-def shift_log_create(request, business_slug):
-    business = get_business_for_user(request.user, business_slug)
-    amount = 0
-    if request.method == 'POST':
-        selected_employee_ids = request.POST.getlist('selected_ids', [])
-        date = request.POST.get('date')
-        
-        if not selected_employee_ids:
-            messages.warning(request, 'Please select atleast one employee.')
-        else:
-            
-            try:
-                shift = Shift.objects.create(
-                    user=business.user,
-                    business=business,
-                    amount=0,
-                    date=date,
-                    created_by=request.user,
-                )
-                
-                from datetime import date as date_type
-                emp_date = date_type.fromisoformat(date)
-                
-                if emp_date > date_type.today():
-                    messages.error(request, 'Expense date cannot be in the future.')
-                    employees = Employee.objects.filter(business=business)
-                    return render(request, 'Expense/shift_log_create.html',{
-                        'employees': employees,
-                        'section': 'expense',
-                    })
-            except (ValueError, TypeError):
-                messages.error(request, 'Invalid date. Please select a valid date.')
-                employees = Employee.objects.filter(business=business)
-                return render(request, 'Expense/shift_log_create.html', {
-                    'employees': employees,
-                    'section': 'expense',
-                })
-                
-            for employee_id in selected_employee_ids:
-                employee = get_object_or_404(Employee, business=business, id=employee_id)
-                daily_rate = request.POST.get(f"daily_rate_{employee.id}")
-                
-                if not daily_rate:
-                    daily_rate = employee.daily_rate
-                
-                amount += Decimal(daily_rate)
-                
-                ShiftEmployee.objects.create(
-                    employee=employee,
-                    shift=shift,
-                    name=employee.name,
-                    daily_rate=Decimal(daily_rate),
-                    
-                )
-                
-            shift.amount = amount
-            shift.save()
-            messages.success(request, f"Today's shift has been recorded. Please check the expense record.")
-            return redirect('expense-list', business_slug=business.slug)
-                
-    employees = Employee.objects.filter(business=business)
-    
-    context = {'employees': employees, 'section': 'employees'}
-    return render(request, 'Expense/shift_log_create.html', context)
-            
-
 
 @login_required(login_url='login')
 @permission_required('read_only') # dev
@@ -1497,7 +1381,7 @@ def waste_list(request, business_slug):
     period = request.GET.get('period')
     
     today = timezone.localdate()
-    current_year = f"{today.year}-{today.month}"
+    current_year = f"{today.year}-0{today.month}"
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -1586,92 +1470,101 @@ def waste_material_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     page = 'waste_material'
     total_cost = 0
-    
+
     if request.method == 'POST':
         selected_ids = request.POST.getlist('waste_expense', [])
-        print(selected_ids)
+        reason = request.POST.get('reason')
         
+        if not reason:
+            messages.warning(request, f"You forgot to select a reason.") 
+            return redirect('material-waste-create', business_slug=business.slug)
+                
         if not selected_ids:
-            messages.warning(request, f"You forgot to check the checkbox.")   
-        
-        else:  
-            waste = Waste.objects.create(
-                user=business.user,
-                business=business,
-                total_cost=0,
-                reason=request.POST.get('reason'),
-                created_by=request.user,
-                
-            )
-            invalid_items = []
-            stocks = Stock.objects.filter(id__in=selected_ids, business=business)
-            for stock in stocks:
-                price = stock.price
-                raw_quantity = request.POST.get(f"quantity_{stock.id}")
-                quantity = int(raw_quantity)
-                
-                if quantity == 0:
-                    pass
-                
-                # deduct from the stock
-                if stock:
-                    if stock.quantity >= quantity:
-                        stock.quantity -= quantity
-                        stock.save()
-                    else:
-                        invalid_items.append(f"{stock.name} - {stock.quantity} left.")
-                        continue
-                        
-                # deduct as well for the product
-                product = Product.objects.filter(business=business, material=stock.material).first()
-                if product:
-                    if product.prepared_quantity >= quantity:
-                        product.prepared_quantity -= quantity
-                        product.save()
-                    else:
-                        pass
-                
-                waste_items = WasteItem.objects.create(
-                    waste=waste,
-                    material=stock.material,
-                    price=price,
-                    quantity=quantity,
-                )
-                total_cost += Decimal(price) * quantity
-                
-            waste.total_cost = total_cost
-            waste.save()
+            messages.warning(request, f"You forgot to check the checkbox.")
+            return redirect('material-waste-create', business_slug=business.slug)   
             
-            # delete the waste ID if total cost is 0
-            if total_cost == 0:
-                waste.delete()
-                
-                if invalid_items:
-                    messages.error(request, f"All items were invalid: {', '.join(invalid_items)}")
-                else:
-                
-                    messages.error(request, "No valid items were processed.")
-                return redirect('expense-waste-list', business_slug=business.slug)
-            
-            if invalid_items:
-                messages.warning(request, f"Some items were skipped: {', '.join(invalid_items)}")
-            
-            else:
-                from activity.utils import log_activity
+        else:
+            try:
+                with transaction.atomic():
+                    waste = Waste.objects.create(
+                        user=business.user,
+                        business=business,
+                        total_cost=0,
+                        reason=reason,
+                        created_by=request.user,
+                    )
+                    invalid_items = []
+                    stocks = Stock.objects.filter(id__in=selected_ids, business=business)
+                    for stock in stocks:
+                        price = stock.price
+                        raw_quantity = request.POST.get(f"quantity_{stock.id}")
+                        quantity = int(raw_quantity)
 
+                        if quantity == 0:
+                            continue
+
+                        # deduct from the stock
+                        if stock:
+                            if stock.quantity >= quantity:
+                                stock.quantity -= quantity
+                                stock.save()
+                            else:
+                                invalid_items.append(f"{stock.name} - {stock.quantity} left.")
+                                continue
+
+                        # deduct as well for the product
+                        product = Product.objects.filter(business=business, material=stock.material).first()
+                        if product:
+                            if product.prepared_quantity >= quantity:
+                                product.prepared_quantity -= quantity
+                                product.save()
+
+                        WasteItem.objects.create(
+                            waste=waste,
+                            material=stock.material,
+                            price=price,
+                            quantity=quantity,
+                        )
+                        total_cost += Decimal(price) * quantity
+
+                    waste.total_cost = total_cost
+                    waste.save()
+
+                    # If nothing valid was processed, delete the empty waste
+                    if total_cost == 0:
+                        waste.delete()
+                        if invalid_items:
+                            messages.error(request, f"All items were invalid: {', '.join(invalid_items)}")
+                        else:
+                            messages.error(request, "No valid items were processed.")
+                        return redirect('expense-waste-list', business_slug=business.slug)
+
+                # ── SUCCESS PATH (outside atomic, still inside try) ──
+                items_text = summarize_items(waste.waste_items.all(), prefix='-')
                 log_activity(business, request.user, 'waste.recorded',
                     target=waste,
-                    description=f"₱{waste.total_cost:.2f} — {waste.get_reason_display()}",    
-                    metadata={'reason': waste.reason, 'total': str(waste.total_cost)})
+                    description=f"{waste.get_reason_display()} · {items_text}",
+                    metadata={'reason': waste.reason, 'total': f"{waste.total_cost:.2f}"})
 
+                if invalid_items:
+                    messages.warning(request, f"Waste recorded. Some items were skipped: {', '.join(invalid_items)}")
+                else:
+                    messages.success(request, "Waste has been created.")
+                return redirect('expense-waste-list', business_slug=business.slug)
 
-                messages.success(request, f"Waste has been created.")
-            return redirect('expense-waste-list', business_slug=business.slug)         
+            except ValidationError:
+                messages.warning(request, "Waste record can't be processed.")
+                return redirect('expense-waste-list', business_slug=business.slug)
 
+    
     stocks = Stock.objects.filter(business=business)
 
+
+    pagination = Paginator(stocks, 5)
+    page_obj = pagination.get_page(request.GET.get('page'))
     context = {
-        'page': page, 
+        'page': page,
+        'page_obj': page_obj, 
         'section': 'waste', 
         'stocks': stocks,
     }
@@ -1785,7 +1678,7 @@ def expense_list(request, business_slug):
     
     month = today.month
     year = today.year
-    current_year = f"{year}-{month}"
+    current_year = f"{year}-0{month}"
     
 
     if form.is_valid():
@@ -1868,7 +1761,7 @@ def expense_list(request, business_slug):
     
     
     # Pagination
-    pagination = Paginator(sorted_list, 8)
+    pagination = Paginator(sorted_list, 7)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -1999,7 +1892,7 @@ def misc_expense_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).filter(business=business).order_by('-created_at')
     
-    pagination = Paginator(misc_expenses, 5)
+    pagination = Paginator(misc_expenses, 10)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     

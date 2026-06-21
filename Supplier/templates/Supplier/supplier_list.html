@@ -24,14 +24,6 @@
 
 <div class="page-wrapper">
 
-  <div class="kpi-row">
-    {% include 'partials/_kpi_card.html' with label="Total Suppliers"     value=kpis.current.total                 delta=kpis.deltas.total %}
-    {% include 'partials/_kpi_card.html' with label="On Hold"             value=kpis.current.on_hold               delta=kpis.deltas.on_hold %}
-    {% include 'partials/_kpi_card.html' with label="Purchases (Month)"   value=kpis.current.purchases_count_month delta=kpis.deltas.purchases_count_month %}
-    {% include 'partials/_kpi_card.html' with label="Total Spend (Month)" value=kpis.current.total_spend_month|floatformat:2 delta=kpis.deltas.total_spend_month is_money=True %}
-</div>
-
-
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
@@ -48,10 +40,6 @@
         <i class="bi bi-plus-circle"></i> Create supplier
       </a>
     </div> {% endcomment %}
-      <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-archive-fill"></i> View Archived
-      </a>
-
 
   </div>
 
@@ -60,15 +48,8 @@
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
-      <!-- FILTER DRAWER -->
-      <details class="filter-card" {% if request.GET.search %}open{% endif %}>
-        <summary>
-          <i class="bi bi-sliders"></i>
-          <span>Advanced filters</span>
-          {% if request.GET.search %}
-            <span class="filter-badge">Active</span>
-          {% endif %}
-        </summary>
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
             <div class="d-flex gap-2 align-items-center w-100">
@@ -76,18 +57,21 @@
                 <div class="input-group">
                   <span class="input-group-icon"><i class="bi bi-search"></i></span>
                   <input type="search" name="search" class="form-control"
-                        placeholder="Search supplier name..."
-                        value="{{ request.GET.search|default:'' }}">
+                         placeholder="Search supplier name..."
+                         value="{{ request.GET.search|default:'' }}">
                 </div>
               </div>
-              <button class="btn btn-outline-primary btn-sm" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>Reset
+              </a>
             </div>
           </form>
         </div>
-      </details>
+      </div>
+
 
 
       <div class="card table-card">
@@ -105,14 +89,13 @@
             <thead>
               <tr>
                 <th>Name</th>
-                <th class="sl-text-center">Items</th>
-                {% if request.user.role == 'owner' %}
-                <th class="sl-text-end mobile-center">Actions</th>
-                {% else %}
-                <th class="sl-text-end mobile-center">Action</th>
-                {% endif %}
+                <th class="sl-text-center col-mobile-hidden">Items</th>
+                <th class="sl-text-end col-mobile-hidden">Spend (MTD)</th>
+                <th class="sl-text-center col-mobile-hidden">Last Order</th>
+                <th class="sl-text-end mobile-center">{% if request.user.role == 'owner' %}Actions{% else %}Action{% endif %}</th>
               </tr>
             </thead>
+
             <tbody>
               {% for supplier in page_obj %}
               <tr class="{% if supplier.is_locked %}is-locked{% endif %}">
@@ -125,7 +108,11 @@
                       {% endif %}
                       <div class="name-text">
                         <strong>{{ supplier.name }}</strong>
-                        <small class="text-muted">{{ supplier.name|default:"No supplier" }}</small>
+                        <small class="text-muted">
+                          {% if supplier.email %}<a href="mailto:{{ supplier.email }}" style="color:inherit; text-decoration:none;"><i class="bi bi-envelope"></i> {{ supplier.email }}</a>{% else %}<i class="bi bi-envelope"></i> No email{% endif %}
+                          <span style="opacity:0.5;">·</span>
+                          {% if supplier.contact_number %}<a href="tel:{{ supplier.contact_number }}" style="color:inherit; text-decoration:none;"><i class="bi bi-telephone"></i> {{ supplier.contact_number }}</a>{% else %}<i class="bi bi-telephone"></i> No contact{% endif %}
+                        </small>
                       </div>
                   </div>
                     {% if supplier.is_locked %}
@@ -133,8 +120,16 @@
                   {% endif %}
                 </td>
 
-                <td class="sl-text-center">
+                <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ supplier.materials.count }}</span>
+                </td>
+
+                <td class="sl-text-end col-mobile-hidden sl-fw-semibold">
+                  {% if supplier.spend_mtd %}₱{{ supplier.spend_mtd|floatformat:2|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+
+                <td class="sl-text-center col-mobile-hidden">
+                  {% if supplier.last_order %}{{ supplier.last_order|date:"M d, Y" }}{% else %}<span class="text-muted">—</span>{% endif %}
                 </td>
 
                 <td class="sl-text-end mobile-center">
@@ -217,46 +212,60 @@
 
     <!-- RIGHT: OVERVIEW -->
     <div class="right-panel">
+
+      <!-- Supplier Overview (flat) -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-lightning-fill"></i> Supplier Overview
           </span>
+          <span class="card-header-sub">This month</span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body" style="padding: 1rem;">
 
-          <div class="sd-summary-block highlight">
-            <div class="sd-summary-block-label">Total Suppliers</div>
-            <div class="sd-total-amount">{{ page_obj.paginator.count }}</div>
+          <div class="period-net">
+            <div class="period-net-label">TOTAL SUPPLIERS</div>
+            <div class="period-net-value">{{ page_obj.paginator.count }}</div>
           </div>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick links</div>
-            <div class="btn-grid">
-              <a href="{% url 'supplier-create' business_slug=current_business.slug  %}" class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create supplier
-              </a>
-              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug  %}" class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-box-seam"></i> Inventory
-              </a>
-            </div>
-          </div>
-
-          <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-            <div>
-              <div class="sd-note-title">About suppliers</div>
-              <div class="sd-note-text">Suppliers are linked to materials. Each purchase is tracked per supplier so you can monitor spending per vendor.</div>
-            </div>
-          </div>
-
-            <div class="sl-quick-label">
-                {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
-            </div>
-
+          <dl class="period-breakdown">
+            <div><dt>On hold</dt><dd>{{ kpis.current.on_hold|default:"0" }}</dd></div>
+            <div><dt>Spend this month</dt><dd>₱{{ kpis.current.total_spend_month|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Purchases this month</dt><dd>{{ kpis.current.purchases_count_month|default:"0" }}</dd></div>
+          </dl>
         </div>
       </div>
+
+      <!-- Quick links -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-lightning-charge"></i> Quick links
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> Create supplier
+            </a>
+            <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-archive-fill"></i> Archived
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="sd-note-box">
+        <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+        <div>
+          <div class="sd-note-title">About suppliers</div>
+          <div class="sd-note-text">Suppliers are linked to materials. Each purchase is tracked per supplier so you can monitor spending per vendor.</div>
+        </div>
+      </div>
+
     </div>
+
 
   </div>
 </div>

@@ -87,7 +87,11 @@ def category_list(request, business_slug):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    context = {'page_obj': page_obj, 'section': section}
+    context = {
+        'business': business,
+        'page_obj': page_obj, 
+        'section': section
+    }
     return render(request, 'core/category_list.html', context)
 
 @login_required(login_url='login')
@@ -95,10 +99,12 @@ def category_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
     if request.method == 'POST':
-        form = CategoryForm(request.POST)
+        form = CategoryForm(request.POST, user=request.user, business=business)
         
         if form.is_valid():
             category = form.save(commit=False)
+            if category.category_type != 'product':
+                category.target_margin = None
             
             if Category.objects.filter(name__iexact=category.name, business=business).exists():
                 messages.error(request, f"{category.name.title()} is already exist. Please use a different name for Category.")
@@ -116,7 +122,7 @@ def category_create(request, business_slug):
                 messages.success(request, f"{category.name} has successfully created.")
                 return redirect('category-list', business_slug=business.slug)
     else:
-        form = CategoryForm()
+        form = CategoryForm(user=request.user, business=business)
     
     context = {'form': form}
     return render(request, 'core/category_create.html', context)
@@ -127,20 +133,23 @@ def category_update(request, business_slug, category_id, slug):
     category = get_object_or_404(Category, business=business, id=category_id, slug=slug)
 
     if request.method == 'POST':
-        form = CategoryForm(request.POST, instance=category)
+        form = CategoryForm(request.POST, instance=category, user=request.user, business=business)
         
         if form.is_valid():
             if category.slug == 'no-category' or category.slug.startswith('no-category-'):
                 messages.warning(request, '"No Category" is a system default and cannot be edited — it holds materials and products without a category.')
                 return redirect('category-list', business_slug=business.slug)
             obj = form.save(commit=False)
+            if obj.category_type != 'product':
+                obj.target_margin = None
+
             obj.name = obj.name.title()
             obj.save()
             messages.success(request, f"{category.name} has successfully updated.")
             return redirect('category-list', business_slug=business.slug)
     
     else:
-        form = CategoryForm(instance=category)
+        form = CategoryForm(instance=category, user=request.user, business=business)
     
     context = {'form': form, 'category': category}
     return render(request, 'core/category_update.html', context)

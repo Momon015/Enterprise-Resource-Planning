@@ -231,7 +231,7 @@
 
 </style>
 
-<div class="page-wrapper" style="max-width:1200px;">
+<div class="page-wrapper">
 
   <div class="mobile-back-row">
     <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
@@ -252,7 +252,7 @@
   {% endif %}
 
   <!-- Toggles -->
-  <div class="lp-pricing-toggles" style="margin-bottom:1.5rem;">
+  <div class="lp-pricing-toggles " style="margin-bottom:1.5rem;">
     <div class="lp-business-toggle" role="tablist" aria-label="Business count">
       <button class="lp-business-toggle-btn {% if current_bundle == 'single' %}active{% endif %}" data-biz="single" type="button">1 Business</button>
       <button class="lp-business-toggle-btn {% if current_bundle == 'dual' %}active{% endif %}" data-biz="dual" type="button">2 Businesses</button>

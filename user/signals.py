@@ -30,14 +30,17 @@ def create_business_defaults(sender, instance, created, **kwargs):
 
     # Default category — one per category type
     for category_type, _label in Category.CATEGORY_TYPE_CHOICES:
+        # Material categories are a cafe/restaurant (Phase 2) concept — skip for retail
+        if category_type == 'material' and instance.business_type not in ('cafe', 'restaurant'):
+            continue
         Category.objects.get_or_create(
             user=instance.user,
             business=instance,
             slug='no-category',
             name='No Category',
             category_type=category_type,
-            
         )
+
         
 @receiver(post_save, sender=User)
 def create_user_subscription(sender, instance, created, **kwargs):

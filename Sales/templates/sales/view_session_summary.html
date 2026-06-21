@@ -20,13 +20,15 @@
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
 
 function toggleSalesPaymentFields() {
   const status = document.querySelector('input[name="payment_status"]:checked').value;
-  document.getElementById('sales_payment_method_group').style.display = status === 'utang' ? 'none' : 'block';
-  document.getElementById('sales_amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
+  document.getElementById('payment_method_group').style.display = status === 'utang' ? 'none' : 'block';
+  document.getElementById('amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
 }
-
 </script>
 
 <div class="container-fluid py-3 py-lg-4">
@@ -38,47 +40,37 @@ function toggleSalesPaymentFields() {
       <h1 class="page-title">Sale Summary</h1>
       <p class="page-subtitle">Review this sale before posting it to sales transactions</p>
     </div>
-    {% if items %}
-    <div class="page-header-right">
-      <div class="header-stat">
-        <i class="bi bi-basket3"></i>
-        <strong>{{ items|length }}</strong> item{{ items|length|pluralize }}
-      </div>
-      <div class="header-stat accent">
-        Total: <strong>₱{{ total_revenue|floatformat:2 }}</strong>
-      </div>
-    </div>
-    {% endif %}
   </div>
 
   {% if items %}
   <div class="row g-3 g-lg-4">
 
-    <!-- LEFT: PRODUCT ITEMS TABLE -->
+    <!-- LEFT: ITEMS TABLE + TOTALS FOOTER -->
     <div class="col-lg-8">
       <div class="pos-card">
         <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-basket3"></i>
-            Product Items
-          </span>
-          <span style="font-size: .8rem; color: var(--muted);">Products, quantities and prices</span>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="pos-card-title">
+              <i class="bi bi-basket3 me-1"></i> Products
+            </span>
+            <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
+          </div>
+          <span style="font-size:.8rem; color:var(--muted);">Products, quantities and prices</span>
         </div>
 
-        <div style="overflow-x: auto; max-height: 420px; overflow-y: auto;">
+        <div style="overflow-x:auto;">
           <table class="pos-table">
             <thead>
               <tr>
                 <th class="ps-4">Product</th>
                 <th>Qty Sold</th>
                 <th>Unit Cost</th>
-                {% comment %} <th>Total Cost</th> {% endcomment %}
                 <th>Unit Price</th>
                 <th class="pe-4">Revenue</th>
               </tr>
             </thead>
             <tbody>
-              {% for item in items %}
+              {% for item in page_obj %}
               <tr>
                 <td class="ps-4">
                   <div class="product-name">{{ item.name }}</div>
@@ -88,126 +80,160 @@ function toggleSalesPaymentFields() {
                 </td>
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
-                {% comment %} <td><span class="mono">₱{{ item.total_cost_price_per_line|floatformat:2 }}</span></td> {% endcomment %}
                 <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
                 <td class="pe-4">
-                  <span class="mono" style="font-weight: 700; color: var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span>
+                  <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" style="text-align:center; padding:2rem; color:var(--muted);">
+                  No products on this sale yet.
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+
+        {% if page_obj.paginator.num_pages  %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
-    <!-- RIGHT: SUMMARY + ACTIONS -->
+    <!-- RIGHT: PAYMENT + ACTIONS -->
     <div class="col-lg-4">
 
-      <!-- SALES SUMMARY CARD -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-graph-up-arrow"></i>
-            Sales Summary
-          </span>
-        </div>
-        <div style="padding: 1.25rem;">
-
-          <!-- Summary Stats -->
-          <div class="summary-stats">
-            <div class="summary-stat-row">
-              <span class="summary-stat-label">Line Items</span>
-              <span class="summary-stat-value">{{ items|length }}</span>
+        <!-- ORDER SUMMARY -->
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-graph-up-arrow"></i> Sales Totals
+            </span>
+          </div>
+          <div style="padding:1.25rem;">
+            {% if total_salary_cost %}
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-person-workspace"></i> Salary cost</span>
+              <span class="total-value">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
+            </div>
+            <hr class="divider">
+            {% endif %}
+            <div class="total-row" style="margin-bottom:0;">
+              <span class="total-label" style="font-weight:600; color:var(--text);">
+                <i class="bi bi-calculator"></i> Total Revenue
+              </span>
+              <span class="total-grand" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma }}</span>
             </div>
           </div>
-
-          <hr class="divider">
-
-          <div class="total-row" style="margin-bottom: 0;">
-            <span class="total-label" style="font-weight: 600; color: var(--text);">
-              <i class="bi bi-calculator"></i> Total Revenue
-            </span>
-            <span class="total-grand">₱{{ total_revenue|floatformat:2 }}</span>
-          </div>
-
         </div>
-      </div>
 
       <form method="POST" action="{% url 'sale-confirm-summary' business_slug=current_business.slug %}">
-    {% csrf_token %}
+        {% csrf_token %}
 
-    {# ── PAYMENT SECTION ─────────────────────────────── #}
-    <div class="payment-section">
-        <h3>Payment</h3>
+        <!-- PAYMENT CARD -->
+        <div class="pos-card">
+          <div class="pos-card-header">
+            <span class="pos-card-title">
+              <i class="bi bi-wallet2"></i> Payment
+            </span>
+          </div>
+          <div style="padding:1.25rem;">
 
-        <div class="form-group">
-            <label>Payment status</label>
-            <label>
-                <input type="radio" name="payment_status" value="full" checked
-                       onchange="toggleSalesPaymentFields()">
-                Paid in full
-            </label>
-            <label>
-                <input type="radio" name="payment_status" value="partial"
-                       onchange="toggleSalesPaymentFields()">
-                Partial
-            </label>
-            <label>
-                <input type="radio" name="payment_status" value="utang"
-                       onchange="toggleSalesPaymentFields()">
-                Utang (pay later)
-            </label>
-        </div>
+            <!-- Status -->
+            <div class="pay-field">
+              <label>Payment status</label>
+              <div class="pay-status-grid">
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="full" checked onchange="toggleSalesPaymentFields()">
+                  <span><i class="bi bi-check-circle"></i> Paid in full</span>
+                </label>
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="partial" onchange="toggleSalesPaymentFields()">
+                  <span><i class="bi bi-hourglass-split"></i> Partial</span>
+                </label>
+                <label class="pay-status-opt">
+                  <input type="radio" name="payment_status" value="utang" onchange="toggleSalesPaymentFields()">
+                  <span><i class="bi bi-clock-history"></i> Utang</span>
+                </label>
+              </div>
+            </div>
 
-        <div class="form-group" id="sales_payment_method_group">
-            <label>Method</label>
-            <select name="payment_method">
+            <!-- Method -->
+            <div class="pay-field" id="payment_method_group">
+              <label>Method</label>
+              <select name="payment_method">
                 <option value="cash" selected>Cash</option>
                 <option value="gcash">GCash</option>
                 <option value="bank">Bank Transfer</option>
                 <option value="credit">Store Credit</option>
-            </select>
-        </div>
+              </select>
+            </div>
 
-        <div class="form-group" id="sales_amount_paid_group" style="display:none;">
-            <label>Amount paid now</label>
-            <input type="number" name="amount_paid" step="0.01" min="0" placeholder="0.00">
-        </div>
+            <!-- Amount paid (partial only) -->
+            <div class="pay-field" id="amount_paid_group" style="display:none;">
+              <label>Amount paid now</label>
+              <input type="number" name="amount_paid" step="0.01" min="0" placeholder="0.00">
+            </div>
 
-        <div class="form-group">
-            <label>Reference / Note (optional)</label>
-            <input type="text" name="payment_note" maxlength="255"
-                   placeholder="e.g. GCash ref, customer name">
-        </div>
-    </div>
+            <!-- Reference -->
+            <div class="pay-field" style="margin-bottom:0;">
+              <label>Reference / Note (optional)</label>
+              <input type="text" name="payment_note" maxlength="255"
+                     placeholder="e.g. GCash ref, customer name">
+            </div>
 
-      <!-- ACTIONS CARD -->
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-lightning"></i>
-            Actions
-          </span>
-        </div>
-        <div style="padding: 1.25rem;">
-          <div class="action-info-box">
-            <i class="bi bi-info-circle"></i>
-            <p style="font-size: 14px;">
-              Once confirmed, stock is deducted and revenue is recorded. This can't be undone.
-            </p>
           </div>
-          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-secondary-action">
-              <i class="bi bi-pencil-square"></i> Edit session
-            </a>
-            <button type="submit" class="btn-confirm">
-                <i class="bi bi-check2-circle"></i> Confirm Sale
-            </button>
         </div>
-        </form>
-      </div>
-    
 
+        <!-- ACTIONS CARD -->
+        <div class="pos-card">
+          <div style="padding:1.25rem;">
+            <div class="action-info-box">
+              <i class="bi bi-info-circle"></i>
+              <p style="font-size: 14px;">
+                Once confirmed, stock is deducted and revenue is recorded. This can't be undone.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn-secondary-action"
+                 style="flex:1; width:auto; margin:0;">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+              <button type="submit" class="btn-confirm" style="flex:1; width:auto; margin:0;">
+                <i class="bi bi-check2-circle"></i> Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </form>
     </div>
   </div>
 

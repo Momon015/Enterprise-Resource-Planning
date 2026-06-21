@@ -1,157 +1,153 @@
 {% extends "main.html" %}
 {% block content %}
 
-<div class="page-wrapper">
+<div class="mf-page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESETS</a>
+        <span>CATALOG</span>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCT</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESET</a>
         <i class="bi bi-chevron-right"></i>
         <span>EDIT</span>
       </div>
       <h1 class="page-title">Edit Preset</h1>
       <p class="page-subtitle">Adjust quantities for this preset. Pricing is managed in the product catalog.</p>
     </div>
-    <div class="page-header-right">
-      <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn-back">
-        <i class="bi bi-arrow-left"></i> Back to presets
-      </a>
-    </div>
   </div>
 
   <form method="POST" action="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}">
     {% csrf_token %}
 
-    <div class="two-col-layout">
+    <!-- CENTERED SINGLE CARD -->
+    <div class="card" style="max-width: 900px; margin: 0 auto;">
 
-      <!-- LEFT: TABLE + ACTIONS -->
-      <div class="left-panel">
-        <div class="card">
-
-          <!-- HEADER -->
-          <div class="card-header">
-            <div class="sd-card-header-left">
-              <div class="sd-header-icon">
-                <i class="bi bi-bookmark-fill"></i>
-              </div>
-              <div>
-                <div class="card-header-title">Products in this preset</div>
-                <div class="card-header-sub">Adjust quantities only</div>
-              </div>
-            </div>
-            <span class="sl-badge sl-badge-light">
-              {{ preset_items|length }} product{{ preset_items|length|pluralize }}
-            </span>
+      <!-- HEADER -->
+      <div class="card-header">
+        <div class="sd-card-header-left">
+          <div class="sd-header-icon">
+            <i class="bi bi-bookmark-fill"></i>
           </div>
-
-          <!-- TABLE -->
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th class="sl-text-end">Quantity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in preset_items %}
-                <tr>
-
-                  <!-- PRODUCT -->
-                  <td>
-                    <div class="cell-primary">{{ item.product.name }}</div>
-                    <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
-                  </td>
-
-                  <!-- QUANTITY -->
-                  <td class="sl-text-end">
-                    <div class="qty-stepper">
-                      <button type="button"
-                              class="qty-btn qty-ctrl"
-                              data-target="new_product_quantity_{{ item.product.id }}"
-                              data-step="-1">−</button>
-                      <input type="number"
-                             class="qty-input"
-                             name="new_product_quantity_{{ item.product.id }}"
-                             value="{{ item.quantity }}"
-                             min="0"
-                             max="999"
-                             readonly>
-                      <button type="button"
-                              class="qty-btn qty-ctrl"
-                              data-target="new_product_quantity_{{ item.product.id }}"
-                              data-step="1">+</button>
-                    </div>
-                  </td>
-
-                </tr>
-                {% empty %}
-                <tr class="sl-empty-row">
-                  <td colspan="2">No saved products found for this preset.</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div>
+            <div class="card-header-title">{{ preset.name }}</div>
+            <div class="card-header-sub">Adjust the name and item quantities</div>
           </div>
-
-          <!-- ACTIONS -->
-          <div class="card-body" style="border-top:1px solid var(--border-light);">
-            <div class="mf-form-actions">
-              <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Save changes
-              </button>
-            </div>
-          </div>
-
         </div>
+        <span class="sl-badge sl-badge-light">
+          {{ preset_items|length }} product{{ preset_items|length|pluralize }}
+        </span>
       </div>
 
-      <!-- RIGHT: PRESET SNAPSHOT -->
-      <div class="right-panel">
-        <div class="card">
-          <div class="card-header dark">
-            <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
-              <i class="bi bi-speedometer2"></i> Preset Snapshot
-            </span>
+      <div class="card-body">
+
+        <!-- Editing scope tip -->
+        <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+          <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+          <div>
+            <div class="sd-note-title">Editing scope</div>
+            <div class="sd-note-text">Only quantities and the preset name can be changed here. Add or remove products from the catalog.</div>
           </div>
-          <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        </div>
 
-            <div class="sd-summary-block highlight">
-              <div class="sd-summary-block-label">Current Details</div>
-              <div class="sd-info-row">
-                <span class="sd-info-label">Preset ID</span>
-                <span class="sd-info-value">#{{ preset.id }}</span>
-              </div>
-              <div class="sd-info-row">
-                <span class="sd-info-label">Total items</span>
-                <span class="sd-info-value">{{ preset_items|length }}</span>
-              </div>
-            </div>
+        <!-- PRESET NAME -->
+        <div class="mf-field-group" style="margin-bottom: 1.25rem;">
+          <label for="new_preset_name_{{ preset.id }}" class="mf-form-label">
+            Preset Name <span class="mf-required">*</span>
+          </label>
+          <input type="text"
+                 id="new_preset_name_{{ preset.id }}"
+                 class="form-control"
+                 name="new_preset_name_{{ preset.id }}"
+                 value="{{ preset.name }}"
+                 placeholder="e.g. Best seller combo">
+          <div class="mf-help">Shown on the presets list and when adding to a sale.</div>
+        </div>
 
-            <!-- NAME FIELD -->
-            <div class="sd-summary-block">
-              <div class="sd-summary-block-label">Preset Name</div>
-              <div class="mf-field-group" style="margin-top:0.4rem;">
-                <input type="text"
-                       class="form-control"
-                       name="new_preset_name_{{ preset.id }}"
-                       value="{{ preset.name }}"
-                       placeholder="e.g. Best seller combo">
-              </div>
-            </div>
+        <!-- Products section label -->
+        <div class="sd-section-label">
+          <i class="bi bi-box-seam sl-me-1"></i> Products in this preset
+        </div>
 
-            <div class="sd-note-box">
-              <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-              <div>
-                <div class="sd-note-title">Editing scope</div>
-                <div class="sd-note-text">Only quantities and the preset name can be changed here. Edit products from the catalog.</div>
-              </div>
-            </div>
+      </div>
 
-          </div>
+      <!-- TABLE (full-bleed inside card) -->
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="sl-text-center">Quantity</th>
+              <th class="sl-text-end">Remove</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            {% for item in preset_items %}
+            <tr id="preset-row-{{ item.id }}">
+
+              <!-- PRODUCT -->
+              <td>
+                <div class="cell-primary">{{ item.product.name }}</div>
+                <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
+              </td>
+
+              <!-- QUANTITY -->
+              <td class="sl-text-center">
+                <div class="qty-stepper" style="justify-content:center;">
+                  <button type="button"
+                          class="qty-btn qty-ctrl"
+                          data-target="new_product_quantity_{{ item.product.id }}"
+                          data-step="-1">−</button>
+                  <input type="number"
+                         class="qty-input"
+                         name="new_product_quantity_{{ item.product.id }}"
+                         value="{{ item.quantity }}"
+                         min="0"
+                         max="999"
+                         readonly>
+                  <button type="button"
+                          class="qty-btn qty-ctrl"
+                          data-target="new_product_quantity_{{ item.product.id }}"
+                          data-step="1">+</button>
+                </div>
+              </td>
+
+              <!-- REMOVE -->
+              <td class="sl-text-end">
+                <div class="table-actions">
+                  <button type="button"
+                          class="action-btn action-btn--danger"
+                          title="Remove from preset"
+                          hx-post="{% url 'product-preset-remove-item' business_slug=current_business.slug preset_id=preset.id item_id=item.id %}"
+                          hx-target="#preset-row-{{ item.id }}"
+                          hx-swap="outerHTML">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              </td>
+
+            </tr>
+            {% empty %}
+            <tr class="sl-empty-row">
+              <td colspan="3">No saved products found for this preset.</td>
+            </tr>
+            {% endfor %}
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="card-body" style="border-top: 1px solid var(--border-light);">
+        <div class="mf-form-actions">
+          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Save changes
+          </button>
         </div>
       </div>
 

@@ -44,22 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">EXPENSES</div>
+      <div class="page-breadcrumb">Transactions</div>
       <h1 class="page-title">Waste Records</h1>
-      <p class="page-subtitle">Wasted stock recorded as expenses</p>
-    </div>
-    <div class="page-header-right">
-
-      <div class="header-stat accent">
-        <i class="bi bi-file-earmark-text"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
-      </div>
-
-      <div class="header-stat danger">
-        <i class="bi bi-trophy"></i>
-        Highest loss: <strong>₱{% if max_waste %}{{ max_waste|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
-      </div>
-
+      <p class="page-subtitle">Wasted stock recorded as expenses.</p>
     </div>
   </div>
 
@@ -70,50 +57,60 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
-               {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}open{% endif %}>
+        {% if request.GET.search or request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
-          {% if request.GET.select_month or request.GET.start_date or request.GET.end_date or request.GET.search %}
-            <span class="filter-badge">Active</span>
+          {% if request.GET.search or request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+          <span class="filter-badge">Active</span>
           {% endif %}
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form" autocomplete="off">
+          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
 
-            <div class="form-group filter-search-row">
-              <div class="input-group">
-                <span class="input-group-icon"><i class="bi bi-search"></i></span>
-                <input type="search" name="search" class="form-control"
-                       placeholder="Search by item, cost, or quantity..."
-                       value="{{ request.GET.search|default:'' }}">
-              </div>
+            <div class="form-field" style="flex: 2;">
+              <label class="form-label">
+                <i class="bi bi-search"></i> Search
+              </label>
+              <input type="search" name="search" class="form-control form-control--polish"
+                placeholder="Item, cost, or quantity"
+                value="{{ request.GET.search|default:'' }}">
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Period (month)</label>
-              <input type="month" name="select_month" class="form-control"
-                     value="{{ request.GET.select_month|default:current_year }}">
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar3"></i> Month
+              </label>
+              <input type="month" name="select_month" class="form-control form-control--polish"
+                value="{{ request.GET.select_month|default:current_year }}">
             </div>
 
-            <div class="form-group">
-              <label class="form-label">From date</label>
-              <input type="date" name="start_date" class="form-control"
-                     value="{{ request.GET.start_date|default:'' }}">
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-event"></i> From
+              </label>
+              <input type="date" name="start_date" class="form-control form-control--polish"
+                value="{{ request.GET.start_date|default:'' }}">
             </div>
 
-            <div class="form-group">
-              <label class="form-label">To date</label>
-              <input type="date" name="end_date" class="form-control"
-                     value="{{ request.GET.end_date|default:'' }}">
+            <div class="form-range-sep">→</div>
+
+            <div class="form-field">
+              <label class="form-label">
+                <i class="bi bi-calendar-check"></i> To
+              </label>
+              <input type="date" name="end_date" class="form-control form-control--polish"
+                value="{{ request.GET.end_date|default:'' }}">
             </div>
 
-            <div class="filter-actions">
-              <button class="btn btn-outline-primary btn-sm btn-flex" type="submit">
-                <i class="bi bi-funnel"></i> Filter
+            <div class="form-actions-inline">
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm btn-flex">Reset</a>
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
             </div>
 
           </form>
@@ -139,37 +136,54 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 <th>Quantity</th>
-                <th class="sl-text-center">Total Loss</th>
-                <th class="sl-text-center">Reason</th>
-                {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
+                <th class="sl-text-end">Total Loss</th>
+                <th class="sl-text-center col-mobile-hidden">Reason</th>
               </tr>
             </thead>
             <tbody>
               {% for waste in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}'">
                 <td class="cell-primary">
-                  {{ waste.date|date:"M d" }}<span class="col-mobile-hidden">, {{ waste.date|date:"Y" }}</span></div>
+                  {{ waste.date|date:"M d" }}<span class="col-mobile-hidden">, {{ waste.date|date:"Y" }}</span>
                   <div class="cell-sub">{{ waste.date|date:"l" }}</div>
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ waste.waste_items.count }} waste{% if waste.waste_items.count %}{{ waste.waste_items.count|pluralize }}{% endif %}</div>
-                  <div class="cell-sub">{% if request.user.role == 'owner' %}by {{ waste.created_by.username|capfirst|default:"-" }}{% endif %}</div>
+                  <div class="cell-primary">{{ waste.waste_items.count }} waste{{ waste.waste_items.count|pluralize }}</div>
+                  {% if request.user.role == 'owner' %}
+                  <div class="cell-sub">by {{ waste.created_by.username|capfirst|default:"—" }}</div>
+                  {% endif %}
                 </td>
 
-
-                <td class="sl-text-center sl-fw-semibold sl-text-danger">
+                <td class="sl-text-end sl-fw-semibold sl-text-danger">
                   ₱{{ waste.waste_cost|floatformat:2|intcomma }}
                 </td>
 
-                <td class="sl-text-center">
-                  {{ waste.get_reason_display }}
+                <td class="sl-text-center col-mobile-hidden">
+                  {% with reason=waste.reason %}
+                  {% if reason == 'spoilage' %}
+                    <span class="sl-badge sl-badge-warning">Spoilage</span>
+                  {% elif reason == 'expired' %}
+                    <span class="sl-badge sl-badge-warning">Expired</span>
+                  {% elif reason == 'damage' or reason == 'damaged' %}
+                    <span class="sl-badge sl-badge-danger">Damage</span>
+                  {% elif reason == 'defective' %}
+                    <span class="sl-badge sl-badge-danger">Defective</span>
+                  {% elif reason == 'personal_use' %}
+                    <span class="sl-badge sl-badge-info">Personal Use</span>
+                  {% elif reason == 'service' %}
+                    <span class="sl-badge sl-badge-info">Service Use</span>
+                  {% elif reason == 'theft' %}
+                    <span class="sl-badge sl-badge-danger">Theft</span>
+                    <span class="sl-badge sl-badge-light">{{ waste.get_reason_display }}</span>
+                  {% endif %}
+                  {% endwith %}
                 </td>
 
                 <td class="sl-text-center">
                   <div class="btn-group">
                     <a href="{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}"
-                      class="row-chevron" title="View detail">
+                       class="row-chevron" title="View detail">
                       <i class="bi bi-chevron-right"></i>
                     </a>
                   </div>
@@ -178,19 +192,19 @@ document.addEventListener("DOMContentLoaded", function () {
               {% endfor %}
             </tbody>
           </table>
-            {% else %}
-            <div class="empty-state">
-              <div class="empty-icon"><i class="bi bi-trash2"></i></div>
-              <h3 class="empty-title">No waste records found</h3>
-              <p class="empty-text">
-                {% if request.GET.search %}
-                  No results for "{{ request.GET.search }}". Try a different name.
-                {% else %}
-                  Adjust your filters or log a waste entry.
-                {% endif %}
-              </p>
-            </div>
-            {% endif %}
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-trash2"></i></div>
+            <h3 class="empty-title">No waste records found</h3>
+            <p class="empty-text">
+              {% if request.GET.search %}
+                No results for "{{ request.GET.search }}". Try a different name.
+              {% else %}
+                Adjust your filters or log a waste entry.
+              {% endif %}
+            </p>
+          </div>
+          {% endif %}
         </div>
 
         <!-- PAGINATION -->
@@ -198,36 +212,31 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with search=request.GET.search select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
+              {% with search=request.GET.search sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date pd=request.GET.period %}
 
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link"
-                     href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                  <i class="bi bi-chevron-left"></i>
+                </a>
                 {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
               </li>
 
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link"
-                   href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
-                  {{ p }}
-                </a>
+                <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">{{ p }}</a>
               </li>
               {% endfor %}
 
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link"
-                     href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
+                  <i class="bi bi-chevron-right"></i>
+                </a>
                 {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
 
@@ -244,71 +253,84 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <!-- Waste Summary -->
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff;">
-            <i class="bi bi-graph-down-arrow"></i>
-            Waste Summary
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-graph-down-arrow"></i> Waste Summary
+          </span>
+          <span class="card-header-sub">
+            {% if request.GET.period == 'today' %}Today
+            {% elif request.GET.period == 'last_week' %}Last week
+            {% elif request.GET.period == 'week' %}This week
+            {% elif request.GET.period == 'month' %}This month
+            {% elif request.GET.select_month %}{{ request.GET.select_month }}
+            {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
+            {% else %}All time
+            {% endif %}
           </span>
         </div>
-        <div class="card-body">
-          <div class="sd-summary-block" style="background: var(--danger-light); border-color: var(--danger-border);">
-            <div class="sd-summary-block-label">Total Waste Cost</div>
-            <div class="sd-total-amount" style="color: var(--danger);">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-          </div>
 
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Overview</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Total Records</span>
-              <span class="sd-info-value">{{ page_obj.paginator.count }}</span>
+        <div class="card-body" style="padding: 1rem;">
+
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">TOTAL WASTE COST</div>
+            <div class="period-net-value">₱{{ total_waste_cost|default:0|floatformat:2|intcomma }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-trash2"></i>
+              {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </div>
           </div>
 
-          <p class="sl-summary-note">Use filters on the left to narrow down by date.</p>
+          <dl class="period-breakdown">
+            <div>
+              <dt>Highest loss</dt>
+              <dd class="text-danger sl-fw-bold">₱{{ max_waste|default:0|floatformat:2|intcomma }}</dd>
+            </div>
+          </dl>
+
         </div>
       </div>
 
       <!-- Quick Actions -->
+      {% if stocks %}
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
-            {% comment %} <i class="bi bi-lightning"></i> {% endcomment %}
-            Quick Actions
+            <i class="bi bi-lightning"></i> Quick Actions
           </span>
         </div>
-        <div class="card-body">
-          {% if stocks %}
-          <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-danger btn-sm btn-block">
+        <div class="card-body" style="padding: 1rem;">
+          <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-block"
+             style="background: #dc2626; color: #fff; border-color: #dc2626;">
             <i class="bi bi-trash2"></i> Log Stock Waste
           </a>
-          <hr class="sl-quick-divider">
-          {% endif %}
+        </div>
+      </div>
+      {% endif %}
 
-          <div class="sl-quick-label">Quick ranges</div>
-          
-            <div class="quick-range-grid">
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=today"
-                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
-                <i class="bi bi-calendar-day"></i> Today
-              </a>
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=last_week"
-                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-                <i class="bi bi-clock-history"></i> Last 7 days
-              </a>
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=week"
-                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-                <i class="bi bi-calendar-week"></i> This week
-              </a>
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=month"
-                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-                <i class="bi bi-calendar-month"></i> This month
-              </a>
-            </div>
-
-            <div class="sl-quick-label">
-                {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
-            </div>
-
+      <!-- Quick Ranges -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-calendar-range"></i> Quick Ranges
+          </span>
+        </div>
+        <div class="card-body quick-ranges">
+          <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=today"
+            class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+            <i class="bi bi-calendar-day"></i> Today
+          </a>
+          <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=last_week"
+            class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+            <i class="bi bi-clock-history"></i> Last week
+          </a>
+          <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=week"
+            class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+            <i class="bi bi-calendar-week"></i> This week
+          </a>
+          <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=month"
+            class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+            <i class="bi bi-calendar-month"></i> This month
+          </a>
         </div>
       </div>
 

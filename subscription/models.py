@@ -22,8 +22,10 @@ PLAN_LIMITS = {
         'max_product_presets':  2,
         'max_material_presets': 2,
         'receipt_print':        False,
+        'timecards':            False,
+        'cash_reconciliation':  False,
         'dashboard':            False,
-        'daily_summary':        'none',
+        'analytics_access':        'none',
     },
     'standard': {
         'max_staff':            1,
@@ -37,8 +39,10 @@ PLAN_LIMITS = {
         'max_product_presets':  5,
         'max_material_presets': 5,
         'receipt_print':        False,
+        'timecards':            True,
+        'cash_reconciliation':  True,
         'dashboard':            False,
-        'daily_summary':        'none',
+        'analytics_access':        'none',
     },
     'premium': {
         'max_staff':            5,
@@ -52,8 +56,10 @@ PLAN_LIMITS = {
         'max_product_presets':  None,
         'max_material_presets': None,
         'receipt_print':        True,
+        'timecards':            True,
+        'cash_reconciliation':  True,
         'dashboard':            False,
-        'daily_summary':        'monthly + daily',
+        'analytics_access':        'monthly + daily',
     },
     'pro': {
         'max_staff':            10,
@@ -67,8 +73,10 @@ PLAN_LIMITS = {
         'max_product_presets':  None,
         'max_material_presets': None,
         'receipt_print':        True,
+        'timecards':            True,
+        'cash_reconciliation':  True,
         'dashboard':            True,
-        'daily_summary':        'daily + monthly + weekly',
+        'analytics_access':        'daily + monthly + weekly',
     },
 }
 
@@ -157,7 +165,7 @@ def _lockable_models():
     """Lazy import to avoid circular deps at module load."""
     from Product.models import Product, ProductPreset
     from Supplier.models import Material, MaterialPreset, Supplier
-    from Expense.models import Employee
+    from Employee.models import Employee
     return (Product, Material, Supplier, Employee, ProductPreset, MaterialPreset)
 
 
@@ -387,22 +395,29 @@ class BusinessPlan(models.Model):
         """PRO-only feature."""
         return self.limits().get('dashboard')
     
+    def has_timecards(self):
+        """Clock in/out + hours tracking — Standard+."""
+        return self.limits().get('timecards', False)
+
+    def has_cash_reconciliation(self):
+        """Cash drawer + GCash + bank variance — Standard+."""
+        return self.limits().get('cash_reconciliation', False)
+
     def has_receipt_print(self):
         """Thermal receipt printing - Premium and Pro."""
         return self.limits().get('receipt_print', False)
 
     def has_weekly_summary(self):
         """Weekly summary filter - Pro only"""
-        return 'weekly' in (self.limits().get('daily_summary') or '')
+        return 'weekly' in (self.limits().get('analytics_access') or '')
     
     def has_daily_summary(self):
         """Daily summary — Premium and Pro."""
-        return 'daily' in (self.limits().get('daily_summary') or '')
+        return 'daily' in (self.limits().get('analytics_access') or '')
 
     def has_monthly_summary(self):
         """Monthly summary — Premium and Pro."""
-        return 'monthly' in (self.limits().get('daily_summary') or '')
-    
+        return 'monthly' in (self.limits().get('analytics_access') or '')
     
     def limits(self):
         return PLAN_LIMITS.get(self.plan, PLAN_LIMITS['free'])
@@ -470,13 +485,13 @@ class BusinessPlan(models.Model):
     # ── Capacity checks ──────────────────────────────────────────────────────
 
     def can_add_staff(self):
-        from Expense.models import Employee
+        from Employee.models import Employee
         count = Employee.objects.filter(business=self.business).count()
         return self._can_add('max_staff', count)
 
     def can_add_product(self):
         from Product.models import Product
-        count = Product.objects.filter(business=self.business).count()
+        count = Product.goods.filter(business=self.business).count()
         return self._can_add('max_products', count)
 
     def can_add_material(self):

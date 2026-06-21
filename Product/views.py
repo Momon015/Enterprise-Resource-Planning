@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseNotAllowed
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -17,11 +17,12 @@ from django.urls import reverse
 from django.core.paginator import Paginator
 
 from Product.models import Product, ProductPreset, ProductPresetItem
-from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm
+from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm, ServiceForm
+
 
 from decimal import Decimal
-from django.db.models import Q, F
-
+from django.db.models import Q, F, Sum
+from django.db.models.functions import Coalesce
 from django.contrib.messages import get_messages
 
 from subscription.decorators import capacity_required
@@ -52,10 +53,13 @@ def product_list(request, business_slug):
     The helper function allows to isolate the owner and the staffs for every client.
     """
     
-    products = get_queryset_for_user(request.user, Product.objects.all()) \
+    products = get_queryset_for_user(request.user, Product.goods.all()) \
         .filter(business=business) \
         .select_related('category', 'material__supplier') \
-        .order_by('name')
+        .order_by('is_locked', 'name')
+        
+    products = products.annotate(units_sold=Coalesce(Sum('sale_items__quantity'), 0))
+
 
     
     # option 2
@@ -72,9 +76,11 @@ def product_list(request, business_slug):
     categories = form.fields['category'].queryset
     
     stock_filter = request.GET.get('stock')
+    velocity_filter = request.GET.get('velocity')
+    
     all_products = products.count()
-    in_stock = products.filter(prepared_quantity__gte=HIGH_STOCK_THRESHOLD).count()
-    low_stock = products.filter(Q(prepared_quantity__lte=LOW_STOCK_THRESHOLD) & Q(prepared_quantity__gte=1)).count()
+    in_stock = products.filter(prepared_quantity__gte=F('high_stock_threshold')).count()
+    low_stock = products.filter(Q(prepared_quantity__lte=F('low_stock_threshold')) & Q(prepared_quantity__gte=1)).count()
     out_of_stock = products.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
     
     
@@ -96,30 +102,55 @@ def product_list(request, business_slug):
             products = products.filter(category=category)
             
         if stock_filter == 'high':
-            products = products.filter(prepared_quantity__gte=HIGH_STOCK_THRESHOLD)
+            products = products.filter(prepared_quantity__gte=F('high_stock_threshold'))
         elif stock_filter == 'low':
-            products = products.filter(Q(prepared_quantity__lte=LOW_STOCK_THRESHOLD) & Q(prepared_quantity__gte=1))
+            products = products.filter(Q(prepared_quantity__lte=F('low_stock_threshold')) & Q(prepared_quantity__gte=1))
         elif stock_filter == 'none':
             products = products.filter(prepared_quantity=NO_STOCK_THRESHOLD)
+            
+            
+        if velocity_filter in ('never', 'best', 'slow'):
+            products = products.annotate(
+                units_sold=Coalesce(Sum('sale_items__quantity'), 0)
+            )
+            if velocity_filter == 'never':
+                products = products.filter(units_sold=0)
+            elif velocity_filter == 'best':
+                products = products.filter(units_sold__gt=0).order_by('-units_sold')
+            elif velocity_filter == 'slow':
+                products = products.filter(units_sold__gt=0).order_by('units_sold')
+
     
 
-    paginator = Paginator(products, 8)
+    paginator = Paginator(products, 5)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     
     MULTI_UNIT_TYPES = ('Pack', 'Bundle', 'Tray', 'Dozen', 'Carton', 'Sachet', 'Box', 'Bag')
     
-    recent_events = ActivityEvent.objects.filter(
-        Q(verb__startswith='product.') |
-        Q(verb__startswith='sale.') |
-        Q(verb__startswith='purchase.') |
-        Q(verb__startswith='stock.'),
-        business=business,
-    )
-    recent_events = scope_events_for_user(recent_events, request.user)[:4]
+    # recent_events = ActivityEvent.objects.filter(
+    #     Q(verb__startswith='product.') |
+    #     Q(verb__startswith='sale.') |
+    #     Q(verb__startswith='purchase.') |
+    #     Q(verb__startswith='stock.'),
+    #     business=business,
+    # )
+    # recent_events = scope_events_for_user(recent_events, request.user)[:3]
+    
+    # recent_events = list(recent_events)
+    # for e in recent_events:
+    #     if e.target_url(business.slug):
+    #         e.computed_url = reverse('activity-click', kwargs={
+    #             'business_slug': business.slug, 'event_id': e.id,
+    #         })
+    #     else:
+    #         e.computed_url = None
+
 
     from core.utils.kpis import get_product_kpis
     kpis = get_product_kpis(business)
+    
+    archived_count = Product.all_objects.filter(business=business, is_active=False).count()
         
     context = {
         "page_obj": page_obj, # keep this as the Page object
@@ -132,7 +163,7 @@ def product_list(request, business_slug):
         'all_products': all_products,
         'multi_unit_types': MULTI_UNIT_TYPES,
         'section': 'product',
-        'recent_events': recent_events,
+        'archived_count': archived_count,
         'kpis': kpis,
         
         #htmx
@@ -154,7 +185,7 @@ def product_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
     if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES, business=business)
+        form = ProductForm(request.POST, request.FILES, business=business, user=request.user)
 
         if form.is_valid():
             
@@ -169,11 +200,11 @@ def product_create(request, business_slug):
             if existing:
                 if existing.is_active:
                     messages.warning(request, f"{existing.name} already exists.")
-                    return redirect('product-list', business_slug=business.slug)
+                    return redirect('product-create', business_slug=business.slug)
                 else:
                     # Archived twin exists — offer restore instead of creating duplicate
                     messages.info(request,f"{existing.name} exists in your archive.")
-                    return redirect('product-list', business_slug=business.slug)
+                    return redirect('product-create', business_slug=business.slug)
 
             product.user = business.user
             product.name = product.name.title()
@@ -199,19 +230,28 @@ def product_create(request, business_slug):
             #     messages.error(request, "Unsupported business type.")
             #     return redirect('product-list', business_slug=business.slug)
     else:
-        form = ProductForm(business=business)
+        form = ProductForm(business=business, user=request.user)
         
-    context = {'form': form}
+    context = {'form': form, 'section': 'product'}
     return render(request, 'Product/product_create.html', context)
 
 @login_required(login_url='login')
 def product_detail(request, business_slug, product_slug, product_id):
     business = get_business_for_user(request.user, business_slug)
-    
+
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
-    
-    context = {'product': product}
+
+    total_stock_cost = product.prepared_quantity * product.cost_price
+    potential_revenue = product.prepared_quantity * product.selling_price
+
+    context = {
+        'product': product,
+        'total_stock_cost': total_stock_cost,
+        'potential_revenue': potential_revenue,
+        'section': 'product',
+    }
     return render(request, 'Product/product_detail.html', context)
+
 
 @login_required(login_url='login')
 @permission_required('read_only') # dev
@@ -221,11 +261,25 @@ def product_update(request, business_slug, product_slug, product_id):
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
     
     if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES, instance=product, business=business)
-        
+        form = ProductForm(request.POST, request.FILES, instance=product, business=business, user=request.user)
         if form.is_valid():
             product = form.save(commit=False)
             product.name = product.name.title()
+            
+            existing = Product.all_objects.filter(
+                business=business,
+                name__iexact=product.name.title(),
+            ).exclude(id=product_id).first()
+        
+            if existing:
+                if existing.is_active:
+                    messages.warning(request, f"{existing.name} already exists.")
+                    return redirect('product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
+                else:
+                    # Archived twin exists — offer restore instead of creating duplicate
+                    messages.info(request,f"{existing.name} exists in your archive.")
+                    return redirect('product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
+            
             product.save()
             
             log_activity(business, request.user, 'product.updated',
@@ -234,9 +288,9 @@ def product_update(request, business_slug, product_slug, product_id):
             messages.success(request, f"{product.name} has been updated.")
             return redirect('product-list', business_slug=business.slug)
     else:
-        form = ProductForm(instance=product, business=business)
+        form = ProductForm(instance=product, business=business, user=request.user)
         
-    context = {'form': form, 'product': product}
+    context = {'form': form, 'product': product, 'section': 'product'}
     return render(request, 'Product/product_update.html', context)
 
 
@@ -267,7 +321,7 @@ def product_archive(request, business_slug, product_slug, product_id):
 def restore_batch_product(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
-    Product.objects.filter(business=business).update(prepared_quantity=F('default_quantity'))
+    Product.goods.filter(business=business).update(prepared_quantity=F('default_quantity'))
     messages.success(request, 'All products has been restored successfully.')
     return redirect('product-list', business_slug=business.slug)
 
@@ -304,30 +358,37 @@ def add_product_to_preset(request, business_slug):
             messages.warning(request, "Please add a preset title and don't forget to click the checkbox.")
             
         if product_checkbox and product_name:
+            # only non-service cart items can seed a preset
+            sale_products = []
+            for product_id, data in sale.items():
+                product = Product.objects.filter(business=business, id=product_id).first()
+                if not product or product.is_service:
+                    continue
+                sale_products.append((product, data))
+
+            if not sale_products:
+                messages.warning(request, "Service fees can't be saved as presets — presets are for products only.")
+                return redirect('view-sale', business_slug=business.slug)
+
             preset, _ = ProductPreset.objects.get_or_create(
                 business=business,
                 user=business.user,
                 name=product_name.title(),
-                defaults={
-                'is_active':True, 
-                'created_by':request.user
-                
-            })
-            
-            for product_id, data in sale.items():
-                product = get_object_or_404(Product, business=business, id=product_id)
-                quantity = data.get('quantity', 0)
-                cost_price = data.get('cost_price', 0)
-                
+                defaults={'is_active': True, 'created_by': request.user},
+            )
+
+            for product, data in sale_products:
                 ProductPresetItem.objects.get_or_create(
                     preset=preset,
                     product=product,
                     defaults={
-                    'quantity': quantity,
-                    'cost_price': Decimal(cost_price),
-                }
-)
-            messages.success(request, f"{product_name} has been added to preset.")  
+                        'quantity': data.get('quantity', 0),
+                        'cost_price': Decimal(data.get('cost_price', 0)),
+                    }
+                )
+
+            messages.success(request, f"{product_name} has been added to preset.")
+
 
     return redirect('view-sale', business_slug=business.slug)
 
@@ -336,7 +397,7 @@ def list_product_preset(request, business_slug):
     sale = request.session.get('sale', {})
     
     business = get_business_for_user(request.user, business_slug)
-    presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).filter(business=business).order_by('-created_at')
+    presets = get_queryset_for_user(request.user, ProductPreset.objects.all()).filter(business=business).order_by('is_locked', 'name')
     
     form = ProductPresetFilterForm(request.GET or None)
     
@@ -438,6 +499,27 @@ def edit_product_preset(request, business_slug, preset_id, preset_slug):
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
+def remove_product_preset_item(request, business_slug, preset_id, item_id):
+    business = get_business_for_user(request.user, business_slug)
+    preset = get_object_or_404(ProductPreset, business=business, id=preset_id)
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    # Empty-preset guard
+    if preset.product_preset_items.count() <= 1:
+        messages.error(request, "A preset needs at least one item. Delete the preset instead.")
+        return HttpResponse(status=204, headers={'HX-Refresh': 'true'})
+
+    item = get_object_or_404(ProductPresetItem, id=item_id, preset=preset)
+    name = item.product.name
+    item.delete()
+    messages.success(request, f"{name} removed from {preset.name}.")
+    return HttpResponse("")  # htmx swaps the row out with empty content
+
+
+
+@login_required(login_url='login')
+@permission_required('staff_delete')
 def delete_product_preset(request, business_slug, preset_slug, preset_id):
     business = get_business_for_user(request.user, business_slug)
     preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
@@ -519,7 +601,7 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
 @permission_required('add') # dev
 def archived_products(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    products = Product.all_objects.filter(business=business, is_active=False).order_by('-id')
+    products = Product.all_objects.filter(business=business, is_active=False, is_service=False).order_by('-id')
     return render(request, 'Product/archived_products.html', {
         'products': products,
         'business': business,
@@ -547,3 +629,155 @@ def restore_product(request, business_slug, product_id):
 
         messages.success(request, f"{product.name} restored.")
     return redirect('archived-products', business_slug=business.slug)
+
+# ── Service Fees ──────────────────────────────────────────────
+@login_required(login_url='login')
+def service_list(request, business_slug):
+    cart_count = 0
+    sale = request.session.get('sale', '')
+    if sale:
+        cart_count = sum(item['quantity'] for item in sale.values())
+    business = get_business_for_user(request.user, business_slug)
+
+    services = get_queryset_for_user(request.user, Product.services.all()) \
+        .filter(business=business) \
+        .order_by('is_locked', 'name')
+
+    search = request.GET.get('search', '').strip()
+    if search:
+        services = services.filter(
+            Q(name__icontains=search) | Q(selling_price__icontains=search)
+        )
+
+    all_services = services.count()
+
+    paginator = Paginator(services, 8)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    context = {
+        'page_obj': page_obj,
+        'services': page_obj.object_list,
+        'search': search,
+        'all_services': all_services,
+        'cart_count': cart_count,
+        'section': 'service',
+    }
+    return render(request, 'Product/service_list.html', context)
+
+
+@login_required(login_url='login')
+@permission_required('add')  # dev
+def service_create(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
+    if request.method == 'POST':
+        form = ServiceForm(request.POST, request.FILES, business=business, user=request.user)
+        if form.is_valid():
+            service = form.save(commit=False)
+            existing = Product.all_objects.filter(
+                business=business, name__iexact=service.name.title(),
+            ).first()
+            if existing:
+                messages.warning(request, f"{existing.name} already exists.")
+                return redirect('service-create', business_slug=business.slug)
+
+            service.user = business.user
+            service.name = service.name.title()
+            service.business = business
+            service.created_by = request.user
+            service.save()
+
+            log_activity(business, request.user, 'product.created',
+                target=service, description=f"{service.name} (service fee) added")
+
+            messages.success(request, f"{service.name} has been created.")
+            return redirect('service-list', business_slug=business.slug)
+    else:
+        form = ServiceForm(business=business, user=request.user)
+
+    context = {'form': form, 'section': 'service'}
+    return render(request, 'Product/service_create.html', context)
+
+
+@login_required(login_url='login')
+@permission_required('read_only')  # dev
+def service_update(request, business_slug, service_slug, service_id):
+    business = get_business_for_user(request.user, business_slug)
+    service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
+
+    if request.method == 'POST':
+        form = ServiceForm(request.POST, request.FILES, instance=service, business=business, user=request.user)
+        if form.is_valid():
+            service = form.save(commit=False)
+            service.name = service.name.title()
+
+            existing = Product.all_objects.filter(
+                business=business,
+                name__iexact=service.name.title(),
+            ).exclude(id=service.id).first()
+
+            if existing:
+                if existing.is_active:
+                    messages.warning(request, f"{existing.name} already exists.")
+                else:
+                    messages.info(request, f"{existing.name} exists in your archive.")
+                return redirect('service-update', business_slug=business.slug,
+                                service_id=service_id, service_slug=service_slug)
+
+            service.save()
+
+            log_activity(business, request.user, 'product.updated',
+                target=service, description=f"{service.name} (service fee) updated")
+
+            messages.success(request, f"{service.name} has been updated.")
+            return redirect('service-list', business_slug=business.slug)
+    else:
+        form = ServiceForm(instance=service, business=business, user=request.user)
+
+    context = {'form': form, 'service': service, 'section': 'service'}
+    return render(request, 'Product/service_update.html', context)
+
+
+
+@login_required(login_url='login')
+@permission_required('staff_delete')
+@require_POST
+def service_archive(request, business_slug, service_slug, service_id):
+    business = get_business_for_user(request.user, business_slug)
+    service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
+    service.is_active = False
+    service.save(update_fields=['is_active'])
+    messages.success(request, f"{service.name} has been removed.")
+    return redirect('service-list', business_slug=business.slug)
+
+@login_required(login_url='login')
+@permission_required('owner_only')  # owner
+@permission_required('add')  # dev
+def archived_services(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    services = Product.all_objects.filter(
+        business=business, is_active=False, is_service=True
+    ).order_by('-id')
+    return render(request, 'Product/archived_service.html', {
+        'services': services,
+        'business': business,
+        'section': 'service',
+    })
+
+
+@login_required(login_url='login')
+@permission_required('owner_only')  # owner
+@permission_required('add')  # dev
+def restore_service(request, business_slug, service_id):
+    business = get_business_for_user(request.user, business_slug)
+    service = get_object_or_404(
+        Product.all_objects, business=business, id=service_id,
+        is_active=False, is_service=True,
+    )
+    if request.method == 'POST':
+        service.is_active = True
+        service.save(update_fields=['is_active'])
+        log_activity(business, request.user, 'product.restored',
+            target=service, description=f"{service.name} (service fee) restored")
+        messages.success(request, f"{service.name} restored.")
+    return redirect('archived-services', business_slug=business.slug)
