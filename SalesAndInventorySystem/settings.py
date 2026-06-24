@@ -157,9 +157,10 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     
-    'subscription.middleware.SubscriptionExpiryMiddleWare', 
-    
+    'subscription.middleware.SubscriptionExpiryMiddleware', 
+
     'django.contrib.messages.middleware.MessageMiddleware',
+    'subscription.middleware.InactiveOwnerLogoutOwnerMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
     

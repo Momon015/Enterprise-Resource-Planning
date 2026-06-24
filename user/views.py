@@ -279,6 +279,11 @@ def user_login(request):
             user = authenticate(username=username, password=password)
 
         if user:
+            # Block staff whose owner has deactivated their business account
+            if user.role == 'staff' and user.owner  and not user.owner.is_active:
+                messages.error(request, f"Your business account is currently inactive. Please contact your owner.")
+                return redirect('login')
+            
             login(request, user)
             if user.role == 'staff':
                 business = BusinessProfile.objects.filter(employees__staff_user=request.user).first()

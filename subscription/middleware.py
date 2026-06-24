@@ -1,4 +1,8 @@
-class SubscriptionExpiryMiddleWare:
+from django.contrib.auth import logout
+from django.contrib import messages
+from django.shortcuts import redirect
+
+class SubscriptionExpiryMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -10,4 +14,19 @@ class SubscriptionExpiryMiddleWare:
                 bp = getattr(biz, 'plan', None)
                 if bp and bp.is_expired():
                     bp.downgrade_to_free()
+        return self.get_response(request)
+
+class InactiveOwnerLogoutOwnerMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        
+    def __call__(self, request):
+        user = request.user
+        if user.is_authenticated and user.role == 'staff':
+            owner = user.owner
+            if owner and not owner.is_active:
+                logout(request)
+                messages.error(request,
+                    "Your business account is currently inactive. Please contact the owner.")
+                return redirect('login')
         return self.get_response(request)
