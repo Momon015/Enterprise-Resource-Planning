@@ -238,13 +238,15 @@ class ShiftEmployee(TimeStampModel):
         ).aggregate(t=Sum('refund_total'))['t'] or Decimal('0')
 
     def _purchase_payments_total(self, method):
-        """Cash leaving the drawer for supplier purchases during this shift."""
+        """Cash leaving the drawer for supplier purchases during this shift.
+        COD is physically cash, so it folds into the cash bucket."""
         from Expense.models import PurchasePayment
         if not self.clock_in:
             return Decimal('0')
+        methods = ['cash', 'cod'] if method == 'cash' else [method]
         return PurchasePayment.objects.filter(
             business=self.shift.business,
-            method=method,
+            method__in=methods,
             created_at__gte=self.clock_in,
             created_at__lte=self._shift_window_end(),
         ).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal('0')

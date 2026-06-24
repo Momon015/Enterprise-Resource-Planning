@@ -174,8 +174,9 @@ document.addEventListener("DOMContentLoaded", function () {
                   {% elif reason == 'service' %}
                     <span class="sl-badge sl-badge-info">Service Use</span>
                   {% elif reason == 'theft' %}
-                    <span class="sl-badge sl-badge-danger">Theft</span>
-                    <span class="sl-badge sl-badge-light">{{ waste.get_reason_display }}</span>
+                    <span class="sl-badge sl-badge-light">Theft</span>
+                  {% else %}
+                    <span class="sl-badge">-</span>
                   {% endif %}
                   {% endwith %}
                 </td>

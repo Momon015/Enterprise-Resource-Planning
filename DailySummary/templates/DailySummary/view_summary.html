@@ -46,20 +46,22 @@ document.addEventListener("DOMContentLoaded", function () {
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">Home</div>
-      <h1 class="page-title">Daily Profit</h1>
-      <p class="page-subtitle">Breakdown of revenue, costs, and net profit...</p>
+      <h1 class="page-title">{% if basis == 'cash' %}Daily Cash Flow{% else %}Business Performance{% endif %}</h1>
+      <p class="page-subtitle">{% if basis == 'cash' %}Money collected and spent each day{% else %}Sales, costs, and net profit each day{% endif %}</p>
     </div>
 
-    {% comment %} <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-calendar3"></i>
-        <strong>{{ summary_list|length }}</strong> day{{ summary_list|length|pluralize }} recorded
+    <div class="page-header-right">
+      <div style="display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:.85rem;">
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
+           style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'cash' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
+          <i class="bi bi-cash-stack"></i> Cash Flow
+        </a>
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
+           style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'accrual' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
+          <i class="bi bi-graph-up-arrow"></i> Business Performance
+        </a>
       </div>
-      <div class="header-stat success">
-        <i class="bi bi-trophy"></i>
-        Best month: <strong>{{ best_month_name }}</strong>
-      </div>
-    </div> {% endcomment %}
+    </div>
   </div>
 
   <div class="two-col-layout">
@@ -79,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </summary>
         <div class="filter-body">
           <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
-
+            <input type="hidden" name='basis' value={{ basis }}>
             <div class="form-field">
               <label class="form-label">
                 <i class="bi bi-calendar3"></i> Month
@@ -110,13 +112,12 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-primary btn-sm" type="submit">
                 <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'view-summary' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+              <a href="{% url 'view-summary' business_slug=current_business.slug %}?basis={{ basis }}" class="btn btn-light btn-sm">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
               </a>
             </div>
 
           </form>
-
         </div>
       </details>
 
@@ -131,100 +132,103 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="table-responsive">
-          {% if summary_list %}
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th class="sl-text-end mobile-center">Revenue</th>
-                <th class="sl-text-end col-mobile-hidden">Waste Cost</th>
-                <th class="sl-text-end col-mobile-hidden">Material Cost</th>
-                <th class="sl-text-end col-mobile-hidden">Labor Cost</th>
-                <th class="sl-text-end col-mobile-hidden">Other Expense</th>
-                <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
-                <th class="sl-text-end mobile-center">Net Profit</th>
-                {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for summary in page_obj %}
-              <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}'">
-                <td>
-                  <div class="cell-primary">
-                    {{ summary.date|date:"M d" }}<span class="col-mobile-hidden">, {{ summary.date|date:"Y" }}</span></div>
-                  <div class="cell-sub">{{ summary.date|date:"l" }}</div>
-                </td>
-                <td class="sl-text-end mobile-center">
-                  <span class="sl-fw-semibold" style="color:var(--success);">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span>
-                </td>
-                <td class="sl-text-end col-mobile-hidden">
-                  {% if summary.total_waste_cost %}
-                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>
-                  {% else %}
-                    <span class="cell-sub">₱0.00</span>
-                  {% endif %}
-                </td>
-                <td class="sl-text-end col-mobile-hidden">
-                  {% if summary.total_material_cost %}
-                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_material_cost|floatformat:2|intcomma }}</span>
-                  {% else %}
-                    <span class="cell-sub">₱0.00</span>
-                  {% endif %}
-                </td>
+          {% if basis == 'cash' %}
 
-                <td class="sl-text-end col-mobile-hidden">
-                  {% if summary.total_salary_cost %}
-                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>
-                  {% else %}
-                    <span class="cell-sub">₱0.00</span>
-                  {% endif %}
-                </td>
+            {% if cash_summary_list %}
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th class="sl-text-end mobile-center">Sales</th>
+                  <th class="sl-text-end col-mobile-hidden">Product Cost</th>
+                  <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
+                  <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
+                  <th class="sl-text-end mobile-center">Net Cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in cash_summary_list %}
+                <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis={{ basis }}'">
+                  <td>
+                    <div class="cell-primary">{{ row.date|date:"M d" }}<span class="col-mobile-hidden">, {{ row.date|date:"Y" }}</span></div>
+                    <div class="cell-sub">{{ row.date|date:"l" }}</div>
+                  </td>
+                  <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="color:var(--success);">₱{{ row.collected|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.paid|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.expense|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end col-mobile-only mobile-center"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.spent|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="{% if row.net_cash < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">₱{{ row.net_cash|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail"><i class="bi bi-chevron-right"></i></a></div></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
 
-                <td class="sl-text-end col-mobile-hidden">
-                  {% if summary.total_expense_cost %}
-                    <span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_expense_cost|floatformat:2|intcomma }}</span>
-                  {% else %}
-                    <span class="cell-sub">₱0.00</span>
-                  {% endif %}
-                </td>
 
-                <!-- Mobile Only -->
-                <!-- Total Cost -->
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-cash-stack"></i></div>
+              <h3 class="empty-title">No cash movement</h3>
+              <p class="empty-text">No money collected or spent for this period.</p>
+            </div>
+            {% endif %}
 
-                <td class="sl-text-end col-mobile-only mobile-center">
-                  <span class="sl-fw-semibold" style="color:var(--danger);">
-                    ₱{{ summary.total_waste_cost|add:summary.total_material_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}
-                  </span>
-                </td>
-
-                <td class="sl-text-end mobile-center">
-                  <span class="sl-fw-semibold" style="{% if summary.net_profit < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">
-                    ₱{{ summary.net_profit|floatformat:2|intcomma }}
-                  </span>
-                </td>
-                <td class="sl-text-center">
-                  <div class="btn-group">
-                    <a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}" 
-                      class="row-chevron" title="View detail">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
           {% else %}
-          <div class="empty-state">
-            <div class="empty-icon"><i class="bi bi-bar-chart-line"></i></div>
-            <h3 class="empty-title">No summary data found</h3>
-            <p class="empty-text">Adjust your filters or record transactions to see a summary.</p>
-          </div>
+
+            {% if summary_list %}
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th class="sl-text-end mobile-center">Sales</th>
+                  <th class="sl-text-end col-mobile-hidden">Product Cost</th>
+                  <th class="sl-text-end col-mobile-hidden">Staff Cost</th>
+                  <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
+                  <th class="sl-text-end col-mobile-hidden">Waste &amp; Losses</th>
+                  <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
+                  <th class="sl-text-end mobile-center">Net Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for summary in page_obj %}
+                <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}?basis={{ basis }}'">
+                  <td>
+                    <div class="cell-primary">{{ summary.date|date:"M d" }}<span class="col-mobile-hidden">, {{ summary.date|date:"Y" }}</span></div>
+                    <div class="cell-sub">
+                      {{ summary.date|date:"l" }}
+                      {% if summary.is_closed %}
+                      <span class="sl-badge sl-badge-light" title="Books closed{% if summary.closed_at %} {{ summary.closed_at|date:'M d, Y' }}{% endif %} — locked. Corrections post to today."><i class="bi bi-lock-fill"></i> Closed</span>
+                      {% else %}
+                      <span class="sl-badge sl-badge-light" title="Still open — locks once the day ends."><i class="bi bi-unlock"></i> Open</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="color:var(--success);">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end col-mobile-hidden">{% if summary.total_material_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_material_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
+                  <td class="sl-text-end col-mobile-hidden">{% if summary.total_salary_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
+                  <td class="sl-text-end col-mobile-hidden">{% if summary.total_expense_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_expense_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
+                  <td class="sl-text-end col-mobile-hidden">{% if summary.total_waste_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
+                  <td class="sl-text-end col-mobile-only mobile-center"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|add:summary.total_material_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="{% if summary.net_profit < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">₱{{ summary.net_profit|floatformat:2|intcomma }}</span></td>
+                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail"><i class="bi bi-chevron-right"></i></a></div></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon"><i class="bi bi-bar-chart-line"></i></div>
+              <h3 class="empty-title">No summary data found</h3>
+              <p class="empty-text">Adjust your filters or record transactions to see a summary.</p>
+            </div>
+            {% endif %}
+
           {% endif %}
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj.paginator.num_pages > 1 %}
+        {% if basis != 'cash' and page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
@@ -277,19 +281,35 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
         <div class="card-body" style="padding: 1rem;">
 
-          <!-- Featured Net Profit -->
+          <!-- Featured Net -->
+          {% if basis == 'cash' %}
+          <div class="period-net {% if grand_net_cash < 0 %}period-net--loss{% endif %}">
+            <div class="period-net-label">NET CASH</div>
+            <div class="period-net-value">₱{{ grand_net_cash|floatformat:2|intcomma }}</div>
+            {% if grand_collected > 0 %}
+            <div class="period-net-sub">
+              <i class="bi bi-percent"></i>
+              {{ cash_margin|floatformat:1 }}% margin
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
           <div class="period-net {% if grand_net_profit < 0 %}period-net--loss{% endif %}">
             <div class="period-net-label">NET PROFIT</div>
             <div class="period-net-value">₱{{ grand_net_profit|floatformat:2|intcomma }}</div>
+            {% if grand_total_revenue > 0 %}
+            <div class="period-net-sub">
+              <i class="bi bi-percent"></i>
+              {{ profit_margin|floatformat:1 }}% margin
+            </div>
+            {% endif %}
           </div>
+          {% endif %}
+
 
           <!-- Insights strip -->
           <div class="period-insights">
-            <div class="period-insight">
-              <i class="bi bi-percent"></i>
-              <span class="period-insight-label">Profit margin</span>
-              <span class="period-insight-value">{{ profit_margin|floatformat:1 }}%</span>
-            </div>
+
             <div class="period-insight">
               <i class="bi bi-check-circle"></i>
               <span class="period-insight-label">Profitable days</span>
@@ -314,10 +334,11 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Breakdown -->
           <dl class="period-breakdown">
             <div><dt>Revenue</dt><dd class="text-success">₱{{ grand_total_revenue|floatformat:2|default:"0.00"|intcomma }}</dd></div>
-            <div><dt>Material Cost</dt><dd class="text-danger">₱{{ grand_total_material_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
-            <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ grand_total_waste_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
-            <div><dt>Salary Cost</dt><dd class="text-danger">₱{{ grand_total_salary_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
-            <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ grand_total_expense_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Collected</dt><dd class="text-success">₱{{ grand_collected|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Receivables (utang)</dt><dd style="color:var(--muted);">₱{{ grand_receivables|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Material Cost</dt><dd class="text-danger">₱{{ grand_material_total_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
+            <div><dt>Paid</dt><dd class="text-danger">₱{{ grand_paid|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Payables (utang)</dt><dd style="color:var(--muted);">₱{{ grand_payables|floatformat:2|intcomma }}</dd></div>
           </dl>
         </div>
       </div>
@@ -330,11 +351,18 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body quick-ranges">
-          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today" class="quick-range-btn"><i class="bi bi-calendar-day"></i>Today</a>
-          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week" class="quick-range-btn"><i class="bi bi-clock-history"></i>Last week</a>
-          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_week" class="quick-range-btn"><i class="bi bi-calendar-week"></i>This week</a>
-          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_month" class="quick-range-btn"><i class="bi bi-calendar3"></i>This month</a>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today&basis={{ basis }}"
+             class="quick-range-btn{% if request.GET.period == 'today' %} active{% endif %}"><i class="bi bi-calendar-day"></i>Today</a>
+          {% if current_business.plan.has_weekly_summary %}
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week&basis={{ basis }}"
+             class="quick-range-btn{% if request.GET.period == 'last_week' %} active{% endif %}"><i class="bi bi-clock-history"></i>Last week</a>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_week&basis={{ basis }}"
+             class="quick-range-btn{% if request.GET.period == 'this_week' %} active{% endif %}"><i class="bi bi-calendar-week"></i>This week</a>
+          {% endif %}
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_month&basis={{ basis }}"
+             class="quick-range-btn{% if request.GET.period == 'this_month' %} active{% endif %}"><i class="bi bi-calendar3"></i>This month</a>
         </div>
+
       </div>
 
     </aside>

@@ -1,29 +1,67 @@
 {% extends 'main.html' %}
 {% load humanize %}
 {% block content %}
+
+<style>
+  .receipt-group { border-top: 1px solid var(--border); }
+  .receipt-group:first-of-type { border-top: none; }
+  .receipt-head {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .65rem 1rem; cursor: pointer; list-style: none;
+  }
+
+  .receipt-head::-webkit-details-marker { display: none; }
+  .receipt-head:hover { background: rgba(0,0,0,0.02); }
+  .receipt-ref { display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .85rem; }
+  .receipt-ref a { color: var(--text); text-decoration: none; }
+  .receipt-ref a:hover { color: var(--accent); }
+  .receipt-total { font-weight: 600; font-size: .85rem; white-space: nowrap; }
+  .receipt-outstanding { margin-left: auto; font-size: .78rem; font-weight: 600; color: var(--warning); white-space: nowrap; }
+  .receipt-balance { font-weight: 500; font-size: .7rem; color: var(--muted); }
+  .receipt-chevron { color: var(--muted); font-size: .72rem; transition: transform .15s ease; }
+  .receipt-group[open] > .receipt-head .receipt-chevron { transform: rotate(90deg); }
+  .receipt-items { padding: 0 1rem .5rem 2.1rem; }
+  .receipt-chip--paid    { background: rgba(34,197,94,0.12);  color: var(--success); }
+  .receipt-chip--partial { background: rgba(212,129,26,0.12); color: var(--warning); }
+  .receipt-chip--unpaid  { background: rgba(220,38,38,0.12); color: var(--danger); }
+  .receipt-expand-all {
+    background: none; border: none; cursor: pointer; color: var(--accent);
+    font-size: .78rem; font-weight: 600; display: inline-flex; align-items: center; gap: .3rem;
+  }
+
+  .sd-close-banner {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .7rem .9rem; margin-bottom: 1rem;
+    background: rgba(34,197,94,.10);
+    border: 1px solid var(--success);
+    border-radius: var(--radius, 10px);
+    color: var(--text); font-size: .9rem;
+  }
+  .sd-close-banner i { color: var(--success); font-size: 1.1rem; }
+  .sd-close-banner strong { color: var(--success); }
+
+</style>
+<script>
+  function toggleAllReceipts(btn, groupId) {
+    const groups = document.querySelectorAll('#' + groupId + ' .receipt-group');
+    const anyClosed = Array.from(groups).some(g => !g.open);
+    groups.forEach(g => g.open = anyClosed);
+    btn.innerHTML = anyClosed
+      ? '<i class="bi bi-arrows-collapse"></i> Collapse all'
+      : '<i class="bi bi-arrows-expand"></i> Expand all';
+  }
+</script>
+
 {% block locked_banner %}{% endblock %}
 
 <div class="page-wrapper">
-
-  {% comment %} <div class="mobile-back-row">
-    <a href="{% url 'view-summary' business_slug=current_business.slug %}"
-      class="mobile-back" aria-label="Back">
-      <i class="bi bi-chevron-left"></i>
-    </a>
-      <div class="mobile-back-context">
-        <div class="mobile-back-context__primary">{{ sales.first.date|date:"F d, Y" }}</div>
-        <div class="mobile-back-context__sub">{{ sales.first.date|date:"l" }}</div>
-      </div>
-      
-  </div> {% endcomment %}
 
   <!-- PAGE HEADER -->
   <div class="sd-page-header">
     <div>
       <div class="page-breadcrumb">REPORTS</div>
       <h4 class="sd-page-title">
-        {% comment %} <i class="bi bi-calendar2-check"></i> {% endcomment %}
-        Daily Profit Details
+        {% if basis == 'cash' %}Daily Cash Flow Details{% else %}Business Performance Details{% endif %}
       </h4>
       <p class="sd-page-breadcrumb">
         Summary<span>•</span>Daily Breakdown
@@ -32,103 +70,240 @@
         {% endif %}
       </p>
     </div>
+
+    <div style="display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:.85rem;">
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
+         style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'cash' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
+        <i class="bi bi-cash-stack"></i> Cash Flow
+      </a>
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
+         style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'accrual' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i> Business Performance
+      </a>
+    </div>
   </div>
 
-  <div class="two-col-layout">
-    
-    <!-- ========== LEFT PANEL ========== -->
-     
-    <div class="left-panel">
-      {% comment %} <div class="detail-grid-2x2"> {% endcomment %}
-      
+  <!-- ↑ line 84: end of .sd-page-header -->
 
-      <!-- SALES TRANSACTIONS -->
+  {% if basis != 'cash' and day_close %}
+  <div class="sd-close-banner">
+    <i class="bi bi-lock-fill"></i>
+    <div>
+      <strong>This day is closed.</strong>
+      The books for {{ day_close.date|date:"M d, Y" }} were locked
+      {% if day_close.closed_at %}on {{ day_close.closed_at|date:"M d, Y" }}{% endif %}
+      and can't change. Any correction posts to today.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="two-col-layout">
+
+    <!-- ========== LEFT PANEL ========== -->
+    <div class="left-panel">
+
+      {% if basis == 'cash' %}
+
+      <!-- PAYMENTS RECEIVED -->
       <details class="filter-card" open>
         <summary>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem;">
-              <i class="bi bi-receipt"></i>
-            </div>
-            <span>Sales Transactions</span>
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem;"><i class="bi bi-cash-stack"></i></div>
+            <span>Payments Received</span>
           </div>
-          <span class="sl-badge sl-badge-light">{{ sales|length }} transaction{{ sales|length|pluralize }}</span>
+          <span class="sl-badge sl-badge-light">{{ sales_payments|length }} payment{{ sales_payments|length|pluralize }}</span>
         </summary>
         <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th class="sl-text-center">Qty</th>
-                  <th class="sl-text-end">Revenue</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
               <tbody>
-                {% for item in sale_items %}
-                {% if item.product.is_service %}{% ifchanged item.product.is_service %}
+                {% for p in sales_payments %}
                 <tr>
-                  <td colspan="3" style="padding-top:.6rem; font-weight:600; font-size:.76rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);">Services</td>
+                  <td>
+                    <span class="receipt-ref"><a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=p.sale.id %}">{{ p.sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
+                    {% if p.pay_status == 'partial' %}
+                    <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
+                    {% elif p.is_earlier %}
+                    <div class="cell-sub" style="color:var(--success);">{{ p.sale.date|date:"M d" }} debt{% if p.is_final %} · fully paid{% endif %}</div>
+                    {% endif %}
+                  </td>
+                  <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--success);">₱{{ p.amount|floatformat:2|intcomma }}</td>
                 </tr>
-                {% endifchanged %}{% endif %}
-                <tr>
-                  <td><div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div></td>
-                  <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold">₱{{ item.net_sale_value|floatformat:2|intcomma }}</td>
-                </tr>
-                {% empty %}
-                <tr class="sl-empty-row"><td colspan="3">No sale items.</td></tr>
-                {% endfor %}
+                {% empty %}<tr class="sl-empty-row"><td colspan="3">No payments received.</td></tr>{% endfor %}
+
+
+
               </tbody>
             </table>
           </div>
-
         </div>
       </details>
 
-      <!-- PURCHASES -->
+      <!-- PAYMENTS MADE -->
       <details class="filter-card">
         <summary>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:rgba(212,129,26,0.1); color:var(--warning);">
-              <i class="bi bi-box-seam"></i>
-            </div>
-            <span>Purchase Breakdown</span>
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:rgba(212,129,26,0.1); color:var(--warning);"><i class="bi bi-cash-coin"></i></div>
+            <span>Payments Made</span>
           </div>
-          <span class="sl-badge sl-badge-light">{{ purchases|length }} purchase{{ purchases|length|pluralize }}</span>
+          <span class="sl-badge sl-badge-light">{{ purchase_payments|length }} payment{{ purchase_payments|length|pluralize }}</span>
         </summary>
         <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
-              <thead>
+              <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
+            </tbody>
+                {% for p in purchase_payments %}
                 <tr>
-                  <th>Item</th>
-                  <th class="sl-text-center">Qty</th>
-                  <th class="sl-text-end">Cost</th>
+                  <td>
+                    <span class="receipt-ref"><a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.purchase.id %}">{{ p.purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
+                    {% if p.pay_status == 'partial' %}
+                    <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} utang · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
+                    {% elif p.is_earlier %}
+                    <div class="cell-sub" style="color:var(--success);">{{ p.purchase.purchase_date|date:"M d" }} utang{% if p.is_final %} · cleared{% endif %}</div>
+                    {% endif %}
+                  </td>
+                  <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ p.amount|floatformat:2|intcomma }}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {% for item in purchase_items %}
-                <tr>
-                  <td><div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div></td>
-                  <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
-                  <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
-                </tr>
-                {% empty %}
-                <tr class="sl-empty-row"><td colspan="3">No purchases.</td></tr>
-                {% endfor %}
+                {% empty %}<tr class="sl-empty-row"><td colspan="3">No payments made.</td></tr>{% endfor %}
+
+
+
               </tbody>
             </table>
           </div>
         </div>
       </details>
+
+      {% else %}
+
+      <!-- SALES TRANSACTIONS (grouped per receipt) -->
+      <details class="filter-card" open id="salesGroup">
+        <summary>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem;"><i class="bi bi-receipt"></i></div>
+            <span>Sales Transactions</span>
+            <span class="sl-badge sl-badge-light">{{ sales|length }} transaction{{ sales|length|pluralize }}</span>
+          </div>
+          <button type="button" class="receipt-expand-all"
+                  onclick="event.preventDefault(); event.stopPropagation(); toggleAllReceipts(this, 'salesGroup');">
+            <i class="bi bi-arrows-expand"></i> Expand all
+          </button>
+        </summary>
+        <div class="filter-body" style="padding:0;">
+          {% for sale in sales %}
+          <details class="receipt-group">
+            <summary class="receipt-head">
+              <span class="receipt-ref">
+                <i class="bi bi-chevron-right receipt-chevron"></i>
+                <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}"
+                   onclick="event.stopPropagation();">{{ sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
+              </span>
+              <span class="sl-badge receipt-chip receipt-chip--{{ sale.status_asof }}">{{ sale.display_asof }}</span>
+              {% if sale.status_asof == 'partial' %}
+              <span class="receipt-total">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
+              <span class="receipt-outstanding">Paid ₱{{ sale.paid_asof|floatformat:2|intcomma }} · Outstanding ₱{{ sale.outstanding_asof|floatformat:2|intcomma }}</span>
+              {% if sale.settled_later %}
+              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:.5rem;" title="Collected in full on {{ sale.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ sale.settled_later|date:"M d" }}</span>
+              {% endif %}
+              {% else %}
+              <span class="receipt-total">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
+              {% if sale.settled_later %}
+              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:auto;" title="Collected in full on {{ sale.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ sale.settled_later|date:"M d" }}</span>
+              {% endif %}
+              {% endif %}
+            </summary>
+
+            <div class="receipt-items">
+              <table class="data-table">
+                <thead><tr><th>Item</th><th class="sl-text-center">Qty</th><th class="sl-text-end">Amount</th></tr></thead>
+                <tbody>
+                  {% for item in sale.sale_items.all %}
+                  <tr>
+                    <td><div class="cell-primary">{{ item.name|capfirst|default:"No name" }}</div></td>
+                    <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
+                    <td class="sl-text-end sl-fw-semibold">₱{{ item.net_sale_value|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+          {% empty %}
+          <div class="sl-empty-row" style="padding:1rem; text-align:center; color:var(--muted);">No sales.</div>
+          {% endfor %}
+
+        </div>
+      </details>
+
+      <!-- PURCHASE BREAKDOWN (grouped per PO) -->
+      <details class="filter-card" id="purchaseGroup">
+        <summary>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:rgba(212,129,26,0.1); color:var(--warning);"><i class="bi bi-box-seam"></i></div>
+            <span>Purchase Breakdown</span>
+            <span class="sl-badge sl-badge-light">{{ purchases|length }} purchase{{ purchases|length|pluralize }}</span>
+          </div>
+          <button type="button" class="receipt-expand-all"
+                  onclick="event.preventDefault(); event.stopPropagation(); toggleAllReceipts(this, 'purchaseGroup');">
+            <i class="bi bi-arrows-expand"></i> Expand all
+          </button>
+        </summary>
+        <div class="filter-body" style="padding:0;">
+          {% for purchase in purchases %}
+          <details class="receipt-group">
+            <summary class="receipt-head">
+              <span class="receipt-ref">
+                <i class="bi bi-chevron-right receipt-chevron"></i>
+                <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}"
+                   onclick="event.stopPropagation();">{{ purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
+              </span>
+              <span class="sl-badge receipt-chip receipt-chip--{{ purchase.status_asof }}">{{ purchase.display_asof }}</span>
+              {% if purchase.status_asof == 'partial' %}
+              <span class="receipt-total">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
+              <span class="receipt-outstanding">Paid ₱{{ purchase.paid_asof|floatformat:2|intcomma }} · Outstanding ₱{{ purchase.outstanding_asof|floatformat:2|intcomma }}</span>
+              {% if purchase.settled_later %}
+              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:.5rem;" title="Paid in full on {{ purchase.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ purchase.settled_later|date:"M d" }}</span>
+              {% endif %}
+              {% else %}
+              <span class="receipt-total">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
+              {% if purchase.settled_later %}
+              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:auto;" title="Paid in full on {{ purchase.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ purchase.settled_later|date:"M d" }}</span>
+              {% endif %}
+              {% endif %}
+            </summary>
+
+            <div class="receipt-items">
+              <table class="data-table">
+                <thead><tr><th>Item</th><th class="sl-text-center">Qty</th><th class="sl-text-end">Cost</th></tr></thead>
+                <tbody>
+                  {% for item in purchase.materials.all %}
+                  <tr>
+                    <td><div class="cell-primary">{{ item.name|capfirst|default:"—" }}</div></td>
+                    <td class="sl-text-center">{{ item.quantity|intcomma }}</td>
+                    <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+          {% empty %}
+          <div class="sl-empty-row" style="padding:1rem; text-align:center; color:var(--muted);">No purchases.</div>
+          {% endfor %}
+
+        </div>
+      </details>
+
 
       <!-- STOCK WASTE -->
       <details class="filter-card">
         <summary>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-trash2"></i>
-            </div>
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-trash2"></i></div>
             <span>Stock Waste</span>
           </div>
           <span class="sl-badge sl-badge-light">{{ waste_items|length }} record{{ waste_items|length|pluralize }}</span>
@@ -136,13 +311,7 @@
         <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th class="sl-text-center">Qty</th>
-                  <th class="sl-text-end">Cost</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Item</th><th class="sl-text-center">Qty</th><th class="sl-text-end">Cost</th></tr></thead>
               <tbody>
                 {% for item in waste_items %}
                 <tr>
@@ -150,23 +319,20 @@
                   <td class="sl-text-center sl-fw-semibold">{{ item.quantity|intcomma }}</td>
                   <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ item.total_material_cost|floatformat:2|intcomma }}</td>
                 </tr>
-                {% empty %}
-                <tr class="sl-empty-row"><td colspan="3">No waste.</td></tr>
-                {% endfor %}
+                {% empty %}<tr class="sl-empty-row"><td colspan="3">No waste.</td></tr>{% endfor %}
               </tbody>
-
             </table>
           </div>
         </div>
       </details>
 
-      <!-- EXPENSES -->
+      {% endif %}
+
+      <!-- EXPENSES (both bases) -->
       <details class="filter-card">
         <summary>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-wallet2"></i>
-            </div>
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-wallet2"></i></div>
             <span>Expenses</span>
           </div>
           <span class="sl-badge sl-badge-light">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
@@ -174,126 +340,125 @@
         <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th class="sl-text-end">Amount</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Name</th><th class="sl-text-end">Amount</th></tr></thead>
               <tbody>
-                {% for expense in expenses %}
-                  {% for exp in expense.expense_items.all %}
-                  <tr>
-                    <td><div class="cell-primary">{{ exp.name|capfirst }}</div></td>
-                    <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ exp.amount|floatformat:2|intcomma }}</td>
-                  </tr>
-                  {% endfor %}
-                {% empty %}
-                <tr class="sl-empty-row"><td colspan="2">No expenses.</td></tr>
-                {% endfor %}
+                {% for expense in expenses %}{% for exp in expense.expense_items.all %}
+                <tr>
+                  <td><div class="cell-primary">{{ exp.name|capfirst }}</div></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ exp.amount|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}{% empty %}<tr class="sl-empty-row"><td colspan="2">No expenses.</td></tr>{% endfor %}
               </tbody>
             </table>
           </div>
         </div>
-
-
       </details>
-    {% comment %} </div> {% endcomment %}
 
-      <!-- LABOR COST -->
+      {% if basis != 'cash' %}
+      <!-- STAFF ON SHIFT -->
       <details class="filter-card">
         <summary>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);">
-              <i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i>
-            </div>
+            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i></div>
             <span>Staff on Shift</span>
           </div>
-          <span class="sl-badge sl-badge-light">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
+          <span class="sl-badge sl-badge-light">{{ shift_employees|length }} staff</span>
         </summary>
         <div class="filter-body" style="padding:0;">
           <div class="table-responsive">
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th class="sl-text-end">Daily Rate</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Name</th><th class="sl-text-end">Daily Rate</th></tr></thead>
               <tbody>
                 {% for emp in shift_employees %}
-                  <tr>
-                    <td><div class="cell-primary">{{ emp.name|capfirst }}</div></td>
-                    <td class="sl-text-end sl-fw-semibold" style="color:var(--muted);">₱{{ emp.daily_rate|floatformat:2|intcomma }}</td>
-                  </tr>
-                {% empty %}
-                <tr class="sl-empty-row"><td colspan="2">No employees recorded.</td></tr>
-                {% endfor %}
+                <tr>
+                  <td><div class="cell-primary">{{ emp.name|capfirst }}</div></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--muted);">₱{{ emp.daily_rate|floatformat:2|intcomma }}</td>
+                </tr>
+                {% empty %}<tr class="sl-empty-row"><td colspan="2">No employees recorded.</td></tr>{% endfor %}
               </tbody>
             </table>
           </div>
         </div>
       </details>
-  </div>
+      {% endif %}
 
-      <!-- ========== RIGHT PANEL ========== -->
-      <div class="right-panel">
+    </div>
 
-        <!-- Day Summary -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-header-title">
-              <i class="bi bi-graph-up-arrow"></i> Day Summary
-            </span>
-            {% if sales %}
-            <span class="card-header-sub">{{ sales.first.date|date:"M d, Y" }}</span>
+
+    <!-- ========== RIGHT PANEL ========== -->
+    <div class="right-panel">
+
+      <!-- Day Summary -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-graph-up-arrow"></i> Day Summary
+          </span>
+          {% if sales %}
+          <span class="card-header-sub">{{ sales.first.date|date:"M d, Y" }}</span>
+          {% endif %}
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+
+          {% if basis == 'cash' %}
+          <div class="period-net {% if net_cash < 0 %}period-net--loss{% endif %}">
+            <div class="period-net-label">NET CASH</div>
+            <div class="period-net-value">₱{{ net_cash|floatformat:2|intcomma|default:0 }}</div>
+            {% if collected > 0 %}
+            <div class="period-net-sub">
+              <i class="bi bi-percent"></i>
+              {% widthratio net_cash collected 100 %}% margin
+            </div>
             {% endif %}
           </div>
-          <div class="card-body" style="padding: 1rem;">
 
-            <!-- Featured Net Profit -->
-            <div class="period-net {% if net_profit < 0 %}period-net--loss{% endif %}">
-              <div class="period-net-label">NET PROFIT</div>
-              <div class="period-net-value">₱{{ net_profit|floatformat:2|intcomma|default:0 }}</div>
-              {% if total_revenue > 0 %}
-              <div class="period-net-sub">
-                <i class="bi bi-percent"></i>
-                {% widthratio net_profit total_revenue 100 %}% margin
-              </div>
-              {% endif %}
+          <dl class="period-breakdown">
+            <div><dt>Sales</dt><dd class="text-success">₱{{ collected|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Product Cost</dt><dd class="text-danger">₱{{ paid|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Business Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
+          </dl>
+          {% else %}
+          <div class="period-net {% if net_profit < 0 %}period-net--loss{% endif %}">
+            <div class="period-net-label">NET PROFIT</div>
+            <div class="period-net-value">₱{{ net_profit|floatformat:2|intcomma|default:0 }}</div>
+            {% if total_revenue > 0 %}
+            <div class="period-net-sub">
+              <i class="bi bi-percent"></i>
+              {% widthratio net_profit total_revenue 100 %}% margin
             </div>
-
-            <!-- Breakdown -->
-            <dl class="period-breakdown">
-              <div><dt>Revenue</dt><dd class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</dd></div>
-              <div><dt>Material Cost</dt><dd class="text-danger">₱{{ total_material_cost|floatformat:2|intcomma }}</dd></div>
-              <div><dt>Waste Cost</dt><dd class="text-danger">₱{{ total_waste_cost|floatformat:2|intcomma }}</dd></div>
-              <div><dt>Salary Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
-              <div><dt>Other Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
-            </dl>
+            {% endif %}
           </div>
+          <dl class="period-breakdown">
+            <div><dt>Sales</dt><dd class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Product Cost</dt><dd class="text-danger">₱{{ total_material_cost|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Staff Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Business Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Waste &amp; Losses</dt><dd class="text-danger">₱{{ total_waste_cost|floatformat:2|intcomma }}</dd></div>
+          </dl>
+          {% endif %}
         </div>
+      </div>
+      
 
-        <!-- At a Glance -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-header-title">
-              <i class="bi bi-clipboard-data"></i> At a glance
-            </span>
-          </div>
-          <div class="card-body" style="padding: 1rem;">
-            <dl class="period-breakdown">
-              <div><dt>Sales</dt><dd>{{ sales|length }}</dd></div>
-              <div><dt>Purchases</dt><dd>{{ purchases|length }}</dd></div>
-              <div><dt>Waste records</dt><dd>{{ waste_items|length }}</dd></div>
-              <div><dt>Expense records</dt><dd>{{ expenses|length }}</dd></div>
-              <div><dt>Staff on shift</dt><dd>{{ shift_employees|length }}</dd></div>
-            </dl>
-          </div>
+      <!-- At a Glance -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-clipboard-data"></i> At a glance
+          </span>
         </div>
-
+        <div class="card-body" style="padding: 1rem;">
+          <dl class="period-breakdown">
+            <div><dt>Sales</dt><dd>{{ sales|length }}</dd></div>
+            <div><dt>Purchases</dt><dd>{{ purchases|length }}</dd></div>
+            <div><dt>Waste records</dt><dd>{{ waste_items|length }}</dd></div>
+            <div><dt>Expense records</dt><dd>{{ expenses|length }}</dd></div>
+            <div><dt>Staff on shift</dt><dd>{{ shift_employees|length }}</dd></div>
+          </dl>
+        </div>
       </div>
 
+    </div>
 
   </div>
 </div>

@@ -411,6 +411,8 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Breakdown -->
           <dl class="period-breakdown">
             <div><dt>Transactions</dt><dd>{{ total_count|default:"0" }}</dd></div>
+            <div><dt>Paid</dt><dd class="text-danger">₱{{ paid|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Payables</dt><dd style="color:var(--muted);">₱{{ payables|floatformat:2|intcomma }}</dd></div>
             <div><dt>Avg per purchase</dt><dd>₱{{ average_cost|floatformat:2|intcomma|default:"0.00" }}</dd></div>
             <div><dt>YTD Spend</dt><dd class="text-danger">₱{{ ytd_spend|floatformat:2|intcomma|default:"0.00" }}</dd></div>
           </dl>

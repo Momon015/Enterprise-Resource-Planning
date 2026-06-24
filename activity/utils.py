@@ -61,3 +61,37 @@ def summarize_items(items, *, qty_attr='quantity', name_attr='name', max_show=1,
     if extras > 0:
         summary += f", +{extras} more"
     return summary
+
+def log_audit(business, actor, action, *, target=None, target_ref='',
+              old_values=None, new_values=None, reason=''):
+    """Permanent audit row. Mirror of log_activity but never pruned + carries before/after."""
+    from .models import AuditLog
+    target_model = ''
+    target_id = None
+    if target is not None:
+        target_model = target.__class__.__name__
+        target_id = target.pk
+        target_ref = target_ref or getattr(target, 'reference', '') or ''
+    return AuditLog.objects.create(
+        business=business, actor=actor, action=action,
+        target_model=target_model, target_id=target_id, target_ref=target_ref,
+        old_values=old_values or {}, new_values=new_values or {}, reason=reason,
+    )
+
+def close_day(business, day, metrics):
+    """Lazily freeze ONE past business-day's accrual books (idempotent + race-safe).
+    `metrics` = the 6 figures already computed live for that day (a summary_list row).
+    Uses get_or_create so the FIRST close wins forever (pen, not pencil) — a later
+    read never overwrites it. Returns (DailyClose, created)."""
+    from .models import DailyClose
+    return DailyClose.objects.get_or_create(
+        business=business, date=day,
+        defaults={
+            'total_revenue':       metrics.get('total_revenue', 0) or 0,
+            'total_material_cost': metrics.get('total_material_cost', 0) or 0,
+            'total_salary_cost':   metrics.get('total_salary_cost', 0) or 0,
+            'total_waste_cost':    metrics.get('total_waste_cost', 0) or 0,
+            'total_expense_cost':  metrics.get('total_expense_cost', 0) or 0,
+            'net_profit':          metrics.get('net_profit', 0) or 0,
+        },
+    )

@@ -57,7 +57,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user, summarize_items
+from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit
 
 # logging
 import logging
@@ -202,6 +202,10 @@ def sale_list(request, business_slug):
         total_sales_count = sales.active().count()
         max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
 
+
+    collected = SalesPayment.objects.filter(sale__in=sales.active()).aggregate(t=Sum('amount'))['t'] or 0
+    receivables = (total_revenue or 0) - collected
+
     paginator = Paginator(sales, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -257,6 +261,9 @@ def sale_list(request, business_slug):
         'sales_deltas': sales_deltas, 
         'kpis': kpis,
         
+        'collected': collected,
+        'receivables': receivables,
+
         # employee
         'users': users,
         'active_user': user_filter,
@@ -652,6 +659,20 @@ def confirm_view_summary(request, business_slug):
                     'payment_method': payment_method if payment_status != 'utang' else None,
                 },
             )
+            log_audit(
+                business, request.user, 'create',
+                target=sale_obj,
+                new_values={
+                    'total_revenue': sale_obj.total_revenue,
+                    'line_count': sale_obj.line_count,
+                    'payment_status': payment_status,
+                    'payment_method': payment_method if payment_status != 'utang' else None,
+                },
+            )
+            sale_obj.is_locked = True
+            sale_obj.save(update_fields=['is_locked'])
+
+
 
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
@@ -724,6 +745,14 @@ def add_sales_payment(request, business_slug, sale_id):
                     'outstanding': str(sale.outstanding),
                 },
             )
+            log_audit(
+                business, request.user, 'payment',
+                target=sale,
+                new_values={'amount': amount, 'method': method,
+                            'outstanding_after': sale.outstanding},
+                reason=note,
+            )
+
             
         messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
         next_param = request.POST.get('next', '')
@@ -892,6 +921,15 @@ def void_sale(request, business_slug, sale_id):
             description=reason or 'Voided',
             metadata={'reference': sale.reference, 'total': f"{sale.total_revenue or 0:.2f}"},
         )
+        
+        log_audit(
+            business, request.user, 'void',
+            target=sale,
+            old_values={'is_void': False, 'total_revenue': sale.total_revenue},
+            new_values={'is_void': True},
+            reason=reason,
+        )
+
 
     # 3) re-ring → reload items into the cart and jump to it
     if action == 'reedit':
@@ -1092,6 +1130,14 @@ def sales_return_create(request, business_slug, sale_id):
                           'total': f"{total_refund:.2f}",
                           'reason': reason,
                           'refund_method': refund_method},
+            )
+            log_audit(
+                business, request.user, 'return',
+                target=return_obj.original_sale,
+                new_values={'return_ref': return_obj.reference,
+                            'refund_total': total_refund,
+                            'refund_method': refund_method},
+                reason=reason,
             )
 
         messages.success(request, f"Return {return_obj.reference} recorded.")

@@ -59,7 +59,8 @@ class Purchase(TimeStampModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
-    
+    is_locked = models.BooleanField(default=False, db_index=True)
+
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
     void_reason = models.CharField(max_length=255, blank=True)
@@ -72,8 +73,14 @@ class Purchase(TimeStampModel):
     
     def __str__(self):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
-    
+
     def save(self, *args, **kwargs):
+        if not self._state.adding and self.is_locked:
+            allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at',
+                       'status', 'is_paid', 'is_locked'}
+            uf = kwargs.get('update_fields')
+            if uf is None or not set(uf) <= allowed:
+                raise ValueError("Posted purchase is immutable — append a void/return/adjust instead.")
         if not self.purchase_date:
             self.purchase_date = timezone.localdate()
         
@@ -159,6 +166,26 @@ class Purchase(TimeStampModel):
     @property
     def is_fully_paid(self):
         return self.outstanding <= Decimal('0')
+    
+    @property
+    def settlement_status(self):
+        """'unpaid' (utang), 'partial', or 'paid' — drives the per-PO Method chip."""
+        paid = self.amount_paid
+        total = self.total_cost or Decimal('0')
+        if paid <= 0:
+            return 'unpaid'
+        return 'partial' if paid < total else 'paid'
+
+    @property
+    def settlement_display(self):
+        """Label: 'Utang / Debt', a method name (COD/Cash/GCash…), 'Mixed', or 'Partial · X'."""
+        status = self.settlement_status
+        if status == 'unpaid':
+            return 'Utang / Debt'
+        methods = {p.get_method_display() for p in self.payments.all()}
+        label = next(iter(methods)) if len(methods) == 1 else 'Mixed'
+        return f'Partial · {label}' if status == 'partial' else label
+
 
 
 class PurchaseItem(TimeStampModel):

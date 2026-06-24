@@ -151,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="empty-state">
             <div class="empty-icon"><i class="bi bi-inbox"></i></div>
             <h3 class="empty-title">No costs recorded</h3>
-            <p class="empty-text">No expenses or staff shifts logged for this date.</p>
+            <p class="empty-text">No expenses logged for this date.</p>
           </div>
         </div>
       </div>
@@ -177,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="period-net-value">₱{{ total_cost|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-receipt"></i>
-              Expenses + salary cost
+              Expenses
             </div>
           </div>
 
@@ -187,10 +187,10 @@ document.addEventListener("DOMContentLoaded", function () {
               <dt>Expense cost</dt>
               <dd class="text-danger">₱{{ total_expense_cost|default:0|floatformat:2|intcomma }}</dd>
             </div>
-            <div>
+            {% comment %} <div>
               <dt>Salary cost</dt>
               <dd class="text-danger">₱{{ total_salary_cost|default:0|floatformat:2|intcomma }}</dd>
-            </div>
+            </div> {% endcomment %}
           </dl>
 
           <!-- Note -->
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             <div>
               <div class="sd-note-title">About this view</div>
-              <div class="sd-note-text">All expenses and salary costs logged on
+              <div class="sd-note-text">All expenses logged on
                 {% if shift.first.date %}{{ shift.first.date|date:"F d, Y" }}{% else %}{{ expense.first.date|date:"F d, Y" }}{% endif %}.
               </div>
             </div>

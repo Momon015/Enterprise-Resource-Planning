@@ -73,12 +73,17 @@
           </div>
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
-        {% endif %}
+                {% endif %}
+        <div class="kpi-split">
+          <span>Collected ₱{{ collected|floatformat:0|intcomma }}</span>
+          <span>·</span>
+          <span>Receivables ₱{{ receivables|floatformat:0|intcomma }}</span>
+        </div>
       </div>
     </div>
 
     <!-- OPERATING EXPENSES (labor + overhead, with split tooltip) -->
-    <div class="kpi-card" title="Salary: ₱{{ total_salary_cost|floatformat:2|intcomma }} · Other Expenses: ₱{{ total_expense_cost|floatformat:2|intcomma }}">
+    <div class="kpi-card" title="Payroll: ₱{{ total_salary_cost|floatformat:2|intcomma }} · Other Expenses: ₱{{ total_expense_cost|floatformat:2|intcomma }}">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-receipt"></i>
       </div>
@@ -94,7 +99,7 @@
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
         <div class="kpi-split">
-          <span>Salary ₱{{ total_salary_cost|floatformat:0|intcomma }}</span>
+          <span>Payroll ₱{{ total_salary_cost|floatformat:0|intcomma }}</span>
           <span>·</span>
           <span>Other Expenses ₱{{ total_expense_cost|floatformat:0|intcomma }}</span>
         </div>
@@ -117,8 +122,14 @@
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
+        <div class="kpi-split">
+          <span>Paid ₱{{ paid|floatformat:0|intcomma }}</span>
+          <span>·</span>
+          <span>Payables ₱{{ payables|floatformat:0|intcomma }}</span>
+        </div>
       </div>
     </div>
+
 
     <!-- WASTE COST -->
     <div class="kpi-card">

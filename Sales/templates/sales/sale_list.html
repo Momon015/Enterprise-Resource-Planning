@@ -408,6 +408,8 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Insights -->
           <dl class="period-breakdown">
             <div><dt>Transactions</dt><dd>{{ total_sales_count|default:"0" }}</dd></div>
+            <div><dt>Collected</dt><dd class="text-success">₱{{ collected|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Receivables</dt><dd style="color:var(--muted);">₱{{ receivables|floatformat:2|intcomma }}</dd></div>
             <div><dt>Avg per sale</dt><dd>₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}</dd></div>
             <div><dt>Best sale</dt><dd class="text-success">₱{% if max_revenue %}{{ max_revenue|floatformat:2|intcomma }}{% else %}0.00{% endif %}</dd></div>
           </dl>

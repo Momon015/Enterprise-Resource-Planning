@@ -49,6 +49,7 @@ class Sale(TimeStampModel):
     reference = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
+    is_locked = models.BooleanField(default=False, db_index=True)
 
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
@@ -65,6 +66,12 @@ class Sale(TimeStampModel):
         return sum(item.quantity for item in self.sale_items.all())
     
     def save(self, *args, **kwargs):
+        if not self._state.adding and self.is_locked:
+            allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at', 'is_locked'}
+            uf = kwargs.get('update_fields')
+            if uf is None or not set(uf) <= allowed:
+                raise ValueError("Posted sale is immutable — append a void/return/adjust instead.")
+
         if not self.date:
             self.date = timezone.localdate()
     
@@ -87,6 +94,26 @@ class Sale(TimeStampModel):
     @property
     def amount_paid(self):
         return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+    
+    @property
+    def settlement_status(self):
+        """'unpaid' (utang), 'partial', or 'paid' — drives the per-receipt Method chip."""
+        paid = self.amount_paid
+        total = self.total_revenue or Decimal('0')
+        if paid <= 0:
+            return 'unpaid'
+        return 'partial' if paid < total else 'paid'
+
+    @property
+    def settlement_display(self):
+        """Label: 'Utang / Debt', a method name (Cash/GCash…), 'Mixed', or 'Partial · X'."""
+        status = self.settlement_status
+        if status == 'unpaid':
+            return 'Utang / Debt'
+        methods = {p.get_method_display() for p in self.payments.all()}
+        label = next(iter(methods)) if len(methods) == 1 else 'Mixed'
+        return f'Partial · {label}' if status == 'partial' else label
+
 
     @property
     def amount_refunded(self):

@@ -89,7 +89,7 @@ def _compute_dashboard_metrics(business, today):
 
     total_revenue       = sales_today.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
     total_expense_cost  = expenses_today.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
-    total_salary_cost   = shifts_today.aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    total_salary_cost   = shifts_today.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
     total_material_cost = purchases_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     total_waste_cost    = wastes_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
@@ -106,7 +106,7 @@ def _compute_dashboard_metrics(business, today):
     y_material = y_purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     y_waste    = y_wastes.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     y_expense  = y_expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
-    y_salary   = y_shifts.aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_salary   = y_shifts.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
     y_opex     = y_salary + y_expense
     y_net      = y_revenue - y_material - y_waste - y_expense - y_salary
 
@@ -132,14 +132,14 @@ def _compute_dashboard_metrics(business, today):
     tw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_week_start})
     tw_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_week_start})
     tw_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_week_start})
-    tw_salary  = _bucket(Shift.objects, 'amount', {'date__gte': this_week_start})
+    tw_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__gte': this_week_start})
     tw_net     = tw_revenue - tw_cost - tw_waste - tw_expense - tw_salary
 
     lw_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_week_start, last_week_end)})
     lw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_week_start, last_week_end)})
     lw_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_week_start, last_week_end)})
     lw_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_week_start, last_week_end)})
-    lw_salary  = _bucket(Shift.objects, 'amount', {'date__range': (last_week_start, last_week_end)})
+    lw_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__range': (last_week_start, last_week_end)})
     lw_net     = lw_revenue - lw_cost - lw_waste - lw_expense - lw_salary
 
     # Monthly comparison
@@ -151,14 +151,14 @@ def _compute_dashboard_metrics(business, today):
     tm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_month_start})
     tm_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_month_start})
     tm_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_month_start})
-    tm_salary  = _bucket(Shift.objects, 'amount', {'date__gte': this_month_start})
+    tm_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__gte': this_month_start})
     tm_net     = tm_revenue - tm_cost - tm_waste - tm_expense - tm_salary
 
     lm_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_month_start, last_month_end)})
     lm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_month_start, last_month_end)})
     lm_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_month_start, last_month_end)})
     lm_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_month_start, last_month_end)})
-    lm_salary  = _bucket(Shift.objects, 'amount', {'date__range': (last_month_start, last_month_end)})
+    lm_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__range': (last_month_start, last_month_end)})
     lm_net     = lm_revenue - lm_cost - lm_waste - lm_expense - lm_salary
 
     # 30-day trend
@@ -400,6 +400,12 @@ def dashboard(request, business_slug):
     activities.sort(key=lambda a: a['ts'], reverse=True)
     activities = activities[:7]
     
+    # Today's cash lens — live, payments of today's records (same attribution as list/reports)
+    collected   = SalesPayment.objects.filter(sale__in=sales).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    receivables = (sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)) - collected
+    payables    = (purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)) - paid
+
 
     context = {
         **metrics,
@@ -413,6 +419,12 @@ def dashboard(request, business_slug):
         'expenses': expenses,
         'today': today,
         'section': 'dashboard',
+        
+        'collected': collected,
+        'paid': paid,
+        'receivables': receivables,
+        'payables': payables,
+
         
         'active_shifts': active_shifts,
         'activities': activities,

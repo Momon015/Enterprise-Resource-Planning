@@ -5,6 +5,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from user.models import User, BusinessProfile
+from django.core.serializers.json import DjangoJSONEncoder
 
 # Create your models here.
 
@@ -172,4 +173,93 @@ class ActivityEvent(models.Model):
             return None
 
         return None
+    
+from django.core.serializers.json import DjangoJSONEncoder
+
+class AuditLog(models.Model):
+    """Append-only legal/BIR audit trail. Never edited, never pruned (~10yr).
+    Distinct from ActivityEvent (UX feed, self-prunes, no before/after values).
+    Generalizes the OpeningCashChange 'pen-not-pencil' pattern."""
+
+    ACTION_CHOICES = [
+        ('create',  'Created'),
+        ('void',    'Voided'),
+        ('return',  'Returned'),
+        ('adjust',  'Adjusted'),
+        ('payment', 'Payment recorded'),
+        ('edit',    'Edited'),
+    ]
+
+    business     = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL,
+                       null=True, blank=True, related_name='audit_logs')
+    actor        = models.ForeignKey(User, on_delete=models.SET_NULL,
+                       null=True, blank=True, related_name='audit_logs')
+    action       = models.CharField(max_length=20, choices=ACTION_CHOICES, db_index=True)
+
+    target_model = models.CharField(max_length=50, db_index=True)      # 'Sale', 'Purchase'…
+    target_id    = models.PositiveIntegerField(null=True, blank=True)
+    target_ref   = models.CharField(max_length=100, blank=True)        # 'SI-2026-0005' snapshot
+
+    old_values   = models.JSONField(default=dict, blank=True, encoder=DjangoJSONEncoder)
+    new_values   = models.JSONField(default=dict, blank=True, encoder=DjangoJSONEncoder)
+    reason       = models.CharField(max_length=255, blank=True)
+
+    created_at   = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['business', '-created_at']),
+            models.Index(fields=['target_model', 'target_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_action_display()} {self.target_model} {self.target_ref}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("AuditLog is append-only — existing rows cannot be modified.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("AuditLog is append-only — rows cannot be deleted.")
+
+class DailyClose(models.Model):
+    """BIR-style frozen accrual snapshot of one business-day's books.
+    Created lazily the first time a PAST day is read (day-rollover freeze,
+    NEVER shift clock-out). Append-only: once a day closes its figures can
+    never change — corrections post to the current day as Adjustments.
+    Cash Flow is NOT frozen here (it stays live by payment date)."""
+
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE,
+                                 related_name='daily_closes')
+    date     = models.DateField(db_index=True)
+
+    total_revenue       = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_material_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_salary_cost   = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_waste_cost    = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_expense_cost  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_profit          = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    closed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date']
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'date'],
+                                    name='uniq_dailyclose_business_date'),
+        ]
+        indexes = [models.Index(fields=['business', '-date'])]
+
+    def __str__(self):
+        return f"Close {self.business} {self.date} — net {self.net_profit}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("DailyClose is append-only — a closed day cannot be modified.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("DailyClose is append-only — a closed day cannot be reopened.")
 

@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    'https://echo-external-abraham-limit.trycloudflare.com'
+    
     ]
 
 # Application definition

@@ -60,7 +60,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user, summarize_items
+from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit
 # logging
 import logging
 
@@ -223,8 +223,9 @@ def purchase_history(request, business_slug):
         total_cost = purchases.purchase_total_cost()
         average_cost = purchases.average_total_cost()
 
-        
-        
+    paid = PurchasePayment.objects.filter(purchase__in=purchases.active()).aggregate(t=Sum('amount'))['t'] or 0
+    payables = (total_cost or 0) - paid
+
     paginator = Paginator(purchases, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -285,6 +286,10 @@ def purchase_history(request, business_slug):
         'kpis': kpis,
         
         'purchase_deltas': purchase_deltas,
+        
+        'paid': paid,
+        'payables': payables,
+
         
         'users': users,
         'active_user': user_filter,
@@ -770,6 +775,20 @@ def confirm_purchase_summary(request, business_slug):
                     'payment_method': payment_method if payment_status != 'utang' else None,
                 },
             )
+            log_audit(
+                business, request.user, 'create',
+                target=purchase,
+                new_values={
+                    'total_cost': purchase.total_cost,
+                    'line_count': purchase.line_count,
+                    'payment_status': payment_status,
+                    'payment_method': payment_method if payment_status != 'utang' else None,
+                },
+            )            
+            purchase.is_locked = True
+            purchase.save(update_fields=['is_locked'])
+
+
 
     except ValidationError:
         messages.error(request, f"Cannot complete the purchase - Insufficient stock.")
@@ -851,6 +870,14 @@ def add_purchase_payment(request, business_slug, purchase_id):
                     'outstanding': str(purchase.outstanding),
                 },
             )
+            log_audit(
+                business, request.user, 'payment',
+                target=purchase,
+                new_values={'amount': amount, 'method': method,
+                            'outstanding_after': purchase.outstanding},
+                reason=note,
+            )
+
 
         # Dynamic redirect based on where the user came from
         messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
@@ -995,6 +1022,14 @@ def void_purchase(request, business_slug, purchase_id):
             description=reason or 'Voided',
             metadata={'reference': purchase.reference, 'total': f"{purchase.total_cost or 0:.2f}"},
         )
+        log_audit(
+            business, request.user, 'void',
+            target=purchase,
+            old_values={'is_void': False, 'total_cost': purchase.total_cost},
+            new_values={'is_void': True},
+            reason=reason,
+        )
+
 
     # 3) re-ring → rebuild the purchase cart
     if action == 'reedit':
@@ -1134,6 +1169,14 @@ def purchase_return_create(request, business_slug, purchase_id):
                     'reason': reason,
                     'refund_method': refund_method,
                 }
+            )
+            log_audit(
+                business, request.user, 'return',
+                target=return_obj.original_purchase,
+                new_values={'return_ref': return_obj.reference,
+                            'refund_total': total_refund,
+                            'refund_method': refund_method},
+                reason=reason,
             )
 
         messages.success(request, f"Return {return_obj.reference} recorded.")
@@ -1472,7 +1515,7 @@ def cart_discount_material(request, business_slug):
 def waste_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     stocks = get_queryset_for_user(request.user, Stock.objects.all()).filter(business=business).order_by('-created_at')
-    wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business).order_by('-date')
+    wastes = get_queryset_for_user(request.user, Waste.objects.all()).filter(business=business).order_by('-date', '-id')
     
     wastes = filter_to_own_if_staff(request.user, wastes)
     
@@ -1760,8 +1803,9 @@ def expense_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     average_amount_cost = 0
     
-    expenses = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business)
-    shifts = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
+    expenses = get_queryset_for_user(request.user, Expense.objects.all()).filter(business=business).order_by('-id')
+    # shifts = get_queryset_for_user(request.user, Shift.objects.all()).filter(business=business)
+    shifts = Shift.objects.none()
     
     expense_by_dates = expenses.values('date').annotate(total_amount=Sum('total_amount')).order_by('-date')
     shift_by_dates = shifts.values('date').annotate(total_shift=Sum('amount')).order_by('-date')
@@ -1892,9 +1936,11 @@ def expense_detail(request, business_slug, date):
     expense = Expense.objects.filter(business=business, date=date)
     exp_items = ExpenseItem.objects.filter(expense__in=expense)
     
-    shift = Shift.objects.filter(business=business, date=date)
-    shift_employees = ShiftEmployee.objects.filter(shift__in=shift)
-    
+    # shift = Shift.objects.filter(business=business, date=date)
+    # shift_employees = ShiftEmployee.objects.filter(shift__in=shift)
+    shift = Shift.objects.none()
+    shift_employees = ShiftEmployee.objects.none()
+
     # Calculate totals
     total_expense_cost = expense.aggregate(total=Sum('total_amount'))['total'] or 0
     total_salary_cost = shift_employees.aggregate(total=Sum('daily_rate'))['total'] or 0

@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
               <tr>
                 <th>Date</th>
-                <th class="sl-text-center col-mobile-hidden">Salary Cost</th>
+                {% comment %} <th class="sl-text-center col-mobile-hidden">Salary Cost</th> {% endcomment %}
                 <th class="sl-text-center col-mobile-hidden">Expense Cost</th>
                 <th class="sl-text-end">Total Cost</th>
               </tr>
@@ -137,16 +137,16 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-sub">{{ record.date|date:"l" }}</div>
                 </td>
 
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_shift %}var(--danger){% else %}var(--muted){% endif %};">
+                {% comment %} <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_shift %}var(--danger){% else %}var(--muted){% endif %};">
                   ₱{{ record.total_shift|default:0|floatformat:2|intcomma }}
-                </td>
+                </td> {% endcomment %}
 
                 <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_amount %}var(--danger){% else %}var(--muted){% endif %};">
                   ₱{{ record.total_amount|default:0|floatformat:2|intcomma }}
                 </td>
 
                 <td class="sl-text-end sl-fw-bold sl-text-danger">
-                  ₱{{ record.total_amount|add:record.total_shift|floatformat:2|intcomma }}
+                  ₱{{ record.total_amount|floatformat:2|intcomma }}
                 </td>
 
                 <td class="sl-text-center">
@@ -235,8 +235,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
           <!-- Featured Total -->
           <div class="period-net period-net--loss">
-            <div class="period-net-label">TOTAL OPERATING COST</div>
-            <div class="period-net-value">₱{{ grand_total_expense|add:grand_total_salary|floatformat:2|intcomma }}</div>
+            <div class="period-net-label">Business Expense Cost</div>
+            <div class="period-net-value">₱{{ grand_total_expense|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-file-earmark-text"></i>
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
@@ -248,10 +248,10 @@ document.addEventListener("DOMContentLoaded", function () {
               <dt>Total expense</dt>
               <dd class="text-danger">₱{{ grand_total_expense|default:0|floatformat:2|intcomma }}</dd>
             </div>
-            <div>
+            {% comment %} <div>
               <dt>Total salary</dt>
               <dd class="text-danger">₱{{ grand_total_salary|default:0|floatformat:2|intcomma }}</dd>
-            </div>
+            </div> {% endcomment %}
             {% comment %} <div>
               <dt>Avg per expense</dt>
               <dd>₱{{ average_expense|default:0|floatformat:2|intcomma }}</dd>

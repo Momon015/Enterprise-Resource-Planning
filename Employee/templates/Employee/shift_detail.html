@@ -290,7 +290,19 @@
           {% endif %}
           {% if show_reconciliation and shift_emp.clock_out %}
           <div class="sd-info-row">
-            <span class="sd-info-label">Difference</span>
+            <span class="sd-info-label">Cash Diff</span>
+            {% with cv=shift_emp.cash_variance %}
+            {% if cv is not None %}
+            <span class="sd-info-value" style="{% if cv < 0 %}color:var(--danger);{% elif cv > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">
+              {% if cv > 0 %}+{% endif %}₱{{ cv|floatformat:2|intcomma }}
+            </span>
+            {% else %}
+            <span class="sd-info-value sl-text-muted">Not counted</span>
+            {% endif %}
+            {% endwith %}
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Total Diff</span>
             {% if shift_emp.is_counted %}
             <span class="sd-info-value" style="{% if shift_emp.total_variance < 0 %}color:var(--danger);{% elif shift_emp.total_variance > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">
               {% if shift_emp.total_variance > 0 %}+{% endif %}₱{{ shift_emp.total_variance|floatformat:2|intcomma }}
@@ -298,14 +310,6 @@
             {% else %}
             <span class="sd-info-value sl-text-muted">Not counted</span>
             {% endif %}
-          </div>
-          {% endif %}
-          {% if show_reconciliation and shift_emp.clock_out %}
-          <div class="sd-info-row">
-            <span class="sd-info-label">Difference</span>
-            <span class="sd-info-value" style="{% if shift_emp.total_variance < 0 %}color:var(--danger);{% elif shift_emp.total_variance > 0 %}color:var(--warning);{% else %}color:var(--muted);{% endif %}">
-              {% if shift_emp.total_variance > 0 %}+{% endif %}₱{{ shift_emp.total_variance|floatformat:2|intcomma }}
-            </span>
           </div>
           {% endif %}
         </div>

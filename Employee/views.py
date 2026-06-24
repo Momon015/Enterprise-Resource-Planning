@@ -84,6 +84,7 @@ def employee_list(request, business_slug):
         shift__date__gte=month_start,
     ).aggregate(t=Sum('daily_rate'))['t'] or 0
     
+    archive_count = Employee.all_objects.filter(business=business, status='inactive').count()
         
     pagination = Paginator(employees, 5)
     page = request.GET.get('page')
@@ -94,6 +95,7 @@ def employee_list(request, business_slug):
         'total_daily_rate': total_daily_rate,
         'avg_daily_rate': avg_daily_rate,
         'monthly_payroll': monthly_payroll,
+        'archive_count': archive_count,
         'section': 'employee'
         }
     return render(request, 'Employee/employee_list.html', context)
@@ -129,18 +131,6 @@ def employee_detail(request, business_slug, employee_id, slug):
         'section': 'employee',
     }
     return render(request, 'Employee/employee_detail.html', context)
-
-
-    context = {
-        'employee': employee,
-        'shifts': shifts,
-        'days_worked': days_worked,
-        'monthly_wage': monthly_wage,
-        'month_label': today.strftime('%B %Y'),
-        'section': 'employee',
-    }
-    return render(request, 'Employee/employee_detail.html', context)
-
 
 @login_required(login_url='login')
 @permission_required('staff_view')
@@ -225,7 +215,7 @@ def restore_employee(request, business_slug, employee_id, slug):
         log_activity(business, request.user, 'employee.restored',
                      target=employee, description=f"{employee.name} restored")
         messages.success(request, f"{employee.name} restored. They can log in again.")
-    return redirect('archived-employees', business_slug=business.slug)
+    return redirect('employee-list', business_slug=business.slug)
 
 
 @login_required(login_url='login')

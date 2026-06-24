@@ -200,21 +200,23 @@
             </div>
           </div>
 
+          {% if archive_count %}
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
               {% comment %} <a href="{% url 'employee-create' %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-person-plus-fill"></i> Create Employee
               </a> {% endcomment %}
-              <a href="{% url 'add-shift-employee' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+              {% comment %} <a href="{% url 'add-shift-employee' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Log employees
-              </a>
+              </a> {% endcomment %}
               <a href="{% url 'archived-employees' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-archive"></i> Archive
               </a>
 
             </div>
           </div>
+          {% endif %}
 
           <div class="sd-note-box">
             <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
