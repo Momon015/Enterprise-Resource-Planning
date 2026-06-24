@@ -17,9 +17,45 @@
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  (function () {
+    const copyBtn = document.getElementById("copyInviteBtn");
+    const codeEl = document.getElementById("inviteCode");
+    if (!copyBtn || !codeEl) return;
+
+    copyBtn.addEventListener("click", function () {
+      const code = codeEl.textContent.trim();
+
+      const done = function () {
+        copyBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        setTimeout(function () {
+          copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+        }, 1500);
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(code).then(done).catch(fallback);
+      } else {
+        fallback();
+      }
+
+      function fallback() {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+  })();
 });
+
 </script>
 
 <div class="page-wrapper">
@@ -141,8 +177,14 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="sd-section-label">System Info</div>
 
           <div class="sd-info-row">
-            <span class="sd-info-label">Slug</span>
-            <span class="sd-info-value mono">{{ business.slug }}</span>
+            <span class="sd-info-label">Invite Code</span>
+            <span class="sd-info-value mono" style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
+              <span id="inviteCode" style="letter-spacing:0.12em; font-weight:600;">{{ business.invite_code }}</span>
+              <button type="button" id="copyInviteBtn" class="btn btn-outline-secondary btn-sm"
+                      title="Copy code" style="padding:0.1rem 0.45rem;">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </span>
           </div>
 
           <div class="sd-info-row">
@@ -189,6 +231,48 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
         </div>
       </div>
+
+      <!-- STAFF SIGN-UP CARD -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <i class="bi bi-key" style="color:var(--accent);"></i> Staff Sign-up
+          </span>
+          <span class="status-badge {% if business.accepting_staff %}status-success{% else %}status-muted{% endif %}">
+            {% if business.accepting_staff %}ON{% else %}OFF{% endif %}
+          </span>
+        </div>
+        <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem;">
+
+          <div class="sd-note-text" style="font-size:0.82rem; color:var(--muted); line-height:1.5;">
+            Share your <strong>invite code</strong> (in Business Info) with staff so they can register.
+            They can only sign up while this is <strong>ON</strong>, and you still approve each account.
+          </div>
+
+          <form method="post" action="{% url 'toggle-accepting-staff' business_id=business.id business_slug=business.slug %}">
+            {% csrf_token %}
+            {% if business.accepting_staff %}
+              <button type="submit" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-toggle-on"></i> Turn off staff sign-up
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-toggle-off"></i> Turn on staff sign-up
+              </button>
+            {% endif %}
+          </form>
+
+          <form method="post" action="{% url 'regenerate-invite-code' business_id=business.id business_slug=business.slug %}"
+                onsubmit="return confirm('Generate a new code? The current code will stop working and anyone who already has it will need the new one.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm btn-block">
+              <i class="bi bi-arrow-repeat"></i> Generate new code
+            </button>
+          </form>
+
+        </div>
+      </div>
+
 
       <!-- SUBSCRIPTION CARD -->
       {% if request.user.subscription %}

@@ -11,8 +11,12 @@ from django.core.validators import RegexValidator
 import random
 
 from decimal import Decimal
+import secrets
 
 # Create your models here.
+
+def generate_invite_code():
+    return ''.join(secrets.choice('0123456789') for _ in range(10))
 
 class DeleteUnverifiedUserManager(models.Manager):
     def unverified_users(self, minutes=60):
@@ -182,10 +186,26 @@ class BusinessProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    invite_code = models.CharField(
+        max_length=10, unique=True, db_index=True,
+        null=True, blank=True, editable=False,
+        help_text="Staff use this code to join this business.",
+    )
+    accepting_staff = models.BooleanField(
+        default=False,
+        help_text="When on, staff can register using your invite code. Turn off when you're done hiring.",
+    )
+
     class Meta:
         unique_together = ('user', 'slug')
     
     def save(self, *args, **kwargs):
+        if not self.invite_code:
+            code = generate_invite_code()
+            while BusinessProfile.objects.filter(invite_code=code).exists():
+                code = generate_invite_code()
+            self.invite_code = code
+
         base_slug = slugify(self.business_name)
         slug = base_slug
         counter = 1
@@ -201,7 +221,15 @@ class BusinessProfile(models.Model):
     
     def __str__(self):
         return f"{self.business_name} - {self.business_type}"
+
     
+    def regenerate_invite_code(self):
+        code = generate_invite_code()
+        while BusinessProfile.objects.filter(invite_code=code).exists():
+            code = generate_invite_code()
+        self.invite_code = code
+        self.save(update_fields=['invite_code'])
+
     @property
     def is_retail(self):
         return self.business_type == 'retail'

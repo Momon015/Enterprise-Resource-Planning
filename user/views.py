@@ -81,49 +81,46 @@ def register_form(request):
             email = form.cleaned_data['email']
             raw_password = form.cleaned_data['password1']
             
-            # staff
-            owner_username = form.cleaned_data.get('owner_username', '').lower().strip()
-            owner_business = form.cleaned_data.get('owner_business', '')
+            import re
+            invite_code = re.sub(r'\D', '', form.cleaned_data.get('invite_code', ''))
 
             try:
                 with transaction.atomic():
-                    # build user (no save yet)
                     user = User(username=username, email=email, is_active=False)
                     user.set_password(raw_password)
 
-                    if owner_username and owner_business:
-                        business = BusinessProfile.objects.get(
-                            user__role='owner',
-                            user__username=owner_username,
-                            business_name=owner_business,
-                        )
-                        
-                        # Enforce owner's staff cap before creating a staff user
+                    if invite_code:
+                        business = BusinessProfile.objects.get(invite_code=invite_code)
+
+                        if not business.accepting_staff:
+                            messages.error(request,
+                                "This business isn't accepting new staff right now. "
+                                "Ask your owner to turn on staff sign-up.")
+                            return redirect('register-form')
+
                         owner_sub = getattr(business.user, 'subscription', None)
                         if owner_sub and not owner_sub.can_add_staff(business.user, business):
                             limit = owner_sub.limits().get('max_staff')
                             messages.error(request,
-                                f"{owner_username}'s {owner_sub.get_plan_display()} plan allows only "
-                                f"{limit} staff account(s). Ask the owner to upgrade."
-                            )
+                                f"This business's {owner_sub.get_plan_display()} plan allows only "
+                                f"{limit} staff account(s). Ask the owner to upgrade.")
                             return redirect('register-form')
-                        
+
                         request.session['business_id'] = str(business.id)
                         user.role = 'staff'
                         user.owner = business.user
-                        
                     else:
                         user.role = 'owner'
-                        
-                    user.save()  # single write
+
+                    user.save()
 
                     otp = EmailOTP.generate_otp()
                     otp_obj = EmailOTP.objects.create(user=user, otp=otp)
-
-                    send_email(user.email, otp)  # if this raises, atomic rolls back
+                    send_email(user.email, otp)
 
             except BusinessProfile.DoesNotExist:
-                messages.error(request, "Business name or Owner username not found.")
+                messages.error(request,
+                    "That invite code didn't match any business. Double-check with your owner.")
                 return redirect('register-form')
             except IntegrityError:
                 messages.error(request, "That username or email is already registered.")
@@ -515,6 +512,25 @@ def business_profile_update(request, business_slug, business_id):
     
     context = {'form': form, 'business': business, 'section': 'user', 'current_user': current_user}
     return render(request, 'user/business_profile_update.html', context)
+
+@login_required(login_url='login')
+@require_POST
+def regenerate_invite_code(request, business_id, business_slug):
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+    business.regenerate_invite_code()
+    messages.success(request, "New invite code generated — the old one no longer works.")
+    return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
+
+@login_required(login_url='login')
+@require_POST
+def toggle_accepting_staff(request, business_id, business_slug):
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+    business.accepting_staff = not business.accepting_staff
+    business.save(update_fields=['accepting_staff'])
+    messages.success(request,
+        "Staff sign-up is now ON." if business.accepting_staff else "Staff sign-up is now OFF.")
+    return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
+
 
 @login_required(login_url='login')
 def settings(request, business_slug):

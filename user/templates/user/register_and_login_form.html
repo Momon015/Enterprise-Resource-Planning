@@ -254,31 +254,15 @@
 
             <div class="register-grid">
 
-              {# owner_username — full width, shown first #}
+              {# invite_code — full width, shown first #}
               <div class="auth-field full">
-                <label for="{{ form.owner_username.id_for_label }}">
-                  {{ form.owner_username.label }}
-                </label>
-                {{ form.owner_username }}
-                {% if form.owner_username.help_text %}
-                  <div class="auth-help">{{ form.owner_username.help_text }}</div>
+                <label for="{{ form.invite_code.id_for_label }}">{{ form.invite_code.label }}</label>
+                {{ form.invite_code }}
+                {% if form.invite_code.help_text %}
+                  <div class="auth-help">{{ form.invite_code.help_text }}</div>
                 {% endif %}
-                {% if form.owner_username.errors %}
-                  <div class="auth-error">{{ form.owner_username.errors|striptags }}</div>
-                {% endif %}
-              </div>
-
-              {# owner_business — full width, shown first #}
-              <div class="auth-field full">
-                <label for="{{ form.owner_business.id_for_label }}">
-                  {{ form.owner_business.label }}
-                </label>
-                {{ form.owner_business }}
-                {% if form.owner_business.help_text %}
-                  <div class="auth-help">{{ form.owner_business.help_text }}</div>
-                {% endif %}
-                {% if form.owner_business.errors %}
-                  <div class="auth-error">{{ form.owner_business.errors|striptags }}</div>
+                {% if form.invite_code.errors %}
+                  <div class="auth-error">{{ form.invite_code.errors|striptags }}</div>
                 {% endif %}
               </div>
 
