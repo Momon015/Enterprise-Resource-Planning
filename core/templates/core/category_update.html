@@ -8,7 +8,7 @@
       <div class="page-breadcrumb">
         <a href="{% url 'settings' business_slug=current_business.slug %}" class="breadcrumb-link">SETTINGS</a>
         <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="breadcrumb-link">CATEGORY</a>
+        <a href="{% url 'category-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">CATEGORY</a>
         <i class="bi bi-chevron-right"></i>
         <span>EDIT</span>
       </div>
@@ -27,6 +27,8 @@
           <p class="card-header-sub">Update this category's name and type.</p>
         </div>
       </div>
+          <a href="{{ request.session.return_to|default:list_fallback }}"
+           class="pd-icon-btn" data-form-close="categoryForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
 
     <div class="card-body">

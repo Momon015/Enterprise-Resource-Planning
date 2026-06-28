@@ -11,7 +11,7 @@
         <i class="bi bi-chevron-right"></i>
         <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCT</a>
         <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESET</a>
+        <a href="{% url 'product-preset-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">PRESET</a>
         <i class="bi bi-chevron-right"></i>
         <span>DELETE</span>
       </div>
@@ -34,9 +34,13 @@
           <div class="card-header-sub">{{ preset.created_at|date:"M d, Y" }}</div>
         </div>
       </div>
-      <span class="sl-badge sl-badge-light">
-        {{ preset.product_preset_items.count }} item{{ preset.product_preset_items.count|pluralize }}
-      </span>
+      <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+        <span class="sl-badge sl-badge-light">
+          {{ preset.product_preset_items.count }} item{{ preset.product_preset_items.count|pluralize }}
+        </span>
+        <a href="{{ request.session.return_to|default:list_fallback }}"
+           class="pd-icon-btn" title="Close"><i class="bi bi-x-lg"></i></a>
+      </div>
     </div>
 
     <!-- PRODUCTS TABLE -->
@@ -123,7 +127,7 @@
       <form method="post">
         {% csrf_token %}
         <div class="mf-form-actions">
-          <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+          <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-outline-secondary">Cancel</a>
           <button type="submit" class="btn" style="background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;">
             <i class="bi bi-trash3-fill"></i> Confirm Delete
           </button>

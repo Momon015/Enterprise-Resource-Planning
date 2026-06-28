@@ -1,0 +1,43 @@
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi {{ v_icon|default:'bi-receipt' }}"></i></div>
+        <div>
+          <div class="cm-title">{{ v_title }}</div>
+          {% if v_subtitle %}<div class="cm-sub">{{ v_subtitle }}</div>{% endif %}
+        </div>
+      </div>
+
+
+      <form method="post" action="{{ v_action }}">
+        {% csrf_token %}
+        <p class="cm-note cm-note--danger">
+          Cancels this sale — items go back to stock and it stops counting toward sales &amp; cash.
+          <strong>For mistakes on this shift, not customer returns.</strong>
+        </p>
+
+        <label class="cm-field-label">Reason</label>
+        <select name="void_reason" class="form-select cm-select">
+          {% for value, label in reasons %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+
+        <div class="cm-actions cm-actions--void">
+          <button type="submit" name="action" value="void" class="btn cm-btn-ghost-danger">
+            Just void
+          </button>
+          <button type="submit" name="action" value="reedit" class="btn cm-btn cm-btn--danger">
+            Void &amp; redo
+          </button>
+        </div>
+
+      </form>
+        <p class="cm-void-hint"><strong>Redo</strong> reopens the items in a new cart to fix and save again.</p>
+
+    </div>
+  </div>
+</div>

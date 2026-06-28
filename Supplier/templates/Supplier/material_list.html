@@ -31,7 +31,7 @@
       <h1 class="page-title">Materials</h1>
       <p class="page-subtitle">Record your daily, weekly and monthly purchases.</p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <a id='cart-badge' href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-cart3"></i>
         {% if cart_count %}
@@ -40,7 +40,7 @@
           </span>
         {% endif %}
       </a>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -48,7 +48,53 @@
     <!-- LEFT: MATERIAL LIST -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
+
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.category %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search material name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              {% if current_business.is_cafe or current_business.is_restaurant %}
+              <div style="position:relative;">
+                <select name="category" class="form-control" style="padding-right:2rem; appearance:none; -webkit-appearance:none;">
+                  <option value="">All categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                      {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
+              </div>
+              {% endif %}
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+      {% comment %} <!-- FILTER BAR -->
       <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
@@ -83,7 +129,7 @@
             </div>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
 
 
@@ -159,8 +205,10 @@
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                    <a href="{% url 'material-archive' id=material.id slug=material.slug business_slug=material.business.slug %}?next={{ request.path }}"
-                       class="action-btn action-btn--warning"  title="Archive material">
+                    <a href="{% url 'material-archive' id=material.id slug=material.slug business_slug=material.business.slug %}"
+                       hx-get="{% url 'material-archive' id=material.id slug=material.slug business_slug=material.business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
+                       class="action-btn action-btn--warning" title="Archive material">
                       <i class="bi bi-archive-fill"></i>
                     </a>
                     {% endif %}
@@ -295,5 +343,23 @@
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") || params.get("category")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
 
 {% endblock %}

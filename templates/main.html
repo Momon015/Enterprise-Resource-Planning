@@ -25,7 +25,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=55" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=64" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -36,6 +36,7 @@
 
     <!-- Main Content -->
     <main>
+      {% block topbar %}{% include 'partials/_topbar.html' %}{% endblock %}
       {% block locked_banner %}
         {% include 'partials/_locked_items_banner.html' %}
         {% include 'partials/_pending_acks_banner.html' %}
@@ -129,4 +130,111 @@
     </script>
 
   </body>
+
+  <!-- GLOBAL CONFIRM MODAL -->
+  <div class="quickview" id="confirmModal">
+    <div class="quickview__backdrop" data-quickview-close></div>
+    <div id="confirmBody"></div>
+  </div>
+
+<script>
+  document.body.addEventListener('click', function (e) {
+    const btn = e.target.closest('.cm-pass-toggle');
+    if (!btn) return;
+    const input = btn.parentElement.querySelector('input');
+    const icon  = btn.querySelector('i');
+    const show  = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+  });
+</script>
+
+<script>
+document.body.addEventListener('htmx:beforeSwap', function (evt) {
+  const url = evt.detail.xhr.responseURL || '';
+  if (url.indexOf('/login') !== -1) {       // got bounced to login
+    evt.detail.shouldSwap = false;          // don't swap login into the modal
+    window.location.href = url;             // full-page redirect instead
+  }
+});
+</script>
+
+<script>
+  (function () {
+    const modal = document.getElementById('confirmModal');
+    if (!modal) return;
+    const body  = document.getElementById('confirmBody');
+    const open  = () => { modal.classList.add('is-open');  document.body.style.overflow = 'hidden'; };
+    const close = () => {
+      const reload = modal.dataset.reload === '1';
+      modal.classList.remove('is-open'); document.body.style.overflow = ''; body.innerHTML = '';
+      modal.dataset.reload = '';
+      if (reload) location.reload();
+    };
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+      if (e.target.id === 'confirmBody') {
+        modal.dataset.reload = body.querySelector('[data-reload-on-close]') ? '1' : '';
+        open();
+      }
+    });
+    modal.addEventListener('click', (e) => { if (e.target.closest('[data-quickview-close]')) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) close(); });
+  })();
+</script>
+
+<script>
+  // Reusable "discard unsaved changes?" guard for CRUD form close (✕) links.
+  // Opt in: give the <form> an id, and the ✕ link  data-form-close="thatFormId".
+  (function () {
+    const modal = document.getElementById('confirmModal');
+    const body  = document.getElementById('confirmBody');
+    if (!modal || !body) return;
+
+    function showDiscard(dest) {
+      body.innerHTML = `
+        <div class="quickview__panel cm-panel">
+          <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+          <div class="card cm-card">
+            <div class="card-body">
+              <div class="cm-head">
+                <div class="cm-thumb cm-thumb--muted"><i class="bi bi-exclamation-triangle"></i></div>
+                <div>
+                  <div class="cm-title">Discard changes?</div>
+                  <div class="cm-sub">Your edits haven't been saved yet.</div>
+                </div>
+              </div>
+              <div class="cm-actions">
+                <button type="button" class="btn btn-outline-secondary" data-quickview-close>Keep editing</button>
+                <a href="${dest}" class="btn cm-btn cm-btn--warning"><i class="bi bi-trash3"></i> Discard</a>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    document.querySelectorAll('[data-form-close]').forEach(link => {
+      const form = document.getElementById(link.dataset.formClose);
+      if (!form) return;
+
+      const snapshot = () => new URLSearchParams(new FormData(form)).toString();
+      let initial = snapshot();
+      let fileTouched = false;
+
+      form.addEventListener('change', (e) => {
+        if (e.target.type === 'file' && e.target.files.length) fileTouched = true;
+      });
+      form.addEventListener('submit', () => { initial = snapshot(); fileTouched = false; });
+
+      link.addEventListener('click', (e) => {
+        const dirty = fileTouched || snapshot() !== initial;
+        if (!dirty) return;                  // nothing changed → navigate normally
+        e.preventDefault();
+        showDiscard(link.getAttribute('href'));
+      });
+    });
+  })();
+</script>
+
 </html>

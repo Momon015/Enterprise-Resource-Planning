@@ -3,207 +3,241 @@
 {% block content %}
 
 <!-- FLASH MESSAGES -->
-<div class="toast-container" aria-live="polite" aria-atomic="true">
-{% if messages %}
-  {% for message in messages %}
+<div id='messages' hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
       {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
       {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
       {{ message }}
     </div>
-  {% endfor %}
-{% endif %}
+    {% endfor %}
+  {% endif %}
 </div>
-
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-});
+document.addEventListener("DOMContentLoaded", () =>
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200)));
 </script>
 
 <div class="page-wrapper">
 
-  <div class="mobile-back-row">
-    <a href="{% url 'product-list' business_slug=current_business.slug %}" class="mobile-back-link">
-      <i class="bi bi-chevron-left"></i>
-      <span>Back</span>
-    </a>
-  </div>
-
-  <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <div class="page-breadcrumb">
-        <span>CATALOG</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href={% url 'product-list' business_slug=current_business.slug %} class="breadcrumb-link">
-          <span>PRODUCT</span>
-        </a>
-        <i class="bi bi-chevron-right"></i>
-        <span>DETAIL</span>
+        <span>CATALOG</span><i class="bi bi-chevron-right"></i>
+        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link"><span>PRODUCT</span></a>
+        <i class="bi bi-chevron-right"></i><span>DETAIL</span>
       </div>
       <h1 class="page-title">Product Details</h1>
-      <p class="page-subtitle">Review this product's catalog entry.</p>
+      <p class="page-subtitle">Review and manage this product's catalog entry.</p>
     </div>
   </div>
 
+    {% if product.prepared_quantity <= product.low_stock_threshold or product.margin_status == 'warning' or product.margin_status == 'critical' %}
+    <div class="pd-alerts" data-session="{{ request.session.session_key }}" data-product="{{ product.id }}">
+      {% if product.prepared_quantity <= product.low_stock_threshold %}
+      <div class="pd-alert pd-alert--{% if product.prepared_quantity <= 0 %}danger{% else %}warning{% endif %}" data-alert="stock">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>{% if product.prepared_quantity <= 0 %}Out of stock — restock before selling.{% else %}Stock running low — only {{ product.prepared_quantity }} left.{% endif %}</span>
+        <button type="button" class="pd-alert__dismiss" aria-label="Dismiss until next login" title="Dismiss until next login"><i class="bi bi-x-lg"></i></button>
+      </div>
+      {% endif %}
+      {% if product.margin_status == 'warning' or product.margin_status == 'critical' %}
+      <div class="pd-alert pd-alert--{% if product.margin_status == 'critical' %}danger{% else %}warning{% endif %}" data-alert="margin">
+        <i class="bi bi-graph-down-arrow"></i>
+        <span>Margin below target — {{ product.current_margin|floatformat:0 }}% vs {{ product.effective_target_margin }}% target{% if product.suggested_price %} · price at ₱{{ product.suggested_price|floatformat:2 }} to hit it{% endif %}.</span>
+        <button type="button" class="pd-alert__dismiss" aria-label="Dismiss until next login" title="Dismiss until next login"><i class="bi bi-x-lg"></i></button>
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+    (function () {
+      var wrap = document.querySelector('.pd-alerts');
+      if (!wrap) return;
+      var base = 'pdAlertDismissed:' + (wrap.dataset.session || '') + ':' + (wrap.dataset.product || '') + ':';
+      wrap.querySelectorAll('.pd-alert').forEach(function (alert) {
+        var key = base + alert.dataset.alert;
+        if (sessionStorage.getItem(key)) { alert.style.display = 'none'; return; }
+        var btn = alert.querySelector('.pd-alert__dismiss');
+        if (btn) btn.addEventListener('click', function () {
+          sessionStorage.setItem(key, '1');
+          alert.style.display = 'none';
+        });
+      });
+    })();
+    </script>
+    {% endif %}
 
 
-
-  <!-- CENTERED SUMMARY CARD -->
-  <div class="form-page-wrap">
-    <div class="card">
-      <div class="card-header">
-        <div class="sd-card-header-left">
-          {% if product.image %}
-          <div class="sd-header-icon" style="padding:0; overflow:hidden;">
-            <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width:100%; height:100%; object-fit:cover;">
-          </div>
-          {% else %}
-          <div class="sd-header-icon">
-            <i class="bi bi-basket"></i>
-          </div>
+  <div class="pd-card card">
+    <div class="pd-toolbar">
+      <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="pd-icon-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+      
+      <div class="pd-menu" id="pdMenu">
+        <button type="button" class="pd-icon-btn" aria-label="More actions"><i class="bi bi-three-dots"></i></button>
+        <div class="pd-menu__dropdown">
+          {% if request.user.role == 'owner' %}
+          <button type="button" class="pd-menu__item pd-menu__item--danger"
+                  hx-get="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                  hx-target="#confirmBody" hx-swap="innerHTML">
+            <i class="bi bi-archive"></i> Archive
+          </button>
           {% endif %}
-          <div>
-            <div class="card-header-title" style="margin: 0;">{{ product.name }}</div>
-            <div class="card-header-sub" style="margin: 0;">
-              {{ product.category.name|default:"No category" }} · SKU: {{ product.sku }}{% if product.barcode %} · Barcode: {{ product.barcode }}{% endif %}
-            </div>
-            {% if product.created_by %}
-            <div class="card-header-sub" style="margin: 0; font-size: 0.78rem;">
-              <i class="bi bi-person-circle sl-me-1"></i>{{ product.created_by.username|capfirst }}
-            </div>
-            {% endif %}
-          </div>
+
+          <button type="button" class="pd-menu__item pd-menu__item--success"
+                  hx-post="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}"
+                  hx-target="#cart-badge" hx-swap="outerHTML">
+            <i class="bi bi-plus"></i> Add to Sale
+          </button>
         </div>
-        <span class="card-header-sub">Pricing and purchasing at a glance</span>
+      </div>
+      
+      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="pd-icon-btn" title="Close"><i class="bi bi-x-lg"></i></a>
+    </div>
+
+    <div class="pd-grid">
+
+      <!-- LEFT: image -->
+      <div class="pd-media">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}">
+        {% else %}
+          <div class="pd-media__empty">
+            <i class="bi bi-basket"></i><span>No image yet</span>
+            <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}">Add one</a>
+          </div>
+        {% endif %}
       </div>
 
+      <!-- RIGHT: content -->
+      <div class="pd-content">
 
+        <div class="pd-identity">
+          <h2 class="pd-name">{{ product.name }}</h2>
+          <div class="pd-meta">{{ product.category.name|default:"No category" }} · SKU {{ product.sku }}{% if product.barcode %} · {{ product.barcode }}{% endif %}</div>
+          <div class="pd-meta pd-meta--by"><i class="bi-person-fill"></i> {{ product.created_by.username|capfirst|default:"—" }}</div>
+        </div>
 
-
-      <div class="card-body" style="padding: 1.25rem;">
-
-        <!-- Featured Stock on Hand -->
-        <div class="period-net
-          {% if product.prepared_quantity <= 0 %}period-net--loss
-          {% elif product.prepared_quantity <= product.low_stock_threshold %}period-net--warning
-          {% endif %}"
-          style="margin-bottom: 1.25rem;">
-          <div class="period-net-label">STOCK ON HAND</div>
-          <div class="period-net-value">{{ product.prepared_quantity }} units</div>
-          <div class="period-net-sub">
-            {% if product.prepared_quantity <= 0 %}
-              <i class="bi bi-slash-circle"></i> Out of stock
-            {% elif product.prepared_quantity <= product.low_stock_threshold %}
-              <i class="bi bi-exclamation-triangle-fill"></i> Low stock
-            {% else %}
-              <i class="bi bi-check-circle-fill"></i> In stock
-            {% endif %}
+        <!-- featured stock band (color-coded) -->
+        <div class="pd-stockband">
+          <div class="pd-stat-box pd-stat-box--{% if product.prepared_quantity <= 0 %}danger{% elif product.prepared_quantity <= product.low_stock_threshold %}warning{% else %}success{% endif %}">
+            <div class="pd-stat-box__label">STOCK ON HAND</div>
+            <div class="pd-stat-box__value">{{ product.prepared_quantity }} units</div>
+            <div class="pd-stat-box__sub">
+              {% if product.prepared_quantity <= 0 %}<i class="bi bi-slash-circle"></i> Out of stock
+              {% elif product.prepared_quantity <= product.low_stock_threshold %}<i class="bi bi-exclamation-triangle-fill"></i> Low stock
+              {% else %}<i class="bi bi-check-circle-fill"></i> In stock{% endif %}
+            </div>
+          </div>
+          <div class="pd-stat-box pd-stat-box--muted">
+            <div class="pd-stat-box__label">LOW STOCK ALERT</div>
+            <div class="pd-stat-box__value">{{ product.low_stock_threshold }} units</div>
+            <div class="pd-stat-box__sub">You'll be alerted at this level.</div>
           </div>
         </div>
 
-        <!-- Breakdown -->
-        <dl class="period-breakdown">
-          <div>
-            <dt>Unit Price</dt>
-            <dd class="text-success">₱{{ product.selling_price|floatformat:2 }}</dd>
-          </div>
-          <div>
-            <dt>Unit Cost</dt>
-            <dd>₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</dd>
+        <!-- 3 simple tiles (no stock/alert — already shown above) -->
+        <div class="pd-tiles">
+
+          <div class="pd-tile">
+            <div class="pd-tile__title"><span><i class="bi bi-cash-coin"></i> Pricing</span></div>
+
+            <dl>
+              <div><dt>Unit Price</dt><dd class="text-success">₱{{ product.selling_price|floatformat:2 }}</dd></div>
+              <div><dt>Unit Cost</dt><dd>₱{{ product.cost_price|default:"0.00"|floatformat:2 }}</dd></div>
+              <div><dt>Margin</dt><dd>{% if product.margin_status %}<span class="margin-chip margin-chip--{{ product.margin_status }}">{{ product.current_margin|floatformat:0 }}% · ₱{{ product.profit_per_piece|floatformat:2 }}</span>{% else %}—{% endif %}</dd></div>
+              <div><dt>Total cost</dt><dd>₱{{ total_stock_cost|default:"0.00"|floatformat:2|intcomma }}</dd></div>
+              <div><dt>Potential revenue</dt><dd class="text-success">₱{{ potential_revenue|default:"0.00"|floatformat:2|intcomma }}</dd></div>
+            </dl>
           </div>
 
-          <div>
-            <dt>Margin</dt>
-            <dd>
-              {% if product.margin_status %}
-                <span class="margin-chip margin-chip--{{ product.margin_status }}">{{ product.current_margin|floatformat:0 }}% · ₱{{ product.profit_per_piece|floatformat:2 }}</span>
-              {% else %}—{% endif %}
-            </dd>
+          <div class="pd-tile">
+            <div class="pd-tile__title"><span><i class="bi bi-box-seam"></i> Inventory</span></div>
+            <dl>
+              <div><dt>Unit</dt><dd>{{ product.unit|default:"—" }}</dd></div>
+              <div><dt>Supplier</dt><dd>{{ product.material.supplier.name|default:"—" }}</dd></div>
+              <div><dt>Last restock</dt><dd>{% if last_restock %}{{ last_restock|date:"M d, Y" }}{% else %}—{% endif %}</dd></div>
+              <div><dt>Restock (30d)</dt><dd>{% if restocked_30d %}+{{ restocked_30d }}{% else %}—{% endif %}</dd></div>
+            </dl>
           </div>
 
-          <div>
-            <dt>Low stock at</dt>
-            <dd>{{ product.low_stock_threshold }} units</dd>
-          </div>
-          <div>
-            <dt>Total stock cost</dt>
-            <dd>₱{{ total_stock_cost|default:"0.00"|floatformat:2|intcomma }}</dd>
-          </div>
-          <div>
-            <dt>Potential revenue</dt>
-            <dd class="text-success">₱{{ potential_revenue|default:"0.00"|floatformat:2|intcomma }}</dd>
-          </div>
-        </dl>
-
-        <!-- Description -->
-        {% if product.description %}
-        <hr class="sd-section-divider">
-        <div class="sd-section-label"><i class="bi bi-text-left sl-me-1"></i>Description</div>
-        <div class="sd-summary-block">{{ product.description|linebreaksbr }}</div>
-        {% endif %}
-
-        <!-- Stock note (only when warning/danger) -->
-        {% if product.prepared_quantity <= product.low_stock_threshold %}
-        <div class="sd-note-box"
-          style="{% if product.prepared_quantity <= 0 %}background:var(--danger-light); border-color:var(--danger-border);{% else %}background:var(--warning-light); border-color:#fde68a;{% endif %} margin-top: 1rem;">
-          <div class="sd-note-icon">
-            {% if product.prepared_quantity <= 0 %}
-              <i class="bi bi-exclamation-circle-fill" style="color:var(--danger);"></i>
-            {% else %}
-              <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning);"></i>
-            {% endif %}
-          </div>
-          <div>
-            <div class="sd-note-title">
-              {% if product.prepared_quantity <= 0 %}Stock depleted{% else %}Stock running low{% endif %}
+          <div class="pd-tile">
+            <div class="pd-tile__title">
+              <span><i class="bi bi-graph-up-arrow"></i> Sales</span>
+              {% if mover %}<span class="pd-mover pd-mover--{{ mover }}">
+                {% if mover == 'fast' %}<i class="bi bi-fire"></i> Selling fast
+                {% elif mover == 'steady' %}<i class="bi bi-check2-circle"></i> Steady
+                {% elif mover == 'slow' %}<i class="bi bi-hourglass-split"></i> Slow mover
+                {% elif mover == 'new' %}<i class="bi bi-hourglass-top"></i> New{% endif %}
+              </span>{% endif %}
             </div>
-            <div class="sd-note-text">
-              {% if product.prepared_quantity <= 0 %}
-                This product is out of stock. Restock before adding to a sale.
-              {% else %}
-                Only {{ product.prepared_quantity }} units left. Consider restocking soon (alert set at {{ product.low_stock_threshold }}).
-              {% endif %}
-              
-            </div>
+            <dl>
+              <div><dt>Sold this month</dt><dd>{{ units_sold_30d }}</dd></div>
+              <div><dt>Sold all-time</dt><dd>{{ units_sold_all }}</dd></div>
+              <div><dt>Last sold</dt><dd>{% if last_sold %}{{ last_sold|date:"M d, Y" }}{% else %}—{% endif %}</dd></div>
+            </dl>
           </div>
+
         </div>
-        {% endif %}
-
-        <!-- Margin note (independent of stock level) -->
-        {% if product.margin_status == 'warning' or product.margin_status == 'critical' %}
-        <div class="sd-note-box" style="{% if product.margin_status == 'critical' %}background:var(--danger-light); border-color:var(--danger-border);{% else %}background:var(--warning-light); border-color:#fde68a;{% endif %} margin-top:1rem;">
-          <div class="sd-note-icon">
-            <i class="bi bi-graph-down-arrow" style="color:{% if product.margin_status == 'critical' %}var(--danger){% else %}var(--warning){% endif %};"></i>
-          </div>
-          <div>
-            <div class="sd-note-title">{% if product.margin_status == 'critical' %}Margin critically low{% else %}Below your target margin{% endif %}</div>
-            <div class="sd-note-text">
-              Currently {{ product.current_margin|floatformat:0 }}% (target {{ product.effective_target_margin }}%).
-              {% if product.suggested_price %} To hit it, price at <strong>₱{{ product.suggested_price|floatformat:2 }}</strong>.{% endif %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Actions -->
-        <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1rem; justify-content: flex-end;">
-          <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="btn btn-light">
-            <i class="bi bi-pencil sl-me-1"></i> Edit
-          </a> 
-          <a href="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle sl-me-1"></i> Add Product
-          </a>
-        </div>  
-
       </div>
     </div>
+
+  </div>
+
+    <!-- ===== RECENT ACTIVITY ===== -->
+  <div class="pd-activity">
+
+    <div class="pd-activity__col">
+      <div class="pd-activity__head">
+        <span><i class="bi bi-receipt"></i> Recent sales</span>
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}">All sales →</a>
+      </div>
+      <div class="pd-activity__list">
+        {% for item in recent_sales %}
+        <a class="pd-activity__row" href="{% url 'sale-detail' business_slug=current_business.slug sale_id=item.sale.id %}">
+          <span class="pd-activity__date">{{ item.sale.date|date:"M d" }}</span>
+          <span class="pd-activity__ref">{{ item.sale.reference|default:"—" }}</span>
+          <span class="pd-activity__amt pd-activity__amt--out">{{ item.quantity }} sold</span>
+        </a>
+        {% empty %}
+        <div class="pd-activity__empty">No sales yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pd-activity__col">
+      <div class="pd-activity__head">
+        <span><i class="bi bi-box-arrow-in-down"></i> Recent restock</span>
+        <a href="{% url 'purchase-list' business_slug=current_business.slug %}">All purchases →</a>
+      </div>
+      <div class="pd-activity__list">
+        {% for item in recent_restocks %}
+        <a class="pd-activity__row" href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=item.purchase.id %}">
+          <span class="pd-activity__date">{{ item.purchase.purchase_date|date:"M d" }}</span>
+          <span class="pd-activity__ref">{{ item.purchase.reference|default:"—" }}</span>
+          <span class="pd-activity__amt pd-activity__amt--in">+{{ item.quantity }}</span>
+        </a>
+        {% empty %}
+        <div class="pd-activity__empty">{% if product.material_id %}No restocks recorded.{% else %}Not linked to a material.{% endif %}</div>
+        {% endfor %}
+      </div>
+    </div>
+
   </div>
 
 </div>
+
+
+<script>
+(function () {
+  const menu = document.getElementById('pdMenu');
+  if (!menu) return;
+  menu.querySelector('.pd-icon-btn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
+  document.addEventListener('click', () => menu.classList.remove('open'));
+})();
+</script>
 
 {% endblock content %}

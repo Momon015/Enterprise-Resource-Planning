@@ -29,7 +29,14 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">PURCHASING</div>
       <h1 class="page-title">Suppliers</h1>
-      <p class="page-subtitle">Manage your suppliers for purchase tracking.</p>
+      <p class="page-subtitle">
+        Manage your suppliers for purchase tracking.
+        {% if kpis.current.computed_at %}
+          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
+            style="cursor: help; font-size: 0.85em;"></i>
+        {% endif %}
+      </p>
     </div>
     {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
@@ -48,7 +55,39 @@
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search supplier name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% comment %} <!-- FILTER BAR -->
       <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
@@ -70,7 +109,7 @@
             </div>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
 
 
@@ -144,7 +183,9 @@
                     </a>
                     {% if request.user.role == 'owner' %}
                     <a href="{% url 'supplier-archive' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}"
-                       class="action-btn action-btn--warning" title="Delete supplier">
+                       hx-get="{% url 'supplier-archive' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
+                       class="action-btn action-btn--warning" title="Archive supplier">
                       <i class="bi bi-archive-fill"></i>
                     </a>
                     {% endif %}
@@ -249,7 +290,7 @@
               <i class="bi bi-plus-circle"></i> Create supplier
             </a>
             <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-archive-fill"></i> Archived
+              <i class="bi bi-archive-fill"></i> Archive
             </a>
           </div>
         </div>
@@ -269,5 +310,23 @@
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
 
 {% endblock %}

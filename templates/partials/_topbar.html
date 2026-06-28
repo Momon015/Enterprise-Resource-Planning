@@ -1,0 +1,150 @@
+{% if user.is_authenticated and current_business %}
+<div class="topbar">
+  <div class="topbar-cluster">
+    <div class="topbar-search" id="topbarSearch">
+      <i class="bi bi-search topbar-search__icon"></i>
+        <input type="text" name="q" id="topbarSearchInput" class="topbar-search__input" placeholder="Search…" autocomplete="off"
+            hx-get="{% url 'global-search' business_slug=current_business.slug %}"
+            hx-trigger="input changed delay:250ms, focus"
+            hx-target="#searchResults" hx-swap="innerHTML">
+            <button type="button" class="topbar-search__clear" id="topbarSearchClear" aria-label="Clear search" hidden>
+            <i class="bi bi-x-lg"></i>
+            </button>
+      <div class="search-dropdown" id="searchResults"></div>
+    </div>
+
+
+    {% if section == 'product' or section == 'service' or section == 'sale' %}
+      <a id="cart-badge" href="{% url 'view-sale' business_slug=current_business.slug %}"
+         class="topbar-icon-btn topbar-cart{% if not sale_cart_count or on_cart_page %} is-empty{% endif %}" title="Cart" aria-label="Cart">
+        <i class="bi bi-cart3"></i>
+        {% if sale_cart_count %}<span class="topbar-cart__badge">{{ sale_cart_count }}</span>{% endif %}
+      </a>
+    {% elif section == 'material' or section == 'purchase' %}
+      <a id="cart-badge" href="{% url 'view-cart' business_slug=current_business.slug %}"
+         class="topbar-icon-btn topbar-cart{% if not purchase_cart_count or on_cart_page %} is-empty{% endif %}" title="Cart" aria-label="Cart">
+        <i class="bi bi-cart3"></i>
+        {% if purchase_cart_count %}<span class="topbar-cart__badge">{{ purchase_cart_count }}</span>{% endif %}
+      </a>
+    {% endif %}
+
+    <!-- NOTIFICATIONS -->
+    <div class="topbar-notif" id="topbarNotif">
+      <button type="button" class="topbar-icon-btn topbar-notif__btn" aria-label="Notifications">
+        <i class="bi bi-bell"></i>
+        {% if notification_count %}<span class="topbar-notif__badge">{{ notification_count }}</span>{% endif %}
+      </button>
+
+      <div class="topbar-notif__menu">
+        <div class="topbar-notif__head">
+          <span>Notifications</span>
+          {% if notification_count %}<span class="topbar-notif__count">{{ notification_count }}</span>{% endif %}
+        </div>
+
+        <div class="topbar-notif__list">
+          {% for event in notification_events %}
+          <a class="topbar-notif__item topbar-notif__item--{{ event.tone }}"
+             href="{% url 'activity-click' business_slug=current_business.slug event_id=event.id %}">
+            <span class="topbar-notif__icon"><i class="bi {{ event.icon_class }}"></i></span>
+            <span class="topbar-notif__text">
+              <span class="topbar-notif__title">{{ event.get_verb_display }}</span>
+              <span class="topbar-notif__desc">{{ event.description }}</span>
+              <span class="topbar-notif__time">{{ event.created_at|timesince }} ago</span>
+            </span>
+          </a>
+          {% empty %}
+          <div class="topbar-notif__empty">
+            <i class="bi bi-check2-circle"></i>
+            <span>You're all caught up</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <a class="topbar-notif__footer" href="{% url 'view-all-activity' business_slug=current_business.slug %}">
+          See all activities <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- ACCOUNT -->
+    <div class="topbar-account" id="topbarAccount">
+      <button type="button" class="topbar-account__btn" aria-label="Account menu">
+        <span class="topbar-account__avatar">{{ user.username|first|upper }}</span>
+        <i class="bi bi-chevron-down topbar-account__chevron"></i>
+      </button>
+
+
+      <div class="topbar-account__menu">
+        <div class="topbar-account__head">
+          <span class="topbar-account__name">{{ request.user.username }}</span>
+          {% if request.user.role == 'owner' and current_business %}
+            {% with bp=current_business.plan sub=request.user.subscription %}
+              {% if bp %}
+              <span class="plan-badge plan-badge--{{ bp.plan }}">
+                {{ bp.get_plan_display }}{% if sub.is_founder %} · Founder{% endif %}{% if sub.is_lifetime %} · Lifetime{% endif %}
+              </span>
+              {% endif %}
+            {% endwith %}
+          {% elif request.user.role == 'staff' %}
+            <span class="plan-badge plan-badge--staff">Staff</span>
+          {% elif request.user.role == 'developer' %}
+            <span class="plan-badge plan-badge--developer">Developer</span>
+          {% endif %}
+        </div>
+
+
+
+
+        <a class="topbar-account__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
+          <i class="bi bi-person-circle"></i> Profile
+        </a>
+        <a class="topbar-account__item" href="{% url 'settings' business_slug=current_business.slug %}">
+          <i class="bi bi-gear"></i> Settings
+        </a>
+        <div class="topbar-account__divider"></div>
+        <a class="topbar-account__item topbar-account__item--danger" href="{% url 'logout' %}">
+          <i class="bi bi-box-arrow-right"></i> Logout
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const acc = document.getElementById('topbarAccount');
+    const notif = document.getElementById('topbarNotif');
+    const close = (el) => el && el.classList.remove('open');
+    if (acc) acc.querySelector('.topbar-account__btn').addEventListener('click', (e) => {
+      e.stopPropagation(); close(notif); acc.classList.toggle('open');
+    });
+    if (notif) notif.querySelector('.topbar-notif__btn').addEventListener('click', (e) => {
+      e.stopPropagation(); close(acc); notif.classList.toggle('open');
+      notif.classList.add('seen');
+    });
+    document.addEventListener('click', (e) => {
+      close(acc); close(notif);
+      const wrap = document.getElementById('topbarSearch');
+      const res = document.getElementById('searchResults');
+      if (wrap && res && !wrap.contains(e.target)) res.innerHTML = '';
+    });
+  })();
+
+    const input = document.getElementById('topbarSearchInput');
+    const clearBtn = document.getElementById('topbarSearchClear');
+    const results = document.getElementById('searchResults');
+    if (input && clearBtn) {
+    const toggle = () => { clearBtn.hidden = input.value.length === 0; };
+    input.addEventListener('input', toggle);
+    toggle();
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        input.value = '';
+        if (results) results.innerHTML = '';
+        clearBtn.hidden = true;
+        input.focus();
+    });
+    }
+</script>
+
+{% endif %}

@@ -32,7 +32,7 @@
         <span>NEW</span>
       </div>
       <h1 class="page-title">Add Service Fee</h1>
-      <p class="page-subtitle">Fees you charge for services — xerox, GCash, bills payment.</p>
+      <p class="page-subtitle">Fees you charge for services — GCash, rentals.</p>
     </div>
   </div>
 
@@ -48,7 +48,8 @@
           <p class="card-header-sub" style="margin: 0;">No stock, no cost — just a name and a fee.</p>
         </div>
       </div>
-      <span class="card-header-sub">Charged as revenue when sold.</span>
+        <a href="{% url 'service-list' business_slug=current_business.slug %}"
+          class="pd-icon-btn" data-form-close="serviceForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
 
     <div class="card-body">
@@ -64,7 +65,8 @@
         </div>
       </div>
 
-      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+      <form id="serviceForm" method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+
         {% csrf_token %}
 
         <div class="mf-fields-grid">
@@ -72,12 +74,22 @@
           {# Name — full width #}
           <div class="mf-field-group" style="grid-column: 1 / -1;">
             <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-              {{ form.name.label }}
-              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+              {{ form.name.label }}{% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
             </label>
             {{ form.name }}
             {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
           </div>
+
+          {# Session toggle — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label class="mf-switch">
+              {{ form.is_session_based }}
+              <span class="mf-switch__track"></span>
+              <span class="mf-switch__label">{{ form.is_session_based.label }}</span>
+            </label>
+            <div class="mf-help">For billiards, court rentals, etc. — charge by time block instead of a flat fee.</div>
+          </div>
+
 
           {# Image — left half #}
           <div class="mf-field-group">
@@ -87,11 +99,10 @@
             {% if form.image.errors %}<div class="mf-error">{{ form.image.errors|striptags }}</div>{% endif %}
           </div>
 
-          {# Fee — right half #}
-          <div class="mf-field-group">
+          {# Flat fee — right half (hidden when session-based) #}
+          <div class="mf-field-group" id="flatFeeField">
             <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
-              {{ form.selling_price.label }}
-              {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+              {{ form.selling_price.label }}{% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
             </label>
             <div class="mf-peso-wrap">
               <span class="mf-peso-prefix">₱</span>
@@ -106,26 +117,56 @@
             {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
           </div>
 
+          {# Session tiers — full width (hidden unless session-based) #}
+          <div class="mf-field-group" id="sessionTiers" style="grid-column: 1 / -1; display:none;">
+            <label class="mf-form-label">Session tiers <span class="mf-required">*</span></label>
+            <div class="mf-help" style="margin-bottom:.5rem;">Each time block and its price — e.g. "30 mins" ₱40, "1 hr" ₱70.</div>
+
+            {{ formset.management_form }}
+
+            <div class="tier-head"><span>Duration</span><span>Price (₱)</span><span></span></div>
+            <div id="tierRows">
+              {% for f in formset %}
+                <div class="tier-row">
+                  {{ f.id }}
+                  <div class="tier-row__field">{{ f.label }}</div>
+                  <div class="tier-row__field">{{ f.price }}</div>
+                  <span class="tier-del-hidden">{{ f.DELETE }}</span>
+                  <button type="button" class="tier-remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+                </div>
+              {% endfor %}
+            </div>
+
+            <template id="emptyTierTpl">
+              <div class="tier-row">
+                {{ formset.empty_form.id }}
+                <div class="tier-row__field">{{ formset.empty_form.label }}</div>
+                <div class="tier-row__field">{{ formset.empty_form.price }}</div>
+                <span class="tier-del-hidden">{{ formset.empty_form.DELETE }}</span>
+                <button type="button" class="tier-remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </template>
+
+            <button type="button" id="addTier" class="btn btn-light btn-sm" style="margin-top:.5rem;">
+              <i class="bi bi-plus"></i> Add tier
+            </button>
+          </div>
+
           {# Description — full width #}
           <div class="mf-field-group" style="grid-column: 1 / -1;">
-            <label for="{{ form.description.id_for_label }}" class="mf-form-label">
-              {{ form.description.label }}
-            </label>
+            <label for="{{ form.description.id_for_label }}" class="mf-form-label">{{ form.description.label }}</label>
             {{ form.description }}
             {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
           </div>
 
         </div>
 
-
         <div class="mf-form-actions">
           <a href="{% url 'service-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle sl-me-1"></i> Save Service Fee
-          </button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle sl-me-1"></i> Save Service Fee</button>
         </div>
-
       </form>
+
     </div>
   </div>
 
@@ -140,6 +181,45 @@ function stepDecimal(id, delta) {
   if (value < 0) value = 0;
   input.value = value.toFixed(2);
 }
+
+(function () {
+  const toggle = document.querySelector('input[name="is_session_based"]');
+  if (!toggle) return;
+  const flat  = document.getElementById('flatFeeField');
+  const tiers = document.getElementById('sessionTiers');
+
+  function sync() {
+    const on = toggle.checked;
+    if (tiers) tiers.style.display = on ? '' : 'none';
+    if (flat)  flat.style.display  = on ? 'none' : '';
+  }
+  toggle.addEventListener('change', sync);
+  sync();   // honor server state on load (e.g. update page or re-render after error)
+
+  const addBtn = document.getElementById('addTier');
+  const rows   = document.getElementById('tierRows');
+  const total  = document.querySelector('input[name="sessions-TOTAL_FORMS"]');
+  const tpl    = document.getElementById('emptyTierTpl');
+
+  if (addBtn && rows && total && tpl) {
+    addBtn.addEventListener('click', () => {
+      const idx = parseInt(total.value, 10);
+      rows.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/__prefix__/g, idx));
+      total.value = idx + 1;
+    });
+  }
+  if (rows) {
+    rows.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tier-remove');
+      if (!btn) return;
+      const row = btn.closest('.tier-row');
+      const del = row.querySelector('input[type="checkbox"]');  // the DELETE box
+      if (del) del.checked = true;     // mark for deletion (existing rows)
+      row.style.display = 'none';      // hide it; TOTAL_FORMS never decreases (Django-safe)
+    });
+  }
+})();
 </script>
+
 
 {% endblock %}

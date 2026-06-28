@@ -50,7 +50,7 @@ class Sale(TimeStampModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
     is_locked = models.BooleanField(default=False, db_index=True)
-
+    
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
     void_reason = models.CharField(max_length=255, blank=True)
@@ -164,6 +164,11 @@ class SaleItem(models.Model):
     unsold_quantity = models.PositiveIntegerField(default=0) # will not be used, I didnt remove it due to migrations
     supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
     
+    session = models.ForeignKey(
+        'Product.ServiceSession', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='sale_items',
+    )
+    
     def __str__(self):
         if self.name:
             return f"{self.name} x {self.quantity}"
@@ -171,11 +176,14 @@ class SaleItem(models.Model):
     def save(self, *args, **kwargs):
         if not self.price_at_sale:
             self.price_at_sale = self.product.selling_price
-        
+
         if self.product:
-            self.name = self.product.name 
-        
+            self.name = self.product.name
+            if self.session_id:
+                self.name = f"{self.product.name} ({self.session.label})"
+
         super().save(*args, **kwargs)
+
         
     # def clean(self):
     #     if self.product.prepared_quantity > self.quantity:

@@ -221,8 +221,8 @@ def material_update(request,  slug, id, business_slug):
 
             
             messages.success(request, f"{material.name} successfully updated.")
-            url = request.GET.get('next', 'material-list')
-            return redirect(url, business_slug=business.slug)
+            return redirect('material-list', business_slug=business.slug)
+
     else:
         form = MaterialForm(instance=material, business=business)
         
@@ -235,19 +235,35 @@ def material_update(request,  slug, id, business_slug):
 def material_archive(request, slug, id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     material = get_object_or_404(Material, business=business, slug=slug, id=id)
-    
+
     if request.method == 'POST':
         material.status = 'inactive'
         material.save(update_fields=['status'])
-        
         log_activity(business, request.user, 'material.archived',
             target=material, description=f"{material.name} archived")
-        
         messages.success(request, f"{material.name} archived. Linked product was archived too.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('material-list', kwargs={'business_slug': business.slug})
+            return resp
         return redirect('material-list', business_slug=business.slug)
-    
+
+    if request.headers.get('HX-Request'):
+        cat = getattr(material.category, 'name', 'No category')
+        sup = getattr(material.supplier, 'name', 'No supplier')
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': f"{material.name}",
+            'cm_subtitle': f"{cat} · {sup}",
+            'cm_note': "Hidden from your materials list · Its linked product is archived too · <strong>Restore anytime</strong>.",
+            'cm_action': reverse('material-archive', kwargs={
+                'business_slug': business.slug, 'slug': material.slug, 'id': material.id}),
+            'cm_label': "Confirm Archive",
+            'cm_icon': 'bi-box-seam',
+        })
+
     context = {'material': material, 'section': 'material'}
     return render(request, 'Supplier/material_archive.html', context)
+
 
 @login_required(login_url='login')
 @permission_required('owner_only')  # owner
@@ -390,10 +406,15 @@ def adding_preset_to_cart(request, preset_id, business_slug):
             'section': 'material',
         })
 
-    # This allows to stay which page the user currently in after adding.
+    # ?next= so we stay on the detail page the user added from
+    next_url = request.GET.get('next')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    # otherwise stay on the preset list, preserving filters
     query_string = request.META.get('QUERY_STRING', '')
     url = reverse('material-preset-list', kwargs={'business_slug': business.slug})
     return redirect(f"{url}?{query_string}" if query_string else url)
+
     
 @login_required(login_url='login')
 def preset_list(request, business_slug):
@@ -650,27 +671,44 @@ def supplier_update(request, business_slug, supplier_id, slug):
 def supplier_archive(request, business_slug, supplier_id, slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
-    
-    if supplier.slug == 'no-supplier':
-        messages.warning(request, '"No Supplier" is a system default and cannot archived — it holds materials that have no supplier assigned.')
+    is_hx = request.headers.get('HX-Request')
+
+    def back_to_list():
+        if is_hx:
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('supplier-list', kwargs={'business_slug': business.slug})
+            return resp
         return redirect('supplier-list', business_slug=business.slug)
-    
+
+    if supplier.slug == 'no-supplier':
+        messages.warning(request, '"No Supplier" is a system default and cannot be archived — it holds materials that have no supplier assigned.')
+        return back_to_list()
+
     if request.method == 'POST':
         supplier.status = 'inactive'
         try:
-            supplier.full_clean()        # ← triggers your clean() stock check
+            supplier.full_clean()                # your clean() stock check
         except ValidationError as e:
             messages.warning(request, e.messages[0])
-            return redirect('supplier-list', business_slug=business.slug)
+            return back_to_list()
         supplier.save(update_fields=['status'])
-        
         log_activity(business, request.user, 'supplier.archived',
              target=supplier, description=f"{supplier.name} archived")
-
         messages.success(request, f"{supplier.name} archived (status: inactive).")
-        return redirect('supplier-list', business_slug=business.slug)
+        return back_to_list()
+
+    if is_hx:
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': f"{supplier.name}",
+            'cm_note': "Hidden from your supplier list · Past purchases kept · <strong>Restore anytime</strong>.",
+            'cm_action': reverse('supplier-archive', kwargs={
+                'business_slug': business.slug, 'supplier_id': supplier.id, 'slug': supplier.slug}),
+            'cm_label': "Confirm Archive",
+            'cm_icon': 'bi-truck',
+        })
 
     return render(request, 'Supplier/supplier_archive.html', {'supplier': supplier})
+
 
 
 

@@ -123,7 +123,17 @@ def category_create(request, business_slug):
                 return redirect('category-list', business_slug=business.slug)
     else:
         form = CategoryForm(user=request.user, business=business)
-    
+        
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_category_form_modal.html', {
+            'form': form,
+            'cat_title': 'New Category',
+            'cat_subtitle': 'Create a category to organize your items.',
+            'cat_action': reverse('category-create', kwargs={'business_slug': business.slug}),
+            'cat_label': 'Save Category',
+            'cat_icon': 'bi-tag-fill',
+        })
+        
     context = {'form': form}
     return render(request, 'core/category_create.html', context)
 
@@ -150,7 +160,18 @@ def category_update(request, business_slug, category_id, slug):
     
     else:
         form = CategoryForm(instance=category, user=request.user, business=business)
-    
+        
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_category_form_modal.html', {
+            'form': form,
+            'cat_title': 'Edit Category',
+            'cat_subtitle': category.name,
+            'cat_action': reverse('category-update', kwargs={
+                'business_slug': business.slug, 'category_id': category.id, 'slug': category.slug}),
+            'cat_label': 'Save Changes',
+            'cat_icon': 'bi-pencil-square',
+        })
+
     context = {'form': form, 'category': category}
     return render(request, 'core/category_update.html', context)
 
@@ -161,15 +182,94 @@ def category_update(request, business_slug, category_id, slug):
 def category_delete(request, business_slug, category_id, slug):
     business = get_business_for_user(request.user, business_slug)
     category = get_object_or_404(Category, business=business, id=category_id, slug=slug)
-    
+
+    def _back_to_list():
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('category-list', kwargs={'business_slug': business.slug})
+            return resp
+        return redirect('category-list', business_slug=business.slug)
+
     if request.method == 'POST':
         if category.slug == 'no-category' or category.slug.startswith('no-category-'):
             messages.warning(request, '"No Category" is a system default and cannot be deleted — it holds materials and products without a category.')
-            return redirect('category-list', business_slug=business.slug)
-        
+            return _back_to_list()
+
         category.delete()
         messages.success(request, f"{category.name} has successfully deleted.")
-        return redirect('category-list', business_slug=business.slug)
-    
+        return _back_to_list()
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': category.name,
+            'cm_subtitle': category.get_category_type_display,
+            'cm_note': "Items in this category will fall back to <strong>No Category</strong>. This can’t be undone.",
+            'cm_action': reverse('category-delete', kwargs={
+                'business_slug': business.slug, 'category_id': category.id, 'slug': category.slug}),
+            'cm_label': 'Delete Category',
+            'cm_tone': 'danger',
+            'cm_icon': 'bi-tag-fill',
+            'cm_btn_icon': 'bi-trash',
+        })
+
     context = {'category': category}
     return render(request, 'core/category_delete.html', context)
+
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.db.models import Q
+
+from core.utils.owner import get_business_for_user
+from Product.models import Product, ProductPreset
+from Supplier.models import Material, Supplier, MaterialPreset
+from Employee.models import Employee
+from Sales.models import Sale
+from Expense.models import Purchase
+
+
+@login_required(login_url='login')
+def global_search(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    q = request.GET.get('q', '').strip()
+
+    # under 2 chars → empty response so the dropdown stays hidden (:empty)
+    if len(q) < 2:
+        return render(request, 'core/partials/_search_results.html', {'q': q})
+
+    is_owner = request.user.role == 'owner'
+
+    products = Product.goods.filter(business=business, name__icontains=q)[:6]
+    services = Product.services.filter(business=business, name__icontains=q)[:6]
+    materials = Material.objects.filter(business=business, name__icontains=q)[:5]
+    suppliers = Supplier.objects.filter(business=business, name__icontains=q)[:5]
+    product_presets = (ProductPreset.objects
+                       .filter(business=business, name__icontains=q)
+                       .prefetch_related('product_preset_items__product'))[:5]
+    material_presets = MaterialPreset.objects.filter(business=business, name__icontains=q)[:5]
+
+    # staff — OWNER ONLY
+    staff = (Employee.objects.filter(business=business)
+             .filter(Q(name__icontains=q) | Q(staff_user__username__icontains=q))[:5]
+             if is_owner else Employee.objects.none())
+
+    # references — owner: all · staff: their own
+    sales = Sale.objects.filter(business=business, reference__icontains=q)
+    purchases = Purchase.objects.filter(business=business, reference__icontains=q)
+    if not is_owner:
+        sales = sales.filter(created_by=request.user)
+        purchases = purchases.filter(created_by=request.user)
+    sales = sales.order_by('-id')[:5]
+    purchases = purchases.order_by('-id')[:5]
+
+    context = {
+        'q': q, 'current_business': business,
+        'products': products, 'services': services,
+        'materials': materials, 'suppliers': suppliers,
+        'product_presets': product_presets, 'material_presets': material_presets,
+        'staff': staff, 'sales': sales, 'purchases': purchases,
+        'has_results': any([products, services, materials, suppliers, 
+                            product_presets, material_presets, staff, sales, purchases]),
+    }
+
+    return render(request, 'core/partials/_search_results.html', context)

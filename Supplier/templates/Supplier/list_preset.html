@@ -17,11 +17,7 @@
 {% endif %}
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-});
-</script>
+
 
 <div class="page-wrapper">
 
@@ -36,8 +32,8 @@ document.addEventListener("DOMContentLoaded", function () {
       <h1 class="page-title">Preset Bundles</h1>
       <p class="page-subtitle">Saved item groups you can quickly add to a purchase.</p>
     </div>
-    <div class="page-header-right">
-      {% include 'core/partials/_preset_badge.html' %} <!-- it's the same thing below -->
+    {% comment %} <div class="page-header-right">
+       {% include 'core/partials/_preset_badge.html' %} <!-- it's the same thing below --> {% endcomment %}
 
       {% comment %} <a id='preset-badge' href="{% url 'view-cart' business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
          class="btn btn-primary btn-sm">
@@ -47,8 +43,8 @@ document.addEventListener("DOMContentLoaded", function () {
             {{ cart_count }}
           </span>
         {% endif %}
-      </a> {% endcomment %}
-    </div>
+      </a> 
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -56,7 +52,40 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+
       <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search preset name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% comment %} <!-- FILTER DRAWER -->
       <details class="filter-card" {% if request.GET.search %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
@@ -79,11 +108,11 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="btn btn-outline-primary btn-sm" type="submit">
                 <i class="bi bi-funnel"></i> Filter
               </button>
-              <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
+              <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">Reset</a>
             </div>
           </form>
         </div>
-      </details>
+      </details> {% endcomment %}
 
       <div class="card table-card">
 
@@ -179,9 +208,6 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
             <h3 class="empty-title">No presets yet</h3>
             <p class="empty-text">Create a preset from your current purchase to reuse recurring orders.</p>
-            <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-              <i class="bi bi-file-text"></i> Go to purchase screen
-            </a>
           </div>
           {% endif %}
         </div>
@@ -279,5 +305,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
 
 {% endblock content %}

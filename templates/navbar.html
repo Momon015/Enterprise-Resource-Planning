@@ -67,44 +67,52 @@
   </a>
 
   <!-- CURRENT BUSINESS -->
+  {% if request.user.role == 'owner' and user_businesses|length > 1 %}
+  <div class="sidebar-business">
+    <div class="sidebar-business__label">Current Business</div>
+    <select class="sidebar-business__select" onchange="location = this.value;">
+      {% for biz in user_businesses %}
+        <option value="{% url 'dashboard' business_slug=biz.slug %}"
+                {% if current_business.id == biz.id %}selected{% endif %}>
+          {{ biz.business_name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  {% comment %}
+  CURRENT-BUSINESS CARD HIDDEN 2026-06-24 — trialing removal for staff + single-business
+  owners (unsure if it's useful clutter). The multi-business switcher above stays live.
+  To restore: unwrap this block and fold it back into a single .sidebar-business div.
   <div class="sidebar-business">
     <div class="sidebar-business__label">
       {% if request.user.role == 'owner' %}Current Business{% else %}Business{% endif %}
     </div>
-
-    {% if request.user.role == 'owner' and user_businesses|length > 1 %}
-      <select class="sidebar-business__select" onchange="location = this.value;">
-        {% for biz in user_businesses %}
-          <option value="{% url 'dashboard' business_slug=biz.slug %}"
-                  {% if current_business.id == biz.id %}selected{% endif %}>
-            {{ biz.business_name }}
-          </option>
-        {% endfor %}
-      </select>
-    {% else %}
-      <div class="sidebar-business__display">
-        <div class="sidebar-business__icon">
-            {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
-              <i class="bi bi-cup-hot"></i>
-            {% elif current_business.business_type == 'pharmacy' %}
-              <i class="bi bi-capsule"></i>
-            {% elif current_business.business_type == 'grocery' or current_business.business_type == 'retail' %}
-              <i class="bi bi-shop-window"></i>
-            {% elif current_business.business_type == 'sari_sari' %}
-              <i class="bi bi-shop-window"></i>
-            {% else %}
-              {{ current_business.business_name|slice:":1"|upper }}
-            {% endif %}
-        </div>
-        <div class="sidebar-business__text">
-          <div class="sidebar-business__name">{{ current_business.business_name }}</div>
-          {% if current_business.business_type %}
-            <div class="sidebar-business__type">{{ current_business.get_business_type_display }}</div>
+    <div class="sidebar-business__display">
+      <div class="sidebar-business__icon">
+          {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
+            <i class="bi bi-cup-hot"></i>
+          {% elif current_business.business_type == 'pharmacy' %}
+            <i class="bi bi-capsule"></i>
+          {% elif current_business.business_type == 'grocery' or current_business.business_type == 'retail' %}
+            <i class="bi bi-shop-window"></i>
+          {% elif current_business.business_type == 'sari_sari' %}
+            <i class="bi bi-shop-window"></i>
+          {% else %}
+            {{ current_business.business_name|slice:":1"|upper }}
           {% endif %}
-        </div>
       </div>
-    {% endif %}
+      <div class="sidebar-business__text">
+        <div class="sidebar-business__name">{{ current_business.business_name }}</div>
+        {% if current_business.business_type %}
+          <div class="sidebar-business__type">{{ current_business.get_business_type_display }}</div>
+        {% endif %}
+      </div>
+    </div>
   </div>
+  {% endcomment %}
+
 
    <!-- NAV BODY -->
   <div class="sidebar-nav" id="sidebarNav">
@@ -377,11 +385,39 @@
     </div>
     {% endif %}
 
+    {% if request.user.role == 'owner' and current_business %}
+      {% with bp=current_business.plan sub=request.user.subscription %}
+        {% if bp.is_trial %}
+          {# ── active trial: countdown → upgrade ── #}
+          <a class="sidebar-trial sidebar-trial--active"
+             href="{% url 'subscription-pricing' business_slug=current_business.slug %}">
+            <div class="sidebar-trial__head"><i class="bi bi-gift-fill"></i> <span>Free trial</span></div>
+            <div class="sidebar-trial__sub">{{ bp.trial_days_remaining }} day{{ bp.trial_days_remaining|pluralize }} left · {{ bp.get_plan_display }}</div>
+            <span class="sidebar-trial__cta">Upgrade plan <i class="bi bi-arrow-right"></i></span>
+          </a>
+        {% elif not sub.trial_used %}
+          {% if not bp.plan or bp.plan == 'free' %}
+            {# ── trial available: free/no-plan owner who hasn't used it ── #}
+            <a class="sidebar-trial"
+               href="{% url 'subscription-pricing' business_slug=current_business.slug %}"
+               hx-get="{% url 'subscription-trial-modal' business_slug=current_business.slug %}?target_business_id={{ current_business.id }}"
+               hx-target="#confirmBody" hx-swap="innerHTML">
+              <div class="sidebar-trial__head"><i class="bi bi-gift-fill"></i> <span>Start your trial</span></div>
+              <div class="sidebar-trial__sub">14 days, free — Premium or Pro</div>
+              <span class="sidebar-trial__cta">Start trial <i class="bi bi-arrow-right"></i></span>
+            </a>
+
+          {% endif %}
+        {% endif %}
+      {% endwith %}
+    {% endif %}
+
   </div>
 
 
-  <!-- FOOTER: user block (no "+ New Sale" button — primary action lives per-page) -->
+  <!-- FOOTER -->
   <div class="sidebar-footer">
+
     <div class="sidebar-account" id="accountToggle">
       <div class="sidebar-account__avatar">
         {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}

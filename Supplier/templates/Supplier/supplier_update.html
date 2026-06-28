@@ -19,19 +19,19 @@
 
 <div class="mf-page-wrapper">
 
-  <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
         <span>PURCHASING</span>
-        <a href={% url 'supplier-list' business_slug=current_business.slug %} class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
-        <span>SUPPLIER</span>
+        <a href="{% url 'supplier-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
+          <span>SUPPLIER</span>
         </a>
         <i class="bi bi-chevron-right"></i>
         <span>EDIT</span>
       </div>
+      <h1 class="page-title">Edit Supplier</h1>
       <p class="page-subtitle">Update the supplier's details.</p>
     </div>
-  </div>
+
 
   <!-- CENTERED SINGLE CARD -->
   <div class="card" style="max-width: 760px; margin: 0 auto;">
@@ -41,11 +41,14 @@
           <i class="bi bi-pencil-square"></i>
         </div>
         <div>
-          <p class="card-header-title">Update Supplier</p>
-          <p class="card-header-sub">Edit supplier details.</p>
+          <p class="card-header-title">{{ supplier.name }}</p>
+          <p class="card-header-sub">Update supplier details.</p>
         </div>
       </div>
+      <a href="{{ request.session.return_to|default:list_fallback }}"
+         class="pd-icon-btn" data-form-close="supplierForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
+
 
     <div class="card-body">
       <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
@@ -105,7 +108,7 @@
         </div>
 
           <div class="mf-form-actions">
-            <a href="{% url 'supplier-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-light">Cancel</a>
+          <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>

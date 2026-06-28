@@ -33,6 +33,7 @@ urlpatterns = [
     path('services/create/', views.service_create, name='service-create'),
     path('services/<str:service_id>/<slug:service_slug>/update/', views.service_update, name='service-update'),
     path('services/<str:service_id>/<slug:service_slug>/archive/', views.service_archive, name='service-archive'),
+    path('services/<int:product_id>/sessions/', views.service_session_picker, name='service-session-picker'),
 
     path('services/archived/', views.archived_services, name='archived-services'),
     path('services/archived/<int:service_id>/restore/', views.restore_service, name='restore-service'),

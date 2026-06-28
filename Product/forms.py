@@ -1,7 +1,8 @@
 from django.forms import ModelForm
 from django import forms
 
-from Product.models import Product, ProductPreset, ProductPresetItem
+from django.forms import inlineformset_factory
+from Product.models import Product, ProductPreset, ProductPresetItem, ServiceSession
 from core.models import Category
 
 from core.utils.images import process_uploaded_image
@@ -176,7 +177,7 @@ class ServiceForm(ModelForm):
 
     class Meta:
         model = Product
-        fields = ['name', 'selling_price', 'description', 'image']
+        fields = ['name', 'is_session_based', 'selling_price', 'description', 'image']
         widgets = {
             'name': forms.TextInput(attrs={
                 'placeholder': 'e.g. Gcash Cash In/Out',
@@ -193,6 +194,8 @@ class ServiceForm(ModelForm):
                 'accept': 'image/*',
                 'class': 'form-control',
             }),
+            'is_session_based': forms.CheckboxInput(attrs={'class': 'mf-toggle-input'
+            }),
         }
 
     def __init__(self, *args, **kwargs):
@@ -201,15 +204,26 @@ class ServiceForm(ModelForm):
         kwargs.pop('business', None)
         kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        self.fields['name'].label = 'Service name'
         
         self.fields['image'].label = 'Logo / Image'
         self.fields['image'].required = False
 
+        self.fields['is_session_based'].label = 'Time-based rentals (session pricing)'
+        self.fields['is_session_based'].required = False
 
-        self.fields['name'].label = 'Service name'
         self.fields['selling_price'].label = 'Fee'
+        self.fields['selling_price'].required = False
+        
         self.fields['description'].label = 'Description'
         self.fields['description'].required = False
+        
+        for name, field in self.fields.items():
+            if name == 'is_session_based':
+                continue                       # not a text input — don't give it form-control
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = (existing + ' form-control').strip()
+
 
         if not self.instance.selling_price:
             self.initial['selling_price'] = '0.00'
@@ -238,4 +252,24 @@ class ServiceForm(ModelForm):
             return image  # existing stored file on edit, not re-uploaded
         self.instance.image_original_name = image.name
         return process_uploaded_image(image)
+    
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('is_session_based'):
+            cleaned['selling_price'] = 0          # price comes from the session tiers
+        else:
+            price = cleaned.get('selling_price')
+            if not price or price <= 0:
+                self.add_error('selling_price', 'Enter a fee greater than ₱0.')
+        return cleaned
+
+ServiceSessionFormSet = inlineformset_factory(
+    Product, ServiceSession,
+    fields=['label', 'price'],
+    extra=1, can_delete=True,
+    widgets={
+        'label': forms.TextInput(attrs={'placeholder': 'e.g. 1 hr', 'class': 'form-control'}),
+        'price': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'class': 'form-control'}),
+    },
+)
 

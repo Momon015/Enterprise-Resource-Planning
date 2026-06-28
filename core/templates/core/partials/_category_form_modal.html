@@ -1,0 +1,66 @@
+<div class="quickview__panel cm-panel cm-panel--form">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi {{ cat_icon|default:'bi-tag-fill' }}"></i></div>
+        <div>
+          <div class="cm-title">{{ cat_title }}</div>
+          <div class="cm-sub">{{ cat_subtitle }}</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{{ cat_action }}" autocomplete="off" novalidate style="margin-top:1rem;">
+        {% csrf_token %}
+        <div class="mf-fields-grid">
+
+          {# Name — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}{% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Margin — left (owner only; hidden unless product → Type reflows left) #}
+          {% if request.user.role == 'owner' %}
+          <div class="mf-field-group" id="marginField">
+            <label for="{{ form.target_margin.id_for_label }}" class="mf-form-label">Target margin %</label>
+            {{ form.target_margin }}
+            <div class="mf-help">Default profit margin for products here. Blank = 30%.</div>
+            {% if form.target_margin.errors %}<div class="mf-error">{{ form.target_margin.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endif %}
+
+          {# Type — right #}
+          <div class="mf-field-group">
+            <label for="{{ form.category_type.id_for_label }}" class="mf-form-label">
+              {{ form.category_type.label }}{% if form.category_type.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.category_type }}
+            {% if form.category_type.errors %}<div class="mf-error">{{ form.category_type.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> {{ cat_label }}
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const typeSel = document.getElementById('{{ form.category_type.id_for_label }}');
+    const marginField = document.getElementById('marginField');
+    function sync(){ if (marginField) marginField.style.display = (typeSel.value === 'product') ? '' : 'none'; }
+    if (typeSel){ sync(); typeSel.addEventListener('change', sync); }
+  })();
+</script>

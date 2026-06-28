@@ -33,7 +33,7 @@
       <p class="page-subtitle">Update this product pricing and details.</p>
     </div>
   </div>
-
+  {% url 'product-list' business_slug=current_business.slug as list_fallback %}
   <!-- SINGLE CARD FORM (no right panel) -->
   <div class="card" style="max-width: 900px; margin: 0 auto;">
     <div class="card-header">
@@ -54,7 +54,11 @@
           </div>
         </div>
       </div>
-      <span class="card-header-sub">Update the product name, qty, price and stock alerts.</span>
+      <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+        <a href="{{ request.session.return_to|default:list_fallback }}"
+           class="pd-icon-btn" data-form-close="productForm" title="Close"><i class="bi bi-x-lg"></i></a>
+
+      </div>
     </div>
 
 
@@ -70,8 +74,8 @@
           </div>
         </div>
       </div>
-
-      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+      
+      <form id="productForm" method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
         {% csrf_token %}
 
         <div class="mf-fields-grid">
@@ -287,7 +291,7 @@
         </div>
 
         <div class="mf-form-actions">
-          <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+          <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-circle sl-me-1"></i> Save Product
           </button>

@@ -60,7 +60,8 @@ from activity.utils import summarize_items
 from django.core.cache import cache
 from django.utils import timezone
 
-CACHE_TTL = 60 * 15 # 15 mins - /* was 5 mins */
+from core.constants import KPI_CACHE_TTL as CACHE_TTL
+
 COMPUTE_LOCK_TTL = 30   # max seconds the compute should take
 WAIT_TICK = 0.2         # poll interval
 WAIT_MAX_TICKS = 5      # 5 × 0.2s = 1s max wait before giving up

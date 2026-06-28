@@ -50,7 +50,7 @@ def view_inventory_stock(request, business_slug):
     stocks = get_queryset_for_user(request.user, Stock.objects.all()) \
         .filter(business=business) \
         .exclude(material__status='inactive') \
-        .order_by('name')
+        .order_by('-quantity')
 
     most_stock_category_name = (stocks.values('material__category__name') \
     .annotate(total_count=Sum('material')).order_by('-total_count').first()

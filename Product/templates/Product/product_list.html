@@ -19,6 +19,8 @@
   {% endif %}
 </div>
 
+
+
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
@@ -26,15 +28,22 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">CATALOG</div>
       <h1 class="page-title">Products</h1>
-      <p class="page-subtitle">Products available for sale and used in transactions</p>
+      <p class="page-subtitle">
+        Products available for sale and used in transactions
+        {% if kpis.current.computed_at %}
+          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
+            style="cursor: help; font-size: 0.85em;"></i>
+        {% endif %}
+      </p>
     </div>
-    <div class="page-header-right">
-      {% comment %} {% if out_of_stock %}
+    {% comment %} <div class="page-header-right">
+       {% if out_of_stock %}
       <div class="header-stat danger">
         <i class="bi bi-slash-circle"></i>
         <strong>{{ out_of_stock }}</strong> out of stock 
       </div>
-      {% endif %} {% endcomment %}
+      {% endif %} 
       <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-cart3"></i>
         {% if cart_count %}
@@ -44,7 +53,7 @@
         {% endif %}
       </a>
 
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <!-- KPI STATS ROW (4-col) -->
@@ -160,7 +169,51 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search or request.GET.category %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search product name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <div style="position:relative;">
+                <select name="category" class="form-control" style="padding-right:2rem; appearance:none; -webkit-appearance:none;">
+                  <option value="">All categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.id }}"
+                      {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); pointer-events:none; font-size:0.8rem; color:var(--text-secondary);"></i>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% comment %} <!-- FILTER BAR -->
       <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
@@ -194,7 +247,7 @@
             </div>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
 
       <!-- TABLE CARD -->
@@ -373,12 +426,15 @@
                        class="action-btn action-btn--view" title="View detail">
                       <i class="bi bi-eye"></i>
                     </a>
+
                     <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
                        class="action-btn action-btn--edit" title="Edit product">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
                         <a href="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                          hx-get="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                          hx-target="#confirmBody" hx-swap="innerHTML"
                           class="action-btn action-btn--warning"
                           title="Archive product">
                           <i class="bi bi-archive-fill"></i>
@@ -587,6 +643,22 @@
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") || params.get("category")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+
   // Browser bfcache restores <details> open state; sync with server-rendered attribute
   document.querySelectorAll('details.filter-card').forEach(d => {
     if (!d.hasAttribute('open')) d.open = false;
@@ -603,7 +675,27 @@ function toggleTopItemsMore(btn){
   btn.closest('.card').classList.toggle('is-expanded');
 }
 
+</script>
 
+<script>
+(function () {
+  const modal = document.getElementById('quickView');
+  if (!modal) return;
+  const body = document.getElementById('quickViewBody');
+  const open  = () => { modal.classList.add('is-open');  document.body.style.overflow = 'hidden'; };
+  const close = () => { modal.classList.remove('is-open'); document.body.style.overflow = ''; body.innerHTML = ''; };
+
+  // open once the detail fragment is swapped in
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    if (e.target.id === 'quickViewBody') open();
+  });
+  // close on ✕ or backdrop (both carry data-quickview-close)
+  modal.addEventListener('click', (e) => { if (e.target.closest('[data-quickview-close]')) close(); });
+  // close on Esc
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
+  });
+})();
 </script>
 
 {% endblock content %}

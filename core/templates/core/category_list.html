@@ -29,7 +29,7 @@
       <h1 class="page-title">Categories</h1>
       <p class="page-subtitle">Manage category names and types for your materials, products, and expenses.</p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
         <i class="bi bi-tags-fill"></i>
         <strong>{{ page_obj.paginator.count }}</strong> categor{{ page_obj.paginator.count|pluralize:"y,ies" }}
@@ -37,7 +37,7 @@
       <a href="{% url 'category-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle"></i> Create Category
       </a>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -45,7 +45,39 @@
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search category name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'category-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% comment %} <!-- FILTER BAR -->
       <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
@@ -67,7 +99,7 @@
             </div>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
 
 
@@ -114,18 +146,29 @@
                   {% endif %}
                 </td>
                 <td class="sl-text-center">
+                  {% if category.name == 'No Category' %}
+                    <span class="sl-badge sl-badge-light" title="System default — can't be edited or deleted">
+                      <i class="bi bi-lock-fill"></i> System
+                    </span>
+                  {% else %}
                   <div class="btn-group">
                     <a href="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      hx-get="{% url 'category-update' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      hx-target="#confirmBody" hx-swap="innerHTML"
                       class="action-btn action-btn--edit" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
+
                     {% if request.user.role == 'owner' %}
                     <a href="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      hx-get="{% url 'category-delete' category_id=category.id slug=category.slug business_slug=category.business.slug %}"
+                      hx-target="#confirmBody" hx-swap="innerHTML"
                       class="action-btn action-btn--danger" title="Delete">
                       <i class="bi bi-trash"></i>
                     </a>
                     {% endif %}
                   </div>
+                  {% endif %}
                 </td>
               </tr>
               {% endfor %}
@@ -218,6 +261,23 @@
             </div>
           </div>
 
+          <!-- QUICK LINKS -->
+          <div class="card">
+            <div class="card-header" style="padding: 0.55rem 1rem;">
+              <span class="card-header-title">
+                <i class="bi bi-lightning-charge"></i> Quick links
+              </span>
+            </div>
+            <div class="card-body" style="padding: 0.6rem 0.85rem;">
+              <a href="{% url 'category-create' business_slug=current_business.slug %}"
+                hx-get="{% url 'category-create' business_slug=current_business.slug %}"
+                hx-target="#confirmBody" hx-swap="innerHTML"
+                class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-plus-circle"></i> Create Category
+              </a>
+            </div>
+          </div>
+
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>
             <div class="quick-range-grid">
@@ -253,5 +313,23 @@
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
 
 {% endblock content %}

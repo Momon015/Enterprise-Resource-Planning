@@ -364,30 +364,39 @@ def user_edit_profile(request, user_id, slug):
 
 @login_required(login_url='login')
 def user_edit_password(request):
+    is_hx = request.headers.get('HX-Request')
+
     if request.method == 'POST':
-        
-        # Honeypot
-        if request.POST.get('website'):
-            return redirect('user-profile', slug=user.slug, user_id=request.user.id)
-        
+        if request.POST.get('website'):  # honeypot
+            if is_hx:
+                return HttpResponse(status=204)
+            return redirect('settings', business_slug=request.user.slug)
+
         form = StyledPasswordChangeForm(user=request.user, data=request.POST)
-        
         if form.is_valid():
             user = form.save()
             request.session['active_business_slug'] = user.slug
             user.password_changed_at = timezone.now()
             user.save(update_fields=['password_changed_at'])
-            update_session_auth_hash(request, user) # keeps the user logged in
-            messages.success(request, f"Your Password has succesfully updated.")
+            logout(request)
+            messages.success(request, "Your password has been updated.")
+            if is_hx:
+                resp = HttpResponse(status=204)
+                resp['HX-Redirect'] = reverse('settings', kwargs={'business_slug': user.slug})
+                return resp
             return redirect('settings', business_slug=user.slug)
-        else:
-            print(form.errors)
-        
-    else:
-        form = StyledPasswordChangeForm(user=request.user)
-    
-    context = {'form': form, 'page': 'user-edit-password'}
-    return render(request, 'user/edit_user_profile_form.html', context)
+
+
+        # invalid
+        if is_hx:
+            return render(request, 'core/partials/_password_modal.html', {'form': form})
+        return render(request, 'user/edit_user_profile_form.html', {'form': form, 'page': 'user-edit-password'})
+
+    form = StyledPasswordChangeForm(user=request.user)
+    if is_hx:
+        return render(request, 'core/partials/_password_modal.html', {'form': form})
+    return render(request, 'user/edit_user_profile_form.html', {'form': form, 'page': 'user-edit-password'})
+
 
 @login_required(login_url='login')
 # def user_reset_password(request):
@@ -519,12 +528,40 @@ def business_profile_update(request, business_slug, business_id):
     return render(request, 'user/business_profile_update.html', context)
 
 @login_required(login_url='login')
-@require_POST
 def regenerate_invite_code(request, business_id, business_slug):
     business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+    next_url = request.GET.get('next', '')
+
+    # GET via HTMX → open the confirm modal
+    if request.method == 'GET':
+        if request.headers.get('HX-Request'):
+            action = reverse('regenerate-invite-code',
+                             kwargs={'business_id': business.id, 'business_slug': business.slug})
+            return render(request, 'core/partials/_confirm_modal.html', {
+                'cm_title': 'Generate new code?',
+                'cm_subtitle': business.business_name,
+                'cm_note': 'The current code stops working right away. Anyone who already has it will need the new one.',
+                'cm_action': f"{action}?next={next_url}",
+                'cm_label': 'Generate new code',
+                'cm_tone': 'danger',
+                'cm_icon': 'bi-arrow-repeat',
+                'cm_btn_icon': 'bi-arrow-repeat',
+            })
+        return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
+
+    # POST → regenerate
     business.regenerate_invite_code()
     messages.success(request, "New invite code generated — the old one no longer works.")
-    return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
+
+    fallback = reverse('business-profile-detail',
+                       kwargs={'business_id': business.id, 'business_slug': business.slug})
+    dest = next_url if next_url.startswith('/') else fallback
+
+    if request.headers.get('HX-Request'):
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = dest
+        return resp
+    return redirect(dest)
 
 @login_required(login_url='login')
 @require_POST
@@ -534,7 +571,11 @@ def toggle_accepting_staff(request, business_id, business_slug):
     business.save(update_fields=['accepting_staff'])
     messages.success(request,
         "Staff sign-up is now ON." if business.accepting_staff else "Staff sign-up is now OFF.")
+    next_url = request.POST.get('next')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
+
 
 
 @login_required(login_url='login')

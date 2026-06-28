@@ -145,15 +145,24 @@ def employee_update(request, business_slug, employee_id, slug):
         if form.is_valid():
             obj = form.save(commit=False)
             obj.save()
-            messages.success(request, f"{obj.name}'s daily rate has been updated.")
             return redirect('employee-list', business_slug=business.slug)
         else:
             print(form.errors)
     else:
         form = EmployeeForm(instance=employee)
-        
+
+    # GET via HTMX → open the edit modal
+    if request.headers.get('HX-Request'):
+        return render(request, 'Employee/partials/_employee_form_modal.html', {
+            'form': form,
+            'employee': employee,
+            'emp_action': reverse('employee-update', kwargs={
+                'business_slug': business.slug, 'employee_id': employee.id, 'slug': employee.slug}),
+        })
+
     context = {'form': form, 'employee': employee, 'section': 'employee'}
     return render(request, 'Employee/employee_update.html', context)
+
 
 @login_required(login_url='login')
 @permission_required('staff_delete')   # owner
@@ -166,19 +175,35 @@ def employee_archive(request, business_slug, employee_id, slug):
         with transaction.atomic():
             employee.status = 'inactive'
             employee.save(update_fields=['status'])
-            # keep login state in sync — archiving signs them out
             if employee.staff_user_id:
                 staff = employee.staff_user
                 staff.is_active = False
                 staff.save(update_fields=['is_active'])
-
         log_activity(business, request.user, 'employee.archived',
                      target=employee, description=f"{employee.name} archived")
         messages.success(request, f"{employee.name} archived and signed out. You can restore them anytime.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('employee-list', kwargs={'business_slug': business.slug})
+            return resp
         return redirect('employee-list', business_slug=business.slug)
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': f"{employee.name}",
+            'cm_subtitle': "Sales Clerk" if employee.is_cashier else "Staff",
+            'cm_note': "Their staff login is turned off right away · Timecards &amp; payroll kept · <strong>Restore anytime</strong>.",
+            'cm_action': reverse('employee-archive', kwargs={
+                'business_slug': business.slug, 'employee_id': employee.id, 'slug': employee.slug}),
+            'cm_label': "Confirm Archive",
+            'cm_tone': 'danger',
+            'cm_icon': 'bi-person-dash',
+            'cm_btn_icon': 'bi-person-dash',
+        })
 
     context = {'employee': employee, 'section': 'employee'}
     return render(request, 'Employee/employee_archive.html', context)
+
 
 
 @login_required(login_url='login')

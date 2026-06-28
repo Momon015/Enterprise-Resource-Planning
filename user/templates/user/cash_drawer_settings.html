@@ -32,7 +32,9 @@
   </div>
 
   <div class="card" style="max-width:620px; margin:0 auto;">
-    <div class="card-header"><span class="card-header-title">Drawer settings</span></div>
+    <div class="card-header"><span class="card-header-title">Drawer settings</span>      
+      <a href="{{ settings_fallback }}" class="pd-icon-btn" data-form-close="drawerForm" title="Close"><i class="bi bi-x-lg"></i></a>
+    </div>
     <div class="card-body">
         {% if locked %}
         <div class="sd-note-box" style="margin-bottom:1rem;">
@@ -44,7 +46,7 @@
         </div>
         {% endif %}
 
-      <form method="post" action="{% url 'cash-drawer-settings' business_id=business.id business_slug=business.slug %}">
+      <form id="drawerForm" method="post" action="{% url 'cash-drawer-settings' business_id=business.id business_slug=business.slug %}">
         {% csrf_token %}
 
         <div style="margin-bottom:1rem;" id="defaultCashRow">

@@ -1,0 +1,72 @@
+{% load humanize %}{% load static %}
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-cash-coin"></i></div>
+        <div>
+          <div class="cm-title">{{ p_title }}</div>
+          <div class="cm-sub">Record a {{ p_payer }} payment</div>
+        </div>
+      </div>
+
+      <!-- outstanding -->
+      <div class="period-net period-net--loss" style="margin-bottom:1rem;">
+        <div class="period-net-label">OUTSTANDING</div>
+        <div class="period-net-value">₱{{ p_outstanding|floatformat:2|intcomma }}</div>
+        <div class="period-net-sub">
+          <i class="bi bi-receipt"></i> Total ₱{{ p_total|floatformat:2|intcomma }} · Paid ₱{{ p_paid|floatformat:2|intcomma }}
+        </div>
+      </div>
+
+        <form method="POST" action="{{ p_action }}"
+            hx-post="{{ p_action }}" hx-target="#confirmBody" hx-swap="innerHTML"
+            class="payment-form">
+
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
+
+        <div class="form-field">
+          <label class="form-label" for="pm_amount"><i class="bi bi-cash-stack"></i> Amount</label>
+          <input type="number" id="pm_amount" name="amount" class="form-control form-control--polish"
+                 step="0.01" min="0.01" placeholder="₱0.00" required autofocus>
+          <small class="form-hint">Max: ₱{{ p_outstanding|floatformat:2|intcomma }}</small>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label"><i class="bi bi-wallet2"></i> Method</label>
+          <div class="payment-method-grid">
+            {% for value, label in method_choices %}
+            <label class="payment-method-option">
+              <input type="radio" name="method" value="{{ value }}" required
+                {% if method_val %}{% if method_val == value %}checked{% endif %}{% elif forloop.first %}checked{% endif %}>
+              <div class="payment-method-card">
+                {% if value == 'cash' %}<i class="bi bi-cash-stack"></i>
+                {% elif value == 'cod' %}<i class="bi bi-truck"></i>
+                {% elif value == 'gcash' %}<img src="{% static 'images/gcash.svg' %}" alt="GCash" class="payment-method-logo">
+                {% elif value == 'bank_transfer' or value == 'bank' %}<i class="bi bi-bank"></i>
+                {% elif value == 'credit' or value == 'store_credit' %}<i class="bi bi-credit-card-2-back"></i>
+                {% else %}<i class="bi bi-wallet2"></i>{% endif %}
+                <span>{{ label }}</span>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="pm_note"><i class="bi bi-pencil"></i> Reference / Note <span class="form-optional">(optional)</span></label>
+          <input type="text" id="pm_note" name="note" maxlength="255" class="form-control form-control--polish"
+                 value="{{ note_val|default:'' }}" placeholder="e.g. GCash ref, name">
+        </div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check-circle"></i> Record Payment</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

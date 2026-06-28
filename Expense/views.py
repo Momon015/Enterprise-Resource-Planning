@@ -332,7 +332,7 @@ def add_to_cart(request, business_slug, id):
         if material_key in cart:
             if cart[material_key]['quantity'] < material.quantity:
                 cart[material_key]['quantity'] += 1
-                messages.success(request, f"{material.name}'s quantity has increased.")
+                # messages.success(request, f"{material.name}'s quantity has increased.")
 
             else:
                 messages.warning(request, f"{material.name} - quantity limit reached.")
@@ -348,7 +348,7 @@ def add_to_cart(request, business_slug, id):
                 'quantity': 1,
                 'discount': str(0),
             }
-            messages.success(request, f"{material.name} added to purchase.")
+            # messages.success(request, f"{material.name} added to purchase.")
     else:
          messages.warning(request, f"{material.name} -  quantity limit reached.")
 
@@ -808,34 +808,38 @@ def confirm_purchase_summary(request, business_slug):
 def add_purchase_payment(request, business_slug, purchase_id):
     business = get_business_for_user(request.user, business_slug)
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
+    is_hx = request.headers.get('HX-Request')
 
     if request.method == 'POST':
         amount_str = request.POST.get('amount', '').strip()
         method = request.POST.get('method', 'cod')
         note = request.POST.get('note', '').strip()
-        date_str = request.POST.get('date', '').strip()
+        next_param = request.POST.get('next', '')
 
-        # Validate amount
+        def form_error(msg):
+            if is_hx:
+                return render(request, 'core/partials/_payment_modal.html', {
+                    'p_title': purchase.reference, 'p_payer': 'supplier',
+                    'p_outstanding': purchase.outstanding,
+                    'p_total': purchase.total_cost, 'p_paid': purchase.amount_paid,
+                    'p_action': reverse('add-purchase-payment', kwargs={
+                        'business_slug': business.slug, 'purchase_id': purchase.id}),
+                    'method_choices': PurchasePayment.PAYMENT_METHOD_CHOICES,
+                    'error': msg, 'amount_val': amount_str, 'method_val': method,
+                    'note_val': note, 'p_next': next_param,
+                })
+            messages.error(request, msg)
+            return redirect('add-purchase-payment', business_slug=business_slug, purchase_id=purchase_id)
+
         try:
             amount = Decimal(amount_str)
         except (ValueError, ArithmeticError):
-            messages.error(request, "Enter a valid amount.")
-            return redirect('add-purchase-payment',
-                            business_slug=business_slug, purchase_id=purchase_id)
+            return form_error("Enter a valid amount.")
 
         if amount <= 0:
-            messages.error(request, "Payment amount must be greater than ₱0.")
-            return redirect('add-purchase-payment',
-                            business_slug=business_slug, purchase_id=purchase_id)
+            return form_error("Payment amount must be greater than ₱0.")
 
-        # Soft warning if overpaying (allow — owner may have a reason)
-        outstanding_before = purchase.outstanding
-        if amount > outstanding_before:
-            messages.warning(
-                request,
-                f"Payment ₱{amount:.2f} exceeds outstanding ₱{outstanding_before:.2f}. "
-                f"Outstanding will go negative (supplier credit)."
-            )
+        overpay = amount > purchase.outstanding
 
         with transaction.atomic():
             payment = PurchasePayment.objects.create(
@@ -878,11 +882,34 @@ def add_purchase_payment(request, business_slug, purchase_id):
                 reason=note,
             )
 
+        # ----- HX: Payment Recorded summary as a modal -----
+        if is_hx:
+            addmore = reverse('add-purchase-payment', kwargs={
+                'business_slug': business.slug, 'purchase_id': purchase.id})
+            if next_param:
+                addmore += f'?next={next_param}'
+            return render(request, 'core/partials/_payment_recorded_modal.html', {
+                'p_title': purchase.reference,
+                'p_payer': 'supplier',
+                'p_doc_label': 'Purchase Total',
+                'payment': payment,
+                'p_total': purchase.total_cost,
+                'p_paid': purchase.amount_paid,
+                'outstanding': purchase.outstanding,
+                'overpay': overpay,
+                'p_view_url': reverse('purchase-detail', kwargs={
+                    'business_slug': business.slug, 'purchase_id': purchase.id}),
+                'p_addmore_action': addmore,
+            })
 
-        # Dynamic redirect based on where the user came from
+        # ----- non-HX fallback: warning + existing success-page redirect -----
+        if overpay:
+            messages.warning(
+                request,
+                f"Payment ₱{amount:.2f} exceeds outstanding ₱{purchase.outstanding + amount:.2f}. "
+                f"Outstanding will go negative (supplier credit)."
+            )
         messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
-
-        next_param = request.POST.get('next', '')
         url = reverse('purchase-payment-success', kwargs={
             'business_slug': business_slug,
             'purchase_id': purchase_id,
@@ -892,6 +919,19 @@ def add_purchase_payment(request, business_slug, purchase_id):
             url += f'?next={next_param}'
         return redirect(url)
 
+    # ----- GET: modal fragment (HX) or full page (fallback) -----
+    if is_hx:
+        return render(request, 'core/partials/_payment_modal.html', {
+            'p_title': purchase.reference,
+            'p_payer': 'supplier',
+            'p_outstanding': purchase.outstanding,
+            'p_total': purchase.total_cost,
+            'p_paid': purchase.amount_paid,
+            'p_action': reverse('add-purchase-payment', kwargs={
+                'business_slug': business.slug, 'purchase_id': purchase.id}),
+            'method_choices': PurchasePayment.PAYMENT_METHOD_CHOICES,
+        })
+
     context = {
         'purchase': purchase,
         'outstanding': purchase.outstanding,
@@ -900,6 +940,8 @@ def add_purchase_payment(request, business_slug, purchase_id):
         'section': 'purchase',
     }
     return render(request, 'Expense/add_purchase_payment.html', context)
+
+
 
 @login_required(login_url='login')
 @permission_required('view') # dev
@@ -968,15 +1010,28 @@ def can_void_purchase(purchase):
 def void_purchase(request, business_slug, purchase_id):
     business = get_business_for_user(request.user, business_slug)
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
+    is_hx = request.headers.get('HX-Request')
 
     if not can_void_purchase(purchase):
         messages.error(request, "This purchase can no longer be voided — use Purchase Returns instead.")
+        if is_hx:
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('view-purchase-summary', kwargs={'business_slug': business.slug, 'purchase_id': purchase.id})
+            return resp
         return redirect('view-purchase-summary', business_slug=business.slug, purchase_id=purchase.id)
 
     if request.method != 'POST':
+        if is_hx:
+            return render(request, 'core/partials/_void_modal.html', {
+                'v_title': purchase.reference,
+                'v_subtitle': f"₱{purchase.total_cost or 0:.2f}",
+                'v_note': "Voiding cancels this purchase completely — it stops counting toward expenses and the cash drawer, and the stock it added is pulled back out. This is for mistakes on this shift, not supplier returns.",
+                'v_action': reverse('void-purchase', kwargs={'business_slug': business.slug, 'purchase_id': purchase.id}),
+                'v_icon': 'bi-receipt-cutoff',
+                'reasons': Purchase.VOID_REASON_CHOICES,
+            })
         return render(request, 'Expense/void_purchase.html', {
-            'purchase': purchase,
-            'reasons': Purchase.VOID_REASON_CHOICES,
+            'purchase': purchase, 'reasons': Purchase.VOID_REASON_CHOICES,
         })
 
     reason = request.POST.get('void_reason', '').strip()
@@ -1407,7 +1462,7 @@ def cart_remove_materials(request, business_slug, id):
     
     if material_key in cart:
         del cart[material_key]
-        messages.success(request, f"{material.name} removed from the purchase record.")
+        # messages.success(request, f"{material.name} removed from the purchase record.")
          
     request.session.modified = True
     
@@ -1438,10 +1493,10 @@ def edit_total_price(request, business_slug, material_id):
             # Compare against existing unit price (use is not None, not truthiness)
             if price is None or new_unit_price != Decimal(price):
                 cart[material_key]['price'] = str(new_unit_price)
-                if new_unit_price == 0:
-                    messages.success(request, f"{material.name} marked as free (₱0.00 unit cost).")
-                else:
-                    messages.success(request, f"{material.name}'s unit cost has been updated.")
+                # if new_unit_price == 0:
+                #     messages.success(request, f"{material.name} marked as free (₱0.00 unit cost).")
+                # else:
+                #     messages.success(request, f"{material.name}'s unit cost has been updated.")
 
     request.session['cart'] = cart
     request.session.modified = True

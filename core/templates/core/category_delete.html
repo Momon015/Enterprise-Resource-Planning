@@ -9,7 +9,7 @@
       <div class="page-breadcrumb">
         <a href="{% url 'settings' business_slug=current_business.slug %}" class="breadcrumb-link">SETTINGS</a>
         <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'category-list' business_slug=current_business.slug %}" class="breadcrumb-link">CATEGORY</a>
+        <a href="{% url 'category-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">CATEGORY</a>
         <i class="bi bi-chevron-right"></i>
         <span>DELETE</span>
       </div>
@@ -30,7 +30,8 @@
           <div class="card-header-sub">Category to be deleted</div>
         </div>
       </div>
-      <span class="sl-badge sl-badge-light">ID: {{ category.id }}</span>
+         <a href="{{ request.session.return_to|default:list_fallback }}"
+          class="pd-icon-btn" data-form-close="categoryForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
 
     <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">

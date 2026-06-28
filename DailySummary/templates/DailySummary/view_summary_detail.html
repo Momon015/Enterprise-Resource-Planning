@@ -71,16 +71,6 @@
       </p>
     </div>
 
-    <div style="display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:.85rem;">
-      <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
-         style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'cash' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
-        <i class="bi bi-cash-stack"></i> Cash Flow
-      </a>
-      <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
-         style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'accrual' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
-        <i class="bi bi-graph-up-arrow"></i> Business Performance
-      </a>
-    </div>
   </div>
 
   <!-- ↑ line 84: end of .sd-page-header -->
@@ -124,8 +114,8 @@
                     <span class="receipt-ref"><a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=p.sale.id %}">{{ p.sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
                     {% if p.pay_status == 'partial' %}
                     <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
-                    {% elif p.is_earlier %}
-                    <div class="cell-sub" style="color:var(--success);">{{ p.sale.date|date:"M d" }} debt{% if p.is_final %} · fully paid{% endif %}</div>
+                    {% elif p.is_settlement %}
+                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
                     {% endif %}
                   </td>
                   <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
@@ -161,8 +151,8 @@
                     <span class="receipt-ref"><a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.purchase.id %}">{{ p.purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
                     {% if p.pay_status == 'partial' %}
                     <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} utang · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
-                    {% elif p.is_earlier %}
-                    <div class="cell-sub" style="color:var(--success);">{{ p.purchase.purchase_date|date:"M d" }} utang{% if p.is_final %} · cleared{% endif %}</div>
+                    {% elif p.is_settlement %}
+                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} utang · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
                     {% endif %}
                   </td>
                   <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
@@ -387,6 +377,18 @@
 
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
+      
+      <!-- BASIS TABS (right-panel view switcher) -->
+      <div class="basis-tabs basis-tabs--block">
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
+           class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
+          <i class="bi bi-cash-stack"></i> Cash Flow
+        </a>
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
+           class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
+          <i class="bi bi-graph-up-arrow"></i> Business Performance
+        </a>
+      </div>
 
       <!-- Day Summary -->
       <div class="card">

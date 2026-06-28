@@ -6,9 +6,26 @@ from django.db.models import Sum, F, Q, DecimalField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD
+from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, KPI_CACHE_TTL, KPI_BUST_DEBOUNCE
 
-CACHE_TTL = 60 * 60 * 24  # 24 hours
+CACHE_TTL = KPI_CACHE_TTL
+
+KPI_PAGES = ('products', 'suppliers', 'inventory', 'sales', 'purchases', 'services')
+
+def bust_kpis(business, pages=None):
+    """Invalidate cached KPI 'current' blocks for a business.
+    Debounced per page so a burst of writes = one bust per KPI_BUST_DEBOUNCE.
+    Only clears the cached 'current' dict — the daily snapshot used for
+    vs-yesterday deltas is untouched."""
+    if business is None:
+        return
+    today = timezone.localdate().isoformat()
+    for page in (pages or KPI_PAGES):
+        cache_key = f'kpis:{page}:{business.id}:{today}'
+        throttle_key = f'{cache_key}:bust_throttle'
+        if cache.add(throttle_key, True, timeout=KPI_BUST_DEBOUNCE):
+            cache.delete(cache_key)
+
 
 # ─── PRODUCTS ───────────────────────────────────────────────────────────────
 
@@ -87,6 +104,7 @@ def compute_product_kpis(business, as_of=None):
         'top_items_all': top_items_all,
         'top_items_has_more': top_items_has_more,
         'never_sold': never_sold,
+        'computed_at': timezone.now(),
     }
 
     
@@ -111,6 +129,53 @@ def get_product_kpis(business, as_of=None):
         'current': current,
         'deltas': deltas,
     }
+    
+# ─── SERVICES ────────────────────────────────────────────────────────────────
+
+def compute_service_kpis(business, as_of=None):
+    """Live KPI computation for the Service Fees page (no vs-yesterday delta)."""
+    from Product.models import Product
+    from Sales.models import SaleItem
+
+    today = as_of or timezone.localdate()
+    month_start = today.replace(day=1)
+
+    service_items = SaleItem.objects.filter(
+        sale__business=business, product__isnull=False, product__is_service=True
+    )
+
+    units_sold_all = service_items.aggregate(u=Coalesce(Sum('quantity'), 0))['u']
+
+    def _top(items, n=10):
+        rows = (items.values('product__name')
+                     .annotate(units=Sum('quantity'))
+                     .order_by('-units')[:n])
+        return [{'name': r['product__name'], 'units': r['units']} for r in rows]
+
+    # collapser only appears once there are 11+ services with sales
+    distinct_sold = service_items.values('product_id').distinct().count()
+
+    return {
+        'units_sold_all': units_sold_all,
+        'top_services_month': _top(service_items.filter(sale__date__gte=month_start)),
+        'top_services_all': _top(service_items),
+        'top_services_has_more': distinct_sold > 10,
+        'services_total': Product.services.filter(business=business).count(),
+        'computed_at': timezone.now(),
+    }
+
+
+def get_service_kpis(business):
+    """Cached service KPIs (TTL backstop + bust-on-write). No delta block."""
+    today = timezone.localdate()
+    cache_key = f'kpis:services:{business.id}:{today.isoformat()}'
+
+    current = cache.get(cache_key)
+    if current is None:
+        current = compute_service_kpis(business)
+        cache.set(cache_key, current, timeout=CACHE_TTL)
+
+    return {'current': current}
     
 # ─── SUPPLIERS ───────────────────────────────────────────────────────────────
 
@@ -140,6 +205,7 @@ def compute_supplier_kpis(business, as_of=None):
         'on_hold': on_hold,
         'purchases_count_month': purchases_count_month,
         'total_spend_month': str(total_spend_month),
+        'computed_at': timezone.now(),
     }
 
 
@@ -185,6 +251,7 @@ def compute_inventory_kpis(business, as_of=None):
         'in_stock': in_stock,
         'out_of_stock': out_of_stock,
         'total_value': str(total_value),
+        'computed_at': timezone.now(),
     }
 
 
@@ -237,6 +304,7 @@ def compute_sale_kpis(business, as_of=None):
         'count_month':         _count({'date__gte': this_month_start}),
         'revenue_month':       str(_revenue({'date__gte': this_month_start})),
         'revenue_last_month':  str(_revenue({'date__range': (last_month_start, last_month_end)})),
+        'computed_at': timezone.now(),
     }
 
 
@@ -288,6 +356,7 @@ def compute_purchase_kpis(business, as_of=None):
         'count_month':      _count({'purchase_date__gte': this_month_start}),
         'cost_month':       str(_cost({'purchase_date__gte': this_month_start})),
         'cost_last_month':  str(_cost({'purchase_date__range': (last_month_start, last_month_end)})),
+        'computed_at': timezone.now(),
     }
 
 

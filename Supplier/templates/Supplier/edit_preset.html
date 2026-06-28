@@ -11,7 +11,7 @@
         <i class="bi bi-chevron-right"></i>
         <a href="{% url 'material-list' business_slug=current_business.slug %}" class="breadcrumb-link">MATERIALS</a>
         <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRESET</a>
+        <a href="{% url 'material-preset-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">PRESET</a>
         <i class="bi bi-chevron-right"></i>
         <span>EDIT</span>
       </div>
@@ -20,7 +20,8 @@
     </div>
   </div>
 
-  <form method="POST" action="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}">
+  <form id="presetForm" method="POST" action="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}">
+
     {% csrf_token %}
 
     <!-- CENTERED SINGLE CARD -->
@@ -37,9 +38,14 @@
             <div class="card-header-sub">Adjust the name, quantities and discounts</div>
           </div>
         </div>
-        <span class="sl-badge sl-badge-light">
-          {{ items|length }} item{{ items|length|pluralize }}
-        </span>
+        <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+          <span class="sl-badge sl-badge-light">
+            {{ items|length }} item{{ items|length|pluralize }}
+          </span>
+          <a href="{{ request.session.return_to|default:list_fallback }}"
+             class="pd-icon-btn" data-form-close="presetForm" title="Close"><i class="bi bi-x-lg"></i></a>
+        </div>
+
       </div>
 
       <div class="card-body">
@@ -83,7 +89,7 @@
               <th>Material</th>
               <th class="sl-text-center">Quantity</th>
               <th class="sl-text-center">Discount</th>
-              <th class="sl-text-end">Remove</th>
+              {% comment %} <th class="sl-text-end">Remove</th> {% endcomment %}
             </tr>
           </thead>
           <tbody>
@@ -123,7 +129,7 @@
               <td class="sl-text-end">
                 <div class="table-actions">
                   <button type="button"
-                          class="action-btn action-btn--danger"
+                          class="action-btn action-btn--remove"
                           title="Remove from preset"
                           hx-post="{% url 'material-preset-remove-item' business_slug=current_business.slug id=preset.id item_id=item.id %}"
                           hx-target="#preset-row-{{ item.id }}"
@@ -155,7 +161,7 @@
       <!-- ACTIONS -->
       <div class="card-body" style="border-top: 1px solid var(--border-light);">
         <div class="mf-form-actions">
-          <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary">Cancel</a>
+          <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-outline-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-circle"></i> Save changes
           </button>

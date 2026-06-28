@@ -8,7 +8,7 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">
         <span>PURCHASING</span>
-        <a href={% url 'material-list' business_slug=current_business.slug %} class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
+        <a href={% url 'material-list' business_slug=current_business.slug as list_fallback %}class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
         <span>MATERIALS</span>
         </a>
         <i class="bi bi-chevron-right"></i>
@@ -34,7 +34,9 @@
           </div>
         </div>
       </div>
-      <span class="card-header-sub">Update details and pricing</span>
+      <a href="{{ request.session.return_to|default:list_fallback }}"
+         class="pd-icon-btn" data-form-close="materialForm" title="Close"><i class="bi bi-x-lg"></i></a>
+
     </div>
 
     <div class="card-body">
@@ -50,7 +52,8 @@
         </div>
       </div>
 
-      <form method="POST" autocomplete="off" novalidate>
+      <form id="materialForm" method="POST" autocomplete="off" novalidate>
+
         {% csrf_token %}
 
         <div class="mf-fields-grid">
@@ -152,7 +155,7 @@
             {% endif %}
           </div> {% endcomment %}
           <div style="display:flex; gap:0.5rem;">
-            <a href="{% url 'material-list' business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-light">Cancel</a>
+            <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle sl-me-1"></i> Save Changes
             </button>

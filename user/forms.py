@@ -137,10 +137,11 @@ class BusinessProfileForm(ModelForm):
     
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address', 'business_phone_number', 'offers_services']
+        fields = ['business_name', 'business_type', 'address', 'business_phone_number', 'offers_services', 'receipt_width']
         
         widgets = {
             'offers_services': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'receipt_width': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -149,6 +150,7 @@ class BusinessProfileForm(ModelForm):
         self.fields['offers_services'].label = 'Enable Service Fees'
         self.fields['offers_services'].required = False
 
+        self.fields['receipt_width'].label = 'Receipt paper width'
 
         disabled_types = ['cafe', 'restaurant']
         choices = self.fields['business_type'].choices

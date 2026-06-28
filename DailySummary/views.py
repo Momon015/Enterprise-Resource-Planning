@@ -518,7 +518,10 @@ def view_summary_detail(request, business_slug, date):
         running = Decimal('0')
         crossed = None        # the payment that first reaches full
         after = Decimal('0')  # cumulative paid up to & including THIS payment
+        before = Decimal('0') # cumulative paid BEFORE this payment (was it already utang?)
         for q in pmts:
+            if q.id == pay.id:
+                before = running
             running += (q.amount or Decimal('0'))
             if crossed is None and total > 0 and running >= total:
                 crossed = q.id
@@ -532,20 +535,23 @@ def view_summary_detail(request, business_slug, date):
             status = 'partial'
         else:
             status = 'paid'
-        return outstanding, status, (crossed == pay.id)
+        return outstanding, status, (crossed == pay.id), (before > 0)
 
     for p in sales_payments:
         if p.sale:
-            p.pay_outstanding, p.pay_status, p.is_final = _running_state(p.sale, p.sale.total_revenue, p, p.date)
+            p.pay_outstanding, p.pay_status, p.is_final, had_prior = _running_state(p.sale, p.sale.total_revenue, p, p.date)
             p.is_earlier = bool(p.sale.date and p.sale.date < p.date)
+            p.is_settlement = p.is_final and (p.is_earlier or had_prior)
         else:
-            p.pay_outstanding, p.pay_status, p.is_final, p.is_earlier = 0, 'paid', False, False
+            p.pay_outstanding, p.pay_status, p.is_final, p.is_earlier, p.is_settlement = 0, 'paid', False, False, False
     for p in purchase_payments:
         if p.purchase:
-            p.pay_outstanding, p.pay_status, p.is_final = _running_state(p.purchase, p.purchase.total_cost, p, p.date)
+            p.pay_outstanding, p.pay_status, p.is_final, had_prior = _running_state(p.purchase, p.purchase.total_cost, p, p.date)
             p.is_earlier = bool(p.purchase.purchase_date and p.purchase.purchase_date < p.date)
+            p.is_settlement = p.is_final and (p.is_earlier or had_prior)
         else:
-            p.pay_outstanding, p.pay_status, p.is_final, p.is_earlier = 0, 'paid', False, False
+            p.pay_outstanding, p.pay_status, p.is_final, p.is_earlier, p.is_settlement = 0, 'paid', False, False, False
+
 
 
 

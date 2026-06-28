@@ -136,6 +136,8 @@ class BusinessProfile(models.Model):
         ('restaurant', 'Restaurant'),
         ('pharmacy', 'Pharmacy'),
     )
+    
+    RECEIPT_WIDTH_CHOICES = [('80', '80mm'), ('58', '58mm')]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='business_profiles')
     business_name = models.CharField(max_length=255)
@@ -195,6 +197,8 @@ class BusinessProfile(models.Model):
         default=False,
         help_text="When on, staff can register using your invite code. Turn off when you're done hiring.",
     )
+    receipt_width = models.CharField(max_length=2, choices=RECEIPT_WIDTH_CHOICES, default='80')
+
 
     class Meta:
         unique_together = ('user', 'slug')

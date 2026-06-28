@@ -46,7 +46,15 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="page-header-left">
       <div class="page-breadcrumb">TRANSACTIONS</div>
       <h1 class="page-title">Purchase Records</h1>
-      <p class="page-subtitle">Supplier purchase receipts recorded into inventory levels</p>
+      <p class="page-subtitle">
+        Supplier purchase receipts recorded into inventory levels
+        {% if kpis.current.computed_at %}
+          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
+            style="cursor: help; font-size: 0.85em;"></i>
+        {% endif %}
+
+      </p>
     </div>
     {% comment %} <div class="page-header-right">
       <div class="header-stat accent">

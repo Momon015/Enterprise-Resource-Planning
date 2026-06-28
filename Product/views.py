@@ -17,8 +17,10 @@ from django.urls import reverse
 from django.core.paginator import Paginator
 
 from Product.models import Product, ProductPreset, ProductPresetItem
-from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm, ServiceForm
+from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm, ServiceForm, ServiceSessionFormSet
 
+from Sales.models import Sale, SaleItem, SalesReturnItem
+from Expense.models import Purchase, PurchaseItem
 
 from decimal import Decimal
 from django.db.models import Q, F, Sum
@@ -41,6 +43,7 @@ def product_list(request, business_slug):
     total = 0
     
     business = get_business_for_user(request.user, business_slug)
+    request.session['catalog_return'] = request.path
     
     if sale:
         for data in sale.values():
@@ -56,12 +59,10 @@ def product_list(request, business_slug):
     products = get_queryset_for_user(request.user, Product.goods.all()) \
         .filter(business=business) \
         .select_related('category', 'material__supplier') \
-        .order_by('is_locked', 'name')
+        .order_by('is_locked', '-prepared_quantity')
         
     products = products.annotate(units_sold=Coalesce(Sum('sale_items__quantity'), 0))
 
-
-    
     # option 2
     # if request.user.role == 'developer':
     #     products = Product.objects.all().order_by('name')
@@ -238,19 +239,101 @@ def product_create(request, business_slug):
 @login_required(login_url='login')
 def product_detail(request, business_slug, product_slug, product_id):
     business = get_business_for_user(request.user, business_slug)
-
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
-
+    request.session['catalog_return'] = request.path
+    
     total_stock_cost = product.prepared_quantity * product.cost_price
     potential_revenue = product.prepared_quantity * product.selling_price
+
+    # ── Demand + restock signals ──────────────────────────────
+    today = timezone.localdate()
+    window_start = today - timedelta(days=30)
+
+    # Units SOLD (net of returns), excluding voided sales
+    sold_30d = SaleItem.objects.filter(
+        product=product, sale__is_void=False, sale__date__gte=window_start,
+    ).aggregate(q=Sum('quantity'))['q'] or 0
+    returned_30d = SalesReturnItem.objects.filter(
+        original_sale_item__product=product,
+        original_sale_item__sale__is_void=False,
+        original_sale_item__sale__date__gte=window_start,
+    ).aggregate(q=Sum('quantity'))['q'] or 0
+    units_sold_30d = max(sold_30d - returned_30d, 0)
+
+    sold_all = SaleItem.objects.filter(
+        product=product, sale__is_void=False,
+    ).aggregate(q=Sum('quantity'))['q'] or 0
+    returned_all = SalesReturnItem.objects.filter(
+        original_sale_item__product=product,
+        original_sale_item__sale__is_void=False,
+    ).aggregate(q=Sum('quantity'))['q'] or 0
+    units_sold_all = max(sold_all - returned_all, 0)
+
+    last_sold = Sale.objects.filter(
+        sale_items__product=product, is_void=False,
+    ).order_by('-date').values_list('date', flat=True).first()
+
+    # RESTOCK + mover — only valid where product IS its stock 1:1 (resale).
+    # Cafe/restaurant products are recipes of many materials → sell-through is meaningless.
+    restocked_30d, last_restock, first_restock, mover = 0, None, None, None
+    is_resale = business.is_retail or business.is_pharmacy
+    if is_resale and product.material_id:
+        restocked_30d = PurchaseItem.objects.filter(
+            material_id=product.material_id,
+            purchase__is_void=False,
+            purchase__purchase_date__gte=window_start,
+        ).aggregate(q=Sum('quantity'))['q'] or 0
+
+        dates = list(Purchase.objects.filter(
+            materials__material_id=product.material_id,
+            is_void=False, purchase_date__isnull=False,
+        ).order_by('purchase_date').values_list('purchase_date', flat=True))
+        if dates:
+            first_restock, last_restock = dates[0], dates[-1]
+
+        if restocked_30d > 0:
+            ratio = units_sold_30d / restocked_30d
+            if ratio >= 0.70:
+                mover = 'fast'
+            elif ratio >= 0.30:
+                mover = 'steady'
+            else:
+                mover = 'slow'
+            if mover == 'slow' and first_restock and first_restock > window_start:
+                mover = 'new'
+                
+    recent_sales = (SaleItem.objects
+        .filter(product=product, sale__is_void=False)
+        .select_related('sale')
+        .order_by('-sale__date', '-sale__id')[:6])
+
+    recent_restocks = []
+    if product.material_id:
+        recent_restocks = (PurchaseItem.objects
+            .filter(material_id=product.material_id, purchase__is_void=False)
+            .select_related('purchase')
+            .order_by('-purchase__purchase_date', '-purchase__id')[:6])
+
 
     context = {
         'product': product,
         'total_stock_cost': total_stock_cost,
         'potential_revenue': potential_revenue,
         'section': 'product',
+        'units_sold_30d': units_sold_30d,
+        'units_sold_all': units_sold_all,
+        'last_sold': last_sold,
+        'restocked_30d': restocked_30d,
+        'last_restock': last_restock,
+        'mover': mover,
+        'recent_sales': recent_sales,
+        'recent_restocks': recent_restocks,
+
     }
+    
     return render(request, 'Product/product_detail.html', context)
+
+
 
 
 @login_required(login_url='login')
@@ -294,26 +377,36 @@ def product_update(request, business_slug, product_slug, product_id):
     return render(request, 'Product/product_update.html', context)
 
 
-@login_required(login_url='login')
-@permission_required('staff_delete')
 def product_archive(request, business_slug, product_slug, product_id):
     business = get_business_for_user(request.user, business_slug)
-        
     product = get_object_or_404(Product, business=business, slug=product_slug, id=product_id)
-    
+
     if request.method == 'POST':
-        
         product.is_active = False
         product.save(update_fields=['is_active'])
-        
         log_activity(business, request.user, 'product.archived',
             target=product, description=f"{product.name} archived")
-
         messages.success(request, f"{product.name} has been archived. You can restore it anytime.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('product-list', kwargs={'business_slug': business.slug})
+            return resp
         return redirect('product-list', business_slug=business.slug)
-    
-    context = {'product': product}
-    return render(request, 'Product/product_archive.html', context)
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': f"{product.name}",
+            'cm_subtitle': f"{getattr(product.category, 'name', 'No category')} · SKU {product.sku}",
+            'cm_note': "Hidden from listings &amp; stock tracking · Sales history kept · <strong>Restore anytime</strong>.",
+            'cm_action': reverse('product-archive', kwargs={
+                'business_slug': business.slug, 'product_slug': product.slug, 'product_id': product.id}),
+            'cm_label': "Confirm Archive",
+            'cm_icon': 'bi-basket',
+            'cm_image': product.image.url if product.image else None,
+        })
+
+    return render(request, 'Product/product_archive.html', {'product': product})  # full-page fallback
+
 
 @login_required(login_url='login')  
 @permission_required('staff_add') # staff
@@ -584,7 +677,7 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
     
     # HTMX 
     if request.headers.get('HX-Request') == 'true':
-        return render(request, 'core/partials/_preset_response.html', {
+        resp = render(request, 'core/partials/_preset_response.html', {
             'label': 'Sales Record',
             'messages': get_messages(request),
             'cart_items': len(sale),
@@ -592,8 +685,13 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
             'cart_url': 'view-sale',
             'preset': preset,
         })
+        resp['HX-Trigger'] = 'cartChanged'
+        return resp
     
-    # fallback 
+    # fallback — honor ?next= so we stay on the detail page the user added from
+    next_url = request.GET.get('next')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect(f"{reverse('product-preset-list', kwargs={'business_slug': business.slug})}?{request.META.get('QUERY_STRING', '')}")
 
 @login_required(login_url='login')
@@ -638,6 +736,7 @@ def service_list(request, business_slug):
     if sale:
         cart_count = sum(item['quantity'] for item in sale.values())
     business = get_business_for_user(request.user, business_slug)
+    request.session['catalog_return'] = request.path
 
     services = get_queryset_for_user(request.user, Product.services.all()) \
         .filter(business=business) \
@@ -651,6 +750,9 @@ def service_list(request, business_slug):
 
     all_services = services.count()
 
+    from core.utils.kpis import get_service_kpis
+    kpis = get_service_kpis(business)
+
     paginator = Paginator(services, 8)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -661,8 +763,18 @@ def service_list(request, business_slug):
         'all_services': all_services,
         'cart_count': cart_count,
         'section': 'service',
+        
+        'kpis': kpis,
+
+
     }
     return render(request, 'Product/service_list.html', context)
+
+@login_required(login_url='login')
+def service_session_picker(request, business_slug, product_id):
+    business = get_business_for_user(request.user, business_slug)
+    service = get_object_or_404(Product.services, business=business, id=product_id, is_session_based=True)
+    return render(request, 'core/partials/_session_picker.html', {'service': service})
 
 
 @login_required(login_url='login')
@@ -672,30 +784,44 @@ def service_create(request, business_slug):
 
     if request.method == 'POST':
         form = ServiceForm(request.POST, request.FILES, business=business, user=request.user)
-        if form.is_valid():
-            service = form.save(commit=False)
-            existing = Product.all_objects.filter(
-                business=business, name__iexact=service.name.title(),
-            ).first()
-            if existing:
-                messages.warning(request, f"{existing.name} already exists.")
-                return redirect('service-create', business_slug=business.slug)
+        formset = ServiceSessionFormSet(request.POST, prefix='sessions')
 
-            service.user = business.user
-            service.name = service.name.title()
-            service.business = business
-            service.created_by = request.user
-            service.save()
+        if form.is_valid() and formset.is_valid():
+            session_based = form.cleaned_data.get('is_session_based')
+            has_tier = any(
+                cd and cd.get('label') and not cd.get('DELETE')
+                for cd in (f.cleaned_data for f in formset.forms)
+            )
+            if session_based and not has_tier:
+                messages.error(request, "Add at least one session tier (e.g. 1 hr — ₱70).")
+            else:
+                service = form.save(commit=False)
+                existing = Product.all_objects.filter(
+                    business=business, name__iexact=service.name.title(),
+                ).first()
+                if existing:
+                    messages.warning(request, f"{existing.name} already exists.")
+                    return redirect('service-create', business_slug=business.slug)
 
-            log_activity(business, request.user, 'product.created',
-                target=service, description=f"{service.name} (service fee) added")
+                service.user = business.user
+                service.name = service.name.title()
+                service.business = business
+                service.created_by = request.user
+                service.save()
 
-            messages.success(request, f"{service.name} has been created.")
-            return redirect('service-list', business_slug=business.slug)
+                if session_based:
+                    formset.instance = service
+                    formset.save()
+
+                log_activity(business, request.user, 'product.created',
+                    target=service, description=f"{service.name} (service fee) added")
+                messages.success(request, f"{service.name} has been created.")
+                return redirect('service-list', business_slug=business.slug)
     else:
         form = ServiceForm(business=business, user=request.user)
+        formset = ServiceSessionFormSet(prefix='sessions')
 
-    context = {'form': form, 'section': 'service'}
+    context = {'form': form, 'formset': formset, 'section': 'service'}
     return render(request, 'Product/service_create.html', context)
 
 
@@ -707,48 +833,82 @@ def service_update(request, business_slug, service_slug, service_id):
 
     if request.method == 'POST':
         form = ServiceForm(request.POST, request.FILES, instance=service, business=business, user=request.user)
-        if form.is_valid():
-            service = form.save(commit=False)
-            service.name = service.name.title()
+        formset = ServiceSessionFormSet(request.POST, instance=service, prefix='sessions')
 
-            existing = Product.all_objects.filter(
-                business=business,
-                name__iexact=service.name.title(),
-            ).exclude(id=service.id).first()
+        if form.is_valid() and formset.is_valid():
+            session_based = form.cleaned_data.get('is_session_based')
+            has_tier = any(
+                cd and cd.get('label') and not cd.get('DELETE')
+                for cd in (f.cleaned_data for f in formset.forms)
+            )
+            if session_based and not has_tier:
+                messages.error(request, "Add at least one session tier (e.g. 1 hr — ₱70).")
+            else:
+                service = form.save(commit=False)
+                service.name = service.name.title()
 
-            if existing:
-                if existing.is_active:
-                    messages.warning(request, f"{existing.name} already exists.")
+                existing = Product.all_objects.filter(
+                    business=business, name__iexact=service.name.title(),
+                ).exclude(id=service.id).first()
+                if existing:
+                    if existing.is_active:
+                        messages.warning(request, f"{existing.name} already exists.")
+                    else:
+                        messages.info(request, f"{existing.name} exists in your archive.")
+                    return redirect('service-update', business_slug=business.slug,
+                                    service_id=service_id, service_slug=service_slug)
+
+                service.save()
+
+                if session_based:
+                    formset.save()
                 else:
-                    messages.info(request, f"{existing.name} exists in your archive.")
-                return redirect('service-update', business_slug=business.slug,
-                                service_id=service_id, service_slug=service_slug)
+                    service.sessions.all().delete()   # switched to flat → drop stale tiers
 
-            service.save()
-
-            log_activity(business, request.user, 'product.updated',
-                target=service, description=f"{service.name} (service fee) updated")
-
-            messages.success(request, f"{service.name} has been updated.")
-            return redirect('service-list', business_slug=business.slug)
+                log_activity(business, request.user, 'product.updated',
+                    target=service, description=f"{service.name} (service fee) updated")
+                messages.success(request, f"{service.name} has been updated.")
+                return redirect('service-list', business_slug=business.slug)
     else:
         form = ServiceForm(instance=service, business=business, user=request.user)
+        formset = ServiceSessionFormSet(instance=service, prefix='sessions')
 
-    context = {'form': form, 'service': service, 'section': 'service'}
+    context = {'form': form, 'formset': formset, 'service': service, 'section': 'service'}
     return render(request, 'Product/service_update.html', context)
-
 
 
 @login_required(login_url='login')
 @permission_required('staff_delete')
-@require_POST
+@login_required(login_url='login')
+@permission_required('staff_delete')
 def service_archive(request, business_slug, service_slug, service_id):
     business = get_business_for_user(request.user, business_slug)
     service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
-    service.is_active = False
-    service.save(update_fields=['is_active'])
-    messages.success(request, f"{service.name} has been removed.")
+
+    if request.method == 'POST':
+        service.is_active = False
+        service.save(update_fields=['is_active'])
+        messages.success(request, f"{service.name} has been removed.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('service-list', kwargs={'business_slug': business.slug})
+            return resp
+        return redirect('service-list', business_slug=business.slug)
+
+    # GET — modal fragment (htmx) or bounce to list (no-JS, no full page exists)
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': service.name,
+            'cm_subtitle': f"₱{service.selling_price:.2f} service fee",  # see note below
+            'cm_note': "Hidden from your service list · Past sales kept · <strong>Restore anytime</strong>.",
+            'cm_action': reverse('service-archive', kwargs={
+                'business_slug': business.slug, 'service_slug': service.slug, 'service_id': service.id}),
+            'cm_label': "Confirm Archive",
+            'cm_btn_icon': 'bi-archive-fill',
+            'cm_icon': 'bi bi-ticket-perforated',
+        })
     return redirect('service-list', business_slug=business.slug)
+
 
 @login_required(login_url='login')
 @permission_required('owner_only')  # owner
@@ -780,4 +940,4 @@ def restore_service(request, business_slug, service_id):
         log_activity(business, request.user, 'product.restored',
             target=service, description=f"{service.name} (service fee) restored")
         messages.success(request, f"{service.name} restored.")
-    return redirect('archived-services', business_slug=business.slug)
+    return redirect('service-list', business_slug=business.slug)

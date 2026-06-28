@@ -57,7 +57,8 @@
     </a>
 
 
-    <a href="{% url 'user-edit-password' %}" class="settings-row">
+    <a href="{% url 'user-edit-password' %}" class="settings-row"   
+       hx-get="{% url 'user-edit-password' %}" hx-target="#confirmBody" hx-swap="innerHTML">
       <div class="settings-row__icon"><i class="bi bi-key-fill"></i></div>
       <div class="settings-row__body">
         <div class="settings-row__title">Change Password</div>
@@ -121,7 +122,11 @@
         <i class="bi bi-chevron-right settings-row__arrow"></i>
       </a>
 
-      <a href="{% url 'subscription-export' business_slug=current_business.slug %}" class="settings-row">
+      <a href="{% url 'subscription-export' business_slug=current_business.slug %}"
+         hx-get="{% url 'subscription-export' business_slug=current_business.slug %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="settings-row">
+
         <div class="settings-row__icon"><i class="bi bi-download"></i></div>
         <div class="settings-row__body">
           <div class="settings-row__title">Export Data</div>
@@ -169,7 +174,11 @@
         <i class="bi bi-chevron-right settings-row__arrow"></i>
       </a>
 
-      <a href="{% url 'subscription-contact' business_slug=current_business.slug %}" class="settings-row">
+      <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+         hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="settings-row">
+
         <div class="settings-row__icon"><i class="bi bi-headset"></i></div>
         <div class="settings-row__body">
           <div class="settings-row__title">Contact Support</div>

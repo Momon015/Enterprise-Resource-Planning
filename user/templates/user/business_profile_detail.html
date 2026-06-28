@@ -261,15 +261,12 @@
               </button>
             {% endif %}
           </form>
-
-          <form method="post" action="{% url 'regenerate-invite-code' business_id=business.id business_slug=business.slug %}"
-                onsubmit="return confirm('Generate a new code? The current code will stop working and anyone who already has it will need the new one.');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-danger btn-sm btn-block">
-              <i class="bi bi-arrow-repeat"></i> Generate new code
-            </button>
-          </form>
-
+          <a href="{% url 'regenerate-invite-code' business_id=business.id business_slug=business.slug %}?next={{ request.path }}"
+             hx-get="{% url 'regenerate-invite-code' business_id=business.id business_slug=business.slug %}?next={{ request.path }}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-outline-danger btn-sm btn-block">
+            <i class="bi bi-arrow-repeat"></i> Generate new code
+          </a>
         </div>
       </div>
 

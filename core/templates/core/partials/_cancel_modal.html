@@ -1,0 +1,45 @@
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-x-octagon"></i></div>
+        <div>
+          <div class="cm-title">Cancel {{ target_biz.business_name }}?</div>
+          <div class="cm-sub">{{ target_bp.get_plan_display }} · {{ sub.get_billing_cycle_display }} billing</div>
+        </div>
+      </div>
+
+      <table class="data-table" style="margin-bottom:1rem;">
+        <tr><td>Current plan</td><td class="sl-text-end">{{ target_bp.get_plan_display }}</td></tr>
+        {% if balance_due > 0 %}<tr><td>Months used</td><td class="sl-text-end">{{ months_used }}</td></tr>{% endif %}
+        <tr><td>Access until</td><td class="sl-text-end"><strong>{{ cycle_end|date:"M d, Y" }}</strong></td></tr>
+        {% if balance_due > 0 %}
+        <tr style="border-top:2px solid var(--border);">
+          <td><strong>Balance to settle</strong></td>
+          <td class="sl-text-end"><strong style="font-size:1.15rem;">₱{{ balance_due|floatformat:2 }}</strong></td>
+        </tr>
+        {% endif %}
+      </table>
+
+      <p class="cm-note cm-note--warning">
+        Keeps working until <strong>{{ cycle_end|date:"M d, Y" }}</strong>, then switches to <strong>Free</strong> automatically — your data stays.
+        {% if balance_due > 0 %} The {{ months_used }} month(s) used are recalculated at the standard rate: <strong>₱{{ balance_due|floatformat:2 }}</strong> (just the discount, no penalty), payable within 30 days.{% else %} No extra payment — and you can re-subscribe anytime.{% endif %}
+      </p>
+
+      <form method="post" action="{% url 'subscription-cancel-confirm' business_slug=business.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="target_business_id" value="{{ target_biz.id }}">
+        <input type="hidden" name="confirm" value="yes">
+        <div class="cm-actions" style="margin-top:1rem; gap:.5rem;">
+          <button type="submit" class="btn cm-btn-ghost-danger">Cancel plan</button>
+          <button type="button" class="btn cm-btn cm-btn--success" data-quickview-close>
+            <i class="bi bi-shield-check"></i> Keep my plan
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

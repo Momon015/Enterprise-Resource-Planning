@@ -1,0 +1,118 @@
+{% load humanize static %}
+{% if q|length < 2 %}
+{% elif not has_results %}
+  {% if service_match %}
+  <div class="search-empty">
+    <i class="bi bi-info-circle"></i>
+    {{ q }} is a <strong>service fee</strong> — add it from the
+    <strong>Add Service Fee</strong> panel when recording a sale.
+  </div>
+  {% else %}
+  <div class="search-empty">No results for “{{ q }}”</div>
+  {% endif %}
+{% else %}
+<div class="search-results">
+
+  <!-- LEFT: jump entities -->
+  <div class="search-col search-col--left">
+    {% if materials %}
+    <div class="search-group"><div class="search-group__label">Materials</div>
+      {% for m in materials %}
+      <a class="search-row" href="{% url 'material-detail' business_slug=current_business.slug id=m.id slug=m.slug %}">
+        <span class="search-row__ic"><i class="bi bi-box-seam"></i></span><span>{{ m.name }}</span></a>
+      {% endfor %}
+    </div>{% endif %}
+
+    {% if suppliers %}
+    <div class="search-group"><div class="search-group__label">Suppliers</div>
+      {% for s in suppliers %}
+      <a class="search-row" href="{% url 'supplier-list' business_slug=current_business.slug %}?search={{ s.name|urlencode }}">
+        <span class="search-row__ic">{% if s.image %}<img src="{{ s.image.url }}">{% else %}<i class="bi bi-building"></i>{% endif %}</span><span>{{ s.name }}</span></a>
+      {% endfor %}
+    </div>{% endif %}
+
+    {% if product_presets %}
+    <div class="search-group"><div class="search-group__label">Presets</div>
+      {% for pp in product_presets %}
+      <div class="search-preset">
+        <a class="search-row" href="{% url 'product-preset-detail' business_slug=current_business.slug preset_id=pp.id preset_slug=pp.slug %}">
+          <span class="search-row__ic"><i class="bi bi-bookmark-fill"></i></span>
+          <span class="search-preset__body">
+            <span class="search-preset__name">{{ pp.name }}</span>
+            <span class="search-preset__items">{% for it in pp.product_preset_items.all|slice:":3" %}{{ it.product.name }}{% if not forloop.last %} · {% endif %}{% endfor %}{% with n=pp.product_preset_items.all|length %}{% if n > 3 %} +{{ n|add:"-3" }} more{% endif %}{% endwith %}</span>
+          </span>
+        </a>
+        <button hx-post="{% url 'product-preset-add-to-sale' business_slug=current_business.slug preset_id=pp.id preset_slug=pp.slug %}"
+                hx-target="#cart-badge" hx-swap="outerHTML" class="search-add" title="Add bundle">+</button>
+      </div>
+      {% endfor %}
+    </div>{% endif %}
+
+    {% if material_presets %}
+    <div class="search-group"><div class="search-group__label">Material presets</div>
+      {% for mp in material_presets %}
+      <a class="search-row" href="{% url 'material-preset-detail' business_slug=current_business.slug id=mp.id slug=mp.slug %}">
+        <span class="search-row__ic"><i class="bi bi-bookmark"></i></span><span>{{ mp.name }}</span></a>
+      {% endfor %}
+    </div>{% endif %}
+
+    {% if staff %}
+    <div class="search-group"><div class="search-group__label">Staff</div>
+      {% for e in staff %}
+      <a class="search-row" href="{% url 'employee-detail' business_slug=current_business.slug employee_id=e.id slug=e.slug %}">
+        <span class="search-row__ic"><i class="bi bi-person"></i></span><span>{{ e.name }}</span></a>
+      {% endfor %}
+    </div>{% endif %}
+
+    {% if sales or purchases %}
+    <div class="search-group"><div class="search-group__label">References</div>
+      {% for s in sales %}
+      <a class="search-row" href="{% url 'sale-detail' business_slug=current_business.slug sale_id=s.id %}">
+        <span class="search-row__ic"><i class="bi bi-cash-coin"></i></span><span>{{ s.reference }}</span></a>
+      {% endfor %}
+      {% for pu in purchases %}
+      <a class="search-row" href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=pu.id %}">
+        <span class="search-row__ic"><i class="bi bi-cart3"></i></span><span>{{ pu.reference }}</span></a>
+      {% endfor %}
+    </div>{% endif %}
+  </div>
+
+  <!-- RIGHT: products + services with quick-add -->
+  <div class="search-col search-col--right">
+    {% if products %}<div class="search-group__label">Products</div>{% endif %}
+    {% for p in products %}
+    <div class="search-prod">
+      <span class="search-prod__img">{% if p.image %}<img src="{{ p.image.url }}">{% else %}<img src="{% static 'images/no-image.png' %}">{% endif %}</span>
+      <a class="search-prod__info" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.id product_slug=p.slug %}">
+        <span class="search-prod__name">{{ p.name }}</span>
+        <span class="search-prod__meta">₱{{ p.selling_price|floatformat:2|intcomma }} · {{ p.prepared_quantity }} in stock</span>
+      </a>
+      <button hx-post="{% url 'add-to-sale' business_slug=current_business.slug product_id=p.id %}"
+              hx-target="#cart-badge" hx-swap="outerHTML"
+              class="search-add" {% if p.prepared_quantity < 1 %}disabled{% endif %} title="Add to sale">+</button>
+    </div>
+    {% endfor %}
+
+    {% if services %}<div class="search-group__label" style="margin-top:.6rem;">Services</div>{% endif %}
+    {% for sv in services %}
+    <div class="search-prod">
+      <span class="search-prod__img"><i class="bi bi-ticket-perforated"></i></span>
+      <div class="search-prod__info">
+        <span class="search-prod__name">{{ sv.name }}</span>
+        <span class="search-prod__meta">{% if sv.is_session_based %}Rental · pick a session{% else %}₱{{ sv.selling_price|floatformat:2|intcomma }} · service{% endif %}</span>
+      </div>
+      {% if sv.is_session_based %}
+      <button type="button" class="search-add" title="Pick a session"
+              hx-get="{% url 'service-session-picker' business_slug=current_business.slug product_id=sv.id %}"
+              hx-target="#confirmBody" hx-swap="innerHTML">+</button>
+      {% else %}
+      <button hx-post="{% url 'add-to-sale' business_slug=current_business.slug product_id=sv.id %}"
+              hx-target="#cart-badge" hx-swap="outerHTML" class="search-add" title="Add to sale">+</button>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+<a class="search-footer" href="{% url 'product-list' business_slug=current_business.slug %}?search={{ q|urlencode }}">View all results <i class="bi bi-arrow-right"></i></a>
+{% endif %}

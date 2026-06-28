@@ -27,7 +27,8 @@ STAFF_REDIRECT_MAP = {
     # Add here once staff can see their own records.
 }
 
-MONTHLY_CAPS = {'sale', 'purchase', 'waste', 'expense'}
+DAILY_CAPS = {'sale', 'purchase'}
+MONTHLY_CAPS = { 'waste', 'expense'}
 
 
 def _resolve_target(user, capacity_key):
@@ -81,7 +82,13 @@ def capacity_required(capacity_key):
                 limit = bp.limits().get(plural)
                 friendly = capacity_key.replace('_', ' ')
 
-                if capacity_key in MONTHLY_CAPS:
+                if capacity_key in DAILY_CAPS:
+                    messages.warning(
+                        request,
+                        f"You've used all {limit} {friendly}s for today. "
+                        f"It resets tomorrow — or upgrade this business for unlimited."
+                    )
+                elif capacity_key in MONTHLY_CAPS:
                     from subscription.models import BusinessPlan
                     reset = BusinessPlan.next_calendar_reset()
                     reset_str = reset.strftime('%b ') + str(reset.day)  # "Nov 1"
@@ -96,6 +103,7 @@ def capacity_required(capacity_key):
                         f"This business is on {bp.get_plan_display()} which allows only {limit} "
                         f"{friendly}(s). Upgrade this business to add more."
                     )
+
 
                 return redirect(target, business_slug=business.slug)
 

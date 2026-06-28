@@ -1,0 +1,27 @@
+{% load humanize %}
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-clock-history"></i></div>
+        <div>
+          <div class="cm-title">{{ service.name }}</div>
+          <div class="cm-sub">Pick a session length</div>
+        </div>
+      </div>
+
+      <div class="session-pick">
+        {% for s in service.sessions.all %}
+        <button type="button" class="session-pick__btn"
+                hx-get="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?session={{ s.id }}"
+                hx-target="#cart-badge" hx-swap="outerHTML"
+                hx-on::after-request="document.getElementById('confirmModal').classList.remove('is-open'); document.body.style.overflow=''; document.getElementById('confirmBody').innerHTML='';">
+          <span class="session-pick__label">{{ s.label }}</span>
+          <span class="session-pick__price">₱{{ s.price|floatformat:2|intcomma }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>

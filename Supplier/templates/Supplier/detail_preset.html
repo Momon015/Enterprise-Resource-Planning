@@ -58,9 +58,13 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
         </div>
       </div>
-      <span class="sl-badge sl-badge-light">
-        {{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}
-      </span>
+      <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+        <span class="sl-badge sl-badge-light">
+          {{ preset.preset_items.count }} item{{ preset.preset_items.count|pluralize }}
+        </span>
+        <a href="{% url 'material-preset-list' business_slug=current_business.slug %}"
+           class="pd-icon-btn" title="Close"><i class="bi bi-x-lg"></i></a>
+      </div>
     </div>
 
     <!-- Materials in this preset (section label) -->

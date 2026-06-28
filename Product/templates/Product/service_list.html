@@ -25,9 +25,16 @@
     <div class="page-header-left">
       <div class="page-breadcrumb">Catalog</div>
       <h1 class="page-title">Service Fees</h1>
-      <p class="page-subtitle">Manage additional charges and service fees offered by your business.</p>
+      <p class="page-subtitle">
+        Manage additional charges and service fees offered by your business.
+        {% if kpis.current.computed_at %}
+          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
+            style="cursor: help; font-size: 0.85em;"></i>
+        {% endif %}
+      </p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <a id='cart-badge' href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-cart3"></i>
         {% if cart_count %}
@@ -42,157 +49,308 @@
         <i class="bi bi-archive-fill"></i> Archive
       </a>
       {% endif %}
-
-    </div>
-
+    </div> {% endcomment %}
   </div>
 
-  <!-- TABLE CARD -->
-  <div class="card table-card">
-    <div class="card-header">
-      <div class="card-header-left-group">
-        <span class="card-header-title">Service Fees</span>
-        <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
-      </div>
-      <div class="activity-header-right">
-        <form method="get" autocomplete="off" style="display:flex; gap:0.4rem; align-items:center;">
-          <div class="input-group">
-            <span class="input-group-icon"><i class="bi bi-search"></i></span>
-            <input type="search" name="search" class="form-control" placeholder="Search service..."
-                   value="{{ search|default:'' }}">
-          </div>
-          <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel-fill"></i></button>
-          {% if search %}
-          <a href="{% url 'service-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
-            <i class="bi bi-arrow-counterclockwise"></i>
-          </a>
-          {% endif %}
-        </form>
-      </div>
-    </div>
+  <div class="two-col-layout">
 
-    <div class="table-responsive">
-      {% if page_obj and page_obj.object_list %}
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>SKU</th>
-            <th class="sl-text-center col-mobile-hidden">Type</th>
-            <th class="sl-text-center">Fee</th>
-            <th class="sl-text-end mobile-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for service in page_obj %}
-          <tr class="{% if service.is_locked %}is-locked{% endif %}">
-            <td>
-              <div class="list-name-cell">
-                {% if service.image %}
-                  <img src="{{ service.image.url }}" alt="" class="list-thumb">
-                {% else %}
-                  <span class="list-thumb-placeholder"><i class="bi bi-ticket-perforated"></i></span>
-                {% endif %}
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
 
-                <div class="name-text">
-                  <strong>{{ service.name|capfirst }}</strong>
-                  {% if service.description %}
-                    <small class="text-muted">{{ service.description }}</small>
-                  {% endif %}
+      <!-- ADVANCED FILTERS (search only) -->
+      <details class="filter-card" {% if search %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if search %}<span class="filter-badge">Active</span>{% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search service name..."
+                         value="{{ search|default:'' }}">
                 </div>
-                  {% if service.is_locked %}
-                    <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
-                  {% endif %}
-            </td>
-
-            <td>
-              <div class="cell-primary">{{ service.sku }}</div>
-            </td>
-            <td class="sl-text-center col-mobile-hidden">
-              <span class="sl-badge sl-badge-light">Service</span>
-            </td>
-            <td class="sl-text-center sl-fw-semibold">
-              ₱{{ service.selling_price|floatformat:2 }}
-            </td>
-            <td class="sl-text-center mobile-center">
-              <div class="table-actions">
-                <button hx-post="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                        hx-target="#cart-badge"
-                        hx-swap="outerHTML"
-                        class="action-btn action-btn--add" title="Add to sale">
-                  <i class="bi bi-plus"></i>
-                </button>
-                <a href="{% url 'service-update' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
-                   class="action-btn action-btn--edit" title="Edit service">
-                  <i class="bi bi-pencil"></i>
-                </a>
-                {% if request.user.role == 'owner' %}
-                <form method="POST"
-                      action="{% url 'service-archive' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
-                      onsubmit="return confirm('Remove {{ service.name|escapejs }}?');"
-                      style="display:inline;">
-                  {% csrf_token %}
-                  <button type="submit" class="action-btn action-btn--warning" title="Remove service">
-                    <i class="bi bi-archive-fill"></i>
-                  </button>
-                </form>
-                {% endif %}
               </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty-state">
-        <div class="empty-icon"><i class="bi bi-ticket-perforated"></i></div>
-        <h3 class="empty-title">No service fees yet</h3>
-        <p class="empty-text">
-          {% if search %}
-            No results for "{{ search }}". Try a different name.
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'service-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <!-- TABLE CARD -->
+      <div class="card table-card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Service Catalog</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} service{{ page_obj.paginator.count|pluralize }}</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          {% if page_obj and page_obj.object_list %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>SKU</th>
+                <th class="sl-text-center col-mobile-hidden">Type</th>
+                <th class="sl-text-center">Fee</th>
+                <th class="sl-text-end mobile-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for service in page_obj %}
+              <tr class="{% if service.is_locked %}is-locked{% endif %}">
+                <td>
+                  <div class="list-name-cell">
+                    {% if service.image %}
+                      <img src="{{ service.image.url }}" alt="" class="list-thumb">
+                    {% else %}
+                      <span class="list-thumb-placeholder"><i class="bi bi-ticket-perforated"></i></span>
+                    {% endif %}
+                    <div class="name-text">
+                      <strong>{{ service.name|capfirst }}</strong>
+                      {% if service.is_session_based %}
+                        <small class="text-muted">
+                          {% for s in service.sessions.all %}{{ s.label }} ₱{{ s.price|floatformat:0 }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                        </small>
+                      {% elif service.description %}
+                        <small class="text-muted">{{ service.description }}</small>
+                      {% endif %}
+                    </div>
+                    {% if service.is_locked %}
+                      <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="cell-primary">{{ service.sku }}</div>
+                </td>
+                <td class="sl-text-center col-mobile-hidden">
+                  <span class="sl-badge sl-badge-light">{% if service.is_session_based %}Rental{% else %}Service{% endif %}</span>
+                </td>
+                <td class="sl-text-center sl-fw-semibold">
+                  {% if service.is_session_based %}
+                    <span class="sl-badge sl-badge-light">Tiered</span>
+                  {% else %}
+                    ₱{{ service.selling_price|floatformat:2 }}
+                  {% endif %}
+                </td>
+                <td class="sl-text-center mobile-center">
+                  <div class="table-actions">
+                    {% if service.is_session_based %}
+                    <button type="button" class="action-btn action-btn--add" title="Pick a session"
+                            hx-get="{% url 'service-session-picker' product_id=service.id business_slug=current_business.slug %}"
+                            hx-target="#confirmBody" hx-swap="innerHTML">
+                      <i class="bi bi-plus"></i>
+                    </button>
+                    {% else %}
+                    <button hx-post="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                            hx-target="#cart-badge" hx-swap="outerHTML"
+                            class="action-btn action-btn--add" title="Add to sale">
+                      <i class="bi bi-plus"></i>
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'service-update' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                       class="action-btn action-btn--edit" title="Edit service">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    {% if request.user.role == 'owner' %}
+                    <a href="{% url 'service-archive' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                       hx-get="{% url 'service-archive' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
+                       class="action-btn action-btn--warning" title="Remove service">
+                      <i class="bi bi-archive-fill"></i>
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
           {% else %}
-            Add fees for services you offer — xerox, GCash cash in/out, bills payment.
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-ticket-perforated"></i></div>
+            <h3 class="empty-title">No service fees yet</h3>
+            <p class="empty-text">
+              {% if search %}
+                No results for "{{ search }}". Try a different name.
+              {% else %}
+                Add fees for services you offer — xerox, GCash cash in/out, bills payment.
+              {% endif %}
+            </p>
+            {% if not search %}
+            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Add your first service fee
+            </a>
+            {% endif %}
+          </div>
           {% endif %}
-        </p>
-        {% if not search %}
-        <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-          <i class="bi bi-plus-circle"></i> Add your first service fee
-        </a>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-wrapper">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-left"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                {% endif %}
+              </li>
+              {% for p in page_obj.paginator.page_range %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-right"></i></a>
+                {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                {% endif %}
+              </li>
+            </ul>
+          </nav>
+        </div>
         {% endif %}
+
       </div>
-      {% endif %}
     </div>
-  </div>
-    <!-- PAGINATION -->
-    {% if page_obj.paginator.num_pages > 1 %}
-    <div class="pagination-wrapper">
-      <nav>
-        <ul class="pagination">
-          <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-            {% if page_obj.has_previous %}
-              <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-left"></i></a>
-            {% else %}
-              <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header" style="padding: 0.55rem 1rem;">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-graph-up-arrow"></i> Sales Velocity
+            </span>
+          </div>
+        </div>
+        <div class="card-body" style="padding: 0.6rem 0.85rem;">
+          <div class="period-net" style="padding: 0.85rem 1rem;">
+            <div class="period-net-label">UNITS SOLD · ALL-TIME</div>
+            <div class="period-net-value">{{ kpis.current.units_sold_all|default:"0" }}</div>
+            <div class="period-net-sub">across {{ kpis.current.services_total }} service{{ kpis.current.services_total|pluralize }}</div>
+          </div>
+        </div>
+
+      <!-- QUICK LINKS -->
+      <div class="card">
+        <div class="card-header" style="padding: 0.55rem 1rem;">
+          <span class="card-header-title">
+            <i class="bi bi-lightning-charge"></i> Quick links
+          </span>
+        </div>
+        <div class="card-body" style="padding: 0.6rem 0.85rem;">
+          <div class="btn-grid" style="gap: 0.4rem; grid-template-columns: 1fr 1fr;">
+            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+              <i class="bi bi-plus-circle"></i> Create service
+            </a>
+            {% if request.user.role == 'owner' %}
+            <a href="{% url 'archived-services' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <i class="bi bi-archive-fill"></i> Archive
+            </a>
             {% endif %}
-          </li>
-          {% for p in page_obj.paginator.page_range %}
-          <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-            <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}">{{ p }}</a>
-          </li>
-          {% endfor %}
-          <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-            {% if page_obj.has_next %}
-              <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}"><i class="bi bi-chevron-right"></i></a>
-            {% else %}
-              <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-            {% endif %}
-          </li>
-        </ul>
-      </nav>
+          </div>
+        </div>
+      </div>
+
+        <!-- TOP SERVICES -->
+        <div class="card-body" style="padding:0; border-top:1px solid var(--border-light);">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem 0.3rem;">
+            <div style="font-size:0.7rem; letter-spacing:0.04em; text-transform:uppercase; color:var(--text-secondary); font-weight:600;">
+              Top services
+            </div>
+            <div class="activity-header-right">
+              <button type="button" class="top-items-toggle is-active" data-range="month" onclick="switchTopServices('month')">This month</button>
+              <button type="button" class="top-items-toggle" data-range="all" onclick="switchTopServices('all')">All-time</button>
+            </div>
+          </div>
+
+          <!-- This month -->
+          <ol class="top-items-list" id="topServicesMonth">
+            {% for item in kpis.current.top_services_month %}
+            <li class="top-item-row{% if kpis.current.top_services_has_more and forloop.counter > 3 %} top-item-row--extra{% endif %}">
+              <span class="top-item-rank">{{ forloop.counter }}</span>
+              <span class="top-item-name">{{ item.name|default:"—" }}</span>
+              <span class="top-item-units">{{ item.units }} sold</span>
+            </li>
+            {% empty %}
+            <li class="top-item-empty">No services sold this month yet.</li>
+            {% endfor %}
+          </ol>
+
+          <!-- All-time -->
+          <ol class="top-items-list" id="topServicesAll" style="display:none;">
+            {% for item in kpis.current.top_services_all %}
+            <li class="top-item-row{% if kpis.current.top_services_has_more and forloop.counter > 3 %} top-item-row--extra{% endif %}">
+              <span class="top-item-rank">{{ forloop.counter }}</span>
+              <span class="top-item-name">{{ item.name|default:"—" }}</span>
+              <span class="top-item-units">{{ item.units }} sold</span>
+            </li>
+            {% empty %}
+            <li class="top-item-empty">No services sold yet.</li>
+            {% endfor %}
+          </ol>
+
+          {% if kpis.current.top_services_has_more %}
+            <button type="button" class="top-items-more-btn" onclick="toggleTopItemsMore(this)">
+              <span class="more-label">Show top 10</span>
+              <span class="less-label">Show top 3</span>
+              <i class="bi bi-chevron-down"></i>
+            </button>
+          {% endif %}
+        </div>
+
+
+        
+      </div>
     </div>
-    {% endif %}
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+  const filterDetails = document.querySelector("details.filter-card");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    if (filterForm) {
+      filterForm.addEventListener("click", e => e.stopPropagation());
+      const resetBtn = filterForm.querySelector("a.btn-light");
+      if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+    }
+  }
+});
+
+function switchTopServices(range){
+  document.getElementById('topServicesMonth').style.display = range === 'month' ? '' : 'none';
+  document.getElementById('topServicesAll').style.display   = range === 'all'   ? '' : 'none';
+  document.querySelectorAll('.top-items-toggle').forEach(b =>
+    b.classList.toggle('is-active', b.dataset.range === range));
+}
+
+function toggleTopItemsMore(btn){
+  btn.closest('.card').classList.toggle('is-expanded');
+}
+
+
+</script>
+
 
 {% endblock content %}

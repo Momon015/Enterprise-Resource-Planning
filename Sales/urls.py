@@ -21,7 +21,8 @@ urlpatterns = [
 
     # reciept
     path('view/sale/<int:sale_id>/receipt/', views.sale_receipt, name='sale-receipt'),
-    
+    path('view/sale/<int:sale_id>/receipt/modal/', views.sale_receipt_modal, name='sale-receipt-modal'),
+
     path('edit/unsold-quantity/<int:product_id>/', views.edit_unsold_quantity, name='sale-edit-unsold-quantity'),
     path('edit/cost-price/<int:product_id>/', views.edit_total_selling_price, name='sale-edit-selling-price'),
     path('edit/prepared-quantity/<int:product_id>/', views.edit_view_sale_quantity, name='sale-edit-quantity'),

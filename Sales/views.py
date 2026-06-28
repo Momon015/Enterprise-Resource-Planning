@@ -59,6 +59,8 @@ from subscription.decorators import capacity_required
 from activity.models import ActivityEvent
 from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit
 
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+
 # logging
 import logging
 
@@ -86,7 +88,10 @@ def clear_sale(request, business_slug):
             'type':           'sales',
             'messages':       get_messages(request),
         })
-    
+        
+    return_url = request.session.get('catalog_return')
+    if return_url:
+        return redirect(return_url)
     return redirect('product-list', business_slug=business.slug)
 
 @login_required(login_url='login')
@@ -299,18 +304,41 @@ def sale_detail(request, sale_id, business_slug):
 @permission_required('add') # dev
 def add_to_sales(request, product_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    
+
     sale = request.session.get('sale', {})
     product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
-    
+
+    # session-based rental → resolve the chosen tier
+    session = None
+    if product.is_session_based:
+        session_id = request.GET.get('session') or request.POST.get('session')
+        session = product.sessions.filter(id=session_id).first() if session_id else None
+        if session is None:
+            messages.warning(request, f"Pick a session length for {product.name}.")
+
     if product.is_locked:
         messages.warning(request, f"{product.name} is locked - upgrade your plan or unlock it to sell.")
+
+    elif product.is_session_based:
+        if session:
+            if product_key in sale and sale[product_key].get('session_id') == session.id:
+                sale[product_key]['quantity'] += 1                  # same tier → another block
+            else:
+                sale[product_key] = {                              # new / switched tier
+                    'id': product.id,
+                    'name': f"{product.name} ({session.label})",
+                    'quantity': 1,
+                    'cost_price': '0',
+                    'selling_price': str(session.price),
+                    'session_id': session.id,
+                }
+        # no tier picked → already warned, nothing added
+
     elif product.is_service or product.prepared_quantity >= 1:
         if product_key in sale:
             if product.is_service or sale[product_key]['quantity'] < product.prepared_quantity:
                 sale[product_key]['quantity'] += 1
-                messages.success(request, f"{product.name}'s quantity has increased.")
             else:
                 messages.warning(request, f"{product.name} - Insufficient stock.")
         else:
@@ -320,12 +348,10 @@ def add_to_sales(request, product_id, business_slug):
                 'quantity': 1,
                 'cost_price': str(product.cost_price),
                 'selling_price': str(product.selling_price),
-                
             }
-            messages.success(request, f"{product.name} added to the sale.")
     else:
         messages.warning(request, f"{product.name} - Insufficient stock.")
-    
+
     request.session['sale'] = sale
     request.session.modified = True
     
@@ -335,7 +361,7 @@ def add_to_sales(request, product_id, business_slug):
                 for item in sale.values()        
         )
 
-        return render(request, 'core/partials/_cart_response.html', {
+        resp = render(request, 'core/partials/_cart_response.html', {
             'label': 'Sales Record',
             'icon': 'bi bi-cart3',
             'total': total,
@@ -347,8 +373,9 @@ def add_to_sales(request, product_id, business_slug):
             'name': 'Products',
             'total_name': 'sales',
             'type': 'sales',
-            
         })
+        resp['HX-Trigger'] = 'cartChanged'
+        return resp
     
     query_string = request.META.get('QUERY_STRING', '')
     if request.GET.get('next') == 'view-sale':
@@ -539,6 +566,7 @@ def confirm_view_summary(request, business_slug):
                 quantity = data.get('quantity', 1)
                 cost_price = data.get('cost_price', 0)
                 selling_price = data.get('selling_price', 0)
+                session_id = data.get('session_id')
                 
                 # computations 
                 total_cost_price_per_line = Decimal(cost_price) * quantity
@@ -563,6 +591,7 @@ def confirm_view_summary(request, business_slug):
                     price_at_sale=selling_price,
                     cost_price=cost_price,
                     quantity=quantity,
+                    session_id=session_id,
                 )
                 if not product.is_service:
                     if product.prepared_quantity < quantity:
@@ -693,31 +722,38 @@ def confirm_view_summary(request, business_slug):
 def add_sales_payment(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
+    is_hx = request.headers.get('HX-Request')
 
     if request.method == 'POST':
         amount_str = request.POST.get('amount', '').strip()
         method = request.POST.get('method', 'cash')
         note = request.POST.get('note', '').strip()
+        next_param = request.POST.get('next', '')
+
+        def form_error(msg):
+            if is_hx:
+                return render(request, 'core/partials/_payment_modal.html', {
+                    'p_title': sale.reference, 'p_payer': 'customer',
+                    'p_outstanding': sale.outstanding,
+                    'p_total': sale.total_revenue, 'p_paid': sale.amount_paid,
+                    'p_action': reverse('add-sales-payment', kwargs={
+                        'business_slug': business.slug, 'sale_id': sale.id}),
+                    'method_choices': SalesPayment.PAYMENT_METHOD_CHOICES,
+                    'error': msg, 'amount_val': amount_str, 'method_val': method,
+                    'note_val': note, 'p_next': next_param,
+                })
+            messages.error(request, msg)
+            return redirect('add-sales-payment', business_slug=business_slug, sale_id=sale_id)
 
         try:
             amount = Decimal(amount_str)
         except (ValueError, ArithmeticError):
-            messages.error(request, "Enter a valid amount.")
-            return redirect('add-sales-payment',
-                            business_slug=business_slug, sale_id=sale_id)
+            return form_error("Enter a valid amount.")
 
         if amount <= 0:
-            messages.error(request, "Payment amount must be greater than ₱0.")
-            return redirect('add-sales-payment',
-                            business_slug=business_slug, sale_id=sale_id)
+            return form_error("Payment amount must be greater than ₱0.")
 
-        outstanding_before = sale.outstanding
-        if amount > outstanding_before:
-            messages.warning(
-                request,
-                f"Payment ₱{amount:.2f} exceeds outstanding ₱{outstanding_before:.2f}. "
-                f"Outstanding will go negative (store credit to customer)."
-            )
+        overpay = amount > sale.outstanding
 
         with transaction.atomic():
             payment = SalesPayment.objects.create(
@@ -753,9 +789,34 @@ def add_sales_payment(request, business_slug, sale_id):
                 reason=note,
             )
 
-            
+        # ----- HX: show the Payment Recorded summary as a modal -----
+        if is_hx:
+            addmore = reverse('add-sales-payment', kwargs={
+                'business_slug': business.slug, 'sale_id': sale.id})
+            if next_param:
+                addmore += f'?next={next_param}'
+            return render(request, 'core/partials/_payment_recorded_modal.html', {
+                'p_title': sale.reference,
+                'p_payer': 'customer',
+                'p_doc_label': 'Sale Total',
+                'payment': payment,
+                'p_total': sale.total_revenue,
+                'p_paid': sale.amount_paid,
+                'outstanding': sale.outstanding,
+                'overpay': overpay,
+                'p_view_url': reverse('sale-detail', kwargs={
+                    'business_slug': business.slug, 'sale_id': sale.id}),
+                'p_addmore_action': addmore,
+            })
+
+        # ----- non-HX fallback: warning + existing success-page redirect -----
+        if overpay:
+            messages.warning(
+                request,
+                f"Payment ₱{amount:.2f} exceeds outstanding ₱{sale.outstanding + amount:.2f}. "
+                f"Outstanding will go negative (store credit to customer)."
+            )
         messages.success(request, f"Payment of ₱{amount:.2f} recorded.")
-        next_param = request.POST.get('next', '')
         url = reverse('sale-payment-success', kwargs={
             'business_slug': business_slug,
             'sale_id': sale_id,
@@ -765,6 +826,19 @@ def add_sales_payment(request, business_slug, sale_id):
             url += f'?next={next_param}'
         return redirect(url)
 
+    # ----- GET: modal fragment (HX) or full page (fallback) -----
+    if is_hx:
+        return render(request, 'core/partials/_payment_modal.html', {
+            'p_title': sale.reference,
+            'p_payer': 'customer',
+            'p_outstanding': sale.outstanding,
+            'p_total': sale.total_revenue,
+            'p_paid': sale.amount_paid,
+            'p_action': reverse('add-sales-payment', kwargs={
+                'business_slug': business.slug, 'sale_id': sale.id}),
+            'method_choices': SalesPayment.PAYMENT_METHOD_CHOICES,
+        })
+
     context = {
         'sale': sale,
         'outstanding': sale.outstanding,
@@ -772,6 +846,8 @@ def add_sales_payment(request, business_slug, sale_id):
         'section': 'receivable',
     }
     return render(request, 'Sales/add_sales_payment.html', context)
+
+
 
 @login_required(login_url='login')
 @permission_required('view') # dev
@@ -839,6 +915,8 @@ def view_sale_summary(request, sale_id, business_slug):
     
     return render(request, 'Sales/view_sale_summary.html', context)
 
+@login_required(login_url='login')
+@xframe_options_sameorigin
 def sale_receipt(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
 
@@ -853,16 +931,32 @@ def sale_receipt(request, business_slug, sale_id):
     goods_items = [i for i in sale_items if not (i.product and i.product.is_service)]
     service_items = [i for i in sale_items if i.product and i.product.is_service]
     
+    width = request.GET.get('width', '80')
+    if width not in ('58', '80'):
+        width = business.receipt_width or '80'
+        
     context = {
         'sale': sale,
         'items': sale_items,
         'goods_items': goods_items,
         'service_items': service_items,
         'business': business,
+        'width': width,
+        'embed': request.GET.get('embed') == '1',
     }
     
     return render(request, 'sales/sale_receipt.html', context)
 
+@login_required(login_url='login')
+def sale_receipt_modal(request, business_slug, sale_id):
+    business = get_business_for_user(request.user, business_slug)
+    bp = getattr(business, 'plan', None)
+    if not bp or not bp.has_receipt_print():
+        return HttpResponse(status=403)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    return render(request, 'Sales/_receipt_modal.html', {'sale': sale})
+
+@login_required(login_url='login')
 def can_void(sale):
     """Same-day, not already void, no returns, and the void window is open."""
     return (
@@ -872,22 +966,33 @@ def can_void(sale):
         and void_window_open(sale.business)
     )
 
-
 @login_required(login_url='login')
 @permission_required('add')   # owner + staff; tune if you want owner-only
 def void_sale(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
+    is_hx = request.headers.get('HX-Request')
 
     if not can_void(sale):
         messages.error(request, "This sale can no longer be voided — use Sales Returns instead.")
+        if is_hx:
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('sale-summary', kwargs={'business_slug': business.slug, 'sale_id': sale.id})
+            return resp
         return redirect('sale-summary', business_slug=business.slug, sale_id=sale.id)
 
     if request.method != 'POST':
+        if is_hx:
+            return render(request, 'core/partials/_void_modal.html', {
+                'v_title': sale.reference,
+                'v_subtitle': f"₱{sale.total_revenue or 0:.2f}",
+                'v_note': "Voiding cancels this sale completely — it stops counting toward revenue and the cash drawer, and the items go back into stock. This is for mistakes on this shift, not customer returns.",
+                'v_action': reverse('void-sale', kwargs={'business_slug': business.slug, 'sale_id': sale.id}),
+                'v_icon': 'bi-receipt',
+                'reasons': Sale.VOID_REASON_CHOICES,
+            })
         return render(request, 'Sales/void_sale.html', {
-            'sale': sale,
-            'reasons': Sale.VOID_REASON_CHOICES,
-            'section': 'sale',
+            'sale': sale, 'reasons': Sale.VOID_REASON_CHOICES, 'section': 'sale',
         })
 
     reason = request.POST.get('void_reason', '').strip()
@@ -1437,9 +1542,9 @@ def edit_unsold_quantity(request, product_id, business_slug):
         
         if new_unsold_quantity <= quantity:
             sale[product_key]['unsold_quantity'] = new_unsold_quantity
-            messages.success(request, f"The unsold quantity has been updated.")
-        else:
-            messages.warning(request, f"The unsold quantity can't exceed the quantity.")
+        #     messages.success(request, f"The unsold quantity has been updated.")
+        # else:
+        #     messages.warning(request, f"The unsold quantity can't exceed the quantity.")
         
     request.session['sale'] = sale
     request.session.modified = True
@@ -1461,7 +1566,7 @@ def delete_view_sale_quantity(request, product_id, business_slug):
     
     if product_key in sale:
         del sale[product_key]
-        messages.success(request, f"{product.name} has been removed from the sale.")
+        # messages.success(request, f"{product.name} has been removed from the sale.")
         
     request.session['sale'] = sale
     request.session.modified = True

@@ -127,7 +127,10 @@
             </thead>
             <tbody>
               {% for s in page_obj %}
-            <tr class="row-link" onclick="window.location='{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables'">
+              <tr class="row-link"
+                  hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables"
+                  hx-target="#confirmBody" hx-swap="innerHTML" style="cursor:pointer;">
+
                 <td class="cell-primary">
                     {{ s.date|date:"M d" }}<span class="col-mobile-hidden">, {{ s.date|date:"Y" }}</span>
                     <div class="cell-sub">{{ s.date|date:"l" }}</div>
@@ -159,12 +162,10 @@
 
                 <td class="sl-text-center">
                     <div class="btn-group">
-                    <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables"
-                        class="row-chevron" title="Record payment">
-                        <i class="bi bi-chevron-right"></i>
-                    </a>
+                        <span class="row-chevron" title="Record payment"><i class="bi bi-chevron-right"></i></span>
                     </div>
                 </td>
+
             </tr>
             {% endfor %}
 

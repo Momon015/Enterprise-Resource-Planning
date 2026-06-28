@@ -8,7 +8,7 @@
       <div class="page-breadcrumb">
         <span>PURCHASING</span>
         <i class="bi bi-chevron-right"></i>
-        <a href={% url 'material-list' business_slug=current_business.slug %} class="breadcrumb-link">
+        <a href={% url 'material-list' business_slug=current_business.slug as list_fallback %} class="breadcrumb-link">
           <span>MATERIALS</span>
         </a>
         <i class="bi bi-chevron-right"></i>
@@ -31,7 +31,8 @@
           <p class="card-header-sub" style="margin: 0;">Add a material for stock tracking and costing.</p>
         </div>
       </div>
-      <span class="card-header-sub">Set the unit and starting price for accurate costing.</span>
+      <a href="{{ request.session.return_to|default:list_fallback }}"
+         class="pd-icon-btn" data-form-close="materialForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
 
     <div class="card-body">
@@ -47,7 +48,7 @@
         </div>
       </div>
 
-      <form method="POST" autocomplete="off" novalidate>
+      <form id="materialForm" method="POST" autocomplete="off" novalidate>
         {% csrf_token %}
 
         <div class="mf-fields-grid">
@@ -138,7 +139,7 @@
         </div>
 
         <div class="mf-form-actions">
-          <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+            <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-circle sl-me-1"></i> Save Material
           </button>

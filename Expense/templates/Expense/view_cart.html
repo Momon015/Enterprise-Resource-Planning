@@ -11,6 +11,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 </style>
 
 <script>
+document.body.addEventListener('cartChanged', () => location.reload());
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
@@ -102,7 +103,7 @@ function toggleCostInput(itemId) {
                 </div>
                 <a href="{% url 'cart-remove-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}"
                    class="sale-row-remove" title="Remove">
-                  <i class="bi bi-trash"></i>
+                  <i class="bi bi-x-lg"></i>
                 </a>
               </div>
 

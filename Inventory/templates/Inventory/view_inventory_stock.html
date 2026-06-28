@@ -29,7 +29,14 @@
         <span>INVENTORY</span>
       </div>
       <h1 class="page-title">Stock Levels</h1>
-      <p class="page-subtitle">Current stock across all materials.</p>
+      <p class="page-subtitle">
+        Current stock across all materials.
+        {% if kpis.current.computed_at %}
+          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
+            style="cursor: help; font-size: 0.85em;"></i>
+        {% endif %}
+      </p>
     </div>
   </div>
 

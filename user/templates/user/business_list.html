@@ -39,7 +39,7 @@
           <div class="sd-header-icon" style="background:var(--accent-light); color:var(--accent); flex-shrink:0;">
             {% if biz.business_type == 'cafe' or biz.business_type == 'restaurant' %}<i class="bi bi-cup-hot"></i>
             {% elif biz.business_type == 'pharmacy' %}<i class="bi bi-capsule"></i>
-            {% elif biz.business_type == 'retail' %}<i class="bi bi-basket3"></i>
+            {% elif biz.business_type == 'retail' %}<i class="bi bi-shop-window"></i>
             {% else %}<i class="bi bi-shop"></i>{% endif %}
           </div>
           <div style="min-width:0;">
@@ -69,11 +69,62 @@
           </div>
         </div>
 
+                <!-- STAFF SIGN-UP (owner quick controls) -->
+        <div class="sd-summary-block" style="margin:0;">
+          <div class="sd-info-row">
+            <span class="sd-info-label">Staff sign-up</span>
+            <span class="sd-info-value">
+              <span class="status-badge {% if biz.accepting_staff %}status-success{% else %}status-muted{% endif %}" style="font-size:0.62rem;">
+                {% if biz.accepting_staff %}ON{% else %}OFF{% endif %}
+              </span>
+            </span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Invite code</span>
+            <span class="sd-info-value mono" style="display:flex; align-items:center; gap:0.4rem; justify-content:flex-end;">
+              <span style="letter-spacing:0.1em; font-weight:600;">{{ biz.invite_code }}</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm biz-copy-btn"
+                      data-code="{{ biz.invite_code }}" title="Copy code" style="padding:0.05rem 0.4rem;">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.5rem;">
+          <form method="post" action="{% url 'toggle-accepting-staff' business_id=biz.id business_slug=biz.slug %}" style="flex:1;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            {% if biz.accepting_staff %}
+              <button type="submit" class="btn btn-outline-secondary btn-sm btn-block">
+                <i class="bi bi-toggle-on"></i> Turn off
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-toggle-off"></i> Turn on
+              </button>
+            {% endif %}
+          </form>
+          <a href="{% url 'regenerate-invite-code' business_id=biz.id business_slug=biz.slug %}?next={{ request.path }}"
+             hx-get="{% url 'regenerate-invite-code' business_id=biz.id business_slug=biz.slug %}?next={{ request.path }}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-outline-danger btn-sm btn-block" style="flex:1;">
+            <i class="bi bi-arrow-repeat"></i> New code
+          </a>
+        </div>
+
+
         <!-- ACTIONS -->
         <div style="display:flex; gap:0.5rem; margin-top:auto;">
+          {% if current_business.plan.has_dashboard %}
           <a href="{% url 'dashboard' business_slug=biz.slug %}" class="btn btn-primary btn-sm" style="flex:1;">
             <i class="bi bi-box-arrow-in-right"></i> {% if current_business.id == biz.id %}Open{% else %}Switch{% endif %}
           </a>
+          {% else %}
+          <a href="{% url 'product-list' business_slug=biz.slug %}" class="btn btn-primary btn-sm" style="flex:1;">
+            <i class="bi bi-box-arrow-in-right"></i> {% if current_business.id == biz.id %}Open{% else %}Switch{% endif %}
+          </a>
+          {% endif %}
           <a href="{% url 'business-profile-detail' business_id=biz.id business_slug=biz.slug %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-eye"></i> Detail
           </a>
@@ -101,6 +152,32 @@
   .biz-card { flex:0 1 320px; max-width:100%; }
   .biz-card--active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 </style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+    document.querySelectorAll(".biz-copy-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const code = btn.dataset.code || "";
+        const done = function () {
+          btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+          setTimeout(function () { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(code).then(done).catch(fallback);
+        } else { fallback(); }
+        function fallback() {
+          const ta = document.createElement("textarea");
+          ta.value = code; ta.style.position = "fixed"; ta.style.left = "-9999px";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          try { document.execCommand("copy"); done(); } catch (e) {}
+          document.body.removeChild(ta);
+        }
+      });
+    });
+  });
+</script>
 
 
 {% endblock %}

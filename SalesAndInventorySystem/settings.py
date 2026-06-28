@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    
+    'https://roots-tones-wit-transformation.trycloudflare.com'
     ]
 
 # Application definition
@@ -153,6 +153,9 @@ AUTH_USER_MODEL = 'user.User'
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    
+    'core.middleware.ReturnToMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -161,6 +164,7 @@ MIDDLEWARE = [
 
     'django.contrib.messages.middleware.MessageMiddleware',
     'subscription.middleware.InactiveOwnerLogoutOwnerMiddleware',
+    'core.middleware.HtmxLoginRedirectMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
     
@@ -192,6 +196,7 @@ TEMPLATES = [
                 'core.context_processors.business_context',
                 'core.context_processors.feature_flags',
                 'activity.context_processors.notification_badge',
+                'core.context_processors.cart_counts',
             ],
         },
     },

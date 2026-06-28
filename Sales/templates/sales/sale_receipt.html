@@ -6,45 +6,29 @@
     <title>Receipt — {{ sale.reference }}</title>
 </head>
 <style>
-    @page { size: 80mm auto; margin: 0; }
+    @page { size: {{ width }}mm auto; margin: 0; }
 
     @media screen {
         body {
-            background: #e5e7eb;
-            margin: 0;
-            padding: 24px 12px;
-            min-height: 100vh;
-            font-family: 'Courier New', monospace;
+            background: #e5e7eb;  {% if embed %}#fff{% else %}#e5e7eb{% endif %};
+            margin: 0; padding: {% if embed %}0{% else %}24px 12px{% endif %};
+            min-height: 100vh; font-family: 'Courier New', monospace;
         }
         .preview-toolbar {
-            max-width: 80mm;
-            margin: 0 auto 16px auto;
-            display: flex;
-            gap: 8px;
-            justify-content: center;
+            max-width: {{ width }}mm; margin: 0 auto 16px auto;
+            display: flex; gap: 8px; justify-content: center;
         }
         .preview-toolbar button {
-            padding: 8px 16px;
-            font-size: 13px;
-            border: 1px solid #d1d5db;
-            background: #fff;
-            border-radius: 6px;
-            cursor: pointer;
+            padding: 8px 16px; font-size: 13px; border: 1px solid #d1d5db;
+            background: #fff; border-radius: 6px; cursor: pointer;
         }
-        .preview-toolbar button.primary {
-            background: #111827;
-            color: #fff;
-            border-color: #111827;
-        }
+        .preview-toolbar button.primary { background: #111827; color: #fff; border-color: #111827; }
         .preview-toolbar button.primary:hover { background: #000; }
         .receipt {
-            width: 80mm;
-            margin: 0 auto;
-            padding: 6mm 4mm;
-            background: #fff;
-            color: #000;
-            font-size: 12px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+            width: {{ width }}mm; margin: 0 auto; padding: 6mm 4mm;
+            background: #fff; color: #000;
+            font-size: {% if width == '58' %}11px{% else %}12px{% endif %};
+            box-shadow: {% if embed %}none{% else %}0 4px 14px rgba(0,0,0,0.12){% endif %};
         }
     }
 
@@ -52,13 +36,9 @@
         body { background: #fff; margin: 0; padding: 0; }
         .preview-toolbar { display: none !important; }
         .receipt {
-            width: 80mm;
-            margin: 0;
-            padding: 6mm 4mm;
-            box-shadow: none;
+            width: {{ width }}mm; margin: 0; padding: 6mm 4mm; box-shadow: none;
             font-family: 'Courier New', monospace;
-            font-size: 12px;
-            color: #000;
+            font-size: {% if width == '58' %}11px{% else %}12px{% endif %}; color: #000;
         }
     }
 
@@ -75,12 +55,13 @@
 </style>
 </head>
 <body>
+    {% if not embed %}
     <div class="preview-toolbar">
-        <button class="primary" onclick="window.print()">
-            🖨 Print Receipt
-        </button>
+        <button class="primary" onclick="window.print()">🖨 Print Receipt</button>
         <button onclick="window.close()">Close</button>
     </div>
+    {% endif %}
+
 
         <div class="receipt">
             <div class="center bold">{{ business.business_name }}</div>

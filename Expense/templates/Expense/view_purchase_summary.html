@@ -1,7 +1,7 @@
 {% extends 'main.html' %}
 {% load humanize %}
 {% block content %}
-
+{% block topbar %}{% endblock %}
 <!-- FLASH MESSAGES -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
@@ -187,23 +187,27 @@ document.addEventListener("DOMContentLoaded", function () {
     <p style="font-size:.82rem; color:var(--muted); margin:0;">
       This purchase record can be printed or reviewed in your purchase history.
     </p>
-    <div style="display:flex; gap:.5rem;">
+     <div style="display:flex; gap:.5rem; margin-left:auto;">
       {% comment %} <button type="button" class="btn-browse">
         <i class="bi bi-printer"></i> Print receipt
       </button> {% endcomment %}
       {% if can_void %}
       <a href="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
-         class="btn btn-secondary" style="color:var(--danger);">
-        <i class="bi bi-x-octagon"></i> Void
+         hx-get="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="btn btn-danger">
+        <i class="bi bi-x-lg"></i> Void
       </a>
+
       {% elif not purchase.is_void %}
-      <span class="btn btn-secondary" style="opacity:.5; cursor:not-allowed;"
+      <span class="btn btn-outline-danger" style="opacity:.5; cursor:not-allowed;"
             title="Voiding is only available during an open shift, same day. Use Purchase Returns to correct this.">
         <i class="bi bi-lock"></i> Void closed
       </span>
+
       {% endif %}
 
-      {% if request.user.role == 'owner' %}
+      {% if request.user.role == 'owner' and current_business.plan.has_dashboard %}
       <a href="{% url 'dashboard' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard
       </a>

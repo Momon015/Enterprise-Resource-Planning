@@ -1,0 +1,82 @@
+<div class="quickview__panel cm-panel cm-panel--form">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-person-gear"></i></div>
+        <div>
+          <div class="cm-title">{{ employee.name }}</div>
+          <div class="cm-sub">Update the details below.</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{{ emp_action }}" autocomplete="off" novalidate style="margin-top:1rem;">
+        {% csrf_token %}
+        <div class="mf-fields-grid">
+
+          {# Name — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="id_name" class="mf-form-label">Name <span class="mf-required">*</span></label>
+            <input type="text" name="name" id="id_name"
+                   class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                   value="{{ form.name.value|default_if_none:'' }}"
+                   placeholder="e.g. Juan Dela Cruz">
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors.0 }}</div>{% endif %}
+          </div>
+
+          {# Daily Rate — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="id_daily_rate" class="mf-form-label">Daily Rate <span class="mf-required">*</span></label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="empChangeRate(-50)">−</button>
+                <input type="number" step="0.01" min="0" name="daily_rate" id="id_daily_rate"
+                       class="form-control {% if form.daily_rate.errors %}is-invalid{% endif %}"
+                       value="{{ form.daily_rate.value|default_if_none:'' }}"
+                       placeholder="e.g. 600.00">
+                <button class="qty-btn" type="button" onclick="empChangeRate(50)">+</button>
+              </div>
+            </div>
+            <div class="mf-help">Used for computing pay based on days worked.</div>
+            {% if form.daily_rate.errors %}<div class="mf-error">{{ form.daily_rate.errors.0 }}</div>{% endif %}
+          </div>
+
+          {# Cash drawer — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label class="mf-form-label">Cash drawer</label>
+            <label style="display:flex; align-items:flex-start; gap:0.6rem; cursor:pointer; padding:0.85rem 1rem; border:1px solid var(--border); border-radius:10px;">
+              <input type="checkbox" name="is_cashier" id="id_is_cashier" style="margin-top:0.2rem;"
+                     {% if form.is_cashier.value %}checked{% endif %}>
+              <span>
+                <strong>This employee handles a cash drawer</strong>
+                <span style="display:block; font-size:0.78rem; color:var(--muted); margin-top:0.25rem;">
+                  Cashiers confirm starting cash at time-in and count the drawer at time-out. Leave off for staff who only clock in for attendance — baggers, helpers, stockers.
+                </span>
+              </span>
+            </label>
+          </div>
+
+        </div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function empChangeRate(delta) {
+    const input = document.getElementById('id_daily_rate');
+    let value = parseFloat(input.value || 0);
+    value = isNaN(value) ? 0 : value;
+    value = Math.max(0, value + delta);
+    input.value = value.toFixed(2);
+  }
+</script>

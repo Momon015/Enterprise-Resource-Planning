@@ -192,7 +192,7 @@
             {% endif %}
 
             <div class="mf-form-actions" style="margin-top:1.5rem;">
-              {% if current_business.business_profiles.all > 0 %}
+              {% if current_count > 0 %}
               <a href="{% url 'settings' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
               {% endif%}
               <button type="submit" class="btn btn-primary">

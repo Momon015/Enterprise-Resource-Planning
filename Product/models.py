@@ -56,7 +56,8 @@ class Product(SlugModel, TimeStampModel):
     locked_at = models.DateTimeField(null=True, blank=True)
     is_service = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True)
-    
+    is_session_based = models.BooleanField(default=False)   # rental w/ time-block tiers
+
     
     objects = ActiveManager()
     goods = GoodsManager()
@@ -160,9 +161,22 @@ class Product(SlugModel, TimeStampModel):
             return None
         return (self.cost_price / (Decimal(1) - target)).quantize(Decimal('0.01'))
 
-            
-            
-            
+class ServiceSession(models.Model):
+    """A priced time-block for a session-based rental service (billiards, court).
+    Flat fees (xerox, GCash) have none and use Product.selling_price."""
+    service = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sessions')
+    label = models.CharField(max_length=50)        # "30 mins", "1 hr", "1.5 hrs"
+    minutes = models.PositiveIntegerField(null=True, blank=True) 
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'minutes', 'id']
+
+    def __str__(self):
+        return f"{self.service.name} · {self.label}"
+
+        
 class ProductPreset(TimeStampModel, SlugModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_presets')
     name = models.CharField(max_length=255)

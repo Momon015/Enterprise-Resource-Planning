@@ -49,5 +49,22 @@ def business_context(request):
         'pending_acks': pending_acks,
     }
 
+def cart_counts(request):
+    def _count(d):
+        if not isinstance(d, dict):
+            return 0
+        return sum((v.get('quantity', 0) or 0) for v in d.values() if isinstance(v, dict))
+
+    cart_pages = {
+        'view-sale', 'view-session-summary', 'sale-confirm-summary', 'sale-summary',
+        'view-cart', 'view-cart-summary', 'confirm-purchase-summary', 'view-purchase-summary',
+    }
+    url_name = request.resolver_match.url_name if request.resolver_match else None
+
+    return {
+        'sale_cart_count': _count(request.session.get('sale', {})),
+        'purchase_cart_count': _count(request.session.get('cart', {})),
+        'on_cart_page': url_name in cart_pages,
+    }
 
 

@@ -127,7 +127,10 @@
             </thead>
             <tbody>
               {% for p in page_obj %}
-              <tr class="row-link {% if p.due_date and p.due_date < today %}is-overdue{% endif %}" onclick="window.location='{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables'">
+              <tr class="row-link {% if p.due_date and p.due_date < today %}is-overdue{% endif %}"
+                  hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
+                  hx-target="#confirmBody" hx-swap="innerHTML" style="cursor:pointer;">
+
                 <td class="cell-primary">
                   {{ p.purchase_date|date:"M d" }}<span class="col-mobile-hidden">, {{ p.purchase_date|date:"Y" }}</span>
                   <div class="cell-sub">{{ p.purchase_date|date:"l" }}</div>
@@ -172,10 +175,7 @@
 
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
-                       class="row-chevron" title="Record payment">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
+                    <span class="row-chevron" title="Record payment"><i class="bi bi-chevron-right"></i></span>
                   </div>
                 </td>
               </tr>

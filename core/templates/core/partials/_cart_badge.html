@@ -1,14 +1,13 @@
 <a id="cart-badge"
    href="{% url cart_url business_slug=current_business.slug %}"
-   class="btn btn-outline-secondary btn-sm position-relative">
+   class="topbar-icon-btn topbar-cart{% if not cart_count %} is-empty{% endif %}" title="Cart" aria-label="Cart">
   <i class="bi {{ icon }}"></i>
-  {{ label }}
   {% if cart_count %}
-    <span class="badge bg-danger position-absolute top-0 start-100 translate-middle">
-      {{ cart_count }}
-    </span>
+    <span class="topbar-cart__badge">{{ cart_count }}</span>
   {% endif %}
 </a>
+
+
 
 {% if messages %}
 <div id="messages" hx-swap-oob="true" class="toast-container" aria-live="polite" aria-atomic="true">

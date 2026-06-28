@@ -48,7 +48,11 @@
           <p class="card-header-sub" style="margin: 0;">Create a product for your catalog and sales.</p>
         </div>
       </div>
-      <span class="card-header-sub">Unit price must be set manually by the user.</span>
+      <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+        <a href="{% url 'product-list' business_slug=current_business.slug %}"
+           class="pd-icon-btn" data-form-close="productForm" title="Close"><i class="bi bi-x-lg"></i></a>
+      </div>
+
     </div>
 
 
@@ -65,7 +69,7 @@
         </div>
       </div>
 
-      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+      <form id="productForm" method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
         {% csrf_token %}
 
         <div class="mf-fields-grid">

@@ -2,8 +2,7 @@ from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.utils import timezone
 
-
-BUST_DEBOUNCE = 30   # seconds — burst of writes within this window = 1 bust
+from core.constants import KPI_BUST_DEBOUNCE as BUST_DEBOUNCE
 
 def bust_dashboard_cache(sender, instance, **kwargs):
     business = getattr(instance, 'business', None)
@@ -16,8 +15,6 @@ def bust_dashboard_cache(sender, instance, **kwargs):
     # Only bust once per BUST_DEBOUNCE window per business.
     if cache.add(throttle_key, True, timeout=BUST_DEBOUNCE):
         cache.delete(cache_key)
-
-
 
 def register():
     """Wire bust_dashboard_cache to every model that feeds the dashboard KPI block."""

@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
       <p class="page-subtitle">{% if basis == 'cash' %}Money collected and spent each day{% else %}Sales, costs, and net profit each day{% endif %}</p>
     </div>
 
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <div style="display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:.85rem;">
         <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
            style="padding:.45rem .9rem; text-decoration:none; {% if basis == 'cash' %}background:var(--accent); color:#fff;{% else %}color:var(--text);{% endif %}">
@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <i class="bi bi-graph-up-arrow"></i> Business Performance
         </a>
       </div>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -267,6 +267,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     <!-- ========== RIGHT PANEL ========== -->
     <aside class="right-panel">
+
+      <!-- BASIS TABS (right-panel view switcher) -->
+      <div class="basis-tabs basis-tabs--block">
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
+           class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
+          <i class="bi bi-cash-stack"></i> Cash Flow
+        </a>
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
+           class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
+          <i class="bi bi-graph-up-arrow"></i> Business Performance
+        </a>
+      </div>
 
       <!-- PERIOD TOTALS -->
       <div class="card">

@@ -14,11 +14,11 @@
       <h1 class="page-title" style="color:var(--danger);">Deactivate Account</h1>
       <p class="page-subtitle">You are about to deactivate this user account</p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <a href="{% url 'user-profile' user_id=user.id slug=user.slug %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Back to profile
       </a>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">

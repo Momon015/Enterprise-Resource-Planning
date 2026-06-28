@@ -233,12 +233,6 @@
 
 <div class="page-wrapper">
 
-  <div class="mobile-back-row">
-    <a href="{% url 'subscription-settings' business_slug=business.slug %}" class="mobile-back-link">
-      <i class="bi bi-chevron-left"></i><span>Back</span>
-    </a>
-  </div>
-
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">SUBSCRIPTION</div>
@@ -285,16 +279,22 @@
         <li><i class="bi bi-check-lg"></i> Solo owner (no staff)</li>
         <li><i class="bi bi-check-lg"></i> 10 products &amp; 10 materials</li>
         <li><i class="bi bi-check-lg"></i> 2 suppliers</li>
-        <li><i class="bi bi-check-lg"></i> 10 sales/purchases/waste per month</li>
-        <li><i class="bi bi-check-lg"></i> 5 expense records per month</li>
+        <li><i class="bi bi-check-lg"></i> 10 sales &amp; 10 purchases per day</li>
+        <li><i class="bi bi-check-lg"></i> 10 waste &amp; 5 expenses per month</li>
         <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
         <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Summary reports</li>
       </ul>
       {% if current_plan == 'free' %}
         <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
       {% else %}
-        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
-      {% endif %}
+        <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+           hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+           hx-target="#confirmBody" hx-swap="innerHTML"
+           class="btn-lp btn-outline" style="justify-content:center;">Contact support
+        </a>
+
+      
+        {% endif %}
     </div>
 
     <!-- STANDARD -->
@@ -308,14 +308,19 @@
         <li><i class="bi bi-check-lg"></i> 1 staff account</li>
         <li><i class="bi bi-check-lg"></i> 30 products &amp; 30 materials</li>
         <li><i class="bi bi-check-lg"></i> 5 suppliers</li>
-        <li><i class="bi bi-check-lg"></i> 30 sales/purchases per month</li>
+        <li><i class="bi bi-check-lg"></i> 30 sales &amp; 30 purchases per day</li>
         <li><i class="bi bi-check-lg"></i> 30 waste &amp; 30 expenses per month</li>
         <li class="lp-pricing-no"><i class="bi bi-x-lg"></i> Dashboard</li>
       </ul>
       {% if current_plan == 'standard' %}
         <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
       {% else %}
-        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
+        <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML"
+          class="btn-lp btn-outline" style="justify-content:center;">Contact support
+        </a>
+
       {% endif %}
     </div>
 
@@ -343,7 +348,13 @@
       {% if current_plan == 'premium' %}
         <button class="btn-lp btn-accent" disabled style="opacity:0.5;">Current plan</button>
       {% else %}
-        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-accent" style="justify-content:center;">Contact support</a>
+        <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+         hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="btn-lp btn-accent" style="justify-content:center;">Contact support
+        </a>
+
+
       {% endif %}
     </div>
 
@@ -367,7 +378,13 @@
       {% if current_plan == 'pro' %}
         <button class="btn-lp btn-outline" disabled style="opacity:0.5;">Current plan</button>
       {% else %}
-        <a href="{% url 'subscription-contact' business_slug=business.slug %}" class="btn-lp btn-outline" style="justify-content:center;">Contact support</a>
+        <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML"
+          class="btn-lp btn-outline" style="justify-content:center;">Contact support
+        </a>
+
+
       {% endif %}
     </div>
   </div>
@@ -377,7 +394,10 @@
     <div>
       <strong>Yearly billing terms:</strong> Pay annually upfront or in monthly installments at the discounted rate.
       If you cancel a yearly plan early, the remaining balance is recalculated at the standard monthly rate — any difference becomes due upon cancellation.
-      <a href="{% url 'subscription-contact' business_slug=business.slug %}">Questions? Contact us.</a>
+        <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML">Questions? Contact us.
+        </a>
     </div>
   </div>
 

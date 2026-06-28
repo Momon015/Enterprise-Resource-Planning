@@ -28,7 +28,7 @@
       <h1 class="page-title">Subscription</h1>
       <p class="page-subtitle">Each business has its own plan. Total bill = sum across all businesses.</p>
     </div>
-    <div class="page-header-right">
+    {% comment %} <div class="page-header-right">
       <div class="header-stat accent">
         <i class="bi bi-building"></i>
         <strong>{{ business_count }}</strong> / {{ bundle_count }} businesses
@@ -43,7 +43,7 @@
           <i class="bi bi-infinity"></i> Lifetime
         </div>
       {% endif %}
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <div class="two-col-layout">
@@ -92,8 +92,19 @@
               </span>
               <span class="sl-badge sl-badge-light">{{ item.business.get_business_type_display }}</span>
             </div>
-            <span class="status-badge status-success">{{ item.plan.get_plan_display }}</span>
+            <div style="display:flex; align-items:center; gap:.6rem;">
+              <span class="status-badge status-success">{{ item.plan.get_plan_display }}</span>
+              {% if item.plan.plan != 'free' and not item.plan.pending_cancellation %}
+              <a href="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
+                 hx-get="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
+                 hx-target="#confirmBody" hx-swap="innerHTML"
+                 class="btn btn-sm btn-outline-danger" style="white-space:nowrap;">
+                 Cancel
+              </a>
+              {% endif %}
+            </div>
           </div>
+
           <div class="card-body">
 
             <!-- PLAN PICKER -->
@@ -118,12 +129,12 @@
               </form>
 
 
-            {% if item.plan.is_trial %}
+            {% comment %} {% if item.plan.is_trial %}
               <div class="trial-badge">
                 <i class="bi bi-clock-fill"></i>
                 Trial — {{ item.plan.trial_days_remaining }} day(s) left
-              </div>
-            {% elif not sub.trial_used and item.plan.plan == 'free' %}
+              </div> {% endcomment %}
+            {% if not sub.trial_used and item.plan.plan == 'free' %}
               <form method="POST" action="{% url 'subscription-start-trial' business_slug=business.slug %}" style="display:inline;">
                 {% csrf_token %}
                 <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
@@ -135,22 +146,6 @@
                 </button>
               </form>
             {% endif %}
-
-            {% if item.plan.plan != 'free' %}
-              {% if item.plan.pending_cancellation %}
-                <div class="alert alert-warning" style="margin-top:0.75rem;">
-                  <i class="bi bi-clock-history"></i> Cancellation pending — ends {{ item.plan.expires_at|date:"M d, Y" }}
-                </div>
-              {% else %}
-                <a href="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
-                  class="btn btn-sm btn-outline-danger" style="margin-top:0.5rem;">
-                  <i class="bi bi-x-circle"></i> Cancel subscription
-                </a>
-              {% endif %}
-            {% endif %}
-
-
-
 
             <!-- USAGE TABLE -->
             <div class="sd-section-label">Usage</div>
@@ -262,7 +257,11 @@
             <a href="{% url 'subscription-pricing' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View pricing
             </a>
-            <a href="{% url 'subscription-contact' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
+
+            <a href="{% url 'subscription-contact' business_slug=current_business.slug %}"
+              hx-get="{% url 'subscription-contact' business_slug=current_business.slug %}"
+              hx-target="#confirmBody" hx-swap="innerHTML"
+              class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-envelope-fill"></i> Contact support
             </a>
           </div>

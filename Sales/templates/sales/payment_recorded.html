@@ -107,7 +107,10 @@
             </a>
 
             {% if outstanding > 0 %}
-            <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="btn btn-light">
+            <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}"
+               hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-light">
                 <i class="bi bi-plus-circle"></i> Add Another Payment
             </a>
             {% endif %}

@@ -4,3 +4,8 @@ NO_STOCK_THRESHOLD = 0 # matches your inventory view's "no stock" filter
 
 MARGIN_DEFAULT_TARGET = 30  # global default target margin % (product & category both unset)
 MARGIN_DANGER_FLOOR   = 10  # margin % below this = critical (red badge + margin_low event)
+
+# ── KPI / dashboard cache freshness ──────────────────────────────────────
+# Bust-on-write does the real freshness; TTL is just the missed-signal backstop.
+KPI_CACHE_TTL    = 60 * 30   # 30 min
+KPI_BUST_DEBOUNCE = 60       # seconds — a burst of writes within this window = 1 bust

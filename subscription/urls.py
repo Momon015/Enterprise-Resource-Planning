@@ -15,7 +15,8 @@ urlpatterns = [
     path('settings/contact/', views.contact, name='subscription-contact'),
     
     path('settings/start-trial/', views.start_business_trial, name='subscription-start-trial'),
-    
+    path('settings/trial/', views.trial_modal, name='subscription-trial-modal'),
+
     path('settings/cancel/', views.cancel_business_confirm, name='subscription-cancel-confirm'),
     path('export/', views.export_data, name='subscription-export'),
 

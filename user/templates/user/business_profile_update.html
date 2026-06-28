@@ -93,17 +93,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="mf-help">Used across receipts, reports, and statements</div>
               </div>
 
-              <!-- TYPE -->
+              <!-- TYPE (locked after creation) -->
               <div class="mf-field-group">
-                <label class="mf-form-label">
-                  Business Type <span class="mf-required">*</span>
-                </label>
-                {{ form.business_type }}
-                {% if form.business_type.errors %}
-                  <div class="mf-error">{{ form.business_type.errors.0 }}</div>
-                {% endif %}
-                <div class="mf-help">Affects POS layout and report breakdowns</div>
+                <label class="mf-form-label">Business Type</label>
+                <div class="readonly-chip">
+                  <i class="bi bi-lock-fill"></i>
+                  <span class="sl-badge sl-badge-light">{{ business.get_business_type_display }}</span>
+                  <span>Locked after creation</span>
+                </div>
+                <div class="mf-help">To use a different type, contact support — or just add another business.</div>
               </div>
+
 
             </div>
 
@@ -147,6 +147,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 Adds a <strong>Service Fees</strong> catalog under Catalog — for xerox, GCash, and bills payment.
               </div>
             </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <label class="mf-form-label">{{ form.receipt_width.label }}</label>
+              {{ form.receipt_width }}
+              <div class="mf-help">
+                Match your thermal printer — <strong>80mm</strong> (standard POS) or <strong>58mm</strong> (compact). Used as the default when printing receipts.
+              </div>
+            </div>
+
 
 
             <!-- ACTIONS -->
@@ -233,12 +242,13 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
 
           <div class="sd-note-box">
-            <i class="bi bi-info-circle-fill sd-note-icon"></i>
+            <i class="bi bi-lock-fill sd-note-icon" style="color:var(--warning);"></i>
             <div>
-              <div class="sd-note-title">Switching types?</div>
-              <div class="sd-note-text">Some modules (POS layout, reports) may behave differently after changing.</div>
+              <div class="sd-note-title">Business type is locked</div>
+              <div class="sd-note-text">You can't change a business's type after it's created. If you really need a different type, contact support — or just add another business (if you're still under your plan limit).</div>
             </div>
           </div>
+
         </div>
       </div>
 

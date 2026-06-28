@@ -431,6 +431,17 @@ class BusinessPlan(models.Model):
             created_at__month=now.month,
         ).count()
         
+    def _today_count(self, qs):
+        """Count rows in qs created during the current LOCAL day (Asia/Manila)."""
+        start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        return qs.filter(
+            business=self.business,
+            created_at__gte=start,
+            created_at__lt=end,
+        ).count()
+
+        
     @staticmethod
     def next_calendar_reset():
         """Returns datetime for the first day of next month (00:00)."""
@@ -441,6 +452,13 @@ class BusinessPlan(models.Model):
             
         return now.replace(month=now.month + 1, day=1,
                            hour=0, minute=0, second=0, microsecond=0)
+        
+    @staticmethod
+    def next_daily_reset():
+        """Datetime for the start of the next local day (00:00)."""
+        start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        return start + timedelta(days=1)
+
 
     def _can_add(self, key, current_count):
         limit = self.limits().get(key)
@@ -450,11 +468,11 @@ class BusinessPlan(models.Model):
     
     def can_add_sale(self):
         from Sales.models import Sale
-        return self._can_add('max_sales', self._this_month_count(Sale.objects))
+        return self._can_add('max_sales', self._today_count(Sale.objects))
 
     def can_add_purchase(self):
         from Expense.models import Purchase
-        return self._can_add('max_purchases', self._this_month_count(Purchase.objects))
+        return self._can_add('max_purchases', self._today_count(Purchase.objects))
 
     def can_add_waste(self):
         from Expense.models import Waste

@@ -1,0 +1,30 @@
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-download"></i></div>
+        <div>
+          <div class="cm-title">Export {{ current_business.business_name }}</div>
+
+        </div>
+      </div>
+
+      {# ⚠️ PLAIN LINKS ON PURPOSE — file downloads are binary and CANNOT be htmx-swapped. Do NOT add hx-* here. #}
+      <div class="d-flex flex-column gap-2" style="margin:.75rem 0 1rem;">
+        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=xlsx" class="btn btn-primary">
+          <i class="bi bi-file-earmark-excel"></i> Download Excel (.xlsx)
+          <small style="opacity:.8; display:block; font-weight:400;">One workbook, a tab per data type</small>
+        </a>
+        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=csv" class="btn btn-outline-secondary">
+          <i class="bi bi-file-earmark-zip"></i> Download CSV (.zip)
+          <small style="opacity:.8; display:block; font-weight:400;">One CSV file per data type, zipped</small>
+        </a>
+      </div>
+
+      <p class="cm-sub" style="margin:0;">Exports reflect data as of right now. Locked items are included and flagged.</p>
+
+    </div>
+  </div>
+</div>

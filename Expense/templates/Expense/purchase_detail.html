@@ -29,12 +29,6 @@
 
 <div class="page-wrapper">
 
-  <div class="mobile-back-row">
-    <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="mobile-back-link">
-      <i class="bi bi-chevron-left"></i>
-      <span>Back</span>
-    </a>
-  </div>
 
 
   <!-- PAGE HEADER -->
@@ -311,8 +305,11 @@
 
           {% if not purchase.is_void and not purchase.is_fully_paid %}
           <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}?next=purchase-detail"
-            class="btn btn-primary btn-block">
+             hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}?next=purchase-detail"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-primary btn-block">
             <i class="bi bi-cash-coin"></i> Add Payment
+
           </a>
           {% endif %}
 

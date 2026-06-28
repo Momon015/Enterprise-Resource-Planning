@@ -10,7 +10,6 @@
   {% for message in messages %}
     <div class="toast-message toast-{{ message.tags }}">
       {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
-      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
       {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
       {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
       {% endif %}
@@ -42,9 +41,9 @@
             <i class="bi bi-list-ul"></i>
             Product Lines
           </span>
-          <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-browse">
+          {% comment %} <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn-browse">
             <i class="bi bi-search"></i> Browse products
-          </a>
+          </a> {% endcomment %}
         </div>
 
         <div>
@@ -65,7 +64,7 @@
                 <div class="sale-row-info">
                   <div class="sale-row-name">{{ item.name }}</div>
                   {% if item.supplier %}<div class="sale-row-sub">{{ item.supplier }}</div>{% endif %}
-                  <div class="sale-row-cost">Cost ₱{{ item.cost_price|floatformat:2 }} · ₱{{ item.selling_price|floatformat:2 }} each</div>
+                  <div class="sale-row-cost">{% if item.cost_price|floatformat:2 != '0.00' %}Cost ₱{{ item.cost_price|floatformat:2 }} · {% endif %}₱{{ item.selling_price|floatformat:2 }} each</div>
                 </div>
                 <a href="{% url 'sale-delete-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                    class="sale-row-remove" title="Remove">
@@ -215,6 +214,17 @@
             </div>
             <div id="svcList">
               {% for s in services %}
+              {% if s.is_session_based %}
+              <div class="svc-row" data-name="{{ s.name|lower }}"
+                   {% if forloop.counter > 3 %}data-extra="1" style="display:none;"{% endif %}>
+                {% if s.image %}<img src="{{ s.image.url }}" class="svc-thumb" alt="">{% endif %}
+                <span class="svc-name">{{ s.name }}</span>
+                <span class="svc-price">Rental</span>
+                <button type="button" class="svc-add" title="Pick a session"
+                        hx-get="{% url 'service-session-picker' product_id=s.id business_slug=current_business.slug %}"
+                        hx-target="#confirmBody" hx-swap="innerHTML"><i class="bi bi-plus"></i></button>
+              </div>
+              {% else %}
               <form method="POST"
                     action="{% url 'add-to-sale' product_id=s.id business_slug=current_business.slug %}?next=view-sale"
                     class="svc-row" data-name="{{ s.name|lower }}"
@@ -225,6 +235,7 @@
                 <span class="svc-price">₱{{ s.selling_price|floatformat:2 }}</span>
                 <button type="submit" class="svc-add" title="Add to order"><i class="bi bi-plus"></i></button>
               </form>
+              {% endif %}
               {% endfor %}
               <div id="svcEmpty" style="display:none; font-size:.82rem; color:var(--muted); padding:.4rem 0;">No service found.</div>
             </div>
@@ -290,7 +301,7 @@
 </style>
 
 <script>
-
+document.body.addEventListener('cartChanged', () => location.reload());
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });

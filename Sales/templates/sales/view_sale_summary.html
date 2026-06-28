@@ -2,7 +2,7 @@
 {% load humanize %}
 
 {% block content %}
-
+{% block topbar %}{% endblock %}
 <!-- FLASH MESSAGES -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
@@ -78,7 +78,7 @@
               {% endif %}
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
-            <td><span class="mono">₱{{ item.cost_price|floatformat:2 }}</span></td>
+            <td><span class="mono">{% if item.cost_price|floatformat:2 != '0.00' %}₱{{ item.cost_price|floatformat:2 }}{% else %}—{% endif %}</span></td>
             <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
             <td class="text-end pe-4"><span class="mono" style="font-weight: 700; color: var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span></td>
           </tr>
@@ -210,32 +210,36 @@
 
   <!-- ACTIONS -->
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem;">
-    <p style="font-size: .82rem; color: var(--muted); margin: 0;">
-      This sales record can be printed or reviewed in your sales history.
-    </p>
-    <div style="display: flex; gap: .5rem;">
-      {% if current_business.plan.has_receipt_print %}
-          <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
-            target="_blank"
-            class="btn btn-secondary">
-              <i class="bi bi-printer"></i> Preview Receipt
-          </a>
-      {% endif %}
-      
+
+    {# LEFT: receipt utility (replaces the print note) #}
+    {% if current_business.plan.has_receipt_print %}
+    <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
+       target="_blank"
+       hx-get="{% url 'sale-receipt-modal' business_slug=current_business.slug sale_id=sale.id %}"
+       hx-target="#confirmBody" hx-swap="innerHTML"
+       class="btn btn-secondary">
+      <i class="bi bi-printer"></i> Preview Receipt
+    </a>
+    {% endif %}
+
+     <div style="display:flex; gap:.5rem; margin-left:auto;">
+
       {% if can_void %}
       <a href="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
-         class="btn btn-secondary" style="color:var(--danger);">
-        <i class="bi bi-x-octagon"></i> Void
+         hx-get="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="btn btn-outline-danger">
+        <i class="bi bi-x-lg"></i> Void
       </a>
       {% elif not sale.is_void %}
-      <span class="btn btn-secondary" style="opacity:.5; cursor:not-allowed;"
+      <span class="btn btn-outline-danger" style="opacity:.5; cursor:not-allowed;"
             title="Voiding is only available during an open shift, same day. Use Sales Returns to correct this.">
         <i class="bi bi-lock"></i> Void closed
       </span>
       {% endif %}
 
 
-      {% if request.user.role == 'owner' %}
+      {% if request.user.role == 'owner' and current_business.plan.has_dashboard %}
       <a href="{% url 'dashboard' business_slug=current_business.slug %}" class="btn-confirm" style="width:auto; padding:.5rem 1.25rem;">
         <i class="bi bi-house-door"></i> Back to dashboard
       </a>

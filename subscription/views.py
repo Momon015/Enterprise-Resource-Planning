@@ -36,29 +36,37 @@ def pricing(request, business_slug):
 def contact(request, business_slug):
     """In-app contact form — owner emails support."""
     business = get_business_for_user(request.user, business_slug)
-    
+    is_hx = request.headers.get('HX-Request')
+
     if request.method == 'POST':
-        # Honeypot
-        if request.POST.get('website'):
+        if request.POST.get('website'):  # honeypot
+            if is_hx:
+                return HttpResponse(status=204)
             return redirect('subscription-contact', business_slug=business.slug)
-        
+
         subject = request.POST.get('subject', '').strip()
         message_body = request.POST.get('message', '').strip()
-        
-        if not subject or not message_body:
-            messages.error(request, 'Subject and message are required.')
+
+        def form_error(msg):
+            if is_hx:
+                return render(request, 'core/partials/_contact_modal.html', {
+                    'business': business, 'error': msg,
+                    'subject_val': subject, 'message_val': message_body,
+                })
+            messages.error(request, msg)
             return redirect('subscription-contact', business_slug=business.slug)
-        
-        # Build the email to support
+
+        if not subject or not message_body:
+            return form_error('Subject and message are required.')
+
         support_email = getattr(settings, 'SUPPORT_EMAIL', settings.EMAIL_HOST_USER)
-        body = {
+        body = (
             f"From: {request.user.username} ({request.user.email})\n"
             f"Business: {business.business_name} (slug: {business.slug})\n"
             f"User role: {request.user.role}\n\n"
             f"Subject: {subject}\n\n"
             f"--- Message ---\n{message_body}\n"
-        
-        }
+        )
         try:
             email = EmailMultiAlternatives(
                 subject=f"[Swift ERP Contact] {subject}",
@@ -68,16 +76,18 @@ def contact(request, business_slug):
                 reply_to=[request.user.email] if request.user.email else None,
             )
             email.send()
-            messages.success(request, "Your message has been sent. We'll get back to you shortly.")
-            return redirect('subscription-contact', business_slug=business.slug)
-     
         except Exception:
-            messages.error(request, "Couldn't send your message. Please try again or email us directly.")
-            return redirect('subscription-contact', business_slug=business.slug)
+            return form_error("Couldn't send your message. Please try again or email us directly.")
 
+        if is_hx:
+            return render(request, 'core/partials/_contact_sent_modal.html', {})
+        messages.success(request, "Your message has been sent. We'll get back to you shortly.")
+        return redirect('subscription-contact', business_slug=business.slug)
+
+    if is_hx:
+        return render(request, 'core/partials/_contact_modal.html', {'business': business})
     return render(request, 'subscription/contact.html', {'business': business})
-        
-        
+
 # Maps URL slugs to actual model classes for set_active_items
 def _resolve_model(model_key):
     from Product.models import Product, ProductPreset
@@ -271,6 +281,15 @@ def start_business_trial(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     target_biz_id = request.POST.get('target_business_id')
     plan = request.POST.get('plan')
+    
+    # GET (htmx) → render the plan-choice modal
+    if request.method == 'GET':
+        if request.headers.get('HX-Request'):
+            return render(request, 'core/partials/_trial_modal.html', {
+                'business': business,
+                'target_business_id': request.GET.get('target_business_id') or business.id,
+            })
+        return redirect('subscription-settings', business_slug=business.slug)
 
     if plan not in ('premium', 'pro'):
         messages.error(request, 'Invalid trial plan.')
@@ -298,6 +317,17 @@ def start_business_trial(request, business_slug):
         messages.error(request, str(e))
 
     return redirect('subscription-settings', business_slug=business.slug)
+
+@login_required(login_url='login')
+def trial_modal(request, business_slug):
+    """Read-only — renders the plan-choice modal. Starting the trial is POST → start_business_trial."""
+    business = get_business_for_user(request.user, business_slug)
+    if request.user.role != 'owner':
+        return HttpResponse(status=403)
+    return render(request, 'core/partials/_trial_modal.html', {
+        'business': business,
+        'target_business_id': request.GET.get('target_business_id') or business.id,
+    })
 
 @login_required(login_url='login')
 @require_POST
@@ -449,15 +479,24 @@ def cancel_business_confirm(request, business_slug):
         )
         return redirect('subscription-settings', business_slug=business.slug)
 
-    return render(request, 'subscription/cancel_confirm.html', {
-        'business': business,
-        'target_biz': target_biz,
-        'target_bp': target_bp,
-        'balance_due': balance_due,
-        'months_used': months_used,
-        'cycle_end': cycle_end,
-        'sub': sub,
-    })
+    # return render(request, 'subscription/cancel_confirm.html', {
+    #     'business': business,
+    #     'target_biz': target_biz,
+    #     'target_bp': target_bp,
+    #     'balance_due': balance_due,
+    #     'months_used': months_used,
+    #     'cycle_end': cycle_end,
+    #     'sub': sub,
+    # })
+    context = {
+        'business': business, 'target_biz': target_biz, 'target_bp': target_bp,
+        'balance_due': balance_due, 'months_used': months_used,
+        'cycle_end': cycle_end, 'sub': sub,
+    }
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_cancel_modal.html', context)
+    return render(request, 'subscription/cancel_confirm.html', context)
+
 
 
 def _send_cancellation_emails(owner, target_biz, invoice):
@@ -546,4 +585,7 @@ def export_data(request, business_slug):
         response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_export_modal.html', {'business': business})
     return render(request, 'subscription/export_data.html', {'business': business})
+

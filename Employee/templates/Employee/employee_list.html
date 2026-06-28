@@ -35,7 +35,39 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
-      <!-- FILTER BAR -->
+      <!-- FILTER DRAWER -->
+      <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
+        <summary>
+          <i class="bi bi-sliders"></i>
+          <span>Advanced filters</span>
+          {% if request.GET.search %}
+            <span class="filter-badge">Active</span>
+          {% endif %}
+        </summary>
+        <div class="filter-body">
+          <form method="get" id="filterForm" autocomplete="off">
+            <div class="d-flex gap-2 align-items-center w-100">
+              <div class="flex-grow-1">
+                <div class="input-group">
+                  <span class="input-group-icon"><i class="bi bi-search"></i></span>
+                  <input type="search" name="search" class="form-control"
+                         placeholder="Search employee name..."
+                         value="{{ request.GET.search|default:'' }}">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-funnel-fill"></i> Apply
+              </button>
+              <a href="{% url 'employee-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+              </a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% comment %} <!-- FILTER BAR -->
       <div class="filter-bar">
         <div class="filter-body">
           <form method="get" id="filterForm" autocomplete="off">
@@ -57,7 +89,7 @@
             </div>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
 
       <!-- TABLE CARD -->
@@ -105,13 +137,17 @@
                       class="action-btn action-btn--view" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" 
+                    <a href="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}"
+                      hx-get="{% url 'employee-update' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}"
+                      hx-target="#confirmBody" hx-swap="innerHTML"
                       class="action-btn action-btn--edit" title="Edit">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
-                    <a href="{% url 'employee-archive' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}" 
-                      class="action-btn action-btn--warning" title="Archive employee">
+                    <a href="{% url 'employee-archive' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}"
+                       hx-get="{% url 'employee-archive' employee_id=employee.id slug=employee.slug business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
+                       class="action-btn action-btn--warning" title="Archive employee">
                       <i class="bi bi-archive-fill"></i>
                     </a>
                     {% endif %}
@@ -232,5 +268,23 @@
 
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  const filterDetails = document.querySelector("details");
+  if (filterDetails) {
+    const filterForm = filterDetails.querySelector("#filterForm");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search")) {
+      filterDetails.setAttribute("open", "");
+    }
+    filterForm.addEventListener("click", function(e){ e.stopPropagation(); });
+    const resetBtn = filterForm.querySelector("a.btn-light");
+    if (resetBtn) resetBtn.addEventListener("click", e => e.stopPropagation());
+  }
+});
+</script>
 
 {% endblock %}
