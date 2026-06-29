@@ -131,10 +131,22 @@
     <!-- TOTALS FOOTER -->
     <div style="border-top: 1px solid var(--border); padding: 1rem 1.25rem; background: #fafaf8;">
 
+      {% if sale.discount_percent %}
       <div class="total-row">
-        <span class="total-label"><i class="bi bi-calculator"></i> Total Revenue</span>
+        <span class="total-label"><i class="bi bi-cash-stack"></i> Subtotal</span>
         <span class="total-value">₱{{ total_revenue|floatformat:2 }}</span>
       </div>
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-tag"></i> Discount ({{ sale.discount_percent|floatformat:0 }}%)</span>
+        <span class="total-value" style="color:var(--success);">−₱{{ sale.discount_amount|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-calculator"></i> Total Revenue</span>
+        <span class="total-value">₱{{ sale.total_revenue|floatformat:2 }}</span>
+      </div>
+
 
       {% if sale.amount_paid and not sale.is_fully_paid %}
       <div class="total-row">

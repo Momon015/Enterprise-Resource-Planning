@@ -11,15 +11,24 @@
   <div class="search-empty">No results for “{{ q }}”</div>
   {% endif %}
 {% else %}
-<div class="search-results">
+<div class="search-results{% if not has_left or not has_right %} search-results--single{% endif %}">
 
+  {% if has_left %}
   <!-- LEFT: jump entities -->
   <div class="search-col search-col--left">
     {% if materials %}
     <div class="search-group"><div class="search-group__label">Materials</div>
       {% for m in materials %}
-      <a class="search-row" href="{% url 'material-detail' business_slug=current_business.slug id=m.id slug=m.slug %}">
-        <span class="search-row__ic"><i class="bi bi-box-seam"></i></span><span>{{ m.name }}</span></a>
+      <div class="search-prod">
+        <span class="search-prod__img"><i class="bi bi-box-seam"></i></span>
+        <a class="search-prod__info" href="{% url 'material-detail' business_slug=current_business.slug id=m.id slug=m.slug %}">
+          <span class="search-prod__name">{{ m.name }}</span>
+          <span class="search-prod__meta">₱{{ m.price|floatformat:2|intcomma }} · cost</span>
+        </a>
+        <button hx-post="{% url 'add-to-cart' business_slug=current_business.slug id=m.id %}"
+                hx-target="#cart-badge" hx-swap="outerHTML"
+                class="search-add" title="Add to purchase">+</button>
+      </div>
       {% endfor %}
     </div>{% endif %}
 
@@ -76,7 +85,9 @@
       {% endfor %}
     </div>{% endif %}
   </div>
+  {% endif %}
 
+  {% if has_right %}
   <!-- RIGHT: products + services with quick-add -->
   <div class="search-col search-col--right">
     {% if products %}<div class="search-group__label">Products</div>{% endif %}
@@ -113,6 +124,18 @@
     {% endfor %}
 
   </div>
+  {% endif %}
 </div>
-<a class="search-footer" href="{% url 'product-list' business_slug=current_business.slug %}?search={{ q|urlencode }}">View all results <i class="bi bi-arrow-right"></i></a>
+
+{% if products or services %}{% url 'product-list' business_slug=current_business.slug as va %}
+{% elif services %}{% url 'service-list' business_slug=current_business.slug as va %}
+{% elif materials %}{% url 'material-list' business_slug=current_business.slug as va %}
+{% elif suppliers %}{% url 'supplier-list' business_slug=current_business.slug as va %}
+{% elif product_presets %}{% url 'product-preset-list' business_slug=current_business.slug as va %}
+{% elif material_presets %}{% url 'material-preset-list' business_slug=current_business.slug as va %}
+{% elif staff %}{% url 'employee-list' business_slug=current_business.slug as va %}
+{% elif sales %}{% url 'sale-list' business_slug=current_business.slug as va %}
+{% elif purchases %}{% url 'purchase-list' business_slug=current_business.slug as va %}
+{% else %}{% url 'product-list' business_slug=current_business.slug as va %}{% endif %}
+<a class="search-footer" href="{{ va }}?search={{ q|urlencode }}">View all results <i class="bi bi-arrow-right"></i></a>
 {% endif %}

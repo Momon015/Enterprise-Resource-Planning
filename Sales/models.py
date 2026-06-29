@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from core.models import TimeStampModel
+from core.models import TimeStampModel, AbstractDocumentSequence
 from django.core.exceptions import ValidationError
 
 from core.utils.owner import get_owner
@@ -29,8 +29,11 @@ class SaleQuerySet(models.QuerySet):
 
     def average_total_revenue(self):
         return self.active().aggregate(average_total_revenue=Avg('total_revenue'))['average_total_revenue']
-    
 
+class SaleSequence(AbstractDocumentSequence):
+    """SI- series — one continuous run per business."""
+    pass
+ 
 class Sale(TimeStampModel):
     
     VOID_REASON_CHOICES = [
@@ -56,6 +59,10 @@ class Sale(TimeStampModel):
     void_reason = models.CharField(max_length=255, blank=True)
     voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='voided_sales', null=True, blank=True)
     voided_at   = models.DateTimeField(null=True, blank=True)
+    
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (sales are %-only)
+    discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
+
 
     objects = SaleQuerySet.as_manager()
     
@@ -75,18 +82,9 @@ class Sale(TimeStampModel):
         if not self.date:
             self.date = timezone.localdate()
     
-        if not self.reference:
-            year = timezone.now().year
-            
-            last_sales = Sale.objects.filter(user=self.user, date__year=year).order_by('-reference').first()
-            
-            if last_sales and last_sales.reference:
-                last_number = int(last_sales.reference.split('-')[-1])
-                next_number = last_number + 1
-            else:
-                next_number = 1
-            
-            self.reference = f"SI-{year}-{next_number:04d}"
+        if not self.reference and self.business:
+            self.reference, _, _ = SaleSequence.issue(self.business, 'SI')
+
         
         super().save(*args, **kwargs)
     

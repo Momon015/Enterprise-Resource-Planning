@@ -1,4 +1,12 @@
 {% extends 'main.html' %}
+{% block extra_css %}
+<style>
+  /* Reclaim vertical space so the Items row fits without scroll */
+  main { min-height: 0; }
+  .page-header { margin-bottom: .6rem; }
+</style>
+{% endblock %}
+
 {% load humanize %}
 {% block content %}
 {% block topbar %}{% endblock %}
@@ -57,7 +65,9 @@ document.addEventListener("DOMContentLoaded", function () {
             <th class="ps-4">Item</th>
             <th>Qty</th>
             <th class='text-end'>Unit Price</th>
+            {% if not current_business.enable_purchase_discount %}
             <th class='text-end'>Discount</th>
+            {% endif %}
             <th class="text-end pe-4">Line Cost</th>
           </tr>
         </thead>
@@ -70,9 +80,11 @@ document.addEventListener("DOMContentLoaded", function () {
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
             <td class='text-end'><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
+            {% if not current_business.enable_purchase_discount %}
             <td class='text-end'><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
               ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
             </span></td>
+            {% endif %}
             <td class="text-end pe-4">
               <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
             </td>
@@ -132,17 +144,29 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- TOTALS FOOTER -->
     <div style="border-top: 1px solid var(--border); padding: 1rem 1.25rem; background: #fafaf8;">
 
+      {% if purchase.discount_percent or total_discount %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-cash-stack"></i> Subtotal</span>
+        <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
+      </div>
+        {% if purchase.discount_percent %}
+        <div class="total-row">
+          <span class="total-label"><i class="bi bi-percent"></i> Discount ({{ purchase.discount_percent|floatformat:0 }}%)</span>
+          <span class="total-value" style="color:var(--success);">−₱{{ purchase.discount_amount|floatformat:2|intcomma }}</span>
+        </div>
+        {% else %}
+        <div class="total-row">
+          <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
+          <span class="total-value" style="color:var(--success);">−₱{{ total_discount|floatformat:2|intcomma }}</span>
+        </div>
+        {% endif %}
+      {% endif %}
+
       <div class="total-row">
         <span class="total-label"><i class="bi bi-calculator"></i> Total Cost</span>
         <span class="total-value">₱{{ total_cost|floatformat:2|intcomma }}</span>
       </div>
 
-      {% if total_discount %}
-      <div class="total-row">
-        <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
-        <span class="total-value" style="color:var(--success);">-₱{{ total_discount|floatformat:2|intcomma }}</span>
-      </div>
-      {% endif %}
 
       {% if purchase.amount_paid and not purchase.is_fully_paid %}
       <div class="total-row">

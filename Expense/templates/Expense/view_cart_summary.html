@@ -32,7 +32,8 @@ function togglePaymentFields() {
 }
 </script>
 
-<div class="container-fluid py-3 py-lg-4">
+<div class="container-fluid" style="padding: 0.75rem 2rem;">
+
 
   <!-- PAGE HEADER -->
   <div class="page-header">
@@ -53,7 +54,7 @@ function togglePaymentFields() {
           <span class="pos-card-title">
             <i class="bi bi-basket3 me-1"></i> Supplier
           </span>
-          <span class="sl-badge sl-badge-light">{{ cart_items|length }} line{{ cart_items|length|pluralize }}</span>
+          {% comment %} <span class="sl-badge sl-badge-light">{{ cart_items|length }} line{{ cart_items|length|pluralize }}</span> {% endcomment %}
         </div>
 
 
@@ -64,7 +65,9 @@ function togglePaymentFields() {
                 <th class="ps-4">Item</th>
                 <th>Qty</th>
                 <th>Unit Cost</th>
+                {% if not current_business.enable_purchase_discount %}
                 <th>Discount</th>
+                {% endif %}
                 <th class="pe-4">Line Total</th>
               </tr>
             </thead>
@@ -77,9 +80,11 @@ function togglePaymentFields() {
                 </td>
                 <td><span class="mono">{{ item.quantity }}</span></td>
                 <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
+                {% if not current_business.enable_purchase_discount %}
                 <td><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
                   ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
                 </span></td>
+                {% endif %}
                 <td class="pe-4">
                   <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
                 </td>
@@ -136,24 +141,38 @@ function togglePaymentFields() {
             </span>
           </div>
           <div style="padding:1.25rem;">
+
             <div class="total-row">
-              <span class="total-label">Subtotal</span>
+              <span class="total-label"><i class="bi bi-box-seam"></i>Items</span>
+              <span class="total-value">{{ cart_items|length }}</span>
+            </div>
+
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-cash-stack"></i>Subtotal</span>
               <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
             </div>
-            {% if total_discount %}
+            {% if enable_purchase_discount %}
+              {% if order_discount_percent %}
+              <div class="total-row">
+                <span class="total-label"><i class="bi bi-tags"></i> Discount ({{ order_discount_percent|floatformat:0 }}%)</span>
+                <span class="total-value" style="color:var(--success);">−₱{{ order_discount_amount|floatformat:2|intcomma }}</span>
+              </div>
+              {% endif %}
+            {% elif total_discount %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-percent"></i> Discount</span>
+              <span class="total-label"><i class="bi bi-tags"></i> Discount</span>
               <span class="total-value" style="color:var(--success);">−₱{{ total_discount|floatformat:2|intcomma }}</span>
             </div>
             {% endif %}
             <hr class="divider">
             <div class="total-row" style="margin-bottom:0;">
               <span class="total-label" style="font-weight:600; color:var(--text);">
-                <i class="bi bi-cash-stack"></i> Total Cost
+                <i class="bi bi-calculator"></i> Total Cost
               </span>
               <span class="total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
             </div>
           </div>
+
         </div>
 
       <form method="POST" action="{% url 'confirm-purchase-summary' business_slug=current_business.slug %}">

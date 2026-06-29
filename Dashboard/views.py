@@ -401,11 +401,16 @@ def dashboard(request, business_slug):
     activities.sort(key=lambda a: a['ts'], reverse=True)
     activities = activities[:7]
     
-    # Today's cash lens — live, payments of today's records (same attribution as list/reports)
-    collected   = SalesPayment.objects.filter(sale__in=sales).aggregate(t=Sum('amount'))['t'] or Decimal(0)
-    paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or Decimal(0)
-    receivables = (sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)) - collected
-    payables    = (purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)) - paid
+    # ── Today's cash lens ────────────────────────────────────────────────
+    # Cash IN/OUT = payments made TODAY (collecting an old debt today still counts).
+    collected = SalesPayment.objects.filter(business=business, date=today).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    paid      = PurchasePayment.objects.filter(business=business, date=today).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+
+    # New utang created TODAY = unpaid portion of today's OWN sales/purchases (not all-time).
+    receivables = sum((s.outstanding for s in sales), Decimal('0'))
+    payables    = sum((p.outstanding for p in purchases), Decimal('0'))
+
+
 
 
     context = {

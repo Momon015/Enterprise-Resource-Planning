@@ -20,8 +20,13 @@ from django.contrib.auth import update_session_auth_hash
 from Sales.models import Sale, SaleItem
 from Sales.forms import SaleForm
 
-from Product.models import Product
+from Product.models import Product, ProductPreset
 from Product.forms import ProductForm
+
+from Supplier.models import Material, Supplier, MaterialPreset
+
+from Employee.models import Employee
+from Expense.models import Purchase
 
 from core.models import StatusModel
 
@@ -43,6 +48,8 @@ from core.models import Category
 from core.forms import CategoryForm, CategoryFilterForm
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user
+
+
 # logging
 import logging
 
@@ -215,19 +222,6 @@ def category_delete(request, business_slug, category_id, slug):
     context = {'category': category}
     return render(request, 'core/category_delete.html', context)
 
-
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.db.models import Q
-
-from core.utils.owner import get_business_for_user
-from Product.models import Product, ProductPreset
-from Supplier.models import Material, Supplier, MaterialPreset
-from Employee.models import Employee
-from Sales.models import Sale
-from Expense.models import Purchase
-
-
 @login_required(login_url='login')
 def global_search(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -261,6 +255,28 @@ def global_search(request, business_slug):
         purchases = purchases.filter(created_by=request.user)
     sales = sales.order_by('-id')[:5]
     purchases = purchases.order_by('-id')[:5]
+    
+    # ── Cart scope — on the sale/purchase cart pages, only surface what's addable there ──
+    scope = request.GET.get('scope', '')
+    if scope == 'sale':
+        materials = Material.objects.none()
+        suppliers = Supplier.objects.none()
+        material_presets = MaterialPreset.objects.none()
+        staff = Employee.objects.none()
+        sales = Sale.objects.none()
+        purchases = Purchase.objects.none()
+    elif scope == 'purchase':
+        products = Product.goods.none()
+        services = Product.services.none()
+        product_presets = ProductPreset.objects.none()
+        suppliers = Supplier.objects.none()
+        staff = Employee.objects.none()
+        sales = Sale.objects.none()
+        purchases = Purchase.objects.none()
+
+    
+    left_items  = [materials, suppliers, product_presets, material_presets, staff, sales, purchases]
+    right_items = [products, services]
 
     context = {
         'q': q, 'current_business': business,
@@ -268,8 +284,10 @@ def global_search(request, business_slug):
         'materials': materials, 'suppliers': suppliers,
         'product_presets': product_presets, 'material_presets': material_presets,
         'staff': staff, 'sales': sales, 'purchases': purchases,
-        'has_results': any([products, services, materials, suppliers, 
-                            product_presets, material_presets, staff, sales, purchases]),
+        'has_results': any(left_items + right_items),
+        'has_left':  any(left_items),
+        'has_right': any(right_items),
     }
+
 
     return render(request, 'core/partials/_search_results.html', context)

@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", function () {
 </div>
 
 <div class="page-wrapper">
+{% url 'business-profile-detail' business.id business.slug as detail_fallback %}
 
   <!-- PAGE HEADER -->
   <div class="page-header">
@@ -63,17 +64,23 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="card-header-sub">{{ business.get_business_type_display }} business profile</div>
             </div>
           </div>
-          <span class="status-badge
-            {% if business.is_retail %}status-success
-            {% elif business.is_cafe %}status-warning
-            {% else %}status-danger
-            {% endif %}">
-            {{ business.get_business_type_display }}
-          </span>
+          <div class="sd-card-header-right" style="display:flex; align-items:center; gap:0.75rem;">
+            <span class="status-badge
+              {% if business.is_retail %}status-success
+              {% elif business.is_cafe %}status-warning
+              {% else %}status-danger
+              {% endif %}">
+              {{ business.get_business_type_display }}
+            </span>
+            <a href="{{ request.session.return_to|default:detail_fallback }}"
+               class="pd-icon-btn" data-form-close="businessForm" title="Close"><i class="bi bi-x-lg"></i></a>
+          </div>
+
         </div>
 
         <div class="card-body">
-          <form method="POST" autocomplete="off" novalidate>
+          <form id="businessForm" method="POST" autocomplete="off" novalidate>
+
             {% csrf_token %}
 
             <!-- BASIC INFO -->
@@ -144,7 +151,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="mf-error">{{ form.offers_services.errors.0 }}</div>
               {% endif %}
               <div class="mf-help">
-                Adds a <strong>Service Fees</strong> catalog under Catalog — for xerox, GCash, and bills payment.
+                Adds a <strong>Service Fees</strong> under Catalog — for GCash, rentals.
+              </div>
+            </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <div class="form-check form-switch">
+                {{ form.enable_sale_discount }}
+                <label class="form-check-label" for="{{ form.enable_sale_discount.id_for_label }}">
+                  Customer discounts on sales
+                </label>
+              </div>
+              <div class="mf-help">
+                Lets the cashier apply a <strong>% discount</strong> to a sale (e.g. 5%, 20%).
+              </div>
+            </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <div class="form-check form-switch">
+                {{ form.enable_purchase_discount }}
+                <label class="form-check-label" for="{{ form.enable_purchase_discount.id_for_label }}">
+                  Whole-order discount on purchases
+                </label>
+              </div>
+              <div class="mf-help">
+                Adds a <strong>% discount</strong> on the whole purchase (for bulk supplier deals), on top of any per-item discounts.
               </div>
             </div>
 
@@ -158,9 +189,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
+
             <!-- ACTIONS -->
             <div class="mf-form-actions">
-              <a href="{% url 'business-profile-detail' business.id business.slug %}" class="btn btn-outline-secondary">
+              <a href="{{ request.session.return_to|default:detail_fallback }}" class="btn btn-outline-secondary">
                 Cancel
               </a>
               <button type="submit" class="btn btn-primary">

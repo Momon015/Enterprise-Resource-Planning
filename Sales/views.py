@@ -70,6 +70,7 @@ import logging
 def clear_sale(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     request.session['sale'] = {}
+    request.session.pop('sale_discount_percent', None)
     request.session.modified = True
     messages.success(request, 'All items has been removed.')
     
@@ -467,6 +468,9 @@ def view_sale(request, business_slug):
         'blank_rows': blank_rows,
         'services': services,
         'section': 'product',
+        'cart_scope': 'sale',
+        'sale_discount_percent': request.session.get('sale_discount_percent', 0),
+
         # 'employees': employees, 
         # 'selected_employee_ids': selected_employee_ids, 
         # 'total_salary_cost': total_salary_cost,
@@ -501,7 +505,7 @@ def view_session_summary(request, business_slug):
             
             total_selling_price = Decimal(selling_price) * quantity
             total_revenue += total_selling_price
-   
+
             items.append({
                 'supplier_name': product.material.supplier.name if product.material else '',
                 'id': product.id,
@@ -520,7 +524,18 @@ def view_session_summary(request, business_slug):
     
     request.session['sale'] = sale
     request.session.modified = True
-    
+    raw = request.GET.get('discount_percent')
+    if raw is not None and business.enable_sale_discount:
+        try:
+            pct = Decimal(raw)
+        except ArithmeticError:
+            pct = Decimal('0')
+        request.session['sale_discount_percent'] = str(max(Decimal('0'), min(pct, Decimal('100'))))
+
+    discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
+    discount_amount  = total_revenue * discount_percent / Decimal('100')
+    net_total        = max(total_revenue - discount_amount, Decimal('0'))
+
     context = {
         'items': items, 
         'page_obj': page_obj,
@@ -529,6 +544,10 @@ def view_session_summary(request, business_slug):
         'employees': 'employees', 
         'total_salary_cost': total_salary_cost, 
         'section': 'product',
+        
+        'discount_percent': discount_percent, 
+        'discount_amount': discount_amount, 
+        'net_total': net_total,
         }
     
     return render(request, 'Sales/view_session_summary.html', context)
@@ -607,8 +626,23 @@ def confirm_view_summary(request, business_slug):
             #         daily_rate=employee.daily_rate,
             #     )
                 
-            # net profit 
-            sale_obj.total_revenue = max(total_revenue, 0)
+
+            # ── Whole-order customer discount (%) ───────────────
+            gross = max(total_revenue, Decimal('0'))
+            discount_percent = Decimal('0')
+            discount_percent = Decimal('0')
+            if business.enable_sale_discount:
+                try:
+                    discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
+                except ArithmeticError:
+                    discount_percent = Decimal('0')
+                discount_percent = max(Decimal('0'), min(discount_percent, Decimal('100')))
+
+
+            sale_obj.discount_percent = discount_percent
+            sale_obj.discount_amount  = gross * discount_percent / Decimal('100')
+            sale_obj.total_revenue    = max(gross - sale_obj.discount_amount, Decimal('0'))
+
             sale_obj.total_salary_cost = total_salary_cost
             sale_obj.line_count = line_count
             sale_obj.save()
@@ -701,14 +735,12 @@ def confirm_view_summary(request, business_slug):
             sale_obj.is_locked = True
             sale_obj.save(update_fields=['is_locked'])
 
-
-
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
         return redirect('view-sale', business_slug=business.slug)  # exits early if error occurs
     
     
-    for key in ('total_salary_cost', 'line_count'):
+    for key in ('total_salary_cost', 'line_count', 'sale_discount_percent'):
         request.session.pop(key, 0)
     
     request.session['sale'] = {}

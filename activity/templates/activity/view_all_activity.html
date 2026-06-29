@@ -104,14 +104,15 @@
       {% if page_obj and page_obj.object_list %}
 
         <ul class="activity-full-list">
-        {% regroup page_obj by created_at.date as day_groups %}
+        {% regroup page_obj by local_date as day_groups %}
         {% for day in day_groups %}
             <li class="activity-day-header">
             <span>
-                {% if day.grouper == today %}Today
-                {% elif day.grouper == yesterday %}Yesterday
+                {% if day.grouper == today %}Today<span style="color:var(--muted); font-weight:400; text-transform:uppercase;">, {{ day.grouper|date:"M d, Y" }}</span>
+                {% elif day.grouper == yesterday %}Yesterday<span style="color:var(--muted); font-weight:400; text-transform:uppercase;">, {{ day.grouper|date:"M d, Y" }}</span>
                 {% else %}{{ day.grouper|date:"l, M d, Y" }}
                 {% endif %}
+
             </span>
             <span class="activity-day-count">{{ day.list|length }} event{{ day.list|length|pluralize }}</span>
             </li>

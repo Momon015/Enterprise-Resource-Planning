@@ -1,4 +1,13 @@
 {% extends 'main.html' %}
+{% block extra_css %}
+<style>
+  /* Reclaim vertical space so the Items row fits without scroll */
+  main { min-height: 0; }
+  .page-header { margin-bottom: .6rem; }
+</style>
+{% endblock %}
+
+
 {% load humanize %}
 
 {% block content %}
@@ -138,20 +147,27 @@ function toggleSalesPaymentFields() {
             </span>
           </div>
           <div style="padding:1.25rem;">
-            {% if total_salary_cost %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-person-workspace"></i> Salary cost</span>
-              <span class="total-value">₱{{ total_salary_cost|floatformat:2|intcomma }}</span>
+              <span class="total-label"><i class="bi bi-basket3"></i> Items</span>
+              <span class="total-value">{{ items|length }}</span>
             </div>
-            <hr class="divider">
+
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-cash-stack"></i>Subtotal</span>
+              <span class="total-value">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+            </div>
+            {% if discount_percent %}
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-tags"></i>Discount ({{ discount_percent|floatformat:0 }}%)</span>
+              <span class="total-value" style="color:var(--success);">−₱{{ discount_amount|floatformat:2|intcomma }}</span>
+            </div>
             {% endif %}
             <div class="total-row" style="margin-bottom:0;">
-              <span class="total-label" style="font-weight:600; color:var(--text);">
-                <i class="bi bi-calculator"></i> Total Revenue
-              </span>
-              <span class="total-grand" style="color:var(--accent);">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+              <span class="total-label" style="font-weight:600; color:var(--text);"><i class="bi bi-calculator"></i> Total Revenue</span>
+              <span class="total-grand" style="color:var(--accent);">₱{{ net_total|floatformat:2|intcomma }}</span>
             </div>
           </div>
+
         </div>
 
       <form method="POST" action="{% url 'sale-confirm-summary' business_slug=current_business.slug %}">

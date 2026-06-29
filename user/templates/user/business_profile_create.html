@@ -91,6 +91,7 @@
 {% endif %}
 
 <div class="page-wrapper">
+  {% url 'business-list' as list_fallback %}
 
   <div class="page-header">
     <div class="page-header-left">
@@ -119,6 +120,11 @@
               <div class="card-header-sub">Enter your business details</div>
             </div>
           </div>
+          {% if current_count > 0 %}
+          <a href="{{ request.session.return_to|default:list_fallback }}"
+             class="pd-icon-btn" data-form-close="businessForm" title="Close"><i class="bi bi-x-lg"></i></a>
+          {% endif %}
+
         </div>
 
         <div class="card-body">
@@ -174,7 +180,39 @@
                 <div class="mf-error">{{ form.offers_services.errors.0 }}</div>
               {% endif %}
               <div class="mf-help">
-                Adds a <strong>Service Fees</strong> catalog under Catalog — for xerox, GCash, and bills payment.
+                Adds a <strong>Service Fees</strong> under Catalog — for GCash, rentals.
+              </div>
+            </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <div class="form-check form-switch">
+                {{ form.enable_sale_discount }}
+                <label class="form-check-label" for="{{ form.enable_sale_discount.id_for_label }}">
+                  Customer discounts on sales
+                </label>
+              </div>
+              <div class="mf-help">
+                Lets the cashier apply a <strong>% discount</strong> to a sale (e.g. 5%, 20%).
+              </div>
+            </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <div class="form-check form-switch">
+                {{ form.enable_purchase_discount }}
+                <label class="form-check-label" for="{{ form.enable_purchase_discount.id_for_label }}">
+                  Whole-order discount on purchases
+                </label>
+              </div>
+              <div class="mf-help">
+                Adds a <strong>% discount</strong> on the whole purchase (for bulk supplier deals), on top of any per-item discounts.
+              </div>
+            </div>
+
+            <div class="mf-field-group" style="margin-top: 0.9rem;">
+              <label class="mf-form-label">{{ form.receipt_width.label }}</label>
+              {{ form.receipt_width }}
+              <div class="mf-help">
+                Match your thermal printer — <strong>80mm</strong> (standard POS) or <strong>58mm</strong> (compact).
               </div>
             </div>
 
@@ -193,8 +231,8 @@
 
             <div class="mf-form-actions" style="margin-top:1.5rem;">
               {% if current_count > 0 %}
-              <a href="{% url 'settings' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
-              {% endif%}
+              <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
+              {% endif %}
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-plus-lg sl-me-1"></i> Create Business
               </button>

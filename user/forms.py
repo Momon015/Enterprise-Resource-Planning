@@ -137,15 +137,26 @@ class BusinessProfileForm(ModelForm):
     
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address', 'business_phone_number', 'offers_services', 'receipt_width']
+        fields = ['business_name', 'business_type', 'address',
+                  'business_phone_number', 'offers_services', 
+                  'receipt_width', 'enable_sale_discount', 'enable_purchase_discount']
         
         widgets = {
             'offers_services': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'receipt_width': forms.Select(attrs={'class': 'form-select'}),
+            'enable_sale_discount': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'enable_purchase_discount': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        self.fields['enable_sale_discount'].required = False
+        self.fields['enable_sale_discount'].label = 'Customer discounts on sales'
+
+        self.fields['enable_purchase_discount'].required = False
+        self.fields['enable_purchase_discount'].label = 'Whole-order discount on purchases'
         
         self.fields['offers_services'].label = 'Enable Service Fees'
         self.fields['offers_services'].required = False

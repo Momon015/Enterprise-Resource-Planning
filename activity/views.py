@@ -56,6 +56,7 @@ def view_all_activity(request, business_slug):
     # Precompute target URLs for this page
     events_list = list(page_obj.object_list)
     for e in events_list:
+        e.local_date = timezone.localtime(e.created_at).date()
         e._cached_target = e.target_url(business.slug)
         if e._cached_target:
             e.computed_url = reverse('activity-click', kwargs={
@@ -63,6 +64,7 @@ def view_all_activity(request, business_slug):
             })
         else:
             e.computed_url = None
+
 
     page_obj.object_list = events_list
 

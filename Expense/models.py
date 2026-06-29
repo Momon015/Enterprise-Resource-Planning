@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 
-from core.models import TimeStampModel, SlugModel, Category, StatusModel
+from core.models import TimeStampModel, SlugModel, Category, StatusModel, AbstractDocumentSequence
 from Supplier.models import Material
 
 from django.utils import timezone
@@ -37,7 +37,10 @@ class PurchaseQuerySet(models.QuerySet):
         
     def average_total_cost(self):
         return self.active().aggregate(monthly_average_cost=Coalesce(Avg('total_cost'), Value(Decimal('0'))))['monthly_average_cost']
-    
+
+class PurchaseSequence(AbstractDocumentSequence):
+    """PI- series — one continuous run per business."""
+    pass
     
 class Purchase(TimeStampModel):
     VOID_REASON_CHOICES = [
@@ -68,6 +71,10 @@ class Purchase(TimeStampModel):
                       related_name='voided_purchases', null=True, blank=True)
     voided_at   = models.DateTimeField(null=True, blank=True)
     
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (bulk supplier deal)
+    discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
+
+    
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
     
@@ -88,21 +95,9 @@ class Purchase(TimeStampModel):
         #     self.is_paid = True
             
         if not self.reference:
-            owner = get_owner(self.user)
-            year = timezone.now().year
-            
-            last_purchase = (
-                Purchase.objects.filter(user=owner, purchase_date__year=year).order_by('-reference').first()
-            )
-            
-            if last_purchase and last_purchase.reference:
-                last_number = int(last_purchase.reference.split('-')[-1])
-                next_number = last_number + 1
-            else:
-                next_number = 1
-            
-            self.reference = f"PO-{year}-{next_number:04d}"
-            
+            if not self.reference and self.business:
+                self.reference, _, _ = PurchaseSequence.issue(self.business, 'PO')
+
         # if not self.slug and self.status:
         #     self.slug = self.status.slug
             

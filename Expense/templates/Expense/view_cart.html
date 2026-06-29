@@ -14,6 +14,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 document.body.addEventListener('cartChanged', () => location.reload());
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
 });
 
 function stepDiscount(id, delta) {
@@ -134,6 +135,8 @@ function toggleCostInput(itemId) {
                 </div>
 
                 <!-- DISCOUNT (immediate — +/- and typing auto-apply, no check) -->
+                {% if not current_business.enable_purchase_discount %}
+                <!-- DISCOUNT (immediate — +/- and typing auto-apply, no check) -->
                 <div class="row-ctrl">
                   <span class="row-ctrl-label">Discount</span>
                   <div class="qty-stepper">
@@ -145,6 +148,8 @@ function toggleCostInput(itemId) {
                     <button type="button" class="qty-btn" onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
                   </div>
                 </div>
+                {% endif %}
+
 
                 <!-- TOTAL PRICE (display → flip to edit + check) -->
                 <div class="row-ctrl row-ctrl--total">
@@ -171,7 +176,7 @@ function toggleCostInput(itemId) {
                     </button>
                   </div>
 
-                  {% if item.discount %}
+                  {% if not current_business.enable_purchase_discount and item.discount %}
                   <span class="row-ctrl-hint">− ₱{{ item.discount|floatformat:2 }} → ₱{{ item.item_discount|floatformat:2 }}</span>
                   {% endif %}
                 </div>
@@ -238,13 +243,42 @@ function toggleCostInput(itemId) {
             </span>
           </div>
           <div style="padding: 1.25rem;">
+
+            {% if current_business.enable_purchase_discount %}
+            <div style="display:flex; align-items:center; justify-content:space-between;
+                        background:var(--accent-light); border:1px solid var(--accent);
+                        border-radius:10px; padding:.6rem .85rem; margin-bottom:.85rem;">
+              <span style="font-weight:600; color:var(--accent); font-size:.85rem;">
+                <i class="bi bi-tags"></i> Discount
+              </span>
+              <span style="display:flex; align-items:center; gap:.3rem;">
+                <input type="number" form="confirmForm" name="discount_percent" id="purchaseDiscountPercent"
+                       step="0.01" min="0" max="100" value="{{ purchase_discount_percent|default:0 }}"
+                       oninput="recalcPurchaseDiscount()"
+                       style="width:72px; text-align:right; padding:.35rem .5rem; border:1px solid var(--accent); border-radius:8px; background:#fff; font-weight:600;">
+                <span style="color:var(--accent); font-weight:700;">%</span>
+              </span>
+            </div>
+            {% endif %}
+
             <div class="total-row">
-              <span class="total-label">Subtotal</span>
+              <span class="total-label"><i class="bi bi-box-seam"></i>Items</span>
+              <span class="total-value">{{ cart_items|length }}</span>
+            </div>
+
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-cash-stack"></i>Subtotal</span>
               <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
             </div>
-            {% if total_discount %}
+
+            {% if current_business.enable_purchase_discount %}
+            <div class="total-row" id="purchaseDiscountRow" style="display:none;">
+              <span class="total-label"><i class="bi bi-percent"></i> Discount</span>
+              <span class="total-value text-success-soft">−₱<span id="purchaseDiscAmt">0.00</span></span>
+            </div>
+            {% elif total_discount %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-percent"></i> Total Discount</span>
+              <span class="total-label"><i class="bi bi-tags"></i>Discount</span>
               <span class="total-value text-success-soft">₱{{ total_discount|floatformat:2|intcomma }}</span>
             </div>
             {% endif %}
@@ -252,21 +286,23 @@ function toggleCostInput(itemId) {
             <hr class="divider">
 
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-cash-stack"></i> Total Cost</span>
-              <span class="total-value total-grand" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
+              <span class="total-label"><i class="bi bi-calculator"></i> Total Cost</span>
+              <span class="total-value total-grand" id="purchaseGrandTotal" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
             </div>
 
             <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-              <a href="{% url 'view-cart-summary' business_slug=current_business.slug %}" class="btn-confirm"
-                 style="flex:1; padding:0.6rem; font-size:0.875rem; margin:0;">
-                <i class="bi bi-check2-circle"></i> Confirm
-              </a>
+              <form id="confirmForm" method="get" action="{% url 'view-cart-summary' business_slug=current_business.slug %}" style="flex:1; margin:0;">
+                <button type="submit" class="btn-confirm" style="width:100%; padding:0.6rem; font-size:0.875rem; margin:0;">
+                  <i class="bi bi-check2-circle"></i> Confirm
+                </button>
+              </form>
               <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn-clear"
                  style="flex:0 0 auto; width:auto; padding:0.6rem 0.85rem; font-size:0.8rem; margin:0;">
                 Clear
               </a>
             </div>
           </div>
+
         </div>
 
         <div class="pos-card" style="margin-bottom:0;">
@@ -310,4 +346,27 @@ function toggleCostInput(itemId) {
   {% endif %}
 
 </div>
+
+{% if current_business.enable_purchase_discount %}
+<script>
+(function(){
+  const SUBTOTAL = parseFloat("{{ subtotal|floatformat:2 }}") || 0;
+  const pctInput = document.getElementById('purchaseDiscountPercent');
+  const discRow  = document.getElementById('purchaseDiscountRow');
+  const discAmt  = document.getElementById('purchaseDiscAmt');
+  const grand    = document.getElementById('purchaseGrandTotal');
+  const peso = n => n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+  window.recalcPurchaseDiscount = function(){
+    let pct = Math.max(0, Math.min(parseFloat(pctInput.value) || 0, 100));
+    const amt = SUBTOTAL * pct / 100;
+    if (discRow) discRow.style.display = pct > 0 ? '' : 'none';
+    if (discAmt) discAmt.textContent = peso(amt);
+    grand.textContent = '₱' + peso(SUBTOTAL - amt);
+  };
+  recalcPurchaseDiscount();
+})();
+</script>
+{% endif %}
+
+
 {% endblock content %}

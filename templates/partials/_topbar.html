@@ -1,11 +1,13 @@
 {% if user.is_authenticated and current_business %}
-<div class="topbar">
+<div class="topbar{% if on_cart_page %} topbar--hide-cart{% endif %}">
   <div class="topbar-cluster">
     <div class="topbar-search" id="topbarSearch">
       <i class="bi bi-search topbar-search__icon"></i>
-        <input type="text" name="q" id="topbarSearchInput" class="topbar-search__input" placeholder="Search…" autocomplete="off"
+        <input type="text" name="q" id="topbarSearchInput" class="topbar-search__input" autocomplete="off"
+            placeholder="{% if cart_scope == 'sale' %}Search products to add…{% elif cart_scope == 'purchase' %}Search materials to add…{% else %}Search…{% endif %}"
             hx-get="{% url 'global-search' business_slug=current_business.slug %}"
             hx-trigger="input changed delay:250ms, focus"
+            hx-vals='{"scope": "{{ cart_scope }}"}'
             hx-target="#searchResults" hx-swap="innerHTML">
             <button type="button" class="topbar-search__clear" id="topbarSearchClear" aria-label="Clear search" hidden>
             <i class="bi bi-x-lg"></i>

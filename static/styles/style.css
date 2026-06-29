@@ -6946,7 +6946,7 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 }
 
 .topbar-cart { position: relative; }
-.topbar-cart.is-empty { display: none; }
+.topbar--hide-cart .topbar-cart { display: none; }
 .topbar-cart__badge {
   position: absolute;
   top: -4px; right: -4px;
@@ -7045,6 +7045,8 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 .search-results { display: grid; grid-template-columns: 1fr 1fr; }
 .search-col { padding: 0.5rem; }
 .search-col--left { border-right: 1px solid var(--border); }
+.search-results--single { grid-template-columns: 1fr; }
+.search-results--single .search-col--left { border-right: none; }
 .search-group { margin-bottom: 0.4rem; }
 .search-group__label { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0.4rem 0.5rem 0.25rem; }
 .search-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem; border-radius: 8px; text-decoration: none; color: var(--text); font-size: 0.83rem; }

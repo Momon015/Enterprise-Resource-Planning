@@ -68,11 +68,32 @@ import logging
 
 logger = logging.getLogger('Expense')
 
+def _normalize_cart_discount_mode(request, business):
+    """Keep the cart consistent with the active purchase-discount mode.
+    % mode  → force every per-item flat discount to 0.
+    flat mode → drop any leftover whole-order %.
+    Prevents stale discounts after the owner flips the mode mid-cart.
+    """
+    cart = request.session.get('cart', {})
+    if business.enable_purchase_discount:
+        changed = False
+        for data in cart.values():
+            if Decimal(data.get('discount', 0) or 0) != 0:
+                data['discount'] = '0'
+                changed = True
+        if changed:
+            request.session['cart'] = cart
+            request.session.modified = True
+    else:
+        if request.session.pop('purchase_discount_percent', None) is not None:
+            request.session.modified = True
+
 """clearing cart just in case there's a bug """
 @login_required(login_url='login')
 def clear_cart(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     request.session['cart'] = {}
+    request.session.pop('purchase_discount_percent', None)
     request.session.modified = True
     messages.success(request, "All items has been removed.")
     
@@ -360,10 +381,10 @@ def add_to_cart(request, business_slug, id):
     if request.headers.get('HX-Request') == 'true':
         # compute total for the overview partial
         total = sum(Decimal(str(item['price'])) * item['quantity']
-                for item in cart.values()        
+                for item in cart.values()
         )
-        
-        return render(request, 'core/partials/_cart_response.html', {
+
+        resp = render(request, 'core/partials/_cart_response.html', {
             'cart_count': sum(item['quantity'] for item in cart.values()),
             'cart_items': len(cart),
             'messages':   get_messages(request),
@@ -375,7 +396,10 @@ def add_to_cart(request, business_slug, id):
             'name': 'Materials',
             'total_name': 'cost',
             'type': 'purchase',
-        }) 
+        })
+        resp['HX-Trigger'] = 'cartChanged'
+        return resp
+
         
     # fallback if htmx didn't work
     """
@@ -407,11 +431,14 @@ def add_to_cart(request, business_slug, id):
 
     return redirect(url)
 
+
 @login_required(login_url='login')
 @permission_required('view') # dev
 def view_cart(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+    _normalize_cart_discount_mode(request, business)
     cart = request.session.get('cart', {})
+
     subtotal = 0
     total_discount = 0
     cart_items = []
@@ -454,8 +481,13 @@ def view_cart(request, business_slug):
     # How many filler rows to reach a full page
     blank_rows = range(paginator.per_page - len(page_obj.object_list))
     
+    # ── Purchase discount MODE (prefill the whole-order % from session) ──
+    purchase_discount_percent = Decimal('0')
+    if business.enable_purchase_discount:
+        purchase_discount_percent = Decimal(request.session.get('purchase_discount_percent', '0') or '0')
+
     total_after_discount = max(subtotal - total_discount, 0)
-    
+
     # LOGGING: View Cart 
     logger.debug(f" View Cart Sessions: {request.session.get('cart')}")
     
@@ -466,8 +498,12 @@ def view_cart(request, business_slug):
         'blank_rows': blank_rows,
         'subtotal': subtotal, 
         'total_discount': total_discount, 
-        'section': 'material'
+        'section': 'material',
+        'cart_scope': 'purchase',
+        'enable_purchase_discount': business.enable_purchase_discount,
+        'purchase_discount_percent': purchase_discount_percent,
         }
+
     return render(request, 'Expense/view_cart.html', context)
 
 
@@ -475,6 +511,7 @@ def view_cart(request, business_slug):
 @permission_required('view') # dev
 def view_cart_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+    _normalize_cart_discount_mode(request, business)
     cart = request.session.get('cart', {})
     subtotal = 0
     total_discount = 0
@@ -514,7 +551,24 @@ def view_cart_summary(request, business_slug):
     request.session['lines'] = len(cart_items)
     request.session.modified = True
     
-    total_after_discount = max(subtotal - total_discount, 0)
+    # ── Purchase discount MODE (read/carry the whole-order %) ───────────
+    raw = request.GET.get('discount_percent')
+    if raw is not None and business.enable_purchase_discount:
+        try:
+            pct = Decimal(raw)
+        except ArithmeticError:
+            pct = Decimal('0')
+        request.session['purchase_discount_percent'] = str(max(Decimal('0'), min(pct, Decimal('100'))))
+
+    order_discount_percent = Decimal('0')
+    order_discount_amount  = Decimal('0')
+    if business.enable_purchase_discount:
+        total_discount = Decimal('0')          # % mode ignores per-item flats
+        order_discount_percent = Decimal(request.session.get('purchase_discount_percent', '0') or '0')
+        order_discount_amount  = subtotal * order_discount_percent / Decimal('100')
+
+    total_after_discount = max(subtotal - total_discount - order_discount_amount, 0)
+
     
     # LOGGING: View Cart Summary
     logger.debug(f"View Summary Cart Sessions: {request.session.get('cart')}")
@@ -532,6 +586,10 @@ def view_cart_summary(request, business_slug):
         'today_iso': today.isoformat(),               
         'max_due_date_iso': max_due_date.isoformat(),
         'section': 'material',
+        'enable_purchase_discount': business.enable_purchase_discount,
+        'order_discount_percent': order_discount_percent,
+        'order_discount_amount': order_discount_amount,
+
     }
     return render(request, 'Expense/view_cart_summary.html', context)
 
@@ -545,6 +603,16 @@ def confirm_purchase_summary(request, business_slug):
     total_discount = 0
     
     business = get_business_for_user(request.user, business_slug)
+    _normalize_cart_discount_mode(request, business)
+    # ── Purchase discount MODE — whole-order % carried via session ──────
+    percent_mode = business.enable_purchase_discount
+    order_discount_percent = Decimal('0')
+    if percent_mode:
+        try:
+            order_discount_percent = Decimal(request.session.get('purchase_discount_percent', '0') or '0')
+        except ArithmeticError:
+            order_discount_percent = Decimal('0')
+        order_discount_percent = max(Decimal('0'), min(order_discount_percent, Decimal('100')))
     
     try: 
         with transaction.atomic():
@@ -560,6 +628,9 @@ def confirm_purchase_summary(request, business_slug):
                 material = get_object_or_404(Material, business=business, id=material_id)
                 str_discount = data.get('discount', 0)
                 discount = Decimal(str_discount)
+                if percent_mode:
+                    discount = Decimal('0')    # % mode: per-item flats ignored (Option A — keeps void un-blend clean)
+
                 quantity = data['quantity']
                 price = data.get('price')
                 
@@ -654,8 +725,15 @@ def confirm_purchase_summary(request, business_slug):
                     product.cost_price = ((previous_price * previous_qty) + line_total_cost) / total_quantity
                     product.save()
                     
-            # check if there's a discount
-            total_after_discount = max(subtotal - total_discount, 0)
+            # ── Apply discount (flat per-item already in subtotal; % applied here) ──
+            if percent_mode:
+                order_discount_amount = subtotal * order_discount_percent / Decimal('100')
+                total_after_discount  = max(subtotal - order_discount_amount, 0)
+                purchase.discount_percent = order_discount_percent
+                purchase.discount_amount  = order_discount_amount
+            else:
+                total_after_discount = max(subtotal - total_discount, 0)
+                # discount_percent / discount_amount stay 0 (model defaults)
 
             # save purchase lines - cart length
             purchase.line_count = lines
@@ -663,6 +741,7 @@ def confirm_purchase_summary(request, business_slug):
             # save the purchase object
             purchase.total_cost = total_after_discount
             purchase.save()
+
             
             # ── Payment capture ─────────────────────────────────
             payment_status = request.POST.get('payment_status', 'full')
@@ -799,6 +878,7 @@ def confirm_purchase_summary(request, business_slug):
     
     # clear the session
     request.session['cart'] = {}
+    request.session.pop('purchase_discount_percent', None)
     request.session.modified = True
 
     return redirect('view-purchase-summary', business_slug=business.slug, purchase_id=purchase.id)

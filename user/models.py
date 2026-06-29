@@ -198,6 +198,10 @@ class BusinessProfile(models.Model):
         help_text="When on, staff can register using your invite code. Turn off when you're done hiring.",
     )
     receipt_width = models.CharField(max_length=2, choices=RECEIPT_WIDTH_CHOICES, default='80')
+    
+    # ── Discounts ───────────────────────────────────────────────
+    enable_sale_discount = models.BooleanField(default=False)            # customer % discount at checkout
+    enable_purchase_discount = models.BooleanField(default=False)        # whole-order % discount on purchases (on top of per-item flats)
 
 
     class Meta:

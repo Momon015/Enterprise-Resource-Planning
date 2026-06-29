@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils.text import slugify
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -104,3 +104,32 @@ class KpiSnapshot(models.Model):
     class Meta:
         unique_together = ('business', 'date', 'page')
         indexes = [models.Index(fields=['business', 'page', '-date'])]
+        
+class AbstractDocumentSequence(models.Model):
+    """Per-business running serial for BIR-style accountable references.
+
+    RMO 24-2023: each business (its own MIN) keeps a continuous serial run
+    (BIR min 6 digits — we use 10), appended with a reset counter. The number
+    never resets on its own; `reset_counter` is "if applicable" → cloud/
+    non-volatile = stays 1. One row per business.
+    """
+    business = models.OneToOneField(
+        'user.BusinessProfile', on_delete=models.CASCADE, related_name='%(class)s',
+    )
+    next_number   = models.PositiveBigIntegerField(default=1)
+    reset_counter = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def issue(cls, business, prefix, width=10):
+        """Atomically claim the next serial for `business`.
+        Returns (reference, number, reset_counter). Must run inside a
+        transaction (sale/purchase finalize already wrap one)."""
+        with transaction.atomic():
+            seq, _ = cls.objects.select_for_update().get_or_create(business=business)
+            number = seq.next_number
+            seq.next_number = number + 1
+            seq.save(update_fields=['next_number'])
+        return f"{prefix}-{number:0{width}d}", number, seq.reset_counter

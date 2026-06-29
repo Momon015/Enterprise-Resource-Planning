@@ -68,7 +68,7 @@
                 </div>
                 <a href="{% url 'sale-delete-quantity' product_id=item.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                    class="sale-row-remove" title="Remove">
-                  <i class="bi bi-trash"></i>
+                  <i class="bi bi-x-lg"></i>
                 </a>
               </div>
 
@@ -169,38 +169,68 @@
             </span>
           </div>
           <div style="padding: 1.25rem;">
-            <div class="total-row">
-              <span class="total-label">Subtotal</span>
-              <span class="total-value">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+
+            {% if current_business.enable_sale_discount %}
+            <div style="display:flex; align-items:center; justify-content:space-between;
+                        background:var(--accent-light); border:1px solid var(--accent);
+                        border-radius:10px; padding:.6rem .85rem; margin-bottom:.85rem;">
+              <span style="font-weight:600; color:var(--accent); font-size:.85rem;">
+                <i class="bi bi-tags"></i> Discount
+              </span>
+              <span style="display:flex; align-items:center; gap:.3rem;">
+                <input type="number" form="confirmForm" name="discount_percent" id="discountPercent"
+                       step="0.01" min="0" max="100" value="{{ sale_discount_percent|default:0 }}"
+                       oninput="recalcSaleDiscount()"
+                       style="width:72px; text-align:right; padding:.35rem .5rem; border:1px solid var(--accent); border-radius:8px; background:#fff; font-weight:600;">
+                <span style="color:var(--accent); font-weight:700;">%</span>
+              </span>
             </div>
+            {% endif %}
+
+
             <div class="total-row">
-              <span class="total-label">Items</span>
+              <span class="total-label"><i class="bi bi-basket3"></i> Items</span>
               <span class="total-value">{{ items|length }}</span>
             </div>
+
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-cash-stack"></i> Subtotal</span>
+              <span class="total-value">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+            </div>
+
+            {% if current_business.enable_sale_discount %}
+            <div class="total-row" id="discountRow" style="display:none;">
+              <span class="total-label"><i class="bi bi-tags"></i> Discount</span>
+              <span class="total-value" style="color:var(--success);">−₱<span id="discAmt">0.00</span></span>
+            </div>
+            {% endif %}
 
             <hr class="divider">
 
             <div class="total-row">
-              <span class="total-label">
-                <i class="bi bi-calculator"></i> Total Revenue
-              </span>
-              <span class="total-value total-grand">₱{{ total_revenue|floatformat:2|intcomma }}</span>
+              <span class="total-label"><i class="bi bi-calculator"></i> Total Revenue</span>
+              <span class="total-value total-grand" id="grandTotal">₱{{ total_revenue|floatformat:2|intcomma }}</span>
             </div>
 
+            
+
             <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-              <a href="{% url 'view-session-summary' business_slug=current_business.slug %}" class="btn-confirm"
-                 style="flex:1; padding:0.6rem; font-size:0.875rem; margin:0;">
-                <i class="bi bi-check2-circle"></i> Confirm
-              </a>
+              <form id="confirmForm" method="get" action="{% url 'view-session-summary' business_slug=current_business.slug %}" style="flex:1; margin:0;">
+                <button type="submit" class="btn-confirm" style="width:100%; padding:0.6rem; font-size:0.875rem; margin:0;">
+                  <i class="bi bi-check2-circle"></i> Confirm
+                </button>
+              </form>
               <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="btn-clear"
                  style="flex:0 0 auto; width:auto; padding:0.6rem 0.85rem; font-size:0.8rem; margin:0;">
                 Clear
               </a>
             </div>
           </div>
+
+
         </div>
 
-        {% if current_business.offers_services and services %}
+        {% comment %} {% if current_business.offers_services and services %}
         <div class="pos-card">
           <div class="pos-card-header">
             <span class="pos-card-title">
@@ -241,7 +271,7 @@
             </div>
           </div>
         </div>
-        {% endif %}
+        {% endif %} {% endcomment %}
 
 
         <div class="pos-card" style="margin-bottom:0;">
@@ -299,6 +329,28 @@
   .svc-add:hover { background:var(--accent); color:#fff; }
   #svcList { max-height:180px; overflow-y:auto; }   /* internal scroll → page never grows */
 </style>
+
+{% if current_business.enable_sale_discount %}
+<script>
+(function(){
+  const GROSS = parseFloat("{{ total_revenue|floatformat:2 }}") || 0;
+  const pctInput = document.getElementById('discountPercent');
+  const discRow = document.getElementById('discountRow');
+  const discAmt = document.getElementById('discAmt');
+  const grand   = document.getElementById('grandTotal');
+  const peso = n => n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+  window.recalcSaleDiscount = function(){
+    let pct = Math.max(0, Math.min(parseFloat(pctInput.value) || 0, 100));
+    const amt = GROSS * pct / 100;
+    if (discRow) discRow.style.display = pct > 0 ? '' : 'none';
+    if (discAmt) discAmt.textContent = peso(amt);
+    grand.textContent = '₱' + peso(GROSS - amt);
+  };
+  recalcSaleDiscount();
+})();
+</script>
+{% endif %}
+
 
 <script>
 document.body.addEventListener('cartChanged', () => location.reload());

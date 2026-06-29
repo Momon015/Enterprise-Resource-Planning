@@ -12,8 +12,8 @@ import secrets
 PLAN_LIMITS = {
     'free': {
         'max_staff':            0,
-        'max_products':         10,
-        'max_materials':        10,
+        'max_products':         None,
+        'max_materials':        None,
         'max_suppliers':        2,
         'max_sales':            10,
         'max_purchases':        10,
@@ -29,8 +29,8 @@ PLAN_LIMITS = {
     },
     'standard': {
         'max_staff':            1,
-        'max_products':         30,
-        'max_materials':        30,
+        'max_products':         None,
+        'max_materials':        None,
         'max_suppliers':        5,
         'max_sales':            30,
         'max_purchases':        30,
