@@ -68,6 +68,14 @@ import logging
 
 logger = logging.getLogger('Expense')
 
+def can_void_purchase(purchase):
+    return (
+        not purchase.is_void
+        and not purchase.returns.exists()
+        and purchase.purchase_date == timezone.localdate()
+        and void_window_open(purchase.business)
+    )
+
 def _normalize_cart_discount_mode(request, business):
     """Keep the cart consistent with the active purchase-discount mode.
     % mode  → force every per-item flat discount to 0.
@@ -340,6 +348,7 @@ def purchase_detail(request, business_slug, purchase_id):
         'section': 'purchase',
         'subtotal': subtotal,
         'total_discount': total_discount,
+        'can_void': can_void_purchase(purchase),
     }
     return render(request, 'Expense/purchase_detail.html', context)
 
@@ -1080,15 +1089,6 @@ def view_purchase_summary(request, business_slug, purchase_id):
         }
     
     return render(request, 'Expense/view_purchase_summary.html', context)
-
-def can_void_purchase(purchase):
-    return (
-        not purchase.is_void
-        and not purchase.returns.exists()
-        and purchase.purchase_date == timezone.localdate()
-        and void_window_open(purchase.business)
-    )
-
 
 @login_required(login_url='login')
 @permission_required('add')

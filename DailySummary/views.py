@@ -292,13 +292,20 @@ def view_summary(request, business_slug):
     for row in sorted_list:
         if row['date'] < today:
             snap, _ = close_day(business, row['date'], row)
+            # Serve the FROZEN figures, never the live recompute (pen, not pencil) —
+            # a later void/edit must not rewrite a closed day.
+            row['total_revenue']       = snap.total_revenue
+            row['total_material_cost'] = snap.total_material_cost
+            row['total_salary_cost']   = snap.total_salary_cost
+            row['total_waste_cost']    = snap.total_waste_cost
+            row['total_expense_cost']  = snap.total_expense_cost
+            row['net_profit']          = snap.net_profit
             row['is_closed'] = True
             row['closed_at'] = snap.closed_at
         else:
             row['is_closed'] = False
             row['closed_at'] = None
 
-            
     pagination = Paginator(sorted_list, 7)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)

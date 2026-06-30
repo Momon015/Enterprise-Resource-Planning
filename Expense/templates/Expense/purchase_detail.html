@@ -343,6 +343,16 @@
             class="btn btn-light btn-block">
             <i class="bi bi-arrow-return-left"></i> Return items
           </a>
+
+          {% if can_void %}
+            <a href="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
+              hx-get="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
+              hx-target="#confirmBody" hx-swap="innerHTML"
+              class="btn btn-outline-danger btn-block">
+              <i class="bi bi-x-lg"></i> Void
+            </a>
+          {% endif %}
+
           
         </div>
       </div>

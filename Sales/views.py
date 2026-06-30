@@ -66,6 +66,15 @@ import logging
 
 # Create your views here.
 
+def can_void_sale(sale):
+    """Same-day, not already void, no returns, and the void window is open."""
+    return (
+        not sale.is_void
+        and not sale.returns.exists()
+        and sale.date == timezone.localdate()
+        and void_window_open(sale.business)
+    )
+
 @login_required(login_url='login')
 def clear_sale(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
@@ -289,14 +298,13 @@ def sale_detail(request, sale_id, business_slug):
     total_salary_cost = sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
     payments = sale.payments.select_related('created_by').order_by('created_at')
     
-    
-    
     context = {
         'sale': sale, 
         'sale_items': sale_items, 
         'sale_employees': sale_employees, 
         'total_salary_cost': total_salary_cost,
         'payments': payments,
+        'can_void': can_void_sale(sale),
         'section': 'sale',
     }
     return render(request, 'Sales/sale_detail.html', context)
@@ -940,7 +948,7 @@ def view_sale_summary(request, sale_id, business_slug):
         'total_cost_price': total_cost_price, 
         'total_revenue': total_revenue, 
         'total_salary_cost': total_salary_cost, 
-        'can_void': can_void(sale),
+        'can_void': can_void_sale(sale),
         'section': 'sale'
         }
 
@@ -989,23 +997,13 @@ def sale_receipt_modal(request, business_slug, sale_id):
     return render(request, 'Sales/_receipt_modal.html', {'sale': sale})
 
 @login_required(login_url='login')
-def can_void(sale):
-    """Same-day, not already void, no returns, and the void window is open."""
-    return (
-        not sale.is_void
-        and not sale.returns.exists()
-        and sale.date == timezone.localdate()
-        and void_window_open(sale.business)
-    )
-
-@login_required(login_url='login')
 @permission_required('add')   # owner + staff; tune if you want owner-only
 def void_sale(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     is_hx = request.headers.get('HX-Request')
 
-    if not can_void(sale):
+    if not can_void_sale(sale):
         messages.error(request, "This sale can no longer be voided — use Sales Returns instead.")
         if is_hx:
             resp = HttpResponse(status=204)

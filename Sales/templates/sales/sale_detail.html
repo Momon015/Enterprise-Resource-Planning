@@ -343,6 +343,15 @@
             </a>
             {% endif %}
 
+            {% if can_void %}
+              <a href="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
+                hx-get="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
+                hx-target="#confirmBody" hx-swap="innerHTML"
+                class="btn btn-outline-danger btn-block">
+                <i class="bi bi-x-lg"></i> Void
+              </a>
+            {% endif %}
+
 
           </div>
         </div>
