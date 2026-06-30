@@ -91,7 +91,7 @@ function togglePaymentFields() {
               </tr>
               {% empty %}
               <tr>
-                <td colspan="5" style="text-align:center; padding:2rem; color:var(--muted);">
+                <td colspan={% if not current_business.enable_purchase_discount %}"5"{% else%}"4"{% endif%} style="text-align:center; padding:2rem; color:var(--muted);">
                   No items on this purchase yet.
                 </td>
               </tr>

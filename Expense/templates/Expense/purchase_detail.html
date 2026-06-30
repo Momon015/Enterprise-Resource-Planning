@@ -70,9 +70,12 @@
                 <th>Item</th>
                 <th class="sl-text-center">Quantity</th>
                 <th class="sl-text-center">Unit Cost</th>
+                {% if not purchase.discount_percent %}
                 <th class="sl-text-end">Discount</th>
+                {% endif %}
                 <th class="sl-text-end">Total</th>
               </tr>
+
             </thead>
             <tbody>
               {% for line in purchase_items %}
@@ -87,16 +90,20 @@
                 <td class="sl-text-center">
                   ₱{{ line.price|default:0|floatformat:2 }}
                 </td>
+                {% if not purchase.discount_percent %}
                 <td class="sl-text-end sl-text-success">
                   ₱{% if line.discount %}-{{ line.discount|floatformat:2 }}{% else %}0.00{% endif %}
                 </td>
+                {% endif %}
+
                 <td class="sl-text-end sl-fw-semibold sl-text-danger">
                   ₱{{ line.total_item_discount|floatformat:2|intcomma }}
                 </td>
               </tr>
               {% empty %}
               <tr class="sl-empty-row">
-                <td colspan="5">No items recorded for this purchase.</td>
+                <td colspan="{% if purchase.discount_percent %}4{% else %}5{% endif %}">No items recorded for this purchase.</td>
+
               </tr>
               {% endfor %}
             </tbody>
@@ -215,6 +222,25 @@
 
           <!-- Payment status -->
           <dl class="period-breakdown">
+
+          {% if purchase.discount_percent or total_discount %}
+            <div>
+              <dt>Subtotal</dt>
+              <dd>₱{{ subtotal|floatformat:2|intcomma }}</dd>
+            </div>
+            {% if purchase.discount_percent %}
+            <div>
+              <dt>Discount ({{ purchase.discount_percent|floatformat:0 }}%)</dt>
+              <dd class="text-success">−₱{{ purchase.discount_amount|floatformat:2|intcomma }}</dd>
+            </div>
+            {% else %}
+            <div>
+              <dt>Total Discount</dt>
+              <dd class="text-success">−₱{{ total_discount|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            {% endif %}
+
             {% if purchase.is_void %}
             <div>
               <dt>Status</dt>

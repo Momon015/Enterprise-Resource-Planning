@@ -87,8 +87,12 @@ class Sale(TimeStampModel):
 
         
         super().save(*args, **kwargs)
-    
-    
+        
+    @property
+    def subtotal(self):
+        """Gross line total before the whole-order discount (net + discount back-out)."""
+        return (self.total_revenue or Decimal('0')) + self.discount_amount
+
     @property
     def amount_paid(self):
         return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')

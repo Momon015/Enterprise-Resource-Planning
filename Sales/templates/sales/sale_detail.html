@@ -217,6 +217,18 @@
 
           <!-- Payment status -->
           <dl class="period-breakdown">
+
+           {% if sale.discount_percent %}
+            <div>
+              <dt>Subtotal</dt>
+              <dd>₱{{ sale.subtotal|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>Discount ({{ sale.discount_percent|floatformat:0 }}%)</dt>
+              <dd class="text-success">−₱{{ sale.discount_amount|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+
             {% if sale.is_void %}
             <div>
               <dt>Status</dt>

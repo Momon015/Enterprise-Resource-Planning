@@ -125,7 +125,7 @@ def clear_cart(request, business_slug):
 @permission_required('read_only') # dev
 def purchase_history(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-created_at')
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-reference')
     # show their own records if staff
     purchases = filter_to_own_if_staff(request.user, purchases)
     # forms
@@ -329,12 +329,17 @@ def purchase_detail(request, business_slug, purchase_id):
     line_count = purchase_items.count()
     payments = purchase.payments.select_related('created_by').order_by('created_at')
     
+    subtotal       = sum((i.price * i.quantity for i in purchase_items), Decimal('0'))
+    total_discount = sum((i.discount for i in purchase_items), Decimal('0'))
+    
     context = {
         'purchase': purchase, 
         'purchase_items': purchase_items, 
         'line_count': line_count,
         'payments': payments,
         'section': 'purchase',
+        'subtotal': subtotal,
+        'total_discount': total_discount,
     }
     return render(request, 'Expense/purchase_detail.html', context)
 
@@ -1071,7 +1076,7 @@ def view_purchase_summary(request, business_slug, purchase_id):
         'total_cost': purchase.total_cost, 
         'total_discount': total_discount, 
         'can_void': can_void_purchase(purchase),
-        'purchase': purchase
+        'purchase': purchase,
         }
     
     return render(request, 'Expense/view_purchase_summary.html', context)
