@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <th class="ps-4">Item</th>
             <th>Qty</th>
             <th class='text-end'>Unit Price</th>
-            {% if not current_business.enable_purchase_discount %}
+            {% if not purchase.discount_percent %}
             <th class='text-end'>Discount</th>
             {% endif %}
             <th class="text-end pe-4">Line Cost</th>
