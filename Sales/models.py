@@ -263,6 +263,10 @@ class SalesPayment(TimeStampModel):
 # Per-item triage (resellable → Stock; damaged → Waste).
 # ──────────────────────────────────────────────────────────────
 
+class SalesReturnSequence(AbstractDocumentSequence):
+    """SRR- series — one continuous run per business."""
+    pass
+
 class SalesReturn(TimeStampModel):
     REFUND_METHOD_CHOICES = [
         ('cash',   'Cash refund'),
@@ -290,7 +294,7 @@ class SalesReturn(TimeStampModel):
     reason_note = models.CharField(max_length=255, blank=True)
     refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
     refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
-    reference = models.CharField(max_length=255, blank=True)  # auto SRR-YYYY-NNNN
+    reference = models.CharField(max_length=255, blank=True)  # # auto-generated SRR-0000000001
     
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL,
         related_name='sales_returns', null=True, blank=True)
@@ -308,18 +312,9 @@ class SalesReturn(TimeStampModel):
         if not self.date:
             self.date = timezone.localdate()
 
-        if not self.reference:
-            year = timezone.now().year
-            last = SalesReturn.objects.filter(
-                business=self.business, date__year=year
-            ).order_by('-reference').first()
-            if last and last.reference:
-                last_n = int(last.reference.split('-')[-1])
-                next_n = last_n + 1
-            else:
-                next_n = 1
-            self.reference = f"SRR-{year}-{next_n:04d}"
-
+        if not self.reference and self.business:
+            self.reference, _, _ = SalesReturnSequence.issue(self.business, 'SRR')
+            
         super().save(*args, **kwargs)
         
 class SalesReturnItem(models.Model):

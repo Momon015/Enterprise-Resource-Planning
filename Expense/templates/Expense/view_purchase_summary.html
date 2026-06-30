@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </td>
             <td><span class="mono">{{ item.quantity }}</span></td>
             <td class='text-end'><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
-            {% if not current_business.enable_purchase_discount %}
+            {% if not purchase.discount_percent %}
             <td class='text-end'><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
               ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
             </span></td>
