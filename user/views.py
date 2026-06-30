@@ -25,7 +25,7 @@ from core.models import Category
 from core.utils.email import send_email
 
 from user.models import User, EmailOTP, BusinessProfile
-from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm, BusinessCashDrawerForm
+from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm, BusinessCashDrawerForm, BusinessFeaturesForm
 
 from core.utils.owner import get_owner, get_queryset_for_user, permission_required
 
@@ -726,4 +726,21 @@ def cash_drawer_settings(request, business_slug, business_id):
 
     context = {'form': form, 'business': business, 'locked': locked, 'section': 'user'}
     return render(request, 'user/cash_drawer_settings.html', context)
+
+@login_required(login_url='login')
+def business_features(request, business_slug, business_id):
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+
+    if request.method == 'POST':
+        form = BusinessFeaturesForm(request.POST, instance=business)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Features updated.")
+            return redirect('settings', business_slug=request.user.slug)
+    else:
+        form = BusinessFeaturesForm(instance=business)
+
+    context = {'form': form, 'business': business, 'section': 'user'}
+    return render(request, 'user/business_features.html', context)
+
 

@@ -101,6 +101,26 @@
         </a>
       {% endif %}
 
+      <a href="{% url 'business-list' %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-list-ul"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">View All Businesses</div>
+          <div class="settings-row__desc">Browse and switch between your businesses</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+
+      {% if current_business %}
+      <a href="{% url 'business-features' business_id=current_business.id business_slug=current_business.slug %}" class="settings-row">
+        <div class="settings-row__icon"><i class="bi bi-toggles"></i></div>
+        <div class="settings-row__body">
+          <div class="settings-row__title">Features</div>
+          <div class="settings-row__desc">Service fees, discounts, receipts, dashboard lens</div>
+        </div>
+        <i class="bi bi-chevron-right settings-row__arrow"></i>
+      </a>
+      {% endif %}
+
       {% if current_business and current_business.plan.has_timecards %}
         <a href="{% url 'cash-drawer-settings' business_id=current_business.id business_slug=current_business.slug %}" class="settings-row">
           <div class="settings-row__icon"><i class="bi bi-cash-stack"></i></div>
@@ -111,16 +131,6 @@
           <i class="bi bi-chevron-right settings-row__arrow"></i>
         </a>
       {% endif %}
-
-
-      <a href="{% url 'business-list' %}" class="settings-row">
-        <div class="settings-row__icon"><i class="bi bi-list-ul"></i></div>
-        <div class="settings-row__body">
-          <div class="settings-row__title">View All Businesses</div>
-          <div class="settings-row__desc">Browse and switch between your businesses</div>
-        </div>
-        <i class="bi bi-chevron-right settings-row__arrow"></i>
-      </a>
 
       <a href="{% url 'subscription-export' business_slug=current_business.slug %}"
          hx-get="{% url 'subscription-export' business_slug=current_business.slug %}"

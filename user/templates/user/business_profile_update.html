@@ -136,60 +136,6 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="mf-help">Optional — full street address for your business</div>
             </div>
 
-            <!-- FEATURES -->
-            <hr class="sd-section-divider" style="margin: 1rem 0;">
-            <div class="sd-section-label">Features</div>
-
-            <div class="mf-field-group">
-              <div class="form-check form-switch">
-                {{ form.offers_services }}
-                <label class="form-check-label" for="{{ form.offers_services.id_for_label }}">
-                  Enable Service Fees
-                </label>
-              </div>
-              {% if form.offers_services.errors %}
-                <div class="mf-error">{{ form.offers_services.errors.0 }}</div>
-              {% endif %}
-              <div class="mf-help">
-                Adds a <strong>Service Fees</strong> under Catalog — for GCash, rentals.
-              </div>
-            </div>
-
-            <div class="mf-field-group" style="margin-top: 0.9rem;">
-              <div class="form-check form-switch">
-                {{ form.enable_sale_discount }}
-                <label class="form-check-label" for="{{ form.enable_sale_discount.id_for_label }}">
-                  Customer discounts on sales
-                </label>
-              </div>
-              <div class="mf-help">
-                Lets the cashier apply a <strong>% discount</strong> to a sale (e.g. 5%, 20%).
-              </div>
-            </div>
-
-            <div class="mf-field-group" style="margin-top: 0.9rem;">
-              <div class="form-check form-switch">
-                {{ form.enable_purchase_discount }}
-                <label class="form-check-label" for="{{ form.enable_purchase_discount.id_for_label }}">
-                  Whole-order discount on purchases
-                </label>
-              </div>
-              <div class="mf-help">
-                Adds a <strong>% discount</strong> on the whole purchase (for bulk supplier deals), on top of any per-item discounts.
-              </div>
-            </div>
-
-            <div class="mf-field-group" style="margin-top: 0.9rem;">
-              <label class="mf-form-label">{{ form.receipt_width.label }}</label>
-              {{ form.receipt_width }}
-              <div class="mf-help">
-                Match your thermal printer — <strong>80mm</strong> (standard POS) or <strong>58mm</strong> (compact). Used as the default when printing receipts.
-              </div>
-            </div>
-
-
-
-
             <!-- ACTIONS -->
             <div class="mf-form-actions">
               <a href="{{ request.session.return_to|default:detail_fallback }}" class="btn btn-outline-secondary">

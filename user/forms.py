@@ -134,46 +134,22 @@ class UpdateUserForm(ModelForm):
         return birthday
     
 class BusinessProfileForm(ModelForm):
-    
+
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address',
-                  'business_phone_number', 'offers_services', 
-                  'receipt_width', 'enable_sale_discount', 'enable_purchase_discount']
-        
-        widgets = {
-            'offers_services': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'receipt_width': forms.Select(attrs={'class': 'form-select'}),
-            'enable_sale_discount': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'enable_purchase_discount': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-
-        }
+        fields = ['business_name', 'business_type', 'address', 'business_phone_number']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        self.fields['enable_sale_discount'].required = False
-        self.fields['enable_sale_discount'].label = 'Customer discounts on sales'
-
-        self.fields['enable_purchase_discount'].required = False
-        self.fields['enable_purchase_discount'].label = 'Whole-order discount on purchases'
-        
-        self.fields['offers_services'].label = 'Enable Service Fees'
-        self.fields['offers_services'].required = False
-
-        self.fields['receipt_width'].label = 'Receipt paper width'
 
         disabled_types = ['cafe', 'restaurant']
         choices = self.fields['business_type'].choices
-        
-        # Keep them but add "Coming Soon" label
         self.fields['business_type'].choices = [
             (k, f"{v} (Coming Soon)") if k in disabled_types else (k, v)
             for k, v in choices
         ]
 
-        # Lock on edit — prevents folder/path drift for uploads
-        # and avoids confusing vertical-aware feature gates.
+        # Lock on edit — prevents folder/path drift + confusing vertical-aware gates.
         if self.instance and self.instance.pk:
             self.fields['business_type'].disabled = True
             self.fields['business_type'].help_text = (
@@ -187,6 +163,52 @@ class BusinessProfileForm(ModelForm):
         if business_type in ['cafe', 'restaurant']:
             raise forms.ValidationError(f"{business_type} is coming soon.")
         return cleaned_data
+
+            
+    def clean(self):
+        cleaned_data = super().clean()
+        business_type = cleaned_data.get('business_type')
+        if business_type in ['cafe', 'restaurant']:
+            raise forms.ValidationError(f"{business_type} is coming soon.")
+        return cleaned_data
+    
+class BusinessFeaturesForm(ModelForm):
+    class Meta:
+        model = BusinessProfile
+        fields = ['offers_services', 'enable_sale_discount', 'enable_purchase_discount',
+                  'receipt_width', 'dashboard_basis']
+        widgets = {
+            'offers_services':          forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'enable_sale_discount':     forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'enable_purchase_discount': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'receipt_width':            forms.Select(attrs={'class': 'form-select'}),
+            'dashboard_basis':          forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['offers_services'].label = 'Enable Service Fees'
+        self.fields['offers_services'].required = False
+
+        self.fields['enable_sale_discount'].label = 'Customer discounts on sales'
+        self.fields['enable_sale_discount'].required = False
+
+        self.fields['enable_purchase_discount'].label = 'Whole-order discount on purchases'
+        self.fields['enable_purchase_discount'].required = False
+
+        self.fields['receipt_width'].label = 'Receipt paper width'
+
+        # dashboard_basis only applies to dashboard-tier businesses; drop it otherwise so save can't wipe it.
+        self.fields['dashboard_basis'].label = 'Default dashboard lens'
+        self.fields['dashboard_basis'].required = False
+        try:
+            keep_basis = bool(self.instance.pk) and self.instance.plan.has_dashboard()
+        except Exception:
+            keep_basis = False
+        if not keep_basis:
+            self.fields.pop('dashboard_basis', None)
+
     
 class BusinessCashDrawerForm(ModelForm):
     class Meta:

@@ -182,6 +182,7 @@ def _compute_dashboard_metrics(business, today):
         
         # yesterday
         'total_opex': total_opex,
+        'y_opex': y_opex,
 
         'rev_dir': rev_dir, 'rev_pct': rev_pct,
         'mat_dir': mat_dir, 'mat_pct': mat_pct,
@@ -409,9 +410,22 @@ def dashboard(request, business_slug):
     # New utang created TODAY = unpaid portion of today's OWN sales/purchases (not all-time).
     receivables = sum((s.outstanding for s in sales), Decimal('0'))
     payables    = sum((p.outstanding for p in purchases), Decimal('0'))
+    
+    # ── Accounting mode (display-only): ?basis= is a transient glimpse, else the saved default ──
+    basis = request.GET.get('basis')
+    if basis not in ('accrual', 'cash'):
+        basis = business.dashboard_basis or 'accrual'
+    net_cash = collected - paid - (metrics.get('total_opex') or Decimal('0'))
 
+    # Cash deltas vs yesterday (drive the arrows in Cash Flow mode)
+    yesterday   = today - timedelta(days=1)
+    y_collected = SalesPayment.objects.filter(business=business, date=yesterday).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_paid      = PurchasePayment.objects.filter(business=business, date=yesterday).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_net_cash  = y_collected - y_paid - (metrics.get('y_opex') or Decimal('0'))
 
-
+    col_dir,   col_pct   = _pct_delta(collected, y_collected)
+    paid_dir,  paid_pct  = _pct_delta(paid,      y_paid)
+    ncash_dir, ncash_pct = _pct_delta(net_cash,  y_net_cash)
 
     context = {
         **metrics,
@@ -430,12 +444,38 @@ def dashboard(request, business_slug):
         'paid': paid,
         'receivables': receivables,
         'payables': payables,
-
-        
+    
         'active_shifts': active_shifts,
         'activities': activities,
+        
+        'basis': basis,
+        'net_cash': net_cash,
+        
+        'col_dir': col_dir, 'col_pct': col_pct,
+        'paid_dir': paid_dir, 'paid_pct': paid_pct,
+        'ncash_dir': ncash_dir, 'ncash_pct': ncash_pct,
+
     }
     return render(request, 'Dashboard/dashboard.html', context)
+
+@login_required(login_url='login')
+@require_POST
+@feature_required('has_dashboard')
+def set_dashboard_basis(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+    if request.user != business.user:
+        messages.error(request, "Only the owner can change the dashboard default.")
+        return redirect('dashboard', business_slug=business.slug)
+
+    basis = request.POST.get('basis')
+    if basis not in ('accrual', 'cash'):
+        basis = 'accrual'
+    business.dashboard_basis = basis
+    business.save(update_fields=['dashboard_basis'])
+
+    label = 'Cash Flow' if basis == 'cash' else 'Business Performance'
+    messages.success(request, f"Dashboard now opens in {label} by default.")
+    return redirect('dashboard', business_slug=business.slug)
 
 
 

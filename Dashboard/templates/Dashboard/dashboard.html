@@ -33,19 +33,52 @@
     </div> {% endcomment %}
   </div>
 
-  <!-- KPI STATS ROW -->
-  <div class="kpi-row">
+  <!-- ACCOUNTING MODE (display-only · transient glimpse, reverts to saved default) -->
+  <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.1rem; flex-wrap:wrap;">
+    <div class="basis-tabs basis-tabs--block" style="max-width:360px; margin:0;">
+      <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i> Business Performance
+      </a>
+      <a href="?basis=cash" class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
+        <i class="bi bi-cash-stack"></i> Cash Flow
+      </a>
+    </div>
 
-    <!-- NET PROFIT (first — the number owners actually care about) -->
+    {% if request.user.role == 'owner' and basis != current_business.dashboard_basis %}
+    <form method="post" action="{% url 'set-dashboard-basis' business_slug=current_business.slug %}" style="margin:0;">
+      {% csrf_token %}
+      <input type="hidden" name="basis" value="{{ basis }}">
+      <button type="submit"
+              style="background:none; border:none; color:var(--accent); font-size:.82rem; font-weight:600; cursor:pointer; padding:.3rem .2rem; display:inline-flex; align-items:center; gap:.35rem;">
+        <i class="bi bi-pin-angle"></i> Make as default
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+
+  <!-- KPI STATS ROW -->
+  <div class="kpi-row{% if basis == 'cash' %} kpi-row--4col{% endif %}">
+
+    <!-- NET PROFIT / NET CASH (the number owners actually care about) -->
     <div class="kpi-card kpi-card--featured">
       <div class="kpi-icon kpi-icon--success">
         <i class="bi bi-graph-up-arrow"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Net Profit</div>
-        <div class="kpi-value {% if net_profit < 0 %}text-danger{% endif %}">
-          ₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}
-        </div>
+        <div class="kpi-label">{% if basis == 'cash' %}Net Cash{% else %}Net Profit{% endif %}</div>
+        {% if basis == 'cash' %}
+        <div class="kpi-value {% if net_cash < 0 %}text-danger{% endif %}">₱{{ net_cash|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if ncash_dir %}
+          <div class="kpi-delta kpi-delta--{{ ncash_dir }}">
+            <i class="bi bi-arrow-{% if ncash_dir == 'up' %}up{% elif ncash_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ ncash_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing collected yesterday</div>
+        {% endif %}
+        {% else %}
+        <div class="kpi-value {% if net_profit < 0 %}text-danger{% endif %}">₱{{ net_profit|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if net_dir %}
           <div class="kpi-delta kpi-delta--{{ net_dir }}">
             <i class="bi bi-arrow-{% if net_dir == 'up' %}up{% elif net_dir == 'down' %}down{% else %}right{% endif %}"></i>
@@ -54,16 +87,29 @@
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
+        {% endif %}
       </div>
+
     </div>
 
-    <!-- REVENUE -->
+    <!-- REVENUE (accrual) / COLLECTED (cash) -->
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--info">
         <i class="bi bi-cash-coin"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Revenue</div>
+        {% if basis == 'cash' %}
+        <div class="kpi-value">₱{{ collected|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if col_dir %}
+          <div class="kpi-delta kpi-delta--{{ col_dir }}">
+            <i class="bi bi-arrow-{% if col_dir == 'up' %}up{% elif col_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ col_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing collected yesterday</div>
+        {% endif %}
+        {% else %}
         <div class="kpi-value">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if rev_dir %}
           <div class="kpi-delta kpi-delta--{{ rev_dir }}">
@@ -72,16 +118,18 @@
           </div>
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
-                {% endif %}
+        {% endif %}
         <div class="kpi-split">
           <span>Collected ₱{{ collected|floatformat:0|intcomma }}</span>
           <span>·</span>
           <span>Receivables ₱{{ receivables|floatformat:0|intcomma }}</span>
         </div>
+        {% endif %}
       </div>
+
     </div>
 
-    <!-- OPERATING EXPENSES (labor + overhead, with split tooltip) -->
+    <!-- OPERATING EXPENSES (identical in both modes — already cash) -->
     <div class="kpi-card" title="Payroll: ₱{{ total_salary_cost|floatformat:2|intcomma }} · Other Expenses: ₱{{ total_expense_cost|floatformat:2|intcomma }}">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-receipt"></i>
@@ -105,13 +153,24 @@
       </div>
     </div>
 
-    <!-- MATERIAL COST -->
+    <!-- MATERIAL COST (accrual) / PAID (cash) -->
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--purple">
         <i class="bi bi-box-seam"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Material Cost</div>
+        {% if basis == 'cash' %}
+        <div class="kpi-value">₱{{ paid|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if paid_dir %}
+          <div class="kpi-delta kpi-delta--{{ paid_dir }} kpi-delta--inverse">
+            <i class="bi bi-arrow-{% if paid_dir == 'up' %}up{% elif paid_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ paid_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing paid yesterday</div>
+        {% endif %}
+        {% else %}
         <div class="kpi-value">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if mat_dir %}
           <div class="kpi-delta kpi-delta--{{ mat_dir }} kpi-delta--inverse">
@@ -126,11 +185,13 @@
           <span>·</span>
           <span>Payables ₱{{ payables|floatformat:0|intcomma }}</span>
         </div>
+        {% endif %}
       </div>
+
     </div>
 
-
-    <!-- WASTE COST -->
+    <!-- WASTE COST (accrual only — never a cash event) -->
+    {% if basis != 'cash' %}
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--danger">
         <i class="bi bi-trash3"></i>
@@ -148,6 +209,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
   </div>
 

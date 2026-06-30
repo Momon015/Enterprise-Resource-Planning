@@ -160,6 +160,13 @@ class BusinessProfile(models.Model):
         default=False,
         help_text="Show the Service Fees catalog (xerox, GCash, bills payment, etc.).",
     )
+    dashboard_basis = models.CharField(
+        max_length=10,
+        choices=[('accrual', 'Business Performance'), ('cash', 'Cash Flow')],
+        default='accrual',
+        help_text="Default lens for the dashboard KPIs. Owners can flip transiently on the dashboard.",
+    )
+
 
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     address = models.TextField(null=True, blank=True, max_length=255)

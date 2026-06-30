@@ -1,0 +1,90 @@
+{% extends 'main.html' %}
+{% load humanize %}
+{% block content %}
+
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-breadcrumb">
+        <a href="{% url 'settings' business_slug=request.user.slug %}" class="breadcrumb-link">SETTINGS</a>
+        <i class="bi bi-chevron-right"></i>
+        <span>FEATURES</span>
+      </div>
+      <h1 class="page-title">Features</h1>
+      <p class="page-subtitle">Turn features on or off for {{ business.business_name }}.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:620px; margin:0 auto;">
+    <div class="card-header"><span class="card-header-title">Feature Settings</span>
+      <a href="{% url 'settings' business_slug=request.user.slug %}" class="pd-icon-btn" title="Close"><i class="bi bi-x-lg"></i></a>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{% url 'business-features' business_id=business.id business_slug=business.slug %}">
+        {% csrf_token %}
+
+        <div class="mf-field-group">
+          <div class="form-check form-switch">
+            {{ form.offers_services }}
+            <label class="form-check-label" for="{{ form.offers_services.id_for_label }}">Enable Service Fees</label>
+          </div>
+          <div class="mf-help">Adds a Service Fees catalog (GCash, xerox, rentals, bills payment).</div>
+        </div>
+
+        <div class="mf-field-group" style="margin-top: 0.9rem;">
+          <div class="form-check form-switch">
+            {{ form.enable_sale_discount }}
+            <label class="form-check-label" for="{{ form.enable_sale_discount.id_for_label }}">Customer discounts on sales</label>
+          </div>
+          <div class="mf-help">Lets the cashier apply a % discount to a sale (e.g. 5%, 20%).</div>
+        </div>
+
+        <div class="mf-field-group" style="margin-top: 0.9rem;">
+          <div class="form-check form-switch">
+            {{ form.enable_purchase_discount }}
+            <label class="form-check-label" for="{{ form.enable_purchase_discount.id_for_label }}">Whole-order discount on purchases</label>
+          </div>
+          <div class="mf-help">Adds a % discount on the whole purchase (for bulk supplier deals), on top of any per-item discounts.</div>
+        </div>
+
+        <div class="mf-field-group" style="margin-top: 0.9rem;">
+          <label class="mf-form-label">{{ form.receipt_width.label }}</label>
+          {{ form.receipt_width }}
+          <div class="mf-help">Match your thermal printer — 80mm (standard POS) or 58mm (compact). Used as the default when printing receipts.</div>
+        </div>
+
+        {% if form.dashboard_basis %}
+        <hr class="sd-section-divider" style="margin: 1rem 0;">
+        <div class="sd-section-label">Dashboard Analytics</div>
+        <div class="mf-field-group" style="margin-top: 0.9rem;">
+          <label class="mf-form-label">{{ form.dashboard_basis.label }}</label>
+          {{ form.dashboard_basis }}
+          <div class="mf-help">Which lens the dashboard opens in. <strong>Business Performance</strong> shows what you earned (sales made, profit); <strong>Cash Flow</strong> shows money actually collected and paid out. You can still flip temporarily on the dashboard.</div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.25rem;">
+          <a href="{% url 'settings' business_slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save Features</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
