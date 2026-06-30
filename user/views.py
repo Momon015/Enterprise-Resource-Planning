@@ -42,7 +42,7 @@ from django.core.cache import cache
 
 import datetime
 
-from Employee.utils import is_opening_cash_locked
+from Employee.utils import is_opening_cash_locked, staff_seat_locked
 
 from activity.utils import log_activity
 
@@ -284,6 +284,13 @@ def user_login(request):
 
         username = request.POST.get('username').lower().strip()
         password = request.POST.get('password')
+        
+        # Block staff whose seat is locked by the owner's plan downgrade (over seat cap)
+        if staff_seat_locked(user):
+            messages.error(request,
+                "Your access is paused — the owner's plan no longer covers your staff seat. "
+                "Ask them to upgrade or re-activate your seat.")
+            return redirect('login')
 
         try:
             user_obj = User.objects.get(username=username)

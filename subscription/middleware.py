@@ -2,6 +2,8 @@ from django.contrib.auth import logout
 from django.contrib import messages
 from django.shortcuts import redirect
 
+from Employee.utils import staff_seat_locked
+
 class SubscriptionExpiryMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -28,5 +30,12 @@ class InactiveOwnerLogoutOwnerMiddleware:
                 logout(request)
                 messages.error(request,
                     "Your business account is currently inactive. Please contact the owner.")
+                return redirect('login')
+
+            if staff_seat_locked(user):
+                logout(request)
+                messages.error(request,
+                    "Your access is paused — the owner's plan no longer covers your staff seat. "
+                    "Ask them to upgrade or re-activate your seat.")
                 return redirect('login')
         return self.get_response(request)

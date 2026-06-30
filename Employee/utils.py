@@ -86,3 +86,12 @@ def void_window_open(business):
     if todays.exists():
         return todays.filter(clock_out__isnull=True).exists()
     return True
+
+def staff_seat_locked(user):
+    """True when a staff user's every Employee seat is locked — i.e. the owner downgraded
+    below their seat cap and this staff is one of the excess. Mirrors the owner-inactive guard."""
+    if not getattr(user, 'is_authenticated', False) or getattr(user, 'role', None) != 'staff':
+        return False
+    from Employee.models import Employee
+    states = list(Employee.objects.filter(staff_user=user).values_list('is_locked', flat=True))
+    return bool(states) and all(states)
