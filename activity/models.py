@@ -122,6 +122,9 @@ class ActivityEvent(models.Model):
             return None
 
         try:
+            if self.verb == 'staff.added':
+                return reverse('employee-list', kwargs={'business_slug': business_slug})
+            
             if self.verb in ('sale.completed', 'sale.reference'):
                 return reverse('sale-detail', kwargs={'business_slug': business_slug, 'sale_id': self.target_id})
 

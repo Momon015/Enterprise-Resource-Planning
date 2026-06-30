@@ -85,7 +85,10 @@ def employee_list(request, business_slug):
     ).aggregate(t=Sum('daily_rate'))['t'] or 0
     
     archive_count = Employee.all_objects.filter(business=business, status='inactive').count()
-        
+    pending_staff = (User.objects.filter(pending_business=business, role='staff').order_by('date_joined')
+                     if request.user == business.user else [])
+
+    
     pagination = Paginator(employees, 5)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
@@ -96,9 +99,88 @@ def employee_list(request, business_slug):
         'avg_daily_rate': avg_daily_rate,
         'monthly_payroll': monthly_payroll,
         'archive_count': archive_count,
-        'section': 'employee'
+        'section': 'employee',
+        'pending_staff': pending_staff,
         }
     return render(request, 'Employee/employee_list.html', context)
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+@require_POST
+def approve_staff(request, business_slug, user_id):
+    business = get_business_for_user(request.user, business_slug)
+    if request.user != business.user:
+        messages.error(request, "Only the owner can approve staff.")
+        return redirect('employee-list', business_slug=business.slug)
+
+    staff = get_object_or_404(User, id=user_id, role='staff', pending_business=business)
+
+    plan = getattr(business, 'plan', None)
+    if plan and not plan.can_add_staff():
+        limit = plan.limits().get('max_staff')
+        messages.error(request,
+            f"Your {plan.get_plan_display()} plan allows only {limit} staff account(s). "
+            f"Upgrade to approve more.")
+        return redirect('employee-list', business_slug=business.slug)
+
+
+    with transaction.atomic():
+        staff.is_active = True
+        staff.pending_business = None
+        staff.save(update_fields=['is_active', 'pending_business'])
+        Employee.objects.create(
+            user=business.user, business=business, staff_user=staff,
+            name=staff.name or staff.username, daily_rate=0,
+        )
+        ActivityEvent.objects.filter(
+            business=business, verb='staff.added', target_id=staff.id, is_read=False,
+        ).update(is_read=True)
+
+    messages.success(request, f"{staff.name or staff.username} approved — they can log in now.")
+    return redirect('employee-list', business_slug=business.slug)
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+def decline_staff(request, business_slug, user_id):
+    business = get_business_for_user(request.user, business_slug)
+    if request.user != business.user:
+        messages.error(request, "Only the owner can decline staff.")
+        return redirect('employee-list', business_slug=business.slug)
+
+    staff = get_object_or_404(User, id=user_id, role='staff', pending_business=business)
+
+    if request.method == 'POST':
+        name = staff.name or staff.username
+        with transaction.atomic():
+            ActivityEvent.objects.filter(
+                business=business, verb='staff.added', target_id=staff.id,
+            ).update(is_read=True)
+            staff.delete()
+        messages.info(request, f"Declined {name}'s sign-up request.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('employee-list', kwargs={'business_slug': business.slug})
+            return resp
+        return redirect('employee-list', business_slug=business.slug)
+
+    # GET via HTMX → open the confirm modal
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': (staff.name or staff.username).title(),
+            'cm_subtitle': staff.email,
+            'cm_icon': 'bi-person-x',
+            'cm_btn_icon': 'bi-person-x-fill',
+            'cm_tone': 'danger',
+            'cm_note': "This removes their sign-up request and account. "
+                       "They'd have to register again with the invite code.",
+            'cm_action': reverse('decline-staff', kwargs={
+                'business_slug': business.slug, 'user_id': staff.id}),
+            'cm_label': "Decline & Remove",
+        })
+
+    return redirect('employee-list', business_slug=business.slug)
+
 
 @login_required(login_url='login')
 @permission_required('staff_view')

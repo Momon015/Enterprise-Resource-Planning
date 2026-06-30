@@ -97,3 +97,9 @@ def mark_one_read(request, business_slug, event_id):
         business=business, pk=event_id
     ).update(is_read=True)
     return JsonResponse({'ok': True})
+
+@login_required(login_url='login')
+def notification_poll(request, business_slug):
+    # The notification_badge + business_context processors fill
+    # notification_count / notification_events / current_business automatically.
+    return render(request, 'partials/_topbar_notif.html')

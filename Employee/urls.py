@@ -12,7 +12,9 @@ urlpatterns = [
     path('archive/<str:employee_id>/<str:slug>/employee-archive/', views.employee_archive, name='employee-archive'),
     path('restore/<str:employee_id>/<str:slug>/employee-restore/', views.restore_employee, name='restore-employee'),
     
-    
+    path('staff/<int:user_id>/approve/', views.approve_staff, name='approve-staff'),
+    path('staff/<int:user_id>/decline/', views.decline_staff, name='decline-staff'),
+
     
     # shift logging (manual payroll path) — referenced by employee_list.html
     path('shifts/add-shift-employee/', views.shift_log_create, name='add-shift-employee'),

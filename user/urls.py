@@ -9,10 +9,11 @@ urlpatterns = [
     path('<str:business_slug>/settings/', views.settings, name='settings'),
 
     
-    path('register-form/', views.register_form, name='register-form'),
-    path('register-form/verify-otp/', views.verify_otp, name='verify-otp'),
-    path('register-form/resend-otp/', views.resend_otp, name='resend-otp'),
-    path('register-form/expired-otp/', views.verify_otp_expired, name='expired-otp'),
+    path('registration/', views.register_form, name='register-form'),
+    path('registration/verify-otp/', views.verify_otp, name='verify-otp'),
+    path('registration/pending/', views.registration_pending, name='registration-pending'),
+    path('registration/resend-otp/', views.resend_otp, name='resend-otp'),
+    path('registration/expired-otp/', views.verify_otp_expired, name='expired-otp'),
     
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),

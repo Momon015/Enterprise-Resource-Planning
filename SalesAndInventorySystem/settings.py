@@ -177,7 +177,8 @@ ROOT_URLCONF = 'SalesAndInventorySystem.urls'
 # Set to False to lock down public sign-up (e.g. for a private QA build).
 # When False, the register_form view redirects to login and all
 # "Create account / Get Started" links are hidden from templates.
-ALLOW_REGISTRATION = False
+
+ALLOW_REGISTRATION = True
 
 TEMPLATES = [
     {

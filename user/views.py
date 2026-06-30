@@ -44,6 +44,8 @@ import datetime
 
 from Employee.utils import is_opening_cash_locked
 
+from activity.utils import log_activity
+
 # Create your views here.
 
 def get_ip(request):
@@ -58,7 +60,8 @@ def landing(request):
 
 def register_form(request):
     # Feature flag: public sign-up can be disabled for a private QA build.
-    if not settings.ALLOW_REGISTRATION:
+    from django.conf import settings as dj_settings
+    if not dj_settings.ALLOW_REGISTRATION:
         messages.info(request, "Registration is currently closed.")
         return redirect('login')
 
@@ -98,11 +101,11 @@ def register_form(request):
                                 "Ask your owner to turn on staff sign-up.")
                             return redirect('register-form')
 
-                        owner_sub = getattr(business.user, 'subscription', None)
-                        if owner_sub and not owner_sub.can_add_staff(business.user, business):
-                            limit = owner_sub.limits().get('max_staff')
+                        business_plan = getattr(business, 'plan', None)
+                        if business_plan and not business_plan.can_add_staff():
+                            limit = business_plan.limits().get('max_staff')
                             messages.error(request,
-                                f"This business's {owner_sub.get_plan_display()} plan allows only "
+                                f"This business's {business_plan.get_plan_display()} plan allows only "
                                 f"{limit} staff account(s). Ask the owner to upgrade.")
                             return redirect('register-form')
 
@@ -168,30 +171,49 @@ def verify_otp(request):
         if entered_otp == otp_obj.otp:
             try:
                 with transaction.atomic():
-                    user.is_active = True
-                    user.save()
-
                     otp_obj.is_verified = True
-                    otp_obj.save()
+                    otp_obj.save(update_fields=['is_verified'])
 
                     if user.role == 'staff':
                         business_id = request.session.get('business_id', None)
                         if not business_id:
                             raise ValueError("Missing business session.")
-
                         business = BusinessProfile.objects.get(id=business_id)
-                        Employee.objects.create(
-                            user=business.user,
+
+                        # Email confirmed — hold for owner approval (stays inactive; can't log in yet).
+                        user.pending_business = business
+                        user.save(update_fields=['pending_business'])
+
+                        # Notify the owner: important → bell red badge + activity feed.
+                        log_activity(
                             business=business,
-                            staff_user=user,
-                            name=user.name or user.username,
-                            daily_rate=0,
+                            actor=user,
+                            verb='staff.added',
+                            target=user,
+                            description=f"{user.name or user.username} signed up and is waiting for your approval.",
+                            important=True,
                         )
+                    else:
+                        user.is_active = True
+                        user.save(update_fields=['is_active'])
             except (BusinessProfile.DoesNotExist, ValueError):
-                # transaction rolled back — user is still inactive, OTP unverified
                 user.delete()
-                messages.error(request, "Business name or Owner name not found.")
+                messages.error(request, "Business not found. Please register again.")
                 return redirect('register-form')
+
+            for key in ('user_id', 'otp_id', 'business_id'):
+                request.session.pop(key, None)
+
+            if user.role == 'staff':
+                # Not logged in — gated until the owner approves.
+                return redirect('registration-pending')
+
+            login(request, user)
+            return redirect('business-profile-create')
+        
+        else:
+            messages.error(request, "Invalid OTP. Please try again.")
+
             
             # clear sessions
             for key in ('user_id', 'otp_id', 'business_id'):
@@ -203,10 +225,11 @@ def verify_otp(request):
             else:
                 messages.success(request, f"Your account has been successfully created.")
                 return redirect('user-profile', slug=user.username, user_id=user.id)
-        else:
-            messages.error(request, "Invalid OTP. Please try again.")
             
     return render(request, 'user/verify_otp.html')
+
+def registration_pending(request):
+    return render(request, 'user/registration_pending.html')
 
 def resend_otp(request):
     user_id = request.session.get('user_id', None)

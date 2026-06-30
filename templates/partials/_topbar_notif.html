@@ -1,0 +1,34 @@
+<button type="button" class="topbar-icon-btn topbar-notif__btn" aria-label="Notifications">
+  <i class="bi bi-bell"></i>
+  {% if notification_count %}<span class="topbar-notif__badge">{{ notification_count }}</span>{% endif %}
+</button>
+
+<div class="topbar-notif__menu">
+  <div class="topbar-notif__head">
+    <span>Notifications</span>
+    {% if notification_count %}<span class="topbar-notif__count">{{ notification_count }}</span>{% endif %}
+  </div>
+
+  <div class="topbar-notif__list">
+    {% for event in notification_events %}
+    <a class="topbar-notif__item topbar-notif__item--{{ event.tone }}"
+       href="{% url 'activity-click' business_slug=current_business.slug event_id=event.id %}">
+      <span class="topbar-notif__icon"><i class="bi {{ event.icon_class }}"></i></span>
+      <span class="topbar-notif__text">
+        <span class="topbar-notif__title">{{ event.get_verb_display }}</span>
+        <span class="topbar-notif__desc">{{ event.description }}</span>
+        <span class="topbar-notif__time">{{ event.created_at|timesince }} ago</span>
+      </span>
+    </a>
+    {% empty %}
+    <div class="topbar-notif__empty">
+      <i class="bi bi-check2-circle"></i>
+      <span>You're all caught up</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <a class="topbar-notif__footer" href="{% url 'view-all-activity' business_slug=current_business.slug %}">
+    See all activities <i class="bi bi-arrow-right"></i>
+  </a>
+</div>

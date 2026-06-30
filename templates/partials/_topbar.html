@@ -31,42 +31,13 @@
     {% endif %}
 
     <!-- NOTIFICATIONS -->
-    <div class="topbar-notif" id="topbarNotif">
-      <button type="button" class="topbar-icon-btn topbar-notif__btn" aria-label="Notifications">
-        <i class="bi bi-bell"></i>
-        {% if notification_count %}<span class="topbar-notif__badge">{{ notification_count }}</span>{% endif %}
-      </button>
-
-      <div class="topbar-notif__menu">
-        <div class="topbar-notif__head">
-          <span>Notifications</span>
-          {% if notification_count %}<span class="topbar-notif__count">{{ notification_count }}</span>{% endif %}
-        </div>
-
-        <div class="topbar-notif__list">
-          {% for event in notification_events %}
-          <a class="topbar-notif__item topbar-notif__item--{{ event.tone }}"
-             href="{% url 'activity-click' business_slug=current_business.slug event_id=event.id %}">
-            <span class="topbar-notif__icon"><i class="bi {{ event.icon_class }}"></i></span>
-            <span class="topbar-notif__text">
-              <span class="topbar-notif__title">{{ event.get_verb_display }}</span>
-              <span class="topbar-notif__desc">{{ event.description }}</span>
-              <span class="topbar-notif__time">{{ event.created_at|timesince }} ago</span>
-            </span>
-          </a>
-          {% empty %}
-          <div class="topbar-notif__empty">
-            <i class="bi bi-check2-circle"></i>
-            <span>You're all caught up</span>
-          </div>
-          {% endfor %}
-        </div>
-
-        <a class="topbar-notif__footer" href="{% url 'view-all-activity' business_slug=current_business.slug %}">
-          See all activities <i class="bi bi-arrow-right"></i>
-        </a>
-      </div>
+    <div class="topbar-notif" id="topbarNotif"
+         hx-get="{% url 'notification-poll' business_slug=current_business.slug %}"
+         hx-trigger="every 30s"
+         hx-target="this" hx-swap="innerHTML">
+      {% include 'partials/_topbar_notif.html' %}
     </div>
+
 
     <!-- ACCOUNT -->
     <div class="topbar-account" id="topbarAccount">
@@ -120,16 +91,19 @@
     if (acc) acc.querySelector('.topbar-account__btn').addEventListener('click', (e) => {
       e.stopPropagation(); close(notif); acc.classList.toggle('open');
     });
-    if (notif) notif.querySelector('.topbar-notif__btn').addEventListener('click', (e) => {
-      e.stopPropagation(); close(acc); notif.classList.toggle('open');
-      notif.classList.add('seen');
-    });
+    // Notif button is re-rendered by the 30s htmx poll → delegate so the click survives swaps.
     document.addEventListener('click', (e) => {
+      if (notif && e.target.closest('.topbar-notif__btn')) {
+        e.stopPropagation(); close(acc);
+        notif.classList.toggle('open'); notif.classList.add('seen');
+        return;
+      }
       close(acc); close(notif);
       const wrap = document.getElementById('topbarSearch');
       const res = document.getElementById('searchResults');
       if (wrap && res && !wrap.contains(e.target)) res.innerHTML = '';
     });
+
   })();
 
     const input = document.getElementById('topbarSearchInput');

@@ -35,6 +35,40 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+    {% if pending_staff %}
+      <div class="card" style="margin-bottom:1rem; border-left:3px solid var(--warning);">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title"><i class="bi bi-person-exclamation"></i> Waiting for approval</span>
+            <span class="sl-badge sl-badge-warning">{{ pending_staff|length }}</span>
+          </div>
+        </div>
+        <div class="card-body" style="padding:.75rem 1rem; display:flex; flex-direction:column; gap:.5rem;">
+          {% for s in pending_staff %}
+          <div class="d-flex align-items-center justify-content-between" style="gap:.75rem; padding:.4rem 0;">
+            <div>
+              <div class="cell-primary">{{ s.name|default:s.username|capfirst }}</div>
+              <div class="cell-sub">{{ s.email }} · signed up {{ s.date_joined|naturaltime }}</div>
+            </div>
+            <div class="d-flex" style="gap:.4rem;">
+              <form method="post" action="{% url 'approve-staff' business_slug=current_business.slug user_id=s.id %}">
+                {% csrf_token %}
+                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check-lg"></i> Approve</button>
+              </form>
+              <a href="{% url 'decline-staff' business_slug=current_business.slug user_id=s.id %}"
+                 hx-get="{% url 'decline-staff' business_slug=current_business.slug user_id=s.id %}"
+                 hx-target="#confirmBody" hx-swap="innerHTML"
+                 class="btn btn-light btn-sm"><i class="bi bi-x-lg"></i> Decline
+              </a>
+            </div>
+          </div>
+          {% if not forloop.last %}<hr style="margin:0; border-color:var(--border);">{% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+
       <!-- FILTER DRAWER -->
       <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
         <summary>

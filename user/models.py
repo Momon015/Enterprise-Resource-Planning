@@ -21,7 +21,11 @@ def generate_invite_code():
 class DeleteUnverifiedUserManager(models.Manager):
     def unverified_users(self, minutes=60):
         cutoff = timezone.now() - timedelta(minutes=minutes)
-        return self.filter(is_active=False, date_joined__lt=cutoff)
+        return self.filter(
+            is_active=False,
+            date_joined__lt=cutoff,
+            pending_business__isnull=True,   # keep staff who verified + await owner approval
+        )
 
 phone_validators = RegexValidator(
     regex=r'^0\d{10}$',
@@ -52,7 +56,12 @@ class User(AbstractUser):
     slug = models.SlugField(max_length=255, db_index=True, null=True, blank=True)
     email = models.EmailField(unique=True, null=True, blank=True)
     role = models.CharField(max_length=100, choices=ROLE_CHOICES, null=True, blank=True, default='owner')
-    owner = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='staff_members')   
+    owner = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='staff_members')  
+    pending_business = models.ForeignKey(
+        'BusinessProfile', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='pending_staff',
+        help_text="Set when a staff verified email but awaits owner approval. Cleared on approval."
+    )
     birthday = models.DateField(null=True, blank=True)
     phone_number = models.CharField(max_length=11, null=True, blank=True, validators=[phone_validators])
     locked_until = models.DateTimeField(null=True, blank=True)
@@ -81,7 +90,11 @@ class User(AbstractUser):
     def reset_attempts(self):
         self.failed_attempts = 0
         self.locked_until = None
-            
+        
+    @property
+    def is_pending_approval(self):
+        """Email verified, but the owner hasn't approved the account yet (can't log in)."""
+        return not self.is_active and self.pending_business_id is not None
 
     @property
     def age(self):
