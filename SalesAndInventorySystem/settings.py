@@ -145,7 +145,9 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'subscription.apps.SubscriptionConfig',
     
-    'django.contrib.humanize', 
+    'django.contrib.humanize',
+    
+    'rest_framework', 
 ]
 
 AUTH_USER_MODEL = 'user.User'

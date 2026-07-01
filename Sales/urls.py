@@ -1,9 +1,18 @@
 from . import views
+from . import api
 from django.urls import path
 
 # Create your urls here.
 
 urlpatterns = [
+    
+    # JSON cart API (React sale-cart island)
+    path('api/cart/', api.cart_state, name='cart-state'),
+    path('api/cart/qty/', api.cart_set_qty, name='cart-set-qty'),
+    path('api/cart/price/', api.cart_set_price, name='cart-set-price'),
+    path('api/cart/remove/', api.cart_remove, name='cart-remove'),
+    path('api/cart/clear/', api.cart_clear, name='cart-clear'),
+
     
     path('clear/session/', views.clear_sale, name='clear-sale'),
     # sessions
