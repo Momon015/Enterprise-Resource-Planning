@@ -4,43 +4,7 @@
 
 {% block content %}
 
-<style>
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
-</style>
-
-<script>
-document.body.addEventListener('cartChanged', () => location.reload());
-document.addEventListener("DOMContentLoaded", function () {
-  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
-
-});
-
-function stepDiscount(id, delta) {
-  const input = document.getElementById(id);
-  if (!input) return;
-  let value = parseFloat(input.value || 0);
-  value = isNaN(value) ? 0 : value + delta;
-  if (value < 0) value = 0;
-  input.value = value.toFixed(2);
-  const form = document.getElementById('discountForm');
-  if (form) form.submit();
-}
-
-function toggleCostInput(itemId) {
-  const disp = document.getElementById('disp_' + itemId);
-  const edit = document.getElementById('cost_input_' + itemId);
-  if (!edit) return;
-  const showing = edit.style.display === 'flex';
-  edit.style.display = showing ? 'none' : 'flex';
-  if (disp) disp.style.display = showing ? 'flex' : 'none';
-}
-
-
-</script>
-
-<!-- FLASH MESSAGES -->
+<!-- FLASH MESSAGES (Django) -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
   {% for message in messages %}
@@ -58,7 +22,6 @@ function toggleCostInput(itemId) {
 
 <div class="container-fluid py-3 py-lg-4" style="max-width: 1400px;">
 
-  <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">PURCHASING</div>
@@ -67,306 +30,23 @@ function toggleCostInput(itemId) {
     </div>
   </div>
 
-  {% if cart_items %}
-  <div class="row g-3 g-lg-4">
-
-    <!-- LEFT: ORDER LINES -->
-    <div class="col-lg-8">
-      <div class="pos-card">
-        <div class="pos-card-header">
-          <span class="pos-card-title">
-            <i class="bi bi-list-ul"></i> Order lines
-          </span>
-          <a href="{% url 'material-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn-browse">
-            <i class="bi bi-search"></i> Browse supplier
-          </a>
-        </div>
-
-        <div>
-          {% for item in page_obj %}
-          <div class="sale-row">
-
-            <!-- THUMBNAIL -->
-            {% if item.image %}
-              <img src="{{ item.image }}" alt="" class="sale-row-thumb">
-            {% else %}
-              <img src="{% static 'images/no-image.png' %}" alt="No image" class="sale-row-thumb">
-            {% endif %}
-
-            <div class="sale-row-body">
-
-              <!-- HEAD -->
-              <div class="sale-row-head">
-                <div class="sale-row-info">
-                  <div class="sale-row-name">{{ item.material }}</div>
-                  <div class="sale-row-sub">{{ item.supplier|default:"No supplier" }}</div>
-                  <div class="sale-row-cost">Unit cost ₱{{ item.price|floatformat:2 }}</div>
-                </div>
-                <a href="{% url 'cart-remove-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}"
-                   class="sale-row-remove" title="Remove">
-                  <i class="bi bi-x-lg"></i>
-                </a>
-              </div>
-
-              <!-- CONTROLS -->
-              <div class="sale-row-ctrls-purchase">
-
-                <!-- QTY (immediate) -->
-                <div class="row-ctrl">
-                  <span class="row-ctrl-label">Qty</span>
-                  <div class="qty-stepper">
-                    <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="quantity"
-                            value="{% if item.quantity|add:'-1' < 1 %}1{% else %}{{ item.quantity|add:'-1' }}{% endif %}">
-                      <button type="submit" class="qty-btn" {% if item.quantity <= 1 %}disabled{% endif %}>−</button>
-                    </form>
-                    <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="number" min="1" name="quantity" class="qty-input"
-                            value="{{ item.quantity }}" onchange="this.form.submit()">
-                    </form>
-                    <form method="POST" action="{% url 'cart-edit-material' business_slug=current_business.slug id=item.id %}?{{ request.GET.urlencode }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="quantity" value="{{ item.quantity|add:'1' }}">
-                      <button type="submit" class="qty-btn">+</button>
-                    </form>
-                  </div>
-                </div>
-
-                <!-- DISCOUNT (immediate — +/- and typing auto-apply, no check) -->
-                {% if not current_business.enable_purchase_discount %}
-                <!-- DISCOUNT (immediate — +/- and typing auto-apply, no check) -->
-                <div class="row-ctrl">
-                  <span class="row-ctrl-label">Discount</span>
-                  <div class="qty-stepper">
-                    <button type="button" class="qty-btn" onclick="stepDiscount('discount_{{ item.id }}', -1)">−</button>
-                    <input type="number" name="discount_{{ item.id }}" id="discount_{{ item.id }}"
-                          form="discountForm" min="0" step="0.01" class="qty-input"
-                          value="{{ item.discount|floatformat:2 }}"
-                          onchange="document.getElementById('discountForm').submit()">
-                    <button type="button" class="qty-btn" onclick="stepDiscount('discount_{{ item.id }}', 1)">+</button>
-                  </div>
-                </div>
-                {% endif %}
-
-
-                <!-- TOTAL PRICE (display → flip to edit + check) -->
-                <div class="row-ctrl row-ctrl--total">
-                  <span class="row-ctrl-label">Total</span>
-
-                  <!-- DISPLAY -->
-                  <div id="disp_{{ item.id }}" class="cost-display">
-                    <span class="sale-row-total">₱{{ item.item_total|floatformat:2 }}</span>
-                    <button type="button" class="edit-btn" onclick="toggleCostInput('{{ item.id }}')" title="Edit total price">
-                      <i class="bi bi-pencil-square"></i>
-                    </button>
-                  </div>
-
-                  <!-- EDIT -->
-                  <div id="cost_input_{{ item.id }}" style="display:none; align-items:center; gap:0.3rem;">
-                    <div class="row-price-chip">
-                      <span style="color:var(--muted); font-size:0.85rem;">₱</span>
-                      <input type="number" step="0.01" min="0"
-                            name="total_price_{{ item.id }}" form="discountForm"
-                            value="{{ item.item_total|floatformat:2 }}" class="mono">
-                    </div>
-                    <button type="submit" form="discountForm" class="apply-check-btn" title="Update total price">
-                      <i class="bi bi-check2"></i>
-                    </button>
-                  </div>
-
-                  {% if not current_business.enable_purchase_discount and item.discount %}
-                  <span class="row-ctrl-hint">− ₱{{ item.discount|floatformat:2 }} → ₱{{ item.item_discount|floatformat:2 }}</span>
-                  {% endif %}
-                </div>
-
-
-              </div>
-
-
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-
-        <!-- Batch form — discount steppers & Total check submit this (holds CSRF + action) -->
-        <form id="discountForm" method="POST" action="{% url 'cart-discount-material' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" autocomplete="off">
-          {% csrf_token %}
-        </form>
-
-
-        <!-- PAGINATION -->
-        {% if page_obj.paginator.num_pages > 1 %}
-        <div class="pagination-wrapper">
-          <nav>
-            <ul class="pagination">
-              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                {% endif %}
-              </li>
-              {% for p in page_obj.paginator.page_range %}
-              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
-              </li>
-              {% endfor %}
-              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                {% endif %}
-              </li>
-            </ul>
-          </nav>
-        </div>
-        {% endif %}
-
-      </div>
-    </div>
-
-    <!-- RIGHT: STICKY ORDER SUMMARY + PRESETS -->
-    <div class="col-lg-4">
-      <div class="order-summary">
-
-        <div class="pos-card">
-          <div class="pos-card-header">
-            <span class="pos-card-title">
-              <i class="bi bi-receipt"></i> Order Summary
-            </span>
-          </div>
-          <div style="padding: 1.25rem;">
-
-            {% if current_business.enable_purchase_discount %}
-            <div style="display:flex; align-items:center; justify-content:space-between;
-                        background:var(--accent-light); border:1px solid var(--accent);
-                        border-radius:10px; padding:.6rem .85rem; margin-bottom:.85rem;">
-              <span style="font-weight:600; color:var(--accent); font-size:.85rem;">
-                <i class="bi bi-tags"></i> Discount
-              </span>
-              <span style="display:flex; align-items:center; gap:.3rem;">
-                <input type="number" form="confirmForm" name="discount_percent" id="purchaseDiscountPercent"
-                       step="0.01" min="0" max="100" value="{{ purchase_discount_percent|default:0 }}"
-                       oninput="recalcPurchaseDiscount()"
-                       style="width:72px; text-align:right; padding:.35rem .5rem; border:1px solid var(--accent); border-radius:8px; background:#fff; font-weight:600;">
-                <span style="color:var(--accent); font-weight:700;">%</span>
-              </span>
-            </div>
-            {% endif %}
-
-            <div class="total-row">
-              <span class="total-label"><i class="bi bi-box-seam"></i>Items</span>
-              <span class="total-value">{{ cart_items|length }}</span>
-            </div>
-
-            <div class="total-row">
-              <span class="total-label"><i class="bi bi-cash-stack"></i>Subtotal</span>
-              <span class="total-value">₱{{ subtotal|floatformat:2|intcomma }}</span>
-            </div>
-
-            {% if current_business.enable_purchase_discount %}
-            <div class="total-row" id="purchaseDiscountRow" style="display:none;">
-              <span class="total-label"><i class="bi bi-percent"></i> Discount</span>
-              <span class="total-value text-success-soft">−₱<span id="purchaseDiscAmt">0.00</span></span>
-            </div>
-            {% elif total_discount %}
-            <div class="total-row">
-              <span class="total-label"><i class="bi bi-tags"></i>Discount</span>
-              <span class="total-value text-success-soft">₱{{ total_discount|floatformat:2|intcomma }}</span>
-            </div>
-            {% endif %}
-
-            <hr class="divider">
-
-            <div class="total-row">
-              <span class="total-label"><i class="bi bi-calculator"></i> Total Cost</span>
-              <span class="total-value total-grand" id="purchaseGrandTotal" style="color:var(--danger);">₱{{ total_after_discount|floatformat:2|intcomma }}</span>
-            </div>
-
-            <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-              <form id="confirmForm" method="get" action="{% url 'view-cart-summary' business_slug=current_business.slug %}" style="flex:1; margin:0;">
-                <button type="submit" class="btn-confirm" style="width:100%; padding:0.6rem; font-size:0.875rem; margin:0;">
-                  <i class="bi bi-check2-circle"></i> Confirm
-                </button>
-              </form>
-              <a href="{% url 'clear-cart' business_slug=current_business.slug %}" class="btn-clear"
-                 style="flex:0 0 auto; width:auto; padding:0.6rem 0.85rem; font-size:0.8rem; margin:0;">
-                Clear
-              </a>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="pos-card" style="margin-bottom:0;">
-          <div class="pos-card-header">
-            <span class="pos-card-title">
-              <i class="bi bi-bookmark-fill"></i> Supplier Presets
-            </span>
-            <a href="{% url 'material-preset-list' business_slug=current_business.slug %}" style="font-size:.8rem; color:var(--muted); text-decoration:none;">
-              View all <i class="bi bi-arrow-right"></i>
-            </a>
-          </div>
-          <div style="padding: 1.25rem;">
-            <form method="POST" id="presetForm" autocomplete="off" action="{% url 'material-save-items' business_slug=current_business.slug %}">
-              {% csrf_token %}
-              <input type="text" name="name" class="preset-input" placeholder="e.g. Supplier">
-              <label style="display:flex; align-items:center; gap:.5rem; font-size:.83rem; margin-bottom:.75rem; cursor:pointer;">
-                <input type="checkbox" value="checkbox" name="checkbox" style="accent-color:var(--accent);">
-                Save for future use
-              </label>
-              <button type="submit" class="btn-preset">
-                <i class="bi bi-bookmark-check"></i> Save as preset
-              </button>
-            </form>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-  </div>
-
-  {% else %}
-  <div class="empty-state">
-    <div class="empty-icon"><i class="bi bi-receipt"></i></div>
-    <div class="empty-title">No items yet</div>
-    <p class="empty-sub">Browse the supplier list and add items to start recording this purchase.</p>
-    <a href="{% url 'material-list' business_slug=current_business.slug %}" class="btn-add-product">
-      <i class="bi bi-plus-circle"></i> Add item
-    </a>
-  </div>
-  {% endif %}
+  <!-- React Purchase Cart island -->
+  <div id="purchase-cart-root"
+       data-business="{{ current_business.slug }}"
+       data-api-base="{% url 'pcart-state' business_slug=current_business.slug %}"
+       data-confirm-url="{% url 'view-cart-summary' business_slug=current_business.slug %}"
+       data-material-list-url="{% url 'material-list' business_slug=current_business.slug %}"
+       data-no-image="{% static 'images/no-image.png' %}"
+       data-preset-url="{% url 'material-save-items' business_slug=current_business.slug %}"
+       data-preset-list-url="{% url 'material-preset-list' business_slug=current_business.slug %}"></div>
+  <script type="module" src="{% static 'react/purchase-cart.js' %}"></script>
 
 </div>
 
-{% if current_business.enable_purchase_discount %}
 <script>
-(function(){
-  const SUBTOTAL = parseFloat("{{ subtotal|floatformat:2 }}") || 0;
-  const pctInput = document.getElementById('purchaseDiscountPercent');
-  const discRow  = document.getElementById('purchaseDiscountRow');
-  const discAmt  = document.getElementById('purchaseDiscAmt');
-  const grand    = document.getElementById('purchaseGrandTotal');
-  const peso = n => n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
-  window.recalcPurchaseDiscount = function(){
-    let pct = Math.max(0, Math.min(parseFloat(pctInput.value) || 0, 100));
-    const amt = SUBTOTAL * pct / 100;
-    if (discRow) discRow.style.display = pct > 0 ? '' : 'none';
-    if (discAmt) discAmt.textContent = peso(amt);
-    grand.textContent = '₱' + peso(SUBTOTAL - amt);
-  };
-  recalcPurchaseDiscount();
-})();
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
 </script>
-{% endif %}
-
 
 {% endblock content %}
