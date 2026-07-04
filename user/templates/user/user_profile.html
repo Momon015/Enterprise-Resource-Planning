@@ -177,6 +177,47 @@ document.addEventListener("DOMContentLoaded", function () {
 
       <div class="card">
         <div class="card-header">
+          <div>
+            <div class="card-header-title">Appearance</div>
+            <div class="card-header-sub">How the app looks — just for you</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{% url 'set-theme' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <div class="theme-picker">
+              <button type="submit" name="theme" value="light"
+                      class="theme-picker__opt{% if user.theme != 'dark' %} is-active{% endif %}">
+                <i class="bi bi-sun"></i> Light
+              </button>
+              <button type="submit" name="theme" value="dark"
+                      class="theme-picker__opt{% if user.theme == 'dark' %} is-active{% endif %}">
+                <i class="bi bi-moon-stars"></i> Dark
+              </button>
+            </div>
+
+            <div class="theme-picker__label">Sidebar</div>
+            <div class="theme-picker theme-picker--3">
+              <button type="submit" name="sidebar_theme" value="match"
+                      class="theme-picker__opt{% if user.sidebar_theme != 'light' and user.sidebar_theme != 'dark' %} is-active{% endif %}">
+                <i class="bi bi-link-45deg"></i> Match app
+              </button>
+              <button type="submit" name="sidebar_theme" value="light"
+                      class="theme-picker__opt{% if user.sidebar_theme == 'light' %} is-active{% endif %}">
+                <i class="bi bi-sun"></i> Light
+              </button>
+              <button type="submit" name="sidebar_theme" value="dark"
+                      class="theme-picker__opt{% if user.sidebar_theme == 'dark' %} is-active{% endif %}">
+                <i class="bi bi-moon-stars"></i> Dark
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
           <span class="card-header-title" style="display:flex; align-items:center; gap:0.4rem;">
             <!-- <i class="bi bi-lightning"></i> -->
             Quick Actions

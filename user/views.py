@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import authenticate, login, logout
@@ -356,6 +357,27 @@ def user_profile(request, user_id, slug):
     
     context = {'user': user, 'business': business}
     return render(request, 'user/user_profile.html', context)
+
+@login_required(login_url='login')
+@require_POST
+def set_theme(request):
+    """Save the user's light/dark preference. Called by the topbar toggle
+    (fetch, ignores response) and the profile Appearance buttons (form POST)."""
+    changed = []
+    theme = request.POST.get('theme')
+    if theme in ('light', 'dark'):
+        request.user.theme = theme
+        changed.append('theme')
+    sidebar = request.POST.get('sidebar_theme')
+    if sidebar in ('match', 'light', 'dark'):
+        request.user.sidebar_theme = sidebar
+        changed.append('sidebar_theme')
+    if changed:
+        request.user.save(update_fields=changed)
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return JsonResponse({'ok': True, 'theme': request.user.theme})
 
 @login_required(login_url='login')
 def user_edit_profile(request, user_id, slug):

@@ -160,7 +160,7 @@ function selectAllVisible(master) {
               {% endfor %}
             </div>
             <div class="mf-form-actions">
-              <a href="{% url 'expense-waste-list' %}" class="btn btn-light">Cancel</a>
+              <a href="{% url 'expense-waste-list' %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
               <button type="submit" class="btn btn-danger">
                 <i class="bi bi-check-circle"></i> Confirm Waste
               </button>
@@ -282,7 +282,7 @@ function selectAllVisible(master) {
             </div>
 
             <div class="mf-form-actions" style="margin-top:1rem;">
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
+              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
               <button type="submit" class="btn btn-danger">
                 <i class="bi bi-trash2"></i> Log Selected Waste
               </button>

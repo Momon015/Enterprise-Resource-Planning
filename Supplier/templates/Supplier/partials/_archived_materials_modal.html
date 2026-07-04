@@ -1,0 +1,59 @@
+<div class="quickview__panel cm-panel cm-panel--form"{% if reload_on_close %} data-reload-on-close{% endif %}>
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-archive-fill"></i></div>
+        <div>
+          <div class="cm-title">Archived Materials</div>
+          <div class="cm-sub">{{ materials|length }} item{{ materials|length|pluralize }} · hidden from your active list</div>
+        </div>
+      </div>
+
+      {% if materials %}
+      <div style="margin-top:1rem; max-height:min(50vh, 420px); overflow-y:auto; border:1px solid var(--border-light); border-radius:8px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="sl-text-center">Qty</th>
+              <th class="sl-text-center">Unit</th>
+              <th class="sl-text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in materials %}
+            <tr>
+              <td>{{ m.name }}</td>
+              <td class="sl-text-center">{{ m.quantity }}</td>
+              <td class="sl-text-center">{{ m.get_unit_display|default:"—" }}</td>
+              <td class="table-actions">
+                <form method="POST" action="{% url 'restore-material' business_slug=current_business.slug material_id=m.id %}"
+                      hx-post="{% url 'restore-material' business_slug=current_business.slug material_id=m.id %}"
+                      hx-target="#confirmBody" hx-swap="innerHTML" style="display:inline;">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-success" type="submit">
+                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mf-help" style="margin-top:0.75rem;">Restore puts a material back in your list — its linked product comes back too. Purchase history is always kept.</div>
+      {% else %}
+      <div class="empty-state" style="padding: 2rem 1rem;">
+        <div class="empty-icon"><i class="bi bi-archive-fill"></i></div>
+        <h3 class="empty-title">No archived materials</h3>
+        <p class="empty-text">
+          Materials you archive will appear here. They stay out of your active list but their purchase history is preserved.
+        </p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>

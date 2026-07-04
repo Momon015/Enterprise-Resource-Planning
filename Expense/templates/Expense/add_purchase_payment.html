@@ -77,8 +77,10 @@
             <label class="form-label">
               <i class="bi bi-wallet2"></i> Method
             </label>
+            {% comment %} 'credit' skipped below — credit method PAUSED 2026-07-03 (matches sales side); unhide when customer/supplier accounts ship {% endcomment %}
             <div class="payment-method-grid">
               {% for value, label in method_choices %}
+                {% if value != 'credit' and value != 'store_credit' %}
                 <label class="payment-method-option">
                   <input type="radio" name="method" value="{{ value }}"
                          {% if forloop.first %}checked{% endif %} required>
@@ -99,6 +101,7 @@
                     <span>{{ label }}</span>
                   </div>
                 </label>
+                {% endif %}
               {% endfor %}
             </div>
           </div>

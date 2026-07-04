@@ -52,7 +52,9 @@
     </div> {% endcomment %}
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -92,6 +94,20 @@
           <div class="card-header-left-group">
             <span class="card-header-title">Service Catalog</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} service{{ page_obj.paginator.count|pluralize }}</span>
+          </div>
+          <!-- QUICK LINKS — moved from the old right column -->
+          <div class="d-flex gap-2">
+            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create service
+            </a>
+            {% if request.user.role == 'owner' %}
+            <a href="{% url 'archived-services' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-services' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-archive"></i> Archive
+            </a>
+            {% endif %}
           </div>
         </div>
 
@@ -232,6 +248,11 @@
 
     <!-- RIGHT PANEL -->
     <div class="right-panel">
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Sales Velocity + Top Services
+      commented 2026-07-04 (units_sold_all / top_services_month/all → Sales
+      Analytics; KPI cache still computes them). The nested Quick links card moved
+      into the table header (Create service + Archive). switchTopServices /
+      toggleTopItemsMore JS stays below for the relocation.
       <div class="card">
         <div class="card-header" style="padding: 0.55rem 1rem;">
           <div class="card-header-left-group">
@@ -317,8 +338,9 @@
         </div>
 
 
-        
+
       </div>
+      {% endcomment %}
     </div>
 
   </div>

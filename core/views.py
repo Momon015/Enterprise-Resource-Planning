@@ -66,7 +66,7 @@ def landing_page(request):
 def category_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     categories = get_queryset_for_user(request.user, Category.objects.all()).filter(business=business).order_by('-name')
-    section = None
+    section = 'category'   # Categories has its own sidebar item now
     
     form = CategoryFilterForm(request.GET or None)
     
@@ -80,7 +80,6 @@ def category_list(request, business_slug):
     
     if category_type == 'product':
         categories = categories.filter(category_type='product')
-        section = 'product'
 
     elif category_type == 'material':
         categories = categories.filter(category_type='material')

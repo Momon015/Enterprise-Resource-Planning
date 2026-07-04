@@ -20,6 +20,7 @@ urlpatterns = [
     
     path('settings/profile/<int:user_id>/<slug:slug>/', views.user_profile, name='user-profile'),
     path('settings/deactivate/<int:user_id>/<slug:slug>/', views.user_deactivate, name='user-deactivate'),
+    path('settings/theme/', views.set_theme, name='set-theme'),
     
     path('settings/edit/profile/password/', views.user_edit_password, name='user-edit-password'),
     # path('settings/edit/profile/reset/password/', views.user_reset_password, name='user-reset-password'),

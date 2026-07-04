@@ -24,9 +24,9 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">CASH FLOW</div>
+      <div class="page-breadcrumb">FINANCIAL OVERVIEW</div>
       <h1 class="page-title">Payables</h1>
-      <p class="page-subtitle">Supplier utang — outstanding payments your business owes.</p>
+      <p class="page-subtitle">Supplier debt — outstanding payments your business owes.</p>
     </div>
   </div>
 
@@ -55,7 +55,7 @@
               </label>
               <select name="status" class="form-control form-control--polish">
                 <option value="">All</option>
-                <option value="utang" {% if request.GET.status == 'utang' %}selected{% endif %}>Utang (not paid)</option>
+                <option value="utang" {% if request.GET.status == 'utang' %}selected{% endif %}>Debt (unpaid)</option>
                 <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>Partial</option>
               </select>
             </div>
@@ -175,7 +175,7 @@
 
                 <td class="sl-text-center">
                   <div class="btn-group">
-                    <span class="row-chevron" title="Record payment"><i class="bi bi-chevron-right"></i></span>
+                    <span class="row-chevron" title="Record payment">View</span>
                   </div>
                 </td>
               </tr>

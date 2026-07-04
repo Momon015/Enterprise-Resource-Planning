@@ -294,6 +294,11 @@ def employee_archive(request, business_slug, employee_id, slug):
 def archived_employees(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     employees = Employee.all_objects.filter(business=business, status='inactive').order_by('-id')
+    if request.headers.get('HX-Request'):
+        return render(request, 'Employee/partials/_archived_employees_modal.html', {
+            'employees': employees,
+            'business': business,
+        })
     return render(request, 'Employee/archived_employees.html', {
         'employees': employees,
         'business': business,
@@ -322,7 +327,14 @@ def restore_employee(request, business_slug, employee_id, slug):
         log_activity(business, request.user, 'employee.restored',
                      target=employee, description=f"{employee.name} restored")
         messages.success(request, f"{employee.name} restored. They can log in again.")
-    return redirect('employee-list', business_slug=business.slug)
+        if request.headers.get('HX-Request'):
+            employees = Employee.all_objects.filter(business=business, status='inactive').order_by('-id')
+            return render(request, 'Employee/partials/_archived_employees_modal.html', {
+                'employees': employees,
+                'business': business,
+                'reload_on_close': True,
+            })
+    return redirect('archived-employees', business_slug=business.slug)
 
 
 @login_required(login_url='login')

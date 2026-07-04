@@ -78,15 +78,15 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="product-name">{{ item.name }}</div>
               <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
             </td>
-            <td><span class="mono">{{ item.quantity }}</span></td>
-            <td class='text-end'><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
+            <td><span class="num">{{ item.quantity }}</span></td>
+            <td class='text-end'><span class="num">₱{{ item.price|floatformat:2 }}</span></td>
             {% if not purchase.discount_percent %}
-            <td class='text-end'><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
+            <td class='text-end'><span class="num" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
               ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
             </span></td>
             {% endif %}
             <td class="text-end pe-4">
-              <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
+              <span class="num" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
             </td>
           </tr>
           {% empty %}
@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
 
     <!-- TOTALS FOOTER -->
-    <div style="border-top: 1px solid var(--border); padding: 1rem 1.25rem; background: #fafaf8;">
+    <div style="border-top: 1px solid var(--border); padding: 1rem 1.25rem; background: var(--surface-alt);">
 
       {% if purchase.discount_percent or total_discount %}
       <div class="total-row">
@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
           {% elif purchase.amount_paid %}
             <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Partial</span>
           {% else %}
-            <span class="sl-badge" style="background:#fdf0ef; color:var(--danger);">Utang</span>
+            <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">Debt</span>
           {% endif %}
           {% with fp=purchase.payments.first %}{% if fp %}<span style="color:var(--muted); font-size:.82rem; margin-left:.4rem;">via {{ fp.get_method_display }}</span>{% endif %}{% endwith %}
         </span>

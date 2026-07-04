@@ -25,7 +25,7 @@ from Product.models import Product
 from Product.forms import ProductForm
 
 from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense, PurchaseReturn, PurchasePayment
-from Employee.models import Employee, Shift, ShiftEmployee
+from Employee.models import Employee, Shift, ShiftEmployee, DrawerSession, CashPayout
 from Employee.forms import EmployeeForm
 
 from core.models import StatusModel
@@ -54,6 +54,9 @@ import logging
 from subscription.decorators import feature_required
 
 from activity.utils import summarize_items
+
+from Dashboard.models import DashboardSeen
+from user.models import BusinessProfile
 
 # Create your views here.
 
@@ -120,6 +123,8 @@ def _compute_dashboard_metrics(business, today):
     wst_dir,  wst_pct  = _pct_delta(total_waste_cost,    y_waste)
     opx_dir,  opx_pct  = _pct_delta(total_opex,          y_opex)
     net_dir,  net_pct  = _pct_delta(net_profit,          y_net)
+    # Expense Cost card (accrual lens) = opex + waste, one number
+    expcost_dir, expcost_pct = _pct_delta(total_opex + total_waste_cost, y_opex + y_waste)
 
     # Weekly comparison
     this_week_start = today - timedelta(days=today.weekday())
@@ -182,6 +187,7 @@ def _compute_dashboard_metrics(business, today):
         
         # yesterday
         'total_opex': total_opex,
+        'total_expcost': total_opex + total_waste_cost,
         'y_opex': y_opex,
 
         'rev_dir': rev_dir, 'rev_pct': rev_pct,
@@ -189,6 +195,7 @@ def _compute_dashboard_metrics(business, today):
         'wst_dir': wst_dir, 'wst_pct': wst_pct,
         'opx_dir': opx_dir, 'opx_pct': opx_pct,
         'net_dir': net_dir, 'net_pct': net_pct,
+        'expcost_dir': expcost_dir, 'expcost_pct': expcost_pct,
 
         'this_week_label': f"Wk {this_week_start.strftime('%b %d')}",
         'last_week_label': f"Wk {last_week_start.strftime('%b %d')}",
@@ -293,7 +300,7 @@ def dashboard(request, business_slug):
     raw_purchase_payments  =  list(PurchasePayment.objects.filter(business=business).select_related('purchase').order_by('-id')[:10])
     
     def _payment_text(obj):
-        """Build 'Free' / 'via Cash' / 'via GCash (partial ₱X)' / 'Utang' from a Sale or Purchase."""
+        """Build 'Free' / 'via Cash' / 'via GCash (partial ₱X)' / 'Debt' from a Sale or Purchase."""
         total = getattr(obj, 'total_revenue', None)
         if total is None:
             total = getattr(obj, 'total_cost', 0)
@@ -304,7 +311,7 @@ def dashboard(request, business_slug):
             return f"via {first_payment.get_method_display()}"
         if first_payment:
             return f"via {first_payment.get_method_display()} (partial ₱{first_payment.amount:.2f})"
-        return "Utang"
+        return "Debt"
 
 
     activities = []
@@ -404,7 +411,8 @@ def dashboard(request, business_slug):
     
     # ── Today's cash lens ────────────────────────────────────────────────
     # Cash IN/OUT = payments made TODAY (collecting an old debt today still counts).
-    collected = SalesPayment.objects.filter(business=business, date=today).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    # Store-credit redemptions settle debt but move NO cash — excluded from the cash lens.
+    collected = SalesPayment.objects.filter(business=business, date=today).exclude(method='credit').aggregate(t=Sum('amount'))['t'] or Decimal(0)
     paid      = PurchasePayment.objects.filter(business=business, date=today).aggregate(t=Sum('amount'))['t'] or Decimal(0)
 
     # New utang created TODAY = unpaid portion of today's OWN sales/purchases (not all-time).
@@ -419,13 +427,91 @@ def dashboard(request, business_slug):
 
     # Cash deltas vs yesterday (drive the arrows in Cash Flow mode)
     yesterday   = today - timedelta(days=1)
-    y_collected = SalesPayment.objects.filter(business=business, date=yesterday).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_collected = SalesPayment.objects.filter(business=business, date=yesterday).exclude(method='credit').aggregate(t=Sum('amount'))['t'] or Decimal(0)
     y_paid      = PurchasePayment.objects.filter(business=business, date=yesterday).aggregate(t=Sum('amount'))['t'] or Decimal(0)
     y_net_cash  = y_collected - y_paid - (metrics.get('y_opex') or Decimal('0'))
 
     col_dir,   col_pct   = _pct_delta(collected, y_collected)
     paid_dir,  paid_pct  = _pct_delta(paid,      y_paid)
     ncash_dir, ncash_pct = _pct_delta(net_cash,  y_net_cash)
+
+    # Collected-by-method (cash-lens Revenue popover)
+    method_names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
+    collected_by_method = [
+        {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in SalesPayment.objects.filter(business=business, date=today)
+                 .exclude(method='credit')
+                 .values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+    credit_used_today = SalesPayment.objects.filter(
+        business=business, date=today, method='credit'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+
+    # Time-of-day greeting (Manila local time)
+    hour = timezone.localtime().hour
+    if 5 <= hour < 12:
+        greeting = 'Good morning'
+    elif hour < 18:
+        greeting = 'Good afternoon'
+    else:
+        greeting = 'Good evening'
+
+    # ── Row-2 KPI cards: counts, drawer, stock alerts ──────────────────
+    txn_count = sales.count()
+    y_txn     = Sale.objects.active().filter(business=business, date=yesterday).count()
+    txn_diff  = txn_count - y_txn
+
+    pur_count = purchases.count()
+    y_pur     = Purchase.objects.active().filter(business=business, purchase_date=yesterday).count()
+    pur_diff  = pur_count - y_pur
+
+    cash_sales_today = SalesPayment.objects.filter(
+        business=business, date=today, method='cash'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    # CashPayout.shift is a ShiftEmployee (not a Shift) — business/date live on ShiftEmployee.shift
+    payouts_today = CashPayout.objects.filter(
+        shift__shift__business=business, shift__shift__date=today
+    ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    returns_today = PurchaseReturn.objects.filter(
+        business=business, date=today
+    ).aggregate(t=Sum('refund_total'))['t'] or Decimal(0)
+
+    drawer = None
+    if business.enable_cash_reconciliation:
+        drawer = DrawerSession.objects.filter(business=business, date=today).order_by('-opened_at').first()
+    drawer_balance = (drawer.opening_cash + cash_sales_today - payouts_today) if drawer else None
+
+    stock_alert_qs    = Product.goods.filter(business=business, prepared_quantity__lte=F('low_stock_threshold'))
+    stock_alert_count = stock_alert_qs.count()
+    stock_alert_top   = list(stock_alert_qs.order_by('prepared_quantity')[:3])
+    out_of_stock      = Product.goods.filter(business=business, prepared_quantity=0).count()
+    low_only          = stock_alert_count - out_of_stock
+
+    # ── Needs Attention — current state requiring action (bell = event stream) ──
+    due_soon_count = sum(
+        1 for p_ in Purchase.objects.active().filter(
+            business=business, due_date__isnull=False,
+            due_date__range=(today, today + timedelta(days=3)))
+        if p_.outstanding > 0
+    )
+
+    attention = []
+    if out_of_stock:
+        attention.append({'tone': 'danger', 'icon': 'bi-x-octagon',
+            'text': f"{out_of_stock} product{'s are' if out_of_stock != 1 else ' is'} out of stock — restock to avoid missed sales",
+            'url': reverse('view-inventory-stock', kwargs={'business_slug': business.slug})})
+    if low_only:
+        attention.append({'tone': 'warning', 'icon': 'bi-exclamation-triangle',
+            'text': f"{low_only} product{'s are' if low_only != 1 else ' is'} running low on stock",
+            'url': reverse('view-inventory-stock', kwargs={'business_slug': business.slug})})
+    if due_soon_count:
+        attention.append({'tone': 'info', 'icon': 'bi-credit-card',
+            'text': f"{due_soon_count} supplier payment{'s' if due_soon_count != 1 else ''} due within 3 days",
+            'url': reverse('purchase-payables', kwargs={'business_slug': business.slug})})
+    if drawer and drawer.is_open:
+        attention.append({'tone': 'info', 'icon': 'bi-cash-coin',
+            'text': "Cash drawer is open — remember to close it at end of day",
+            'url': reverse('shift-dashboard', kwargs={'business_slug': business.slug})})
 
     context = {
         **metrics,
@@ -455,6 +541,19 @@ def dashboard(request, business_slug):
         'paid_dir': paid_dir, 'paid_pct': paid_pct,
         'ncash_dir': ncash_dir, 'ncash_pct': ncash_pct,
 
+        'away': _away_summary(request, business),
+        'greeting': greeting,
+        'collected_by_method': collected_by_method,
+        'credit_used_today': credit_used_today,
+
+        'txn_count': txn_count, 'txn_diff': txn_diff,
+        'pur_count': pur_count, 'pur_diff': pur_diff,
+        'drawer': drawer, 'drawer_balance': drawer_balance,
+        'cash_sales_today': cash_sales_today,
+        'payouts_today': payouts_today, 'returns_today': returns_today,
+        'stock_alert_count': stock_alert_count, 'stock_alert_top': stock_alert_top,
+        'attention': attention,
+
     }
     return render(request, 'Dashboard/dashboard.html', context)
 
@@ -476,6 +575,75 @@ def set_dashboard_basis(request, business_slug):
     label = 'Cash Flow' if basis == 'cash' else 'Business Performance'
     messages.success(request, f"Dashboard now opens in {label} by default.")
     return redirect('dashboard', business_slug=business.slug)
+
+AWAY_GAP_MINUTES = 30
+
+def _away_summary(request, business):
+    """'While you were away' — owner recap of what happened between dashboard
+    visits. Window opens when the gap exceeds AWAY_GAP_MINUTES and lives in the
+    session (survives refreshes) until dismissed with the ✕."""
+    if request.user.role != 'owner':
+        return None
+
+    now = timezone.now()
+    seen, created = DashboardSeen.objects.get_or_create(
+        user=request.user, business=business, defaults={'seen_at': now})
+
+    sess_key = f'away_banner_{business.id}'
+    stored = request.session.get(sess_key)
+    if isinstance(stored, list):        # migrate old [start, end] session format
+        stored = stored[0]
+
+    if not created and (now - seen.seen_at) >= timedelta(minutes=AWAY_GAP_MINUTES):
+        stored = seen.seen_at.isoformat()   # a fresh gap restarts the window
+        request.session[sess_key] = stored
+
+    seen.seen_at = now
+    seen.save(update_fields=['seen_at'])
+
+    if not stored:
+        return None
+
+    # Live window: everything since the gap started, up to RIGHT NOW —
+    # the end doesn't freeze at the moment the banner first appeared.
+    start = datetime.fromisoformat(stored)
+    end   = now
+
+    sales       = Sale.objects.active().filter(business=business, created_at__range=(start, end))
+    sales_count = sales.count()
+    revenue     = sales.aggregate(t=Sum('total_revenue'))['t'] or 0
+    items_sold  = (SaleItem.objects
+                   .filter(sale__business=business, sale__is_void=False,
+                           sale__created_at__range=(start, end))
+                   .aggregate(t=Sum('quantity'))['t'] or 0)
+    purchases_count = Purchase.objects.active().filter(business=business, created_at__range=(start, end)).count()
+    expenses_count  = Expense.objects.filter(business=business, created_at__range=(start, end)).count()
+    waste_count     = Waste.objects.filter(business=business, created_at__range=(start, end)).count()
+
+    if not any([sales_count, purchases_count, expenses_count, waste_count]):
+        request.session.pop(sess_key, None)   # nothing happened — stay silent
+        return None
+
+    secs = int((end - start).total_seconds())
+    days, rem = divmod(secs, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes = rem // 60
+    duration = f"{days}d {hours}h" if days else (f"{hours}h {minutes}m" if hours else f"{minutes}m")
+
+    return {
+        'start': start, 'end': end, 'duration': duration,
+        'sales_count': sales_count, 'revenue': revenue, 'items_sold': items_sold,
+        'purchases_count': purchases_count, 'expenses_count': expenses_count,
+        'waste_count': waste_count,
+    }
+
+@login_required(login_url='login')
+@require_POST
+def dismiss_away_banner(request, business_slug):
+    business = get_object_or_404(BusinessProfile, slug=business_slug)
+    request.session.pop(f'away_banner_{business.id}', None)
+    return redirect('dashboard', business_slug=business_slug)
+
 
 
 

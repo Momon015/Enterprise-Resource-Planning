@@ -4,6 +4,16 @@
    localStorage says should be collapsed. Hides nav briefly only if needed,
    to prevent flash. If nothing is collapsed, the sidebar renders naturally. #} {% endcomment %}
 <script>
+// Restore the collapsed icon-rail state BEFORE paint — no flash on reload.
+(function () {
+  try {
+    if (localStorage.getItem('swiftErp.sidebar.collapsed') === '1'
+        && window.matchMedia('(min-width: 992px)').matches) {
+      document.documentElement.classList.add('sidebar-collapsed');
+    }
+  } catch (e) {}
+})();
+
 (function () {
   try {
     var c = JSON.parse(localStorage.getItem('swiftErp.sidebar.collapsedGroups') || '[]');
@@ -35,8 +45,8 @@
   </button>
 
   <div class="sidebar-mobile-brand-wrap">
-    <div class="sidebar-mobile-brand">Swift ERP</div>
-    <div class="sidebar-mobile-brand__sub">Sales · Inventory · Operations</div>
+    <div class="sidebar-mobile-brand"><span class="brand-word__pa">pa</span><span class="brand-word__kita">KITA</span></div>
+    {% comment %} <div class="sidebar-mobile-brand__sub">Sales · Inventory · Operations</div> {% endcomment %}
   </div>
 
   <div class="sidebar-mobile-actions">
@@ -57,12 +67,20 @@
   <!-- BRAND -->
   <a class="sidebar-brand"
      href="{% if user.is_authenticated %}{% url 'dashboard' business_slug=current_business.slug %}{% else %}{% url 'login' %}{% endif %}">
+    {% comment %} old Swift ERP logo — restore if paKITA wordmark test is reverted
     <div class="sidebar-brand__icon">
       <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
     </div>
+    {% endcomment %}
+    <img class="sidebar-brand__mark sidebar-brand__mark--light" src="{% static 'images/brand/mark-light-48.png' %}" alt="" aria-hidden="true">
+    <img class="sidebar-brand__mark sidebar-brand__mark--dark" src="{% static 'images/brand/favicon-48.png' %}" alt="" aria-hidden="true">
     <div class="sidebar-brand__text">
-      <div class="sidebar-brand__name">Swift ERP</div>
-      <div class="sidebar-brand__sub">Sales · Inventory · Operations</div>
+      {% comment %} text wordmark (Concept 1) — restore to compare against the image version
+      <div class="sidebar-brand__name brand-word"><span class="brand-word__pa">pa</span><span class="brand-word__kita">KITA</span></div>
+      {% endcomment %}
+      <img class="sidebar-brand__img sidebar-brand__img--light" src="{% static 'images/brand/pakita-recraft-light.png' %}" alt="paKITA">
+      <img class="sidebar-brand__img sidebar-brand__img--dark" src="{% static 'images/brand/pakita-recraft-transparent.png' %}" alt="paKITA">
+      {% comment %} <div class="sidebar-brand__sub">Sales · Inventory · Operations</div> {% endcomment %}
     </div>
   </a>
 
@@ -116,44 +134,21 @@
 
    <!-- NAV BODY -->
   <div class="sidebar-nav" id="sidebarNav">
-    {% if current_business.plan.has_dashboard or current_business.plan.has_daily_summary %}
-    <!-- HOME -->
-    <div class="sidebar-group" data-group="home">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-home">
-        <span class="sidebar-group__label">Home</span>
-        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
-      </button>
-      <div class="sidebar-group__items" id="group-home">
-        <ul>
-          <li>
-            {% if current_business.plan.has_dashboard %}
-              <!-- DASHBOARD -->
-              <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}"
-                href="{% url 'dashboard' business_slug=current_business.slug %}"
-                {% if request.user.role == 'staff' %}data-locked="Dashboard" data-locked-fixed="true"{% endif %}>
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
-                {% if request.user.role == 'staff' %}
-                  <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-                {% endif %}
-              </a>
-            {% endif %}
-          </li>
-          <li>
-            <!-- REPORTS -->
-            <a class="sidebar-nav__link {% if section == 'summary' %}is-active{% endif %}"
-              href="{% url 'view-summary' business_slug=current_business.slug %}"
-              {% if request.user.role == 'staff' %}data-locked="Reports" data-locked-fixed="true"{% endif %}>
-              <i class="bi bi-calendar-check"></i>
-              <span>Reports</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
+    {% if current_business.plan.has_dashboard %}
+    <!-- DASHBOARD — flat top item, no group -->
+    <ul class="sidebar-flat">
+      <li>
+        <a class="sidebar-nav__link {% if section == 'dashboard' %}is-active{% endif %}"
+          href="{% url 'dashboard' business_slug=current_business.slug %}"
+          {% if request.user.role == 'staff' %}data-locked="Dashboard" data-locked-fixed="true"{% endif %}>
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+          {% if request.user.role == 'staff' %}
+            <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+          {% endif %}
+        </a>
+      </li>
+    </ul>
     {% endif %}
 
     <!-- TRANSACTIONS -->
@@ -228,6 +223,110 @@
       </div>
     </div>
 
+    <!-- FINANCIAL OVERVIEW — exact numbers & statements (Analytics = trends/charts) -->
+    <div class="sidebar-group" data-group="financial">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-financial">
+        <span class="sidebar-group__label">Financial Overview</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-financial">
+        <ul>
+          {% if current_business.plan.has_dashboard or current_business.plan.has_daily_summary %}
+          <li>
+            {% comment %} INTERIM: points at view-summary's cash lens until the dedicated
+                Cash Flow page is built (view split, phase 2 of the IA restructure) {% endcomment %}
+            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis == 'cash' %}is-active{% endif %}"
+              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=cash"
+              {% if request.user.role == 'staff' %}data-locked="Cash Flow" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-cash-stack"></i>
+              <span>Cash Flow</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            {% comment %} the old "Reports" page — accrual lens {% endcomment %}
+            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis != 'cash' %}is-active{% endif %}"
+              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=accrual"
+              {% if request.user.role == 'staff' %}data-locked="Profitability" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-journal-bookmark"></i>
+              <span>Profitability</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          {% endif %}
+          <li>
+            <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"
+              href="{% url 'sales-receivables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Receivables"{% endif %}>
+              <i class="bi bi-arrow-down-left-circle"></i>
+              <span>Receivables</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'payable' %}is-active{% endif %}"
+              href="{% url 'purchase-payables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' %}data-locked="Payables"{% endif %}>
+              <i class="bi bi-arrow-up-right-circle"></i>
+              <span>Payables</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->
+    <div class="sidebar-group" data-group="analytics">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-analytics">
+        <span class="sidebar-group__label">Analytics</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-analytics">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'profit-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Profit-Analytics"{% endif %}>
+              <i class="bi bi-graph-up-arrow"></i>
+              <span>Profit Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+            <a class="sidebar-nav__link {% if section == 'sales-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Sales-Analytics"{% endif %}>
+              <i class="bi bi-clipboard-data"></i>
+              <span>Sales Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'expense-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Expense-Analytics"{% endif %}>
+              <i class="bi bi-pie-chart"></i>
+              <span>Expense Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
     <!-- CATALOG -->
     <div class="sidebar-group" data-group="catalog">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-catalog">
@@ -241,6 +340,13 @@
                href="{% url 'product-list' business_slug=current_business.slug %}">
               <i class="bi bi-basket"></i>
               <span>Products</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'category' %}is-active{% endif %}"
+               href="{% url 'category-list' business_slug=current_business.slug %}">
+              <i class="bi bi-tags"></i>
+              <span>Categories</span>
             </a>
           </li>
           {% if current_business.offers_services %}
@@ -267,7 +373,7 @@
           <li>
             <a class="sidebar-nav__link {% if section == 'inventory' %}is-active{% endif %}"
                href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">
-              <i class="bi bi-box"></i>
+              <i class="bi bi-boxes"></i>
               <span>Stock</span>
             </a>
           </li>
@@ -308,48 +414,14 @@
       </div>
     </div>
 
-   
-    <!-- CASH FLOW -->
-    <div class="sidebar-group" data-group="cashflow">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-cashflow">
-        <span class="sidebar-group__label">Cash Flow</span>
-        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
-      </button>
-      <div class="sidebar-group__items" id="group-cashflow">
-        <ul>
-          <li>
-            <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"
-              href="{% url 'sales-receivables' business_slug=current_business.slug %}"
-              {% if request.user.role == 'staff' %}data-locked="Receivables"{% endif %}>
-              <i class="bi bi-cash-stack"></i>
-              <span>Receivables</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-          <li>
-            <a class="sidebar-nav__link {% if section == 'payable' %}is-active{% endif %}"
-              href="{% url 'purchase-payables' business_slug=current_business.slug %}"
-              {% if request.user.role == 'staff' %}data-locked="Payables"{% endif %}>
-              <i class="bi bi-credit-card"></i>
-              <span>Payables</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
     {% if current_business.plan.has_timecards %}
-    <!-- TEAM -->
-    <div class="sidebar-group" data-group="team">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-team">
-        <span class="sidebar-group__label">Team</span>
+    <!-- STAFF (was Team) -->
+    <div class="sidebar-group" data-group="staff">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-staff">
+        <span class="sidebar-group__label">Staff</span>
         <i class="bi bi-chevron-down sidebar-group__chevron"></i>
       </button>
-      <div class="sidebar-group__items" id="group-team">
+      <div class="sidebar-group__items" id="group-staff">
         <ul>
           {% if request.user.role == 'owner' %}
           <li>
@@ -485,9 +557,9 @@
        class="mb-nav-item {% if section == 'dashboard' %}is-active{% endif %}">
       <i class="bi bi-speedometer2"></i><span>Dashboard</span>
     </a>
-    <a href="{% url 'view-summary' business_slug=current_business.slug %}"
+    <a href="{% url 'view-summary' business_slug=current_business.slug %}?basis=accrual"
        class="mb-nav-item {% if section == 'summary' %}is-active{% endif %}">
-      <i class="bi bi-calendar-check"></i><span>Reports</span>
+      <i class="bi bi-graph-up-arrow"></i><span>Profit</span>
     </a>
     <a href="{% url 'sale-list' business_slug=current_business.slug %}"
        class="mb-nav-item {% if section == 'sale' %}is-active{% endif %}">
@@ -585,6 +657,19 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  // ── Collapsed icon rail: native tooltips on icons only while collapsed ──
+  const syncCollapsedTitles = () => {
+    const on = document.documentElement.classList.contains('sidebar-collapsed');
+    document.querySelectorAll('a.sidebar-nav__link').forEach(a => {
+      const label = a.querySelector('span');
+      if (!label) return;
+      if (on) a.title = label.textContent.trim();
+      else a.removeAttribute('title');
+    });
+  };
+  syncCollapsedTitles();
+  document.addEventListener('sidebar:collapse', syncCollapsedTitles);
+
   // ── Account dropdown toggle ──
   const accountToggle = document.getElementById('accountToggle');
   if (accountToggle) {
@@ -668,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toast.className = 'toast-message toast-warning';
         toast.innerHTML = `
           <i class="bi bi-lock-fill"></i>
-          <span class="toast-text">&nbsp;${message}</span>
+          <span class="toast-text">${message}</span>
         `;
         container.appendChild(toast);
 

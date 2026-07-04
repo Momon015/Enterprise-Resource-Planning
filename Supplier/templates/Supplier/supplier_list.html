@@ -143,7 +143,7 @@
                       {% if supplier.image %}
                         <img src="{{ supplier.image.url }}" alt="" class="list-thumb">
                       {% else %}
-                        <img src="{% static 'images/no-image.png' %}" alt="No image" class="list-thumb">
+                        <span class="list-thumb-placeholder"><i class="bi bi-shop"></i></span>
                       {% endif %}
                       <div class="name-text">
                         <strong>{{ supplier.name }}</strong>
@@ -289,7 +289,10 @@
             <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> Create supplier
             </a>
-            <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-suppliers' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-archive-fill"></i> Archive
             </a>
           </div>

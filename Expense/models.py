@@ -173,10 +173,10 @@ class Purchase(TimeStampModel):
 
     @property
     def settlement_display(self):
-        """Label: 'Utang / Debt', a method name (COD/Cash/GCash…), 'Mixed', or 'Partial · X'."""
+        """Label: 'Debt', a method name (COD/Cash/GCash…), 'Mixed', or 'Partial · X'."""
         status = self.settlement_status
         if status == 'unpaid':
-            return 'Utang / Debt'
+            return 'Debt'
         methods = {p.get_method_display() for p in self.payments.all()}
         label = next(iter(methods)) if len(methods) == 1 else 'Mixed'
         return f'Partial · {label}' if status == 'partial' else label

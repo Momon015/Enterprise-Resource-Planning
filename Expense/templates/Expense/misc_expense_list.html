@@ -44,17 +44,54 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
+
+      <!-- ABOUT TEMPLATES — one-time hint for first-time users; ✕ remembers per browser -->
+      <div class="sd-note-box" id="templateHint" hidden style="margin: 0;">
+        <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+        <div>
+          <div class="sd-note-title">About templates</div>
+          <div class="sd-note-text">Templates define your recurring costs. When you log an expense, you pick from these and enter the actual amount paid.</div>
+        </div>
+        <button type="button" id="templateHintClose" aria-label="Dismiss"
+                style="background:none; border:none; color:var(--muted); margin-left:auto; align-self:flex-start; cursor:pointer; font-size:0.9rem; padding:0.1rem;">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <script>
+        (function () {
+          const KEY = 'swiftErp.hint.expense-templates';
+          const box = document.getElementById('templateHint');
+          if (!localStorage.getItem(KEY)) box.hidden = false;
+          document.getElementById('templateHintClose').addEventListener('click', function () {
+            localStorage.setItem(KEY, '1');
+            box.hidden = true;
+          });
+        })();
+      </script>
+
       <div class="card table-card">
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">All Templates</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} template{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Most recent first</span>
+          <!-- Quick Actions — moved from the old right column; Categories link dropped (own sidebar page) -->
+          <div class="d-flex gap-2">
+            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create template
+            </a>
+            <a href="{% url 'expense-create' business_slug=current_business.slug %}"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-receipt-cutoff"></i> Log expense
+            </a>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -89,11 +126,15 @@ document.addEventListener("DOMContentLoaded", function () {
                       <i class="bi bi-eye"></i>
                     </a> {% endcomment %}
                     <a href="{% url 'misc-expense-update' misc_expense_id=misc.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'misc-expense-update' misc_expense_id=misc.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit template">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
                     <a href="{% url 'misc-expense-delete' misc_expense_id=misc.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'misc-expense-delete' misc_expense_id=misc.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--danger" title="Delete template">
                       <i class="bi bi-trash3"></i>
                     </a>
@@ -151,58 +192,12 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- Overview -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-bookmark-fill"></i> Templates Overview
-          </span>
-        </div>
-        <div class="card-body" style="padding: 1rem;">
-
-          <!-- Featured Total -->
-          <div class="period-net">
-            <div class="period-net-label">TOTAL TEMPLATES</div>
-            <div class="period-net-value">{{ page_obj.paginator.count }}</div>
-            <div class="period-net-sub">
-              <i class="bi bi-bookmark"></i>
-              Reusable for recurring costs
-            </div>
-          </div>
-
-          <!-- About note -->
-          <div class="sd-note-box">
-            <div class="sd-note-icon">
-              <i class="bi bi-info-circle-fill"></i>
-            </div>
-            <div>
-              <div class="sd-note-title">About templates</div>
-              <div class="sd-note-text">Templates define your recurring costs. When you log an expense, you pick from these and enter the actual amount paid.</div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning"></i> Quick Actions
-          </span>
-        </div>
-        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
-            <i class="bi bi-plus-circle"></i> Create template
-          </a>
-          <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-light btn-block">
-            <i class="bi bi-receipt-cutoff"></i> Log expense
-          </a>
-          <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=expense" class="btn btn-light btn-block">
-            <i class="bi bi-tags-fill"></i> Categories
-          </a>
-        </div>
-      </div>
+      {% comment %} Right column retired 2026-07-04 — Templates Overview's total
+      duplicated the table-header count badge (not analytics, just redundant);
+      the About note moved to the top as a one-time dismissible hint
+      (localStorage swiftErp.hint.expense-templates); Create template + Log expense
+      moved into the table header; Categories link dropped (own sidebar page).
+      Nothing here is earmarked for Analytics. {% endcomment %}
 
     </div>
 

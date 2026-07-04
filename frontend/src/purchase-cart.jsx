@@ -137,7 +137,7 @@ function CartRow({ item, mode, onQty, onLine, onRemove, onToast }) {
               <div style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}>
                 <div className="row-price-chip">
                   <span style={{ color:'var(--muted)', fontSize:'0.85rem' }}>₱</span>
-                  <input className="mono" type="number" step="0.01" min="0" autoFocus
+                  <input className="num" type="number" step="0.01" min="0" autoFocus
                          value={priceDraft} onChange={e => setPriceDraft(e.target.value)} />
                 </div>
                 <button className="apply-check-btn" title="Update total price"
@@ -244,7 +244,7 @@ function PurchaseCart() {
 
       {clearing && (
         <ConfirmModal
-          title="Clear all items?"
+          title="Clear Items?"
           note="This empties the cart so you can start over. Nothing has been saved yet."
           tone="danger" icon="bi-trash" btnIcon="bi-trash-fill" label="Clear cart"
           onConfirm={doClear} onCancel={() => setClearing(false)} />
@@ -311,7 +311,7 @@ function PurchaseCart() {
                            onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
                            style={{ width:'72px', textAlign:'right', padding:'.35rem .5rem',
                                     border:'1px solid var(--accent)', borderRadius:'8px',
-                                    background:'#fff', fontWeight:600 }} />
+                                    background:'var(--surface)', fontWeight:600 }} />
                     <span style={{ color:'var(--accent)', fontWeight:700 }}>%</span>
                   </span>
                 </div>

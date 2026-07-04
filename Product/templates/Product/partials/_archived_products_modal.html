@@ -1,0 +1,76 @@
+{% load static %}
+<div class="quickview__panel cm-panel cm-panel--form"{% if reload_on_close %} data-reload-on-close{% endif %}>
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-archive-fill"></i></div>
+        <div>
+          <div class="cm-title">Archived Products</div>
+          <div class="cm-sub">{{ products|length }} item{{ products|length|pluralize }} · hidden from your active list</div>
+        </div>
+      </div>
+
+      {% if cm_alert %}
+      <div class="mf-error" style="margin-top:0.75rem;"><i class="bi bi-exclamation-triangle"></i> {{ cm_alert }}</div>
+      {% endif %}
+
+      {% if products %}
+      <div style="margin-top:1rem; max-height:min(50vh, 420px); overflow-y:auto; border:1px solid var(--border-light); border-radius:8px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="sl-text-center">Qty</th>
+              <th class="sl-text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td>
+                <div class="list-name-cell">
+                  {% if p.image %}
+                    <img src="{{ p.image.url }}" alt="" class="list-thumb">
+                  {% else %}
+                    <span class="list-thumb-placeholder"><i class="bi bi-image"></i></span>
+                  {% endif %}
+                  <div class="name-text">
+                    <strong>{{ p.name|capfirst }}</strong>
+                    {% if p.material.supplier %}
+                      <small class="text-muted">{{ p.material.supplier.name }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td class="sl-text-center">{{ p.prepared_quantity|default:"0" }}</td>
+              <td class="table-actions">
+                <form method="POST" action="{% url 'restore-product' business_slug=current_business.slug product_id=p.id %}"
+                      hx-post="{% url 'restore-product' business_slug=current_business.slug product_id=p.id %}"
+                      hx-target="#confirmBody" hx-swap="innerHTML" style="display:inline;">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-success" type="submit">
+                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mf-help" style="margin-top:0.75rem;">Restore puts a product back in your catalog. Sales history is always kept.</div>
+      {% else %}
+      <div class="empty-state" style="padding: 2rem 1rem;">
+        <div class="empty-icon"><i class="bi bi-archive-fill"></i></div>
+        <h3 class="empty-title">No archived products</h3>
+        <p class="empty-text">
+          Products you archive will appear here. They stay out of your active catalog but their sales history is preserved.
+        </p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>

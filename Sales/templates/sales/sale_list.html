@@ -49,11 +49,11 @@ document.addEventListener("DOMContentLoaded", function () {
       <h1 class="page-title">Sales Records</h1>
       <p class="page-subtitle">
         Products sold to customers, tracked per transaction
-        {% if kpis.current.computed_at %}
+        {% comment %} {% if kpis.current.computed_at %}
           <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
             title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
             style="cursor: help; font-size: 0.85em;"></i>
-        {% endif %}
+        {% endif %} {% endcomment %}
       </p>
     </div>
     {% comment %} <div class="page-header-right">
@@ -68,7 +68,10 @@ document.addEventListener("DOMContentLoaded", function () {
     </div> {% endcomment %}
   </div>
 
-  <!-- KPI STATS ROW -->
+  {% comment %} MOVED TO ANALYTICS (IA phase 3) — Sales KPI strip commented 2026-07-03.
+  Today's Sales / Today's Revenue / This Week / This Month + deltas belong to the
+  Sales Analytics page; relocate there, then delete this block. View still computes
+  kpis/sales_deltas — leave views.py untouched until the numbers have a new home.
   <div class="kpi-row kpi-row--4col">
 
     <!-- TODAY'S SALES -->
@@ -148,9 +151,12 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
 
   </div>
+  {% endcomment %}
 
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-03: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -229,6 +235,23 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
+            <!-- QUICK RANGES — filter chips, moved from the old right column -->
+            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today"
+              class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+              <i class="bi bi-calendar-day"></i> Today
+            </a>
+            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week"
+              class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+              <i class="bi bi-clock-history"></i> Last week
+            </a>
+            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week"
+              class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+              <i class="bi bi-calendar-week"></i> This week
+            </a>
+            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month"
+              class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
           </div>
             {% if request.user.role == 'owner' and users %}
             <div class="user-filter-bar">
@@ -312,7 +335,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     {% elif sale.amount_paid > 0 %}
                         <span class="sl-badge sl-badge-warning">Partial ₱{{ sale.amount_paid|floatformat:2 }}</span>
                     {% else %}
-                        <span class="sl-badge sl-badge-danger">Utang</span>
+                        <span class="sl-badge sl-badge-danger">Debt</span>
                     {% endif %}
                 </td>
 
@@ -321,7 +344,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="btn-group">
                     <a href="{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}" 
                       class="row-chevron" title="View detail">
-                      <i class="bi bi-chevron-right"></i>
+                      View
                     </a>
                   </div>
                 </td>
@@ -384,7 +407,11 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- Period Summary -->
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Period Summary commented 2026-07-03.
+      Total Revenue / Avg per sale / Best sale → Sales Analytics; Collected /
+      Receivables already live in Financial Overview. The filtered total now shows
+      as a badge in the table header. View still computes all of these — leave
+      views.py untouched until relocation.
       <div class="card">
         <div class="card-header">
             <span class="card-header-title">
@@ -422,8 +449,11 @@ document.addEventListener("DOMContentLoaded", function () {
           </dl>
         </div>
       </div>
+      {% endcomment %}
 
-      <!-- Quick Ranges -->
+      {% comment %} Quick Ranges card retired 2026-07-03 — the buttons moved up
+      beside the Advanced filters (they're filters, not analytics). Safe to delete
+      once the slim layout is confirmed.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -449,6 +479,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </a>
         </div>
       </div>
+      {% endcomment %}
 
       {% comment %} <!-- Related -->
       <div class="card">

@@ -30,7 +30,9 @@
     </div>
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -119,6 +121,23 @@
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
+            <!-- QUICK RANGES — filter chips, moved from the old right column -->
+            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}?period=today"
+              class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+              <i class="bi bi-calendar-day"></i> Today
+            </a>
+            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}?period=last_week"
+              class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+              <i class="bi bi-clock-history"></i> Last week
+            </a>
+            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}?period=week"
+              class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+              <i class="bi bi-calendar-week"></i> This week
+            </a>
+            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}?period=month"
+              class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
           </div>
           <span class="card-header-sub">Most recent first</span>
         </div>
@@ -179,7 +198,7 @@
                 <div class="btn-group">
                     <a href="{% url 'sales-return-detail' business_slug=current_business.slug return_id=r.id %}?{{ request.GET.urlencode }}" 
                        class="row-chevron" title="View Detail">
-                      <i class="bi bi-chevron-right"></i>
+                      View
                     </a>
                   </div>
                 </td>
@@ -246,7 +265,9 @@
     <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- Period Summary -->
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Period Summary commented 2026-07-04.
+      Total Refunded / Total Returns / Avg per return → Sales Analytics. View still
+      computes these — leave views.py untouched until relocation.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -277,8 +298,11 @@
           </dl>
         </div>
       </div>
+      {% endcomment %}
 
-      <!-- Quick Ranges -->
+      {% comment %} Quick Ranges card retired 2026-07-04 — the buttons moved into
+      the table header (they're filters, not analytics). Safe to delete once the
+      slim layout is confirmed.
     <div class="card">
         <div class="card-header">
             <span class="card-header-title">
@@ -304,6 +328,7 @@
             </a>
         </div>
     </div>
+    {% endcomment %}
 
 
     </div>

@@ -1,10 +1,18 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ request.user.theme|default:'light' }}" data-bs-theme="{{ request.user.theme|default:'light' }}"
+      data-sidebar="{% if request.user.sidebar_theme == 'light' or request.user.sidebar_theme == 'dark' %}{{ request.user.sidebar_theme }}{% else %}{{ request.user.theme|default:'light' }}{% endif %}"
+      data-sidebar-pref="{{ request.user.sidebar_theme|default:'match' }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Sales & Inventory System{% endblock %}</title>
+    <title>{% block title %}paKITA{% endblock %}</title>
+
+    <!-- Favicons — paKITA lambda tile -->
+    <link rel="icon" href="{% static 'favicon.ico' %}" sizes="48x48">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/brand/favicon-32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/brand/favicon-16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/brand/favicon-180.png' %}">
 
     <!-- Bootstrap CSS -->
     <link
@@ -18,19 +26,19 @@
       rel="stylesheet"
     />
 
-    <!-- Google Fonts — Poppins -->
+    <!-- Google Fonts — Inter + Roboto Mono -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Exo+2:wght@800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=65" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=92" />
 
     {% block extra_css %}{% endblock %}
   </head>
-  <div class="toast-container" id="globalToast" aria-live="polite" aria-atomic="true"></div>
   <body>
+    <div class="toast-container" id="globalToast" aria-live="polite" aria-atomic="true"></div>
     <!-- Navbar -->
       {% block sidebar %}{% include 'navbar.html' %}{% endblock %}
 

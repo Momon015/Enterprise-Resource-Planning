@@ -39,3 +39,5 @@ seed_test_data.py
 *.local.json
 old_style.css
 old_navbar.html
+
+*.claude

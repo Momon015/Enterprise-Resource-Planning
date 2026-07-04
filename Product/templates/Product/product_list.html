@@ -59,33 +59,21 @@
   <!-- KPI STATS ROW (4-col) -->
   <div class="kpi-row kpi-row--4col">
 
-    <!-- TOTAL PRODUCTS -->
-    <div class="kpi-card">
+    <!-- TOTAL PRODUCTS (click = clear stock filter) -->
+    <div class="kpi-card kpi-card--hue-info kpi-card--clickable"
+         data-href="{% url 'product-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--info">
-        <i class="bi bi-box-seam"></i>
+        <i class="bi bi-basket"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Total Products</div>
         <div class="kpi-value">{{ kpis.current.total|default:"0" }}</div>
-        {% if kpis.deltas.total == None %}
-          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
-        {% elif kpis.deltas.total > 0 %}
-          <div class="kpi-delta kpi-delta--up">
-            <i class="bi bi-arrow-up"></i>
-            {{ kpis.deltas.total|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
-          </div>
-        {% elif kpis.deltas.total < 0 %}
-          <div class="kpi-delta kpi-delta--down">
-            <i class="bi bi-arrow-down"></i>
-            {{ kpis.deltas.total|floatformat:0|cut:"-" }} <span class="kpi-delta-note">vs Yesterday</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
-        {% endif %}
       </div>
     </div>
 
-        <!-- UNITS SOLD (THIS MONTH) -->
+    {% comment %} MOVED TO ANALYTICS (IA phase 3) — Units Sold card commented 2026-07-04.
+    units_sold_month + vs-last-month delta belong to Sales Analytics; replaced here
+    by the In Stock state count (catalog strip = state only, no analytics).
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--success">
         <i class="bi bi-cart-check"></i>
@@ -93,78 +81,52 @@
       <div class="kpi-body">
         <div class="kpi-label">Units Sold</div>
         <div class="kpi-value">{{ kpis.current.units_sold_month|default:"0" }}</div>
-        {% if kpis.current.units_sold_delta > 0 %}
-          <div class="kpi-delta kpi-delta--up">
-            <i class="bi bi-arrow-up"></i>
-            {{ kpis.current.units_sold_delta }} <span class="kpi-delta-note">vs last month</span>
-          </div>
-        {% elif kpis.current.units_sold_delta < 0 %}
-          <div class="kpi-delta kpi-delta--down">
-            <i class="bi bi-arrow-down"></i>
-            {{ kpis.current.units_sold_delta|cut:"-" }} <span class="kpi-delta-note">vs last month</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No change vs last month</div>
-        {% endif %}
+      </div>
+    </div>
+    {% endcomment %}
+
+    <!-- IN STOCK (click = filter) -->
+    <div class="kpi-card kpi-card--hue-success kpi-card--clickable"
+         data-href="?stock=high" tabindex="0">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-check2-circle"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">In Stock</div>
+        <div class="kpi-value">{{ kpis.current.in_stock|default:"0" }}</div>
       </div>
     </div>
 
 
-    <!-- LOW STOCK -->
-    <div class="kpi-card">
+    <!-- LOW STOCK (click = filter) -->
+    <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
+         data-href="?stock=low" tabindex="0">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-exclamation-triangle"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Low Stock</div>
         <div class="kpi-value">{{ kpis.current.low_stock|default:"0" }}</div>
-        {% if kpis.deltas.low_stock == None %}
-          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
-        {% elif kpis.deltas.low_stock > 0 %}
-          <div class="kpi-delta kpi-delta--down">
-            <i class="bi bi-arrow-up"></i>
-            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
-          </div>
-        {% elif kpis.deltas.low_stock < 0 %}
-          <div class="kpi-delta kpi-delta--up">
-            <i class="bi bi-arrow-down"></i>
-            {{ kpis.deltas.low_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
-        {% endif %}
       </div>
     </div>
 
-    <!-- OUT OF STOCK -->
-    <div class="kpi-card">
+    <!-- OUT OF STOCK (click = filter) -->
+    <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
+         data-href="?stock=none" tabindex="0">
       <div class="kpi-icon kpi-icon--danger">
         <i class="bi bi-slash-circle"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>
         <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
-        {% if kpis.deltas.out_of_stock == None %}
-          <div class="kpi-delta kpi-delta--muted">— No data yet</div>
-        {% elif kpis.deltas.out_of_stock > 0 %}
-          <div class="kpi-delta kpi-delta--down">
-            <i class="bi bi-arrow-up"></i>
-            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">more than yesterday</span>
-          </div>
-        {% elif kpis.deltas.out_of_stock < 0 %}
-          <div class="kpi-delta kpi-delta--up">
-            <i class="bi bi-arrow-down"></i>
-            {{ kpis.deltas.out_of_stock|floatformat:0|cut:"-" }} <span class="kpi-delta-note">less than yesterday</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No change vs Yesterday</div>
-        {% endif %}
       </div>
     </div>
 
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -258,6 +220,19 @@
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
           </div>
           <div class="activity-header-right">
+            <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
+            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create product
+            </a>
+            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-bookmark-fill"></i> Presets
+            </a>
+            <a href="{% url 'archived-products' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-products' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-archive"></i> Archive
+            </a>
             <span class="card-header-sub" style="margin: 0;">
               {% if request.GET.stock == 'high' %}In Stock
               {% elif request.GET.stock == 'low' %}Low Stock
@@ -342,9 +317,7 @@
                   {% if product.image %}
                     <img src="{{ product.image.url }}" alt="" class="list-thumb">
                   {% else %}
-                    <span class="list-thumb-placeholder">
-                      <img src="{% static 'images/no-image.png' %}" alt="No image" class="list-thumb">
-                    </span>
+                    <span class="list-thumb-placeholder"><i class="bi bi-image"></i></span>
                   {% endif %}
                   <div class="name-text">
                     <strong>{{ product.name|capfirst }}</strong>
@@ -532,7 +505,8 @@
         </div>
       </div> {% endcomment %}
 
-      <!-- SALES VELOCITY HERO -->
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Sales Velocity hero commented 2026-07-04.
+      units_sold_all → Sales Analytics. KPI cache still computes it.
       <div class="card">
         <div class="card-header" style="padding: 0.55rem 1rem;">
           <div class="card-header-left-group">
@@ -544,38 +518,21 @@
         <div class="card-body" style="padding: 0.6rem 0.85rem;">
           <div class="period-net" style="padding: 0.85rem 1rem;">
             <div class="period-net-label">UNITS SOLD · ALL-TIME</div>
-            <div class="period-net-value">{{ kpis.current.units_sold_all|default:"0" }}</div>
-            <div class="period-net-sub">across {{ kpis.current.total }} product{{ kpis.current.total|pluralize }}</div>
+            <div class="period-net-value">{{ kpis.current.units_sold_all }}</div>
+            <div class="period-net-sub">across {{ kpis.current.total }} products</div>
           </div>
         </div>
       </div>
+      {% endcomment %}
 
-      <!-- QUICK LINKS -->
-      <div class="card">
-        <div class="card-header" style="padding: 0.55rem 1rem;">
-          <span class="card-header-title">
-            <i class="bi bi-lightning-charge"></i> Quick links
-          </span>
-        </div>
-        <div class="card-body" style="padding: 0.6rem 0.85rem;">
-          <div class="btn-grid" style="gap: 0.4rem; grid-template-columns: 1fr 1fr;">
-            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
-              <i class="bi bi-plus-circle"></i> Create product
-            </a>
-            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-bookmark-fill"></i> Presets
-            </a>
-            <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-tags-fill"></i> Categories
-            </a>
-            <a href="{% url 'archived-products' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block position-relative">
-              <i class="bi bi-archive-fill"></i> Archive
-            </a>
-          </div>
-        </div>
-      </div>
+      {% comment %} Quick links card retired 2026-07-04 — Create product / Presets /
+      Archive moved into the table header (before the status filter); the Categories
+      link was dropped because Categories now has its own sidebar page. {% endcomment %}
 
-      <!-- TOP ITEMS -->
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Top Items + Never sold commented 2026-07-04.
+      top_items_month/all + never_sold → Sales Analytics. The ?velocity= filters in
+      the status popover still work; switchTopItems/toggleTopItemsMore JS stays for
+      the relocation. KPI cache still computes everything.
       <div class="card">
         <div class="card-header">
           <div class="card-header-left-group">
@@ -636,6 +593,7 @@
         </div>
         {% endif %}
       </div>
+      {% endcomment %}
 
     </div>
 
@@ -645,6 +603,12 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+
+  // KPI cards navigate to their stock filter (same pattern as the dashboard)
+  document.querySelectorAll('.kpi-card--clickable[data-href]').forEach(card => {
+    card.addEventListener('click', () => { window.location = card.dataset.href; });
+    card.addEventListener('keydown', e => { if (e.key === 'Enter') window.location = card.dataset.href; });
+  });
 
   const filterDetails = document.querySelector("details");
   if (filterDetails) {

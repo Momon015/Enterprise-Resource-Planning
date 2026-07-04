@@ -50,10 +50,36 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
+
+      <!-- ABOUT EXPENSES — one-time hint for first-time users; ✕ remembers per browser -->
+      <div class="sd-note-box" id="expenseHint" hidden style="margin: 0;">
+        <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+        <div>
+          <div class="sd-note-title">About expenses</div>
+          <div class="sd-note-text">Expenses are logged from your saved templates. Create templates first, then log actual amounts.</div>
+        </div>
+        <button type="button" id="expenseHintClose" aria-label="Dismiss"
+                style="background:none; border:none; color:var(--muted); margin-left:auto; align-self:flex-start; cursor:pointer; font-size:0.9rem; padding:0.1rem;">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <script>
+        (function () {
+          const KEY = 'swiftErp.hint.expenses';
+          const box = document.getElementById('expenseHint');
+          if (!localStorage.getItem(KEY)) box.hidden = false;
+          document.getElementById('expenseHintClose').addEventListener('click', function () {
+            localStorage.setItem(KEY, '1');
+            box.hidden = true;
+          });
+        })();
+      </script>
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
@@ -74,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <i class="bi bi-calendar3"></i> Month
               </label>
               <input type="month" name="select_month" class="form-control form-control--polish"
-                value="{{ request.GET.select_month|default:current_year }}">
+                value="{{ request.GET.select_month|default:current_month }}">
             </div>
 
             <div class="form-field">
@@ -114,8 +140,35 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="card-header-left-group">
             <span class="card-header-title">Expense Records</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
+            <!-- QUICK RANGES — filter chips, moved from the old right column -->
+            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=month"
+              class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
+            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=last_month"
+              class="quick-range-btn {% if request.GET.period == 'last_month' %}active{% endif %}">
+              <i class="bi bi-clock-history"></i> Last month
+            </a>
+            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=current_year"
+              class="quick-range-btn {% if request.GET.period == 'current_year' %}active{% endif %}">
+              <i class="bi bi-calendar"></i> This year
+            </a>
+            <a href="{% url 'expense-list' business_slug=current_business.slug %}"
+              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
+              <i class="bi bi-grid"></i> All records
+            </a>
           </div>
-          <span class="card-header-sub">Most recent first</span>
+          <!-- Quick Actions — subtle outline buttons in the header (was "Most recent first") -->
+          <div class="d-flex gap-2">
+            <a href="{% url 'expense-create' business_slug=current_business.slug %}"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-plus-circle"></i> Log expense
+            </a>
+            <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-bookmark"></i> Manage templates
+            </a>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -153,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="btn-group">
                     <a href="{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
                        class="row-chevron" title="View Detail">
-                      <i class="bi bi-chevron-right"></i>
+                      View
                     </a>
                   </div>
                 </td>
@@ -215,7 +268,11 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- Period Summary -->
+      {% if False %}{# MOVED TO ANALYTICS (IA phase 3) — Expense Summary hidden 2026-07-04.
+      Wrapped in if-False (not a comment block) because it contains inner comment
+      blocks. Total expense cost -> Expense Analytics; record count already shows
+      in the table header badge. View still computes these — leave views.py alone
+      until relocation. #}
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -264,25 +321,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         </div>
       </div>
+      {% endif %}
 
-      <!-- Quick Actions -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning"></i> Quick Actions
-          </span>
-        </div>
-        <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="{% url 'expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
-            <i class="bi bi-plus-circle"></i> Log expense
-          </a>
-          <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">
-            <i class="bi bi-bookmark-fill"></i> Manage templates
-          </a>
-        </div>
-      </div>
-
-      <!-- Quick Ranges -->
+      {% comment %} Quick Actions card retired 2026-07-04 — the two buttons moved
+      to the page header (placement PROVISIONAL, user will pick the final spot).
+      Quick Ranges card retired same day — buttons moved into the table header.
+      Safe to delete both once the slim layout is confirmed.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -308,21 +352,10 @@ document.addEventListener("DOMContentLoaded", function () {
           </a>
         </div>
       </div>
+      {% endcomment %}
 
-      <!-- About note -->
-      <div class="card">
-        <div class="card-body" style="padding: 1rem;">
-          <div class="sd-note-box" style="margin: 0;">
-            <div class="sd-note-icon">
-              <i class="bi bi-info-circle-fill" style="color: var(--info);"></i>
-            </div>
-            <div>
-              <div class="sd-note-title">About expenses</div>
-              <div class="sd-note-text">Expenses are logged from your saved templates. Create templates first, then log actual amounts.</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {% comment %} About-expenses note moved to the top of the page 2026-07-04 as a
+      one-time dismissible hint (localStorage swiftErp.hint.expenses). {% endcomment %}
 
     </div>
 

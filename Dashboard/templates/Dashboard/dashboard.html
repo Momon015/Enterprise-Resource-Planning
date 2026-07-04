@@ -2,15 +2,14 @@
 {% load humanize %}
 {% block content %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">Home</div>
-      <h1 class="page-title">Today's Overview</h1>
+      <div class="page-breadcrumb">Dashboard</div>
+      <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}!</h1>
         <p class="page-subtitle">
           {{ today|date:"F d, Y" }} — {{ today|date:"l" }}
           {% if computed_at %}
@@ -23,45 +22,69 @@
         </p>
 
     </div>
-    {% comment %} <div class="page-header-right">
-      <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-circle"></i> New Sale
-      </a>
-      <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-plus-circle"></i> New Purchase
-      </a>
-    </div> {% endcomment %}
+
+    <!-- ACCOUNTING MODE (display-only · transient glimpse, reverts to saved default) -->
+    <div class="page-header-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:.35rem;">
+      <div class="basis-tabs basis-tabs--block" style="max-width:360px; margin:0;">
+        <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
+          <i class="bi bi-graph-up-arrow"></i> Profitability
+        </a>
+        <a href="?basis=cash" class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
+          <i class="bi bi-cash-stack"></i> Cash Flow
+        </a>
+      </div>
+
+      {% if request.user.role == 'owner' and basis != current_business.dashboard_basis %}
+      <form method="post" action="{% url 'set-dashboard-basis' business_slug=current_business.slug %}" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="basis" value="{{ basis }}">
+        <button type="submit"
+                style="background:none; border:none; color:var(--accent); font-size:.82rem; font-weight:600; cursor:pointer; padding:.3rem .2rem; display:inline-flex; align-items:center; gap:.35rem;">
+          <i class="bi bi-pin-angle"></i> Make as default
+        </button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- ACCOUNTING MODE (display-only · transient glimpse, reverts to saved default) -->
-  <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.1rem; flex-wrap:wrap;">
-    <div class="basis-tabs basis-tabs--block" style="max-width:360px; margin:0;">
-      <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
-        <i class="bi bi-graph-up-arrow"></i> Business Performance
-      </a>
-      <a href="?basis=cash" class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
-        <i class="bi bi-cash-stack"></i> Cash Flow
-      </a>
-    </div>
-
-    {% if request.user.role == 'owner' and basis != current_business.dashboard_basis %}
-    <form method="post" action="{% url 'set-dashboard-basis' business_slug=current_business.slug %}" style="margin:0;">
+  {% if away %}
+  <!-- WHILE YOU WERE AWAY (owner recap · ✕ dismisses for this window) -->
+  <div class="away-banner">
+    <form method="post" action="{% url 'dismiss-away-banner' business_slug=current_business.slug %}">
       {% csrf_token %}
-      <input type="hidden" name="basis" value="{{ basis }}">
-      <button type="submit"
-              style="background:none; border:none; color:var(--accent); font-size:.82rem; font-weight:600; cursor:pointer; padding:.3rem .2rem; display:inline-flex; align-items:center; gap:.35rem;">
-        <i class="bi bi-pin-angle"></i> Make as default
+      <button type="submit" class="away-banner__dismiss" aria-label="Close summary" title="Close">
+        <i class="bi bi-x-lg"></i>
       </button>
     </form>
-    {% endif %}
+    <div class="away-banner__head">
+      <span class="away-banner__title">While you were away</span>
+      <span class="away-banner__range">{{ away.start|time:"g:i A" }} – {{ away.end|time:"g:i A" }} ({{ away.duration }})</span>
+    </div>
+    <p class="away-banner__sub">Here's a quick summary of what happened.</p>
+    <div class="away-banner__tiles">
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--success"><i class="bi bi-cash-coin"></i></div>
+        <div><div class="away-tile__value">{{ away.sales_count }}</div><div class="away-tile__label">Sales completed</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--success"><i class="bi bi-graph-up-arrow"></i></div>
+        <div><div class="away-tile__value">₱{{ away.revenue|floatformat:2|intcomma }}</div><div class="away-tile__label">Revenue generated</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--info"><i class="bi bi-box-seam"></i></div>
+        <div><div class="away-tile__value">{{ away.items_sold }}</div><div class="away-tile__label">Items sold</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--violet"><i class="bi bi-cart3"></i></div>
+        <div><div class="away-tile__value">{{ away.purchases_count }}</div><div class="away-tile__label">Purchases received</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--warning"><i class="bi bi-wallet2"></i></div>
+        <div><div class="away-tile__value">{{ away.expenses_count }}</div><div class="away-tile__label">Expenses recorded</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--danger"><i class="bi bi-recycle"></i></div>
+        <div><div class="away-tile__value">{{ away.waste_count }}</div><div class="away-tile__label">Waste recorded</div></div></div>
+    </div>
   </div>
+  {% endif %}
 
 
   <!-- KPI STATS ROW -->
-  <div class="kpi-row{% if basis == 'cash' %} kpi-row--4col{% endif %}">
+  <div class="kpi-row kpi-row--4col">
 
     <!-- NET PROFIT / NET CASH (the number owners actually care about) -->
-    <div class="kpi-card kpi-card--featured">
+    <div class="kpi-card kpi-card--featured kpi-card--clickable kpi-card--hue-{% if basis == 'cash' and net_cash < 0 or basis != 'cash' and net_profit < 0 %}danger{% else %}success{% endif %}"
+         data-href="{% url 'view-summary' business_slug=current_business.slug %}?basis={{ basis }}" tabindex="0">
       <div class="kpi-icon kpi-icon--success">
         <i class="bi bi-graph-up-arrow"></i>
       </div>
@@ -90,10 +113,12 @@
         {% endif %}
       </div>
 
+
     </div>
 
     <!-- REVENUE (accrual) / COLLECTED (cash) -->
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--hue-info{% if collected_by_method or receivables or credit_used_today %} has-popover{% endif %} kpi-card--clickable"
+         data-href="{% url 'sale-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--info">
         <i class="bi bi-cash-coin"></i>
       </div>
@@ -119,23 +144,39 @@
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
-        <div class="kpi-split">
-          <span>Collected ₱{{ collected|floatformat:0|intcomma }}</span>
-          <span>·</span>
-          <span>Receivables ₱{{ receivables|floatformat:0|intcomma }}</span>
-        </div>
         {% endif %}
       </div>
 
+      {% if collected_by_method or receivables or credit_used_today %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Collected today">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Collected today</div>
+        {% for m in collected_by_method %}
+        <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
+        {% endfor %}
+        {% if credit_used_today %}
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Store credit used</span><span class="num">₱{{ credit_used_today|floatformat:2|intcomma }} · not cash</span></div>
+        {% endif %}
+        <div class="kpi-popover__row"><span>Collected</span><span class="num">₱{{ collected|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Receivables (unpaid)</span><span class="num">₱{{ receivables|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'sale-list' business_slug=current_business.slug %}">View sales <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
+
     </div>
 
-    <!-- OPERATING EXPENSES (identical in both modes — already cash) -->
-    <div class="kpi-card" title="Payroll: ₱{{ total_salary_cost|floatformat:2|intcomma }} · Other Expenses: ₱{{ total_expense_cost|floatformat:2|intcomma }}">
+    <!-- EXPENSE COST (payroll + other expenses; + waste in the Profitability lens —
+         waste is never a cash event, so the Cash Flow lens excludes it) -->
+    <div class="kpi-card kpi-card--hue-warning has-popover kpi-card--clickable"
+         data-href="{% url 'expense-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-receipt"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Operating Expenses</div>
+        <div class="kpi-label">Expense Cost</div>
+        {% if basis == 'cash' %}
         <div class="kpi-value">₱{{ total_opex|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if opx_dir %}
           <div class="kpi-delta kpi-delta--{{ opx_dir }} kpi-delta--inverse">
@@ -145,16 +186,39 @@
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
-        <div class="kpi-split">
-          <span>Payroll ₱{{ total_salary_cost|floatformat:0|intcomma }}</span>
-          <span>·</span>
-          <span>Other Expenses ₱{{ total_expense_cost|floatformat:0|intcomma }}</span>
-        </div>
+        {% else %}
+        <div class="kpi-value">₱{{ total_expcost|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if expcost_dir %}
+          <div class="kpi-delta kpi-delta--{{ expcost_dir }} kpi-delta--inverse">
+            <i class="bi bi-arrow-{% if expcost_dir == 'up' %}up{% elif expcost_dir == 'down' %}down{% else %}right{% endif %}"></i>
+            {{ expcost_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+          </div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
+        {% endif %}
+        {% endif %}
+      </div>
+
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="What's inside">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">What's inside</div>
+        <div class="kpi-popover__row"><span>Payroll</span><span class="num">₱{{ total_salary_cost|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Other expenses</span><span class="num">₱{{ total_expense_cost|floatformat:2|intcomma }}</span></div>
+        {% if basis != 'cash' %}
+        <div class="kpi-popover__row"><span>Waste</span><span class="num">₱{{ total_waste_cost|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Expense cost</span><span class="num">₱{{ total_expcost|floatformat:2|intcomma }}</span></div>
+        {% else %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Expense cost</span><span class="num">₱{{ total_opex|floatformat:2|intcomma }}</span></div>
+        {% endif %}
+        <a class="kpi-popover__link" href="{% url 'expense-list' business_slug=current_business.slug %}">View expenses <i class="bi bi-arrow-right"></i></a>
       </div>
     </div>
 
     <!-- MATERIAL COST (accrual) / PAID (cash) -->
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--hue-purple{% if basis != 'cash' %} has-popover{% endif %} kpi-card--clickable"
+         data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--purple">
         <i class="bi bi-box-seam"></i>
       </div>
@@ -180,36 +244,128 @@
         {% else %}
           <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
         {% endif %}
-        <div class="kpi-split">
-          <span>Paid ₱{{ paid|floatformat:0|intcomma }}</span>
-          <span>·</span>
-          <span>Payables ₱{{ payables|floatformat:0|intcomma }}</span>
-        </div>
         {% endif %}
       </div>
 
+      {% if basis != 'cash' %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="What's inside">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">What's inside</div>
+        <div class="kpi-popover__row"><span>Purchases</span><span class="num">₱{{ total_material_cost|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Returns</span><span class="num">− ₱{{ returns_today|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Paid</span><span class="num">₱{{ paid|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Payables (unpaid)</span><span class="num">₱{{ payables|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'purchase-list' business_slug=current_business.slug %}">View purchases <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
+
     </div>
 
-    <!-- WASTE COST (accrual only — never a cash event) -->
-    {% if basis != 'cash' %}
-    <div class="kpi-card">
-      <div class="kpi-icon kpi-icon--danger">
-        <i class="bi bi-trash3"></i>
-      </div>
+
+
+  </div>
+
+  <!-- KPI ROW 2 — activity & stock -->
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- TRANSACTIONS -->
+    <div class="kpi-card kpi-card--hue-info kpi-card--clickable"
+         data-href="{% url 'sale-list' business_slug=current_business.slug %}" tabindex="0">
+      <div class="kpi-icon kpi-icon--info"><i class="bi bi-receipt-cutoff"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">Waste Cost</div>
-        <div class="kpi-value">₱{{ total_waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        {% if wst_dir %}
-          <div class="kpi-delta kpi-delta--{{ wst_dir }} kpi-delta--inverse">
-            <i class="bi bi-arrow-{% if wst_dir == 'up' %}up{% elif wst_dir == 'down' %}down{% else %}right{% endif %}"></i>
-            {{ wst_pct }} <span class="kpi-delta-note">vs Yesterday</span>
+        <div class="kpi-label">Transactions</div>
+        <div class="kpi-value">{{ txn_count }}</div>
+        {% if txn_diff > 0 %}
+          <div class="kpi-delta kpi-delta--up"><i class="bi bi-arrow-up"></i> +{{ txn_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
+        {% elif txn_diff < 0 %}
+          <div class="kpi-delta kpi-delta--down"><i class="bi bi-arrow-down"></i> {{ txn_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Same as yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- PURCHASES -->
+    <div class="kpi-card kpi-card--hue-purple kpi-card--clickable"
+         data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
+      <div class="kpi-icon kpi-icon--purple"><i class="bi bi-cart3"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Purchases</div>
+        <div class="kpi-value">{{ pur_count }}</div>
+        {% if pur_diff > 0 %}
+          <div class="kpi-delta kpi-delta--up"><i class="bi bi-arrow-up"></i> +{{ pur_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
+        {% elif pur_diff < 0 %}
+          <div class="kpi-delta kpi-delta--down"><i class="bi bi-arrow-down"></i> {{ pur_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— Same as yesterday</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- CASH DRAWER (only when the business tracks a drawer) -->
+    {% if current_business.enable_cash_reconciliation %}
+    <div class="kpi-card kpi-card--hue-success{% if drawer %} has-popover{% endif %}">
+      <div class="kpi-icon kpi-icon--success"><i class="bi bi-cash-stack"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Cash Drawer</div>
+        {% if drawer %}
+          <div class="kpi-value">₱{{ drawer_balance|floatformat:2|intcomma }}</div>
+          <div class="kpi-delta {% if drawer.is_open %}kpi-delta--up{% else %}kpi-delta--muted{% endif %}">
+            <span class="drawer-dot{% if drawer.is_open %} drawer-dot--open{% endif %}"></span>
+            {% if drawer.is_open %}Open{% else %}Closed{% endif %}
           </div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
+          <div class="kpi-value">—</div>
+          <div class="kpi-delta kpi-delta--muted">No drawer session today</div>
         {% endif %}
       </div>
+
+      {% if drawer %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Drawer today">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Drawer today</div>
+        <div class="kpi-popover__row"><span>Opening cash</span><span class="num">₱{{ drawer.opening_cash|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Cash sales</span><span class="num">₱{{ cash_sales_today|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Cash out</span><span class="num">− ₱{{ payouts_today|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Current balance</span><span class="num">₱{{ drawer_balance|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'shift-dashboard' business_slug=current_business.slug %}">View cash drawer <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
+
+    <!-- LOW STOCK -->
+    <div class="kpi-card kpi-card--hue-warning{% if stock_alert_top %} has-popover{% endif %}{% if stock_alert_count %}{% endif %} kpi-card--clickable"
+         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
+      <div class="kpi-icon kpi-icon--warning"><i class="bi bi-exclamation-triangle"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Low Stock</div>
+        <div class="kpi-value">{{ stock_alert_count }}</div>
+        {% if stock_alert_count %}
+          <div class="kpi-delta kpi-delta--warning"><i class="bi bi-exclamation-circle"></i> Needs attention</div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--muted">— All stocked up</div>
+        {% endif %}
+      </div>
+
+      {% if stock_alert_top %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Lowest stock">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Lowest stock</div>
+        {% for pr in stock_alert_top %}
+        <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
+        {% endfor %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Needs restocking</span><span class="num">{{ stock_alert_count }} item{{ stock_alert_count|pluralize }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">View inventory <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
+    </div>
 
   </div>
 
@@ -218,7 +374,159 @@
     <!-- ========== LEFT PANEL ========== -->
     <div class="left-panel">
 
-      <!-- 30-DAY REVENUE TREND -->
+      <!-- NEEDS ATTENTION — current state requiring action (the bell stays the event stream) -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title"><i class="bi bi-bell"></i> Needs Attention</span>
+          {% if attention %}<span class="card-header-sub">{{ attention|length }} item{{ attention|length|pluralize }}</span>{% endif %}
+        </div>
+        <div class="card-body attention-list">
+          {% for a in attention %}
+          <a href="{{ a.url }}" class="attention-row">
+            <div class="attention-icon attention-icon--{{ a.tone }}"><i class="bi {{ a.icon }}"></i></div>
+            <div class="attention-text">{{ a.text }}</div>
+            View
+          </a>
+          {% empty %}
+          <div class="attention-empty">
+            <i class="bi bi-check2-circle"></i>
+            <p>All clear — nothing needs your attention</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      
+
+
+      <!-- RECENT ACTIVITIES -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-clock-history"></i> Recent Activities
+          </span>
+        </div>
+          <div class="card-body activity-feed">
+          {% for a in activities %}
+            <a href="{{a.url}}" class="activity-row">
+              <div class="activity-icon activity-icon--{{ a.tint }}">
+                <i class="bi {{ a.icon }}"></i>
+              </div>
+              <div class="activity-body">
+                  <div class="activity-title">{{ a.title }}</div>
+                    {% if a.description %}
+                      <div class="activity-desc">{{ a.description|truncatechars:80 }}</div>
+                    {% endif %}
+                <div class="activity-meta">{{ a.ts|timesince }} ago</div>
+
+              </div>
+              <div class="activity-amount">₱{{ a.amount|floatformat:2|intcomma }}</div>
+            </a>
+            {% empty %}
+              <div class="activity-empty">
+                <i class="bi bi-inbox"></i>
+                <p>No recent activity yet</p>
+              </div>
+            {% endfor %}
+
+            {% if activities %}
+            <a href="{% url 'view-all-activity' business_slug=current_business.slug %}" class="activity-view-all">
+              See all activities <i class="bi bi-arrow-right"></i>
+            </a>
+            {% endif %}
+          </div>
+
+      </div>
+    </div>
+
+    <!-- ========== RIGHT PANEL ========== -->
+    <div class="right-panel">
+
+      <!-- ON SHIFT NOW -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">
+            <i class="bi bi-people-fill"></i> On Shift Now
+          </span>
+          <span class="card-header-sub">{{ active_shifts|length }} clocked in</span>
+        </div>
+        <div class="card-body shift-list">
+          {% for se in active_shifts %}
+            <div class="shift-row">
+              <div class="shift-avatar">{{ se.employee.name|slice:":1"|upper }}</div>
+              <div class="shift-info">
+                <div class="shift-name">{{ se.employee.name }}</div>
+                <div class="shift-meta">
+                  <span>In {{ se.clock_in|time:"g:i A" }}</span>
+                  <span>·</span>
+                  <span class="shift-running">{{ se.clock_in|timesince }} running</span>
+                </div>
+              </div>
+              <span class="shift-status-dot" title="Active"></span>
+            </div>
+          {% empty %}
+            <div class="shift-empty">
+              <i class="bi bi-moon-stars"></i>
+              <p>No one clocked in right now</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+
+    </div>
+
+  </div>
+</div>
+
+
+<script>
+  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
+  document.addEventListener('click', (e) => {
+    const btn  = e.target.closest('[data-kpi-popover]');
+    const open = document.querySelector('.kpi-card.popover-open');
+    if (btn) {
+      e.stopPropagation();
+      const card = btn.closest('.kpi-card');
+      if (open && open !== card) open.classList.remove('popover-open');
+      card.classList.toggle('popover-open');
+      return;
+    }
+    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
+
+    // card-body navigation (the ▼ and the popover never navigate)
+    const card = e.target.closest('.kpi-card--clickable[data-href]');
+    if (card && !e.target.closest('.kpi-peek') && !e.target.closest('.kpi-popover')) {
+      window.location.href = card.dataset.href;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const card = e.target.closest && e.target.closest('.kpi-card--clickable[data-href]');
+      if (card) window.location.href = card.dataset.href;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.kpi-card.popover-open');
+      if (open) open.classList.remove('popover-open');
+    }
+  });
+</script>
+
+{% endblock content %}
+
+{# ═══════════════════════════════════════════════════════════════════
+   PARKED — MOVED TO ANALYTICS. Everything below is outside the content
+   block (never rendered). Relocate into the Sales/Expense Analytics
+   pages in IA phase 3, then delete from here.
+═══════════════════════════════════════════════════════════════════ #}
+
+{% comment %} MOVED TO ANALYTICS 2026-07-02 — Chart.js is only needed by the charts
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endcomment %}
+
+{% comment %} <!-- 30-DAY REVENUE TREND -->
       <div class="card">
         <div class="card-header">
           <div class="card-header-left-group">
@@ -279,88 +587,9 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> {% endcomment %}
 
-    </div>
-
-    <!-- ========== RIGHT PANEL ========== -->
-    <div class="right-panel">
-
-      <!-- ON SHIFT NOW -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-people-fill"></i> On Shift Now
-          </span>
-          <span class="card-header-sub">{{ active_shifts|length }} clocked in</span>
-        </div>
-        <div class="card-body shift-list">
-          {% for se in active_shifts %}
-            <div class="shift-row">
-              <div class="shift-avatar">{{ se.employee.name|slice:":1"|upper }}</div>
-              <div class="shift-info">
-                <div class="shift-name">{{ se.employee.name }}</div>
-                <div class="shift-meta">
-                  <span>In {{ se.clock_in|time:"g:i A" }}</span>
-                  <span>·</span>
-                  <span class="shift-running">{{ se.clock_in|timesince }} running</span>
-                </div>
-              </div>
-              <span class="shift-status-dot" title="Active"></span>
-            </div>
-          {% empty %}
-            <div class="shift-empty">
-              <i class="bi bi-moon-stars"></i>
-              <p>No one clocked in right now</p>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- RECENT ACTIVITIES -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-clock-history"></i> Recent Activities
-          </span>
-        </div>
-          <div class="card-body activity-feed">
-          {% for a in activities %}
-            <a href="{{a.url}}" class="activity-row">
-              <div class="activity-icon activity-icon--{{ a.tint }}">
-                <i class="bi {{ a.icon }}"></i>
-              </div>
-              <div class="activity-body">
-                  <div class="activity-title">{{ a.title }}</div>
-                    {% if a.description %}
-                      <div class="activity-desc">{{ a.description|truncatechars:80 }}</div>
-                    {% endif %}
-                <div class="activity-meta">{{ a.ts|timesince }} ago</div>
-
-              </div>
-              <div class="activity-amount">₱{{ a.amount|floatformat:2|intcomma }}</div>
-            </a>
-            {% empty %}
-              <div class="activity-empty">
-                <i class="bi bi-inbox"></i>
-                <p>No recent activity yet</p>
-              </div>
-            {% endfor %}
-
-            {% if activities %}
-            <a href="{% url 'view-all-activity' business_slug=current_business.slug %}" class="activity-view-all">
-              See all activities <i class="bi bi-arrow-right"></i>
-            </a>
-            {% endif %}
-          </div>
-
-      </div>
-
-    </div>
-
-  </div>
-</div>
-
+{% comment %} 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -567,6 +796,5 @@ document.addEventListener("DOMContentLoaded", function () {
   setCompareMode('monthly');
 
 });
-</script>
-
-{% endblock content %}
+</script> 
+{% endcomment %}

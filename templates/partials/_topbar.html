@@ -1,21 +1,26 @@
 {% if user.is_authenticated and current_business %}
 <div class="topbar{% if on_cart_page %} topbar--hide-cart{% endif %}">
+  <button type="button" class="topbar-icon-btn topbar-collapse-btn" id="sidebarCollapseBtn"
+          aria-label="Toggle sidebar" title="Toggle sidebar">
+    <i class="bi bi-x-lg topbar-collapse-icon--open"></i>
+    <i class="bi bi-layout-sidebar topbar-collapse-icon--closed"></i>
+  </button>
+
+  <div class="topbar-search" id="topbarSearch">
+    <i class="bi bi-search topbar-search__icon"></i>
+      <input type="text" name="q" id="topbarSearchInput" class="topbar-search__input" autocomplete="off"
+          placeholder="{% if cart_scope == 'sale' %}Search products to add…{% elif cart_scope == 'purchase' %}Search materials to add…{% else %}Search…{% endif %}"
+          hx-get="{% url 'global-search' business_slug=current_business.slug %}"
+          hx-trigger="input changed delay:250ms, focus"
+          hx-vals='{"scope": "{{ cart_scope }}"}'
+          hx-target="#searchResults" hx-swap="innerHTML">
+          <button type="button" class="topbar-search__clear" id="topbarSearchClear" aria-label="Clear search" hidden>
+          <i class="bi bi-x-lg"></i>
+          </button>
+    <div class="search-dropdown" id="searchResults"></div>
+  </div>
+
   <div class="topbar-cluster">
-    <div class="topbar-search" id="topbarSearch">
-      <i class="bi bi-search topbar-search__icon"></i>
-        <input type="text" name="q" id="topbarSearchInput" class="topbar-search__input" autocomplete="off"
-            placeholder="{% if cart_scope == 'sale' %}Search products to add…{% elif cart_scope == 'purchase' %}Search materials to add…{% else %}Search…{% endif %}"
-            hx-get="{% url 'global-search' business_slug=current_business.slug %}"
-            hx-trigger="input changed delay:250ms, focus"
-            hx-vals='{"scope": "{{ cart_scope }}"}'
-            hx-target="#searchResults" hx-swap="innerHTML">
-            <button type="button" class="topbar-search__clear" id="topbarSearchClear" aria-label="Clear search" hidden>
-            <i class="bi bi-x-lg"></i>
-            </button>
-      <div class="search-dropdown" id="searchResults"></div>
-    </div>
-
-
     {% if section == 'product' or section == 'service' or section == 'sale' %}
       <a id="cart-badge" href="{% url 'view-sale' business_slug=current_business.slug %}"
          class="topbar-icon-btn topbar-cart{% if not sale_cart_count or on_cart_page %} is-empty{% endif %}" title="Cart" aria-label="Cart">
@@ -43,6 +48,7 @@
     <div class="topbar-account" id="topbarAccount">
       <button type="button" class="topbar-account__btn" aria-label="Account menu">
         <span class="topbar-account__avatar">{{ user.username|first|upper }}</span>
+        <span class="topbar-account__label">{{ request.user.username }}</span>
         <i class="bi bi-chevron-down topbar-account__chevron"></i>
       </button>
 
@@ -74,6 +80,38 @@
         <a class="topbar-account__item" href="{% url 'settings' business_slug=current_business.slug %}">
           <i class="bi bi-gear"></i> Settings
         </a>
+        <button type="button" class="topbar-account__item" id="themeMenuToggle" aria-expanded="false">
+          <i class="bi bi-palette"></i> <span>Theme</span>
+          <i class="bi bi-chevron-down theme-menu__chevron"></i>
+        </button>
+        <div class="theme-menu" id="themeMenu">
+          <div class="theme-menu__label">App</div>
+          <div class="theme-menu__seg" data-pref="theme">
+            <button type="button" data-value="light"
+                    class="{% if request.user.theme != 'dark' %}is-active{% endif %}">
+              <i class="bi bi-sun"></i> Light
+            </button>
+            <button type="button" data-value="dark"
+                    class="{% if request.user.theme == 'dark' %}is-active{% endif %}">
+              <i class="bi bi-moon-stars"></i> Dark
+            </button>
+          </div>
+          <div class="theme-menu__label">Sidebar</div>
+          <div class="theme-menu__seg" data-pref="sidebar_theme">
+            <button type="button" data-value="match"
+                    class="{% if request.user.sidebar_theme != 'light' and request.user.sidebar_theme != 'dark' %}is-active{% endif %}">
+              Match
+            </button>
+            <button type="button" data-value="light"
+                    class="{% if request.user.sidebar_theme == 'light' %}is-active{% endif %}">
+              Light
+            </button>
+            <button type="button" data-value="dark"
+                    class="{% if request.user.sidebar_theme == 'dark' %}is-active{% endif %}">
+              Dark
+            </button>
+          </div>
+        </div>
         <div class="topbar-account__divider"></div>
         <a class="topbar-account__item topbar-account__item--danger" href="{% url 'logout' %}">
           <i class="bi bi-box-arrow-right"></i> Logout
@@ -84,6 +122,54 @@
 </div>
 
 <script>
+  (function () {
+    const btn = document.getElementById('sidebarCollapseBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const on = document.documentElement.classList.toggle('sidebar-collapsed');
+      try { localStorage.setItem('swiftErp.sidebar.collapsed', on ? '1' : '0'); } catch (e) {}
+      document.dispatchEvent(new CustomEvent('sidebar:collapse', { detail: { collapsed: on } }));
+    });
+  })();
+
+  (function () {
+    const toggle = document.getElementById('themeMenuToggle');
+    const menu   = document.getElementById('themeMenu');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();   // keep the account menu open
+      const open = menu.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    menu.addEventListener('click', (e) => {
+      e.stopPropagation();   // picking an option keeps the menu open so the flip is visible
+      const btn = e.target.closest('button[data-value]');
+      if (!btn) return;
+      const html  = document.documentElement;
+      const seg   = btn.closest('.theme-menu__seg');
+      const pref  = seg.dataset.pref;
+      const value = btn.dataset.value;
+
+      if (pref === 'theme') {
+        html.dataset.theme = value;
+        html.setAttribute('data-bs-theme', value);
+        if ((html.dataset.sidebarPref || 'match') === 'match') html.dataset.sidebar = value;
+      } else {
+        html.dataset.sidebarPref = value;
+        html.dataset.sidebar = (value === 'match') ? html.dataset.theme : value;
+      }
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === btn));
+
+      fetch("{% url 'set-theme' %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: pref + '=' + value,
+      });
+    });
+  })();
+
   (function () {
     const acc = document.getElementById('topbarAccount');
     const notif = document.getElementById('topbarNotif');

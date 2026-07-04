@@ -41,7 +41,12 @@ ROLE_CHOICES = [
         ('developer', 'Developer'),
         ('owner', 'Owner'),
         ('staff', 'Staff'),
-        
+
+    ]
+
+THEME_CHOICES = [
+        ('light', 'Light'),
+        ('dark', 'Dark'),
     ]
 
 class User(AbstractUser):
@@ -64,6 +69,16 @@ class User(AbstractUser):
     )
     birthday = models.DateField(null=True, blank=True)
     phone_number = models.CharField(max_length=11, null=True, blank=True, validators=[phone_validators])
+    theme = models.CharField(
+        max_length=10, choices=THEME_CHOICES, default='light',
+        help_text="Light or dark look for the whole app. Personal to each user.",
+    )
+    sidebar_theme = models.CharField(
+        max_length=10,
+        choices=[('match', 'Match app'), ('light', 'Light'), ('dark', 'Dark')],
+        default='match',
+        help_text="The sidebar can follow the app theme or stay light/dark on its own.",
+    )
     locked_until = models.DateTimeField(null=True, blank=True)
     failed_attempts = models.PositiveIntegerField(default=0)
     password_changed_at = models.DateTimeField(null=True, blank=True)

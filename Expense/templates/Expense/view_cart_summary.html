@@ -78,15 +78,15 @@ function togglePaymentFields() {
                   <div class="product-name">{{ item.name }}</div>
                   <div class="product-id">{{ item.supplier|default:"No supplier" }}</div>
                 </td>
-                <td><span class="mono">{{ item.quantity }}</span></td>
-                <td><span class="mono">₱{{ item.price|floatformat:2 }}</span></td>
+                <td><span class="num">{{ item.quantity }}</span></td>
+                <td><span class="num">₱{{ item.price|floatformat:2 }}</span></td>
                 {% if not current_business.enable_purchase_discount %}
-                <td><span class="mono" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
+                <td><span class="num" style={% if item.discount %}"color:var(--success);"{% else %}"color:var(--muted);"{% endif %}>
                   ₱{% if item.discount %}{{ item.discount|floatformat:2 }}{% else %}0.00{% endif %}
                 </span></td>
                 {% endif %}
                 <td class="pe-4">
-                  <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
+                  <span class="num" style="font-weight:700; color:var(--accent);">₱{{ item.item_discount|floatformat:2 }}</span>
                 </td>
               </tr>
               {% empty %}
@@ -201,7 +201,7 @@ function togglePaymentFields() {
                 </label>
                 <label class="pay-status-opt">
                   <input type="radio" name="payment_status" value="utang" onchange="togglePaymentFields()">
-                  <span><i class="bi bi-clock-history"></i> Utang</span>
+                  <span><i class="bi bi-clock-history"></i> Debt</span>
                 </label>
               </div>
             </div>
@@ -214,7 +214,7 @@ function togglePaymentFields() {
                 <option value="cash">Cash</option>
                 <option value="gcash">GCash</option>
                 <option value="bank">Bank Transfer</option>
-                <option value="credit">Credit / Other</option>
+                {% comment %} <option value="credit">Credit / Other</option> {% endcomment %}
               </select>
             </div>
 

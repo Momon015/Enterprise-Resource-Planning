@@ -322,7 +322,10 @@
                 </a>
                 {% endif %}
                 {% if archived_count > 0 %}
-                <a href="{% url 'archived-materials' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block position-relative">
+                <a href="{% url 'archived-materials' business_slug=current_business.slug %}"
+                   hx-get="{% url 'archived-materials' business_slug=current_business.slug %}"
+                   hx-target="#confirmBody" hx-swap="innerHTML"
+                   class="btn btn-outline-secondary btn-sm btn-block position-relative">
                   <i class="bi bi-archive-fill"></i> Archive
                 </a>
                 {% endif %}

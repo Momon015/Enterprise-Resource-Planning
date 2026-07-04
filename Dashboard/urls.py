@@ -6,4 +6,6 @@ from django.urls import path
 urlpatterns = [
     path('view/dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/set-basis/', views.set_dashboard_basis, name='set-dashboard-basis'),
+    path('away/dismiss/', views.dismiss_away_banner, name='dismiss-away-banner'),
+
 ]

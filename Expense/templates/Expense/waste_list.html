@@ -50,7 +50,9 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ANALYTICS SLIM-DOWN 2026-07-04: was <div class="two-col-layout"> —
+  restore that class when bringing the right column back. {% endcomment %}
+  <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -125,8 +127,31 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
+            <!-- QUICK RANGES — filter chips, moved from the old right column -->
+            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=today"
+              class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+              <i class="bi bi-calendar-day"></i> Today
+            </a>
+            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=last_week"
+              class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+              <i class="bi bi-clock-history"></i> Last week
+            </a>
+            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=week"
+              class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
+              <i class="bi bi-calendar-week"></i> This week
+            </a>
+            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=month"
+              class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
+              <i class="bi bi-calendar-month"></i> This month
+            </a>
           </div>
-          <span class="card-header-sub">Most recent first</span>
+          {% if stocks %}
+          <!-- Quick Action — subtle outline button in the header (was "Most recent first") -->
+          <a href="{% url 'material-waste-create' business_slug=current_business.slug %}"
+             class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-trash2"></i> Log Stock Waste
+          </a>
+          {% endif %}
         </div>
 
         <div class="table-responsive">
@@ -151,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td>
                   <div class="cell-primary">{{ waste.waste_items.count }} waste{{ waste.waste_items.count|pluralize }}</div>
                   {% if request.user.role == 'owner' %}
-                  <div class="cell-sub">by {{ waste.created_by.username|capfirst|default:"—" }}</div>
+                  <div class="cell-sub"><i class="bi bi-person"></i> {{ waste.created_by.username|default:"—" }}</div>
                   {% endif %}
                 </td>
 
@@ -185,7 +210,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="btn-group">
                     <a href="{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}"
                        class="row-chevron" title="View detail">
-                      <i class="bi bi-chevron-right"></i>
+                      View
                     </a>
                   </div>
                 </td>
@@ -252,7 +277,10 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- RIGHT PANEL -->
     <div class="right-panel">
 
-      <!-- Waste Summary -->
+      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Waste Summary commented 2026-07-04.
+      Total Waste Cost / Highest loss → Expense Analytics; record count already
+      shows in the table header badge. View still computes these — leave views.py
+      untouched until relocation.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -290,25 +318,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         </div>
       </div>
+      {% endcomment %}
 
-      <!-- Quick Actions -->
-      {% if stocks %}
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning"></i> Quick Actions
-          </span>
-        </div>
-        <div class="card-body" style="padding: 1rem;">
-          <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-block"
-             style="background: #dc2626; color: #fff; border-color: #dc2626;">
-            <i class="bi bi-trash2"></i> Log Stock Waste
-          </a>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Quick Ranges -->
+      {% comment %} Quick Actions card retired 2026-07-04 — Log Stock Waste moved
+      to the page header (placement PROVISIONAL, user will pick the final spot).
+      Quick Ranges card retired same day — buttons moved into the table header.
+      Safe to delete once the slim layout is confirmed.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -334,6 +349,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </a>
         </div>
       </div>
+      {% endcomment %}
 
     </div>
 

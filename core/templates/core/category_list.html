@@ -109,12 +109,21 @@
             <span class="card-header-title">Category List</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} categor{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
           </div>
-          {% if request.GET.category_type %}
-            <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
-              Filtered: {{ request.GET.category_type|capfirst }}
-              <a href="{% url 'category-list' business_slug=current_business.slug %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
-            </span>
-          {% endif %}
+          <div class="d-flex gap-2 align-items-center">
+            {% if request.GET.category_type %}
+              <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
+                Filtered: {{ request.GET.category_type|capfirst }}
+                <a href="{% url 'category-list' business_slug=current_business.slug %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
+              </span>
+            {% endif %}
+            <!-- Create — moved from the right-rail Quick links card; opens the form modal -->
+            <a href="{% url 'category-create' business_slug=current_business.slug %}"
+              hx-get="{% url 'category-create' business_slug=current_business.slug %}"
+              hx-target="#confirmBody" hx-swap="innerHTML"
+              class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create category
+            </a>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -132,7 +141,7 @@
               <tr>
                 <td>
                   <div class="cell-primary">{{ category.name|title }}</div>
-                  <div class="cell-sub">by {{category.created_by|default:"System"|capfirst}}</div>
+                  <div class="cell-sub">{% if not category.name == 'No Category' %}<i class="bi bi-person"></i>{% else %}<i class="bi bi-gear"></i>{% endif %} {{category.created_by|default:"System"|capfirst}}</div>
                 </td>
                 <td class="sl-text-center">
                   
@@ -261,22 +270,8 @@
             </div>
           </div>
 
-          <!-- QUICK LINKS -->
-          <div class="card">
-            <div class="card-header" style="padding: 0.55rem 1rem;">
-              <span class="card-header-title">
-                <i class="bi bi-lightning-charge"></i> Quick links
-              </span>
-            </div>
-            <div class="card-body" style="padding: 0.6rem 0.85rem;">
-              <a href="{% url 'category-create' business_slug=current_business.slug %}"
-                hx-get="{% url 'category-create' business_slug=current_business.slug %}"
-                hx-target="#confirmBody" hx-swap="innerHTML"
-                class="btn btn-primary btn-sm btn-block">
-                <i class="bi bi-plus-circle"></i> Create Category
-              </a>
-            </div>
-          </div>
+          {% comment %} Quick links card retired 2026-07-04 — its only button
+          (Create Category) moved into the table header. {% endcomment %}
 
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>

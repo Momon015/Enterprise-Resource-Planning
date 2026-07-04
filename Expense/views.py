@@ -54,6 +54,7 @@ from django.db.models import Sum, Avg, Max, OuterRef, Subquery
 from user.models import User
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
+from core.utils.cart import prune_stale_cart_lines
 
 from django.contrib.messages import get_messages
 
@@ -150,7 +151,7 @@ def purchase_history(request, business_slug):
     year = today.year
     month = today.month
     
-    current_year = f"{year}-0{today.month}"
+    current_year = f"{year}-{today.month:02d}"
     
     if form.is_valid():
         # search = form.cleaned_data.get('search')
@@ -255,7 +256,7 @@ def purchase_history(request, business_slug):
     paid = PurchasePayment.objects.filter(purchase__in=purchases.active()).aggregate(t=Sum('amount'))['t'] or 0
     payables = (total_cost or 0) - paid
 
-    paginator = Paginator(purchases, 5)
+    paginator = Paginator(purchases, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -451,7 +452,7 @@ def add_to_cart(request, business_slug, id):
 def view_cart(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     _normalize_cart_discount_mode(request, business)
-    cart = request.session.get('cart', {})
+    cart = prune_stale_cart_lines(request, business, 'cart', Material)
 
     subtotal = 0
     total_discount = 0
@@ -526,7 +527,7 @@ def view_cart(request, business_slug):
 def view_cart_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     _normalize_cart_discount_mode(request, business)
-    cart = request.session.get('cart', {})
+    cart = prune_stale_cart_lines(request, business, 'cart', Material)
     subtotal = 0
     total_discount = 0
     cart_items = []
@@ -611,12 +612,12 @@ def view_cart_summary(request, business_slug):
 @capacity_required('purchase')
 @permission_required('update') # dev
 def confirm_purchase_summary(request, business_slug):
-    cart = request.session.get('cart', {})
     lines = request.session.get('lines', 0)
     subtotal = 0
     total_discount = 0
-    
+
     business = get_business_for_user(request.user, business_slug)
+    cart = prune_stale_cart_lines(request, business, 'cart', Material)
     _normalize_cart_discount_mode(request, business)
     # ── Purchase discount MODE — whole-order % carried via session ──────
     percent_mode = business.enable_purchase_discount
@@ -796,7 +797,7 @@ def confirm_purchase_summary(request, business_slug):
                     payment_amount = Decimal('0')
 
                 if payment_amount <= 0:
-                    messages.warning(request, "Partial amount was invalid — recorded as utang instead.")
+                    messages.warning(request, "Partial amount was invalid — recorded as debt instead.")
                     payment_amount = Decimal('0')
                 elif payment_amount >= purchase.total_cost:
                     payment_amount = purchase.total_cost
@@ -852,7 +853,7 @@ def confirm_purchase_summary(request, business_slug):
             elif payment_status == 'partial' and method_display:
                 payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
             else:
-                payment_text = "Utang"
+                payment_text = "Debt"
 
 
             items_text = summarize_items(purchase.materials.all(), prefix='+')
@@ -924,6 +925,10 @@ def add_purchase_payment(request, business_slug, purchase_id):
                 })
             messages.error(request, msg)
             return redirect('add-purchase-payment', business_slug=business_slug, purchase_id=purchase_id)
+
+        if method in ('credit', 'store_credit'):
+            # credit method paused in the payment modal — guard hand-crafted POSTs
+            return form_error("Credit is currently unavailable here — choose another method.")
 
         try:
             amount = Decimal(amount_str)
@@ -1666,7 +1671,7 @@ def waste_list(request, business_slug):
     period = request.GET.get('period')
     
     today = timezone.localdate()
-    current_year = f"{today.year}-0{today.month}"
+    current_year = f"{today.year}-{today.month:02d}"
     
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -1711,7 +1716,7 @@ def waste_list(request, business_slug):
     )
     recent_events = scope_events_for_user(recent_events, request.user)[:4]
         
-    pagination = Paginator(wastes, 6)
+    pagination = Paginator(wastes, 8)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -1964,14 +1969,13 @@ def expense_list(request, business_slug):
     
     month = today.month
     year = today.year
-    current_year = f"{year}-0{month}"
+    current_month = f"{year}-{month:02d}"   # zero-padded — f"-0{month}" breaks for Oct–Dec ("2026-010")
     
-
     if form.is_valid():
         select_month = form.cleaned_data.get('select_month')
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
-        
+
         if start_date and end_date:
             expenses = expenses.filter(date__range=(start_date, end_date))
             shifts = shifts.filter(date__range=(start_date, end_date))
@@ -1994,6 +1998,10 @@ def expense_list(request, business_slug):
         if period == 'month':
             expenses = expenses.filter(date__month=month, date__year=year)
             shifts = shifts.filter(date__month=month, date__year=year)
+            
+        if period == 'current_year':
+            expenses = expenses.filter(date__year=year)
+            shifts = shifts.filter(date__year=year)
         
         
         expense_by_dates = expenses.values('date').annotate(total_amount=Avg('total_amount')) 
@@ -2047,7 +2055,7 @@ def expense_list(request, business_slug):
     
     
     # Pagination
-    pagination = Paginator(sorted_list, 7)
+    pagination = Paginator(sorted_list, 8)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -2055,7 +2063,7 @@ def expense_list(request, business_slug):
         
         'page_obj': page_obj, 
         'section': 'expense', 
-        'current_year': current_year,
+        'current_month': current_month,
         'average_expense': average_expense,
         'average_salary': average_salary,
         'grand_total_salary': grand_total_salary,
@@ -2180,7 +2188,7 @@ def misc_expense_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).filter(business=business).order_by('-created_at')
     
-    pagination = Paginator(misc_expenses, 10)
+    pagination = Paginator(misc_expenses, 8)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -2243,7 +2251,16 @@ def misc_expense_update(request, business_slug, misc_expense_id):
     
     else:
         form = MiscExpenseForm(instance=misc_expense, business=business)
-    
+
+    # htmx GET → form-in-modal (plain POST inside; invalid POST falls back to the full page)
+    if request.method == 'GET' and request.headers.get('HX-Request'):
+        return render(request, 'Expense/partials/_misc_expense_form_modal.html', {
+            'form': form,
+            'misc_expense': misc_expense,
+            'cm_action': reverse('misc-expense-update', kwargs={
+                'business_slug': business.slug, 'misc_expense_id': misc_expense.id}),
+        })
+
     context = {'form': form, 'section': 'expense', 'misc_expense': misc_expense}
     return render(request, 'Expense/misc_expense_update.html', context)
 
@@ -2258,7 +2275,26 @@ def misc_expense_delete(request, business_slug, misc_expense_id):
     if request.method == 'POST':
         misc_expense.delete()
         messages.success(request, f"{misc_expense.name} has been deleted.")
+        if request.headers.get('HX-Request'):
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('misc-expense-list', kwargs={'business_slug': business.slug})
+            return resp
         return redirect('misc-expense-list', business_slug=business.slug)
-    
+
+    # htmx GET → confirm modal (ExpenseItem.misc_expense is SET_NULL + snapshots,
+    # so logged expenses genuinely survive the delete — the note promises that)
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': misc_expense.name,
+            'cm_subtitle': f"₱{misc_expense.amount:.2f} default · {misc_expense.category.name.title() if misc_expense.category else 'No category'}",
+            'cm_note': "This template will be removed from your list · Expenses you already logged with it are <strong>kept</strong>.",
+            'cm_action': reverse('misc-expense-delete', kwargs={
+                'business_slug': business.slug, 'misc_expense_id': misc_expense.id}),
+            'cm_label': "Delete Template",
+            'cm_tone': 'danger',
+            'cm_btn_icon': 'bi-trash3',
+            'cm_icon': 'bi-bookmark-fill',
+        })
+
     context = {'misc_expense': misc_expense, 'section': 'expense'}
     return render(request, 'Expense/misc_expense_delete.html', context)

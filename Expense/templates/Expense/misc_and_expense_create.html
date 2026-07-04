@@ -177,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function () {
             {% endif %}
 
             <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
-              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+              <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
                 Cancel
               </a>
               <button type="submit" class="btn btn-primary">
@@ -354,7 +354,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
 
             <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
-              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-light">
+              <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
                 Cancel
               </a>
               <button type="submit" class="btn btn-primary">
@@ -411,7 +411,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             <div>
               <div class="sd-note-title">Note</div>
-              <div class="sd-note-text">Each checked template creates one expense record. Uncheck items you did not pay today.</div>
+              <div class="sd-note-text">Each or multiple templates creates one expense record. Uncheck items you did not pay today.</div>
             </div>
           </div>
 

@@ -280,7 +280,10 @@
               {% comment %} <a href="{% url 'add-shift-employee' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block">
                 <i class="bi bi-plus-circle"></i> Log employees
               </a> {% endcomment %}
-              <a href="{% url 'archived-employees' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+              <a href="{% url 'archived-employees' business_slug=current_business.slug %}"
+                 hx-get="{% url 'archived-employees' business_slug=current_business.slug %}"
+                 hx-target="#confirmBody" hx-swap="innerHTML"
+                 class="btn btn-outline-secondary btn-sm btn-block">
                 <i class="bi bi-archive"></i> Archive
               </a>
 

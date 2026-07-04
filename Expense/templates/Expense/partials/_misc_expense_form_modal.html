@@ -1,0 +1,79 @@
+<div class="quickview__panel cm-panel cm-panel--form">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-bookmark-fill"></i></div>
+        <div>
+          <div class="cm-title">Edit Template</div>
+          <div class="cm-sub">{{ misc_expense.name|capfirst }}</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{{ cm_action }}" autocomplete="off" novalidate style="margin-top:1rem;">
+        {% csrf_token %}
+        <div class="mf-fields-grid">
+
+          {# Name — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}{% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <input type="text"
+              name="{{ form.name.html_name }}"
+              id="{{ form.name.id_for_label }}"
+              value="{{ form.name.value|default_if_none:'' }}"
+              class="form-control form-control--polish"
+              autocomplete="off">
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Default amount — left #}
+          <div class="mf-field-group">
+            <label for="{{ form.amount.id_for_label }}" class="mf-form-label">
+              {{ form.amount.label }}{% if form.amount.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="input-with-prefix" style="display: flex; align-items: stretch; width: 100%;">
+              <span class="input-prefix">₱</span>
+              <input type="number"
+                name="{{ form.amount.html_name }}"
+                id="{{ form.amount.id_for_label }}"
+                value="{{ form.amount.value|default_if_none:'' }}"
+                class="form-control form-control--polish"
+                style="flex: 1; min-width: 0;"
+                step="0.01" min="0">
+            </div>
+            {% if form.amount.errors %}<div class="mf-error">{{ form.amount.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Category — right #}
+          <div class="mf-field-group">
+            <label for="{{ form.category.id_for_label }}" class="mf-form-label">{{ form.category.label }}</label>
+            <select name="{{ form.category.html_name }}"
+              id="{{ form.category.id_for_label }}"
+              class="form-control form-control--polish">
+              {% for value, label in form.category.field.choices %}
+                <option value="{{ value }}"
+                  {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+            {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
+
+        <div class="mf-help" style="margin-top:0.75rem;">Changes apply to future expense logs only — past records are not affected.</div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle sl-me-1"></i> Save Changes
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

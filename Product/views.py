@@ -700,6 +700,11 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
 def archived_products(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     products = Product.all_objects.filter(business=business, is_active=False, is_service=False).order_by('-id')
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/partials/_archived_products_modal.html', {
+            'products': products,
+            'business': business,
+        })
     return render(request, 'Product/archived_products.html', {
         'products': products,
         'business': business,
@@ -715,17 +720,32 @@ def restore_product(request, business_slug, product_id):
     
     if request.method == 'POST':
         if product.material and product.material.status == 'inactive':
-            messages.warning(request,
-                f"Restore '{product.material.name}' first from materials — this product is linked to it.")
+            alert = f"Restore '{product.material.name}' first from materials — this product is linked to it."
+            if request.headers.get('HX-Request'):
+                products = Product.all_objects.filter(business=business, is_active=False, is_service=False).order_by('-id')
+                return render(request, 'Product/partials/_archived_products_modal.html', {
+                    'products': products,
+                    'business': business,
+                    'reload_on_close': True,
+                    'cm_alert': alert,
+                })
+            messages.warning(request, alert)
             return redirect('archived-products', business_slug=business.slug)
-        
+
         product.is_active = True
         product.save(update_fields=['is_active'])
-        
+
         log_activity(business, request.user, 'product.restored',
              target=product, description=f"{product.name} restored")
 
-        messages.success(request, f"{product.name} restored.")
+        # messages.success(request, f"{product.name} restored.")
+        if request.headers.get('HX-Request'):
+            products = Product.all_objects.filter(business=business, is_active=False, is_service=False).order_by('-id')
+            return render(request, 'Product/partials/_archived_products_modal.html', {
+                'products': products,
+                'business': business,
+                'reload_on_close': True,
+            })
     return redirect('archived-products', business_slug=business.slug)
 
 # ── Service Fees ──────────────────────────────────────────────
@@ -918,6 +938,11 @@ def archived_services(request, business_slug):
     services = Product.all_objects.filter(
         business=business, is_active=False, is_service=True
     ).order_by('-id')
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/partials/_archived_services_modal.html', {
+            'services': services,
+            'business': business,
+        })
     return render(request, 'Product/archived_service.html', {
         'services': services,
         'business': business,
@@ -939,5 +964,14 @@ def restore_service(request, business_slug, service_id):
         service.save(update_fields=['is_active'])
         log_activity(business, request.user, 'product.restored',
             target=service, description=f"{service.name} (service fee) restored")
-        messages.success(request, f"{service.name} restored.")
-    return redirect('service-list', business_slug=business.slug)
+        # messages.success(request, f"{service.name} restored.")
+        if request.headers.get('HX-Request'):
+            services = Product.all_objects.filter(
+                business=business, is_active=False, is_service=True
+            ).order_by('-id')
+            return render(request, 'Product/partials/_archived_services_modal.html', {
+                'services': services,
+                'business': business,
+                'reload_on_close': True,
+            })
+    return redirect('archived-services', business_slug=business.slug)

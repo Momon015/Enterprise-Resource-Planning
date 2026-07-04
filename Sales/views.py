@@ -50,6 +50,7 @@ from django.db.models.functions import Coalesce
 from decimal import Decimal, InvalidOperation
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
+from core.utils.cart import prune_stale_cart_lines
 
 from user.models import User
 from django.contrib.messages import get_messages
@@ -120,7 +121,7 @@ def sale_list(request, business_slug):
     iso_year, iso_week, iso_weekday = today.isocalendar()
     last_year = iso_year - 1
 
-    current_year = f"{year}-0{month}"
+    current_year = f"{year}-{month:02d}"   # zero-padded — f"-0{month}" breaks for Oct–Dec ("2026-010")
 
     period = request.GET.get('period')
     
@@ -221,7 +222,7 @@ def sale_list(request, business_slug):
     collected = SalesPayment.objects.filter(sale__in=sales.active()).aggregate(t=Sum('amount'))['t'] or 0
     receivables = (total_revenue or 0) - collected
 
-    paginator = Paginator(sales, 5)
+    paginator = Paginator(sales, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -397,7 +398,7 @@ def add_to_sales(request, product_id, business_slug):
 @permission_required('view') # dev
 def view_sale(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    sale = request.session.get('sale', {})
+    sale = prune_stale_cart_lines(request, business, 'sale', Product)
     total_revenue = 0
     total_cost_price = 0
     # employees = Employee.objects.filter(user=owner)
@@ -491,7 +492,7 @@ def view_sale(request, business_slug):
 @permission_required('view') # dev
 def view_session_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    sale = request.session.get('sale', {})
+    sale = prune_stale_cart_lines(request, business, 'sale', Product)
     total_revenue = 0
     total_cost_price = 0
 
@@ -565,8 +566,8 @@ def view_session_summary(request, business_slug):
 @permission_required('update') # dev
 def confirm_view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    
-    sale = request.session.get('sale', {})
+
+    sale = prune_stale_cart_lines(request, business, 'sale', Product)
     line_count = request.session.get('line_count', 0)
     total_salary_cost = request.session.get('total_salary_cost', 0)
     total_revenue = 0
@@ -658,6 +659,8 @@ def confirm_view_summary(request, business_slug):
             # ── Payment capture ─────────────────────────────────
             payment_status = request.POST.get('payment_status', 'full')
             payment_method = request.POST.get('payment_method', 'cash')
+            if payment_method in ('credit', 'store_credit'):
+                payment_method = 'cash'   # store credit paused — UI hides it; guard hand-crafted POSTs
             payment_note = request.POST.get('payment_note', '').strip()
             
             if payment_status == 'full':
@@ -670,7 +673,7 @@ def confirm_view_summary(request, business_slug):
                     payment_amount = Decimal('0')
                     
                 if payment_amount <= 0:
-                    messages.warning(request, "Partial amount was invalid - recorded as utang/debt instead.")
+                    messages.warning(request, "Partial amount was invalid - recorded as debt instead.")
                     payment_amount = Decimal('0')
                 elif payment_amount >= sale_obj.total_revenue:
                     payment_amount = sale_obj.total_revenue
@@ -714,7 +717,7 @@ def confirm_view_summary(request, business_slug):
             elif payment_status == 'partial' and method_display:
                 payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
             else:
-                payment_text = "Utang"
+                payment_text = "Debt"
 
 
             items_text = summarize_items(sale_obj.sale_items.all(), prefix='-')
@@ -784,6 +787,10 @@ def add_sales_payment(request, business_slug, sale_id):
                 })
             messages.error(request, msg)
             return redirect('add-sales-payment', business_slug=business_slug, sale_id=sale_id)
+
+        if method in ('credit', 'store_credit'):
+            # store credit paused — UI hides it; guard hand-crafted POSTs
+            return form_error("Store credit is currently unavailable — choose another method.")
 
         try:
             amount = Decimal(amount_str)
@@ -1114,6 +1121,10 @@ def sales_return_create(request, business_slug, sale_id):
         reason = request.POST.get('reason', 'other')
         reason_note = request.POST.get('reason_note', '').strip()
         refund_method = request.POST.get('refund_method', 'cash')
+        if refund_method in ('credit', 'store_credit'):
+            # store credit paused — UI hides it; guard hand-crafted POSTs
+            messages.error(request, "Store credit is currently unavailable — choose another refund method.")
+            return redirect('sales-return-create', business_slug=business_slug, sale_id=sale_id)
 
         items_to_return = []
         total_refund = Decimal('0')

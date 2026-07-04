@@ -87,11 +87,11 @@ function toggleSalesPaymentFields() {
                   <div class="product-id">{{ item.supplier_name }}</div>
                   {% endif %}
                 </td>
-                <td><span class="mono">{{ item.quantity }}</span></td>
-                <td><span class="mono">{% if item.cost_price|floatformat:2 != '0.00' %}₱{{ item.cost_price|floatformat:2 }}{% else %}—{% endif %}</span></td>
-                <td><span class="mono">₱{{ item.selling_price|floatformat:2 }}</span></td>
+                <td><span class="num">{{ item.quantity }}</span></td>
+                <td><span class="num">{% if item.cost_price|floatformat:2 != '0.00' %}₱{{ item.cost_price|floatformat:2 }}{% else %}—{% endif %}</span></td>
+                <td><span class="num">₱{{ item.selling_price|floatformat:2 }}</span></td>
                 <td class="pe-4">
-                  <span class="mono" style="font-weight:700; color:var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span>
+                  <span class="num" style="font-weight:700; color:var(--accent);">₱{{ item.total_selling_price|floatformat:2 }}</span>
                 </td>
               </tr>
               {% empty %}
@@ -196,7 +196,7 @@ function toggleSalesPaymentFields() {
                 </label>
                 <label class="pay-status-opt">
                   <input type="radio" name="payment_status" value="utang" onchange="toggleSalesPaymentFields()">
-                  <span><i class="bi bi-clock-history"></i> Utang</span>
+                  <span><i class="bi bi-clock-history"></i> Debt</span>
                 </label>
               </div>
             </div>
@@ -208,7 +208,7 @@ function toggleSalesPaymentFields() {
                 <option value="cash" selected>Cash</option>
                 <option value="gcash">GCash</option>
                 <option value="bank">Bank Transfer</option>
-                <option value="credit">Store Credit</option>
+                {% comment %} <option value="credit">Store Credit</option> {% endcomment %}
               </select>
             </div>
 

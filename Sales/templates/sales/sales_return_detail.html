@@ -43,7 +43,7 @@
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">
-              <i class="bi bi-box-seam"></i> Returned Items
+              <i class="bi bi-basket"></i> Line Items
             </span>
             <span class="sl-badge sl-badge-light">{{ items|length }} item{{ items|length|pluralize }}</span>
           </div>
@@ -119,7 +119,7 @@
               {% if return_obj.refund_method == 'cash' %}
                 <i class="bi bi-cash-stack"></i>
               {% elif return_obj.refund_method == 'credit' or return_obj.refund_method == 'store_credit' %}
-                <i class="bi bi-credit-card-2-back"></i>
+                <i class="bi bi-credit-card-2-back"></i> 
               {% else %}
                 <i class="bi bi-wallet2"></i>
               {% endif %}

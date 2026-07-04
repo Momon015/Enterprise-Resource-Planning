@@ -163,12 +163,12 @@
         </div>
 
         <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem;">
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Record Return
-          </button>
           <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}" class="btn btn-light">
             Cancel
           </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Record Return
+          </button>
         </div>
 
       </div>

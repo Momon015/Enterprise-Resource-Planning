@@ -2,7 +2,7 @@
 
 Used by Product, Supplier logo, Image Library. Single source of truth for:
 - size/type/dimension validation (defeats spoofing + decompression bombs)
-- resize to a max dimension, JPEG quality compression
+- resize to a max dimension, re-encode (JPEG, or PNG when transparent)
 - EXIF stripping (kills location/device metadata from phone photos)
 - unique filename (uuid) so HTTP caches stay long-lived without staleness
 - ID-based folder paths per vertical → business (immutable)
@@ -79,26 +79,33 @@ def process_uploaded_image(
             f"Max {MAX_INPUT_DIMENSION}px on either side."
         )
 
-    # 6. Normalize mode (handles PNG with transparency, etc.)
-    if img.mode in ('RGBA', 'LA', 'P'):
-        background = Image.new('RGB', img.size, (255, 255, 255))
-        if img.mode == 'P':
-            img = img.convert('RGBA')
-        background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
-        img = background
-    elif img.mode != 'RGB':
+    # 6. Normalize mode — keep real transparency (transparent product photos
+    #    blend with dark mode); only flatten when the alpha carries nothing.
+    if img.mode == 'P':
+        img = img.convert('RGBA' if 'transparency' in img.info else 'RGB')
+    elif img.mode == 'LA':
+        img = img.convert('RGBA')
+    if img.mode == 'RGBA' and img.getchannel('A').getextrema()[0] == 255:
+        img = img.convert('RGB')      # fully opaque — drop the useless alpha
+    if img.mode not in ('RGB', 'RGBA'):
         img = img.convert('RGB')
 
     # 7. Resize (thumbnail preserves aspect ratio)
     img.thumbnail((max_dim, max_dim), Image.LANCZOS)
 
-    # 8. Strip EXIF by re-saving without it, with compression
+    # 8. Strip EXIF by re-saving without it. JPEG can't hold transparency,
+    #    so images with alpha go out as PNG; everything else stays JPEG.
     output = io.BytesIO()
-    img.save(output, format='JPEG', quality=quality, optimize=True)
+    if img.mode == 'RGBA':
+        img.save(output, format='PNG', optimize=True)
+        out_ext = 'png'
+    else:
+        img.save(output, format='JPEG', quality=quality, optimize=True)
+        out_ext = 'jpg'
     output.seek(0)
 
     # 9. Unique filename — uuid means cached URLs never stale
-    new_filename = f"{uuid.uuid4().hex}.jpg"
+    new_filename = f"{uuid.uuid4().hex}.{out_ext}"
 
     return ContentFile(output.read(), name=new_filename)
 

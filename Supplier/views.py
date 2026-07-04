@@ -29,6 +29,7 @@ from decimal import Decimal
 from user.models import User
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
+from core.utils.cart import prune_stale_cart_lines
 
 from django.contrib.messages import get_messages
 
@@ -46,8 +47,8 @@ from activity.utils import log_activity, scope_events_for_user
 @login_required(login_url='login')
 def material_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    
-    cart = request.session.get('cart', {})
+
+    cart = prune_stale_cart_lines(request, business, 'cart', Material)
     total = 0
     
     cart_items = []
@@ -271,6 +272,11 @@ def material_archive(request, slug, id, business_slug):
 def archived_materials(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     material = Material.all_objects.filter(business=business, status='inactive').order_by('-id')
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/partials/_archived_materials_modal.html', {
+            'materials': material,
+            'business': business,
+        })
     return render(request, 'Supplier/archived_materials.html', {
         'materials': material,
         'business': business,
@@ -291,15 +297,21 @@ def restore_material(request, business_slug, material_id):
             target=material, description=f"{material.name} restored")
 
         messages.success(request, f"{material.name} restored. Linked product was also restored.")
+        if request.headers.get('HX-Request'):
+            materials = Material.all_objects.filter(business=business, status='inactive').order_by('-id')
+            return render(request, 'Supplier/partials/_archived_materials_modal.html', {
+                'materials': materials,
+                'business': business,
+                'reload_on_close': True,
+            })
     return redirect('archived-materials', business_slug=business.slug)
 
 @login_required(login_url='login')
 @capacity_required('material_preset')
 @permission_required('add') # dev
 def save_items(request, business_slug):
-    cart = request.session.get('cart', {})
-    
     business = get_business_for_user(request.user, business_slug)
+    cart = prune_stale_cart_lines(request, business, 'cart', Material)
     
     if request.method == 'POST':
         checkbox = request.POST.get('checkbox')
@@ -719,6 +731,11 @@ def supplier_archive(request, business_slug, supplier_id, slug):
 def archived_suppliers(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = Supplier.all_objects.filter(business=business, status='inactive').order_by('-id')
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/partials/_archived_suppliers_modal.html', {
+            'suppliers': supplier,
+            'business': business,
+        })
     return render(request, 'Supplier/archived_suppliers.html', {
         'suppliers': supplier,
         'business': business,
@@ -739,4 +756,11 @@ def restore_supplier(request, business_slug, supplier_id):
              target=supplier, description=f"{supplier.name} restored")
 
         messages.success(request, f"{supplier.name} restored. Linked product was also restored.")
+        if request.headers.get('HX-Request'):
+            suppliers = Supplier.all_objects.filter(business=business, status='inactive').order_by('-id')
+            return render(request, 'Supplier/partials/_archived_suppliers_modal.html', {
+                'suppliers': suppliers,
+                'business': business,
+                'reload_on_close': True,
+            })
     return redirect('archived-suppliers', business_slug=business.slug)
