@@ -42,14 +42,44 @@
 
 </style>
 <script>
-  function toggleAllReceipts(btn, groupId) {
-    const groups = document.querySelectorAll('#' + groupId + ' .receipt-group');
+  // Expand/collapse every receipt group in the ACTIVE tab
+  function toggleAllActive(btn) {
+    const panel = document.querySelector('#dayBreakdown .sd-tab-panel:not([hidden])');
+    if (!panel) return;
+    const groups = panel.querySelectorAll('.receipt-group');
     const anyClosed = Array.from(groups).some(g => !g.open);
     groups.forEach(g => g.open = anyClosed);
     btn.innerHTML = anyClosed
       ? '<i class="bi bi-arrows-collapse"></i> Collapse all'
       : '<i class="bi bi-arrows-expand"></i> Expand all';
   }
+
+  // Day-breakdown chip tabs — the chip counts replaced the "At a glance" panel
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('dayBreakdown');
+    if (!card) return;
+    const tabs = card.querySelectorAll('.sd-tab-btn');
+    const expandBtn = document.getElementById('sdExpandAll');
+
+    function activate(name) {
+      tabs.forEach(b => b.classList.toggle('active', b.dataset.sdTab === name));
+      card.querySelectorAll('.sd-tab-panel').forEach(p => { p.hidden = (p.id !== 'sdPanel-' + name); });
+      const panel = document.getElementById('sdPanel-' + name);
+      if (expandBtn) {   // cash basis has flat tables only — no expand button
+        expandBtn.hidden = !panel.querySelector('.receipt-group');
+        expandBtn.innerHTML = '<i class="bi bi-arrows-expand"></i> Expand all';
+      }
+    }
+
+    card.addEventListener('click', function (e) {
+      const btn = e.target.closest('.sd-tab-btn');
+      if (btn) activate(btn.dataset.sdTab);
+    });
+
+    // land on the first tab that actually has records
+    const first = Array.from(tabs).find(b => parseInt(b.dataset.count, 10) > 0) || tabs[0];
+    activate(first.dataset.sdTab);
+  });
 </script>
 
 {% block locked_banner %}{% endblock %}
@@ -61,7 +91,7 @@
     <div>
       <div class="page-breadcrumb">REPORTS</div>
       <h4 class="sd-page-title">
-        {% if basis == 'cash' %}Daily Cash Flow Details{% else %}Business Performance Details{% endif %}
+        {% if basis == 'cash' %}Daily Cash Flow Details{% else %}Profitability Details{% endif %}
       </h4>
       <p class="sd-page-breadcrumb">
         Summary<span>•</span>Daily Breakdown
@@ -94,16 +124,27 @@
 
       {% if basis == 'cash' %}
 
-      <!-- PAYMENTS RECEIVED -->
-      <details class="filter-card" open>
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem;"><i class="bi bi-cash-stack"></i></div>
-            <span>Payments Received</span>
+      <!-- DAY CASH BREAKDOWN — one card, chip tabs (was 3 stacked accordions) -->
+      <div class="card" id="dayBreakdown">
+        <div class="card-header">
+          <div class="card-header-left-group" style="flex-wrap:wrap;">
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="received" data-count="{{ sales_payments|length }}">
+              <i class="bi bi-cash-stack"></i> Payments Received
+              <span class="sl-badge sl-badge-light">{{ sales_payments|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="made" data-count="{{ purchase_payments|length }}">
+              <i class="bi bi-cash-coin"></i> Payments Made
+              <span class="sl-badge sl-badge-light">{{ purchase_payments|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="expenses" data-count="{{ expenses|length }}">
+              <i class="bi bi-wallet2"></i> Expenses
+              <span class="sl-badge sl-badge-light">{{ expenses|length }}</span>
+            </button>
           </div>
-          <span class="sl-badge sl-badge-light">{{ sales_payments|length }} payment{{ sales_payments|length|pluralize }}</span>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        </div>
+
+        <!-- PAYMENTS RECEIVED TAB -->
+        <div class="sd-tab-panel" id="sdPanel-received">
           <div class="table-responsive">
             <table class="data-table">
               <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
@@ -129,30 +170,21 @@
             </table>
           </div>
         </div>
-      </details>
 
-      <!-- PAYMENTS MADE -->
-      <details class="filter-card">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:rgba(212,129,26,0.1); color:var(--warning);"><i class="bi bi-cash-coin"></i></div>
-            <span>Payments Made</span>
-          </div>
-          <span class="sl-badge sl-badge-light">{{ purchase_payments|length }} payment{{ purchase_payments|length|pluralize }}</span>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        <!-- PAYMENTS MADE TAB -->
+        <div class="sd-tab-panel" id="sdPanel-made" hidden>
           <div class="table-responsive">
             <table class="data-table">
               <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
-            </tbody>
+              <tbody>
                 {% for p in purchase_payments %}
                 <tr>
                   <td>
                     <span class="receipt-ref"><a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.purchase.id %}">{{ p.purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
                     {% if p.pay_status == 'partial' %}
-                    <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} utang · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
+                    <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} unpaid · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
                     {% elif p.is_settlement %}
-                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} utang · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
+                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} unpaid · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
                     {% endif %}
                   </td>
                   <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
@@ -166,24 +198,61 @@
             </table>
           </div>
         </div>
-      </details>
+
+        <!-- EXPENSES TAB -->
+        <div class="sd-tab-panel" id="sdPanel-expenses" hidden>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Name</th><th class="sl-text-end">Amount</th></tr></thead>
+              <tbody>
+                {% for expense in expenses %}{% for exp in expense.expense_items.all %}
+                <tr>
+                  <td><div class="cell-primary">{{ exp.name|capfirst }}</div></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ exp.amount|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}{% empty %}<tr class="sl-empty-row"><td colspan="2">No expenses.</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
 
       {% else %}
 
-      <!-- SALES TRANSACTIONS (grouped per receipt) -->
-      <details class="filter-card" open id="salesGroup">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem;"><i class="bi bi-receipt"></i></div>
-            <span>Sales Transactions</span>
-            <span class="sl-badge sl-badge-light">{{ sales|length }} transaction{{ sales|length|pluralize }}</span>
+      <!-- DAY BREAKDOWN — one card, chip tabs (was 5 stacked accordions).
+           Chip counts replaced the old "At a glance" panel. -->
+      <div class="card" id="dayBreakdown">
+        <div class="card-header">
+          <div class="card-header-left-group" style="flex-wrap:wrap;">
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="sales" data-count="{{ sales|length }}">
+              <i class="bi bi-receipt"></i> Sales
+              <span class="sl-badge sl-badge-light">{{ sales|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="purchases" data-count="{{ purchases|length }}">
+              <i class="bi bi-box-seam"></i> Purchases
+              <span class="sl-badge sl-badge-light">{{ purchases|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="waste" data-count="{{ waste_items|length }}">
+              <i class="bi bi-trash2"></i> Waste
+              <span class="sl-badge sl-badge-light">{{ waste_items|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="expenses" data-count="{{ expenses|length }}">
+              <i class="bi bi-wallet2"></i> Expenses
+              <span class="sl-badge sl-badge-light">{{ expenses|length }}</span>
+            </button>
+            <button type="button" class="quick-range-btn sd-tab-btn" data-sd-tab="staff" data-count="{{ shift_employees|length }}">
+              <i class="bi bi-people-fill"></i> Staff
+              <span class="sl-badge sl-badge-light">{{ shift_employees|length }}</span>
+            </button>
           </div>
-          <button type="button" class="receipt-expand-all"
-                  onclick="event.preventDefault(); event.stopPropagation(); toggleAllReceipts(this, 'salesGroup');">
+          <button type="button" class="receipt-expand-all" id="sdExpandAll" onclick="toggleAllActive(this)">
             <i class="bi bi-arrows-expand"></i> Expand all
           </button>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        </div>
+
+        <!-- SALES TAB (grouped per receipt) -->
+        <div class="sd-tab-panel" id="sdPanel-sales">
           {% for sale in sales %}
           <details class="receipt-group">
             <summary class="receipt-head">
@@ -225,24 +294,10 @@
           {% empty %}
           <div class="sl-empty-row" style="padding:1rem; text-align:center; color:var(--muted);">No sales.</div>
           {% endfor %}
-
         </div>
-      </details>
 
-      <!-- PURCHASE BREAKDOWN (grouped per PO) -->
-      <details class="filter-card" id="purchaseGroup">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:rgba(212,129,26,0.1); color:var(--warning);"><i class="bi bi-box-seam"></i></div>
-            <span>Purchase Breakdown</span>
-            <span class="sl-badge sl-badge-light">{{ purchases|length }} purchase{{ purchases|length|pluralize }}</span>
-          </div>
-          <button type="button" class="receipt-expand-all"
-                  onclick="event.preventDefault(); event.stopPropagation(); toggleAllReceipts(this, 'purchaseGroup');">
-            <i class="bi bi-arrows-expand"></i> Expand all
-          </button>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        <!-- PURCHASES TAB (grouped per PO) -->
+        <div class="sd-tab-panel" id="sdPanel-purchases" hidden>
           {% for purchase in purchases %}
           <details class="receipt-group">
             <summary class="receipt-head">
@@ -284,21 +339,10 @@
           {% empty %}
           <div class="sl-empty-row" style="padding:1rem; text-align:center; color:var(--muted);">No purchases.</div>
           {% endfor %}
-
         </div>
-      </details>
 
-
-      <!-- STOCK WASTE -->
-      <details class="filter-card">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-trash2"></i></div>
-            <span>Waste &amp; Losses</span>
-          </div>
-          <span class="sl-badge sl-badge-light">{{ waste_items|length }} record{{ waste_items|length|pluralize }}</span>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        <!-- WASTE TAB -->
+        <div class="sd-tab-panel" id="sdPanel-waste" hidden>
           <div class="table-responsive">
             <table class="data-table">
               <thead><tr><th>Item</th><th class="sl-text-center">Qty</th><th class="sl-text-end">Cost</th></tr></thead>
@@ -314,20 +358,9 @@
             </table>
           </div>
         </div>
-      </details>
 
-      {% endif %}
-
-      <!-- EXPENSES (both bases) -->
-      <details class="filter-card">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-wallet2"></i></div>
-            <span>Expenses</span>
-          </div>
-          <span class="sl-badge sl-badge-light">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        <!-- EXPENSES TAB -->
+        <div class="sd-tab-panel" id="sdPanel-expenses" hidden>
           <div class="table-responsive">
             <table class="data-table">
               <thead><tr><th>Name</th><th class="sl-text-end">Amount</th></tr></thead>
@@ -342,26 +375,24 @@
             </table>
           </div>
         </div>
-      </details>
 
-      {% if basis != 'cash' %}
-      <!-- STAFF ON SHIFT -->
-      <details class="filter-card">
-        <summary>
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <div class="sd-header-icon" style="width:28px; height:28px; font-size:0.8rem; background:var(--danger-light); color:var(--danger);"><i class="bi bi-people-fill sl-me-1" style="color:#0d6efd;"></i></div>
-            <span>Staff on Shift</span>
-          </div>
-          <span class="sl-badge sl-badge-light">{{ shift_employees|length }} staff</span>
-        </summary>
-        <div class="filter-body" style="padding:0;">
+        <!-- STAFF TAB -->
+        <div class="sd-tab-panel" id="sdPanel-staff" hidden>
           <div class="table-responsive">
             <table class="data-table">
-              <thead><tr><th>Name</th><th class="sl-text-end">Daily Rate</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="sl-text-end">Daily Rate</th>
+                </tr>
+              </thead>
               <tbody>
                 {% for emp in shift_employees %}
                 <tr>
-                  <td><div class="cell-primary">{{ emp.name|capfirst }}</div></td>
+                  <td>
+                    <div class="cell-primary">{{ emp.name|capfirst }}</div>
+                    <div class="cell-sub">{% if emp.is_cashier %}<i class="bi bi-cash-stack"></i> Cashier{% else %}<i class="bi bi-person"></i> Sales Clerk{% endif %}</div>
+                  </td>
                   <td class="sl-text-end sl-fw-semibold" style="color:var(--muted);">₱{{ emp.daily_rate|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}<tr class="sl-empty-row"><td colspan="2">No employees recorded.</td></tr>{% endfor %}
@@ -369,7 +400,9 @@
             </table>
           </div>
         </div>
-      </details>
+
+      </div>
+
       {% endif %}
 
     </div>
@@ -378,7 +411,7 @@
     <!-- ========== RIGHT PANEL ========== -->
     <div class="right-panel">
       
-      <!-- BASIS TABS (right-panel view switcher) -->
+      {% comment %} <!-- BASIS TABS (right-panel view switcher) -->
       <div class="basis-tabs basis-tabs--block">
         <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
            class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
@@ -386,9 +419,9 @@
         </a>
         <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
            class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
-          <i class="bi bi-graph-up-arrow"></i> Business Performance
+          <i class="bi bi-graph-up-arrow"></i> Profitability
         </a>
-      </div>
+      </div> {% endcomment %}
 
       <!-- Day Summary -->
       <div class="card">
@@ -442,7 +475,9 @@
       </div>
       
 
-      <!-- At a Glance -->
+      {% comment %} At a Glance retired 2026-07-03 — the counts moved onto the
+      day-breakdown tab chips (left panel), so this panel became a duplicate.
+      Safe to delete once the tabbed layout is confirmed.
       <div class="card">
         <div class="card-header">
           <span class="card-header-title">
@@ -459,6 +494,7 @@
           </dl>
         </div>
       </div>
+      {% endcomment %}
 
     </div>
 

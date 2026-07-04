@@ -131,9 +131,10 @@
   </div>
   {% endcomment %}
 
-
+  
    <!-- NAV BODY -->
   <div class="sidebar-nav" id="sidebarNav">
+  {% if request.user.role == 'owner' %}
     {% if current_business.plan.has_dashboard %}
     <!-- DASHBOARD — flat top item, no group -->
     <ul class="sidebar-flat">
@@ -149,6 +150,7 @@
         </a>
       </li>
     </ul>
+      {% endif %}
     {% endif %}
 
     <!-- TRANSACTIONS -->
@@ -173,6 +175,7 @@
               <span>Purchases</span>
             </a>
           </li>
+          {% if request.user.role == 'owner' %}
           <li>
               <a class="sidebar-nav__link {% if section == 'sale-return' %}is-active{% endif %}"
                 href="{% url 'sales-return-list' business_slug=current_business.slug %}"
@@ -183,8 +186,8 @@
                   <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
                 {% endif %}
               </a>
+          </li
 
-          </li>
           <li>
             <a class="sidebar-nav__link {% if section == 'purchase-return' %}is-active{% endif %}"
               href="{% url 'purchase-return-list' business_slug=current_business.slug %}"
@@ -194,11 +197,8 @@
                 {% if request.user.role == 'staff' %}
                   <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
                 {% endif %}
-              
             </a>
           </li>
-
-
           
           <li>
             <!-- EXPENSES -->
@@ -212,6 +212,8 @@
               {% endif %}
             </a>
           </li>
+          {% endif %}
+
           <li>
             <a class="sidebar-nav__link {% if section == 'waste' %}is-active{% endif %}"
                href="{% url 'expense-waste-list' business_slug=current_business.slug %}">
@@ -223,6 +225,7 @@
       </div>
     </div>
 
+    {% if request.user.role == 'owner' %}
     <!-- FINANCIAL OVERVIEW — exact numbers & statements (Analytics = trends/charts) -->
     <div class="sidebar-group" data-group="financial">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-financial">
@@ -283,7 +286,9 @@
         </ul>
       </div>
     </div>
+    {% endif %}
 
+    {% if request.user.role == 'owner' %}
     <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->
     <div class="sidebar-group" data-group="analytics">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-analytics">
@@ -326,6 +331,7 @@
         </ul>
       </div>
     </div>
+    {% endif %}
 
     <!-- CATALOG -->
     <div class="sidebar-group" data-group="catalog">

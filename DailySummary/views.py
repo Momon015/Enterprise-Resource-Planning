@@ -107,7 +107,7 @@ def view_summary(request, business_slug):
     
     iso_year, iso_week, iso_weekday = today.isocalendar()
 
-    current_year = f"{today.year}-0{today.month}"
+    current_year = today.strftime('%Y-%m')   # zero-padded month (fixes 2026-010 for Oct-Dec)
     
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date', '')
@@ -123,11 +123,11 @@ def view_summary(request, business_slug):
             
         if select_month:
             parsed_year, parsed_month = map(int, select_month.split('-'))
-            sales = sales.filter(date__month=parsed_month)
-            purchases = purchases.filter(purchase_date__month=parsed_month)
-            wastes = wastes.filter(date__month=parsed_month)
-            expenses = expenses.filter(date__month=parsed_month)
-            shifts = shifts.filter(date__month=parsed_month)
+            sales = sales.filter(date__month=parsed_month, date__year=parsed_year)
+            purchases = purchases.filter(purchase_date__month=parsed_month, purchase_date__year=parsed_year)
+            wastes = wastes.filter(date__month=parsed_month, date__year=parsed_year)
+            expenses = expenses.filter(date__month=parsed_month, date__year=parsed_year)
+            shifts = shifts.filter(date__month=parsed_month, date__year=parsed_year)
 
             
         if period == 'last_week':
@@ -306,7 +306,7 @@ def view_summary(request, business_slug):
             row['is_closed'] = False
             row['closed_at'] = None
 
-    pagination = Paginator(sorted_list, 7)
+    pagination = Paginator(sorted_list, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -397,6 +397,19 @@ def view_summary(request, business_slug):
         grand_spent += spent
         
     cash_summary_list.sort(key=lambda x: x['date'], reverse=True)
+
+    # Cash basis paginates too — override the accrual page_obj built above.
+    if basis == 'cash':
+        pagination = Paginator(cash_summary_list, 6)
+        page_obj = pagination.get_page(request.GET.get('page'))
+
+    # One querystring for every page link — carries all active filters (basis +
+    # month/date/period) minus `page`, so pagination never drops a filter.
+    _qd = request.GET.copy()
+    _qd.pop('page', None)
+    _qd['basis'] = basis        # basis defaults in-view, force it into the link
+    querystring = _qd.urlencode()
+
     grand_net_cash = (grand_collected or 0) - grand_spent
 
     # Cash margin (net cash / collected) — the cash-basis twin of profit_margin
@@ -408,6 +421,7 @@ def view_summary(request, business_slug):
     context = {
         'summary_list': sorted_list,
         'page_obj': page_obj,
+        'querystring': querystring,
         'section': 'summary',
         'grand_material_total_cost': grand_material_total_cost,
         'grand_total_revenue': grand_total_revenue,
@@ -492,7 +506,7 @@ def view_summary_detail(request, business_slug, date):
         paid_amt = sum((p.amount for p in pmts), Decimal('0'))
         total = total or Decimal('0')
         if paid_amt <= 0:
-            return Decimal('0'), total, 'unpaid', 'Utang / Debt'
+            return Decimal('0'), total, 'unpaid', 'Debt'
         methods = {p.get_method_display() for p in pmts}
         label = next(iter(methods)) if len(methods) == 1 else 'Mixed'
         if paid_amt < total:

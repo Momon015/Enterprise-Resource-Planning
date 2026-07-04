@@ -45,8 +45,8 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">Home</div>
-      <h1 class="page-title">{% if basis == 'cash' %}Daily Cash Flow{% else %}Business Performance{% endif %}</h1>
+      <div class="page-breadcrumb">FINANCIAL OVERVIEW</div>
+      <h1 class="page-title">{% if basis == 'cash' %}Daily Cash Flow{% else %}Profitability{% endif %}</h1>
       <p class="page-subtitle">{% if basis == 'cash' %}Money collected and spent each day{% else %}Sales, costs, and net profit each day{% endif %}</p>
     </div>
 
@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">Transactions</span>
-            <span class="sl-badge sl-badge-light">{{ summary_list|length }} day{{ summary_list|length|pluralize }}</span>
+            <span class="sl-badge sl-badge-light">{% if basis == 'cash' %}{{ cash_summary_list|length }} day{{ cash_summary_list|length|pluralize }}{% else %}{{ summary_list|length }} day{{ summary_list|length|pluralize }}{% endif %}</span>
           </div>
           <span class="card-header-sub">Most recent first</span>
         </div>
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 </tr>
               </thead>
               <tbody>
-                {% for row in cash_summary_list %}
+                {% for row in page_obj %}
                 <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis={{ basis }}'">
                   <td>
                     <div class="cell-primary">{{ row.date|date:"M d" }}<span class="col-mobile-hidden">, {{ row.date|date:"Y" }}</span></div>
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.expense|floatformat:2|intcomma }}</span></td>
                   <td class="sl-text-end col-mobile-only mobile-center"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.spent|floatformat:2|intcomma }}</span></td>
                   <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="{% if row.net_cash < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">₱{{ row.net_cash|floatformat:2|intcomma }}</span></td>
-                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail"><i class="bi bi-chevron-right"></i></a></div></td>
+                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail">View</a></div></td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <td class="sl-text-end col-mobile-hidden">{% if summary.total_waste_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
                   <td class="sl-text-end col-mobile-only mobile-center"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|add:summary.total_material_cost|add:summary.total_salary_cost|add:summary.total_expense_cost|floatformat:2|intcomma }}</span></td>
                   <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="{% if summary.net_profit < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">₱{{ summary.net_profit|floatformat:2|intcomma }}</span></td>
-                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail"><i class="bi bi-chevron-right"></i></a></div></td>
+                  <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}?basis={{ basis }}" class="row-chevron" title="View detail">View</a></div></td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -227,15 +227,14 @@ document.addEventListener("DOMContentLoaded", function () {
           {% endif %}
         </div>
 
-        <!-- PAGINATION -->
-        {% if basis != 'cash' and page_obj.paginator.num_pages > 1 %}
+        <!-- PAGINATION (both bases — page_obj is cash or accrual depending on ?basis=) -->
+        {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period %}
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                  <a class="page-link" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">
                     <i class="bi bi-chevron-left"></i>
                   </a>
                 {% else %}
@@ -244,19 +243,18 @@ document.addEventListener("DOMContentLoaded", function () {
               </li>
               {% for s in page_obj.paginator.page_range %}
               <li class="page-item {% if s == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ s }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">{{ s }}</a>
+                <a class="page-link" href="?{{ querystring }}&page={{ s }}">{{ s }}</a>
               </li>
               {% endfor %}
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                  <a class="page-link" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">
                     <i class="bi bi-chevron-right"></i>
                   </a>
                 {% else %}
                   <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
               </li>
-              {% endwith %}
             </ul>
           </nav>
         </div>
@@ -268,7 +266,9 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- ========== RIGHT PANEL ========== -->
     <aside class="right-panel">
 
-      <!-- BASIS TABS (right-panel view switcher) -->
+      {% comment %} BASIS SWITCHER RETIRED 2026-07-04 — Cash Flow and Profitability
+      have their own sidebar links now (?basis= param is the router), so the in-page
+      toggle is redundant. Restore this block if the pages ever merge again.
       <div class="basis-tabs basis-tabs--block">
         <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=cash"
            class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
@@ -276,9 +276,10 @@ document.addEventListener("DOMContentLoaded", function () {
         </a>
         <a href="?{% for k,v in request.GET.items %}{% if k != 'basis' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}basis=accrual"
            class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
-          <i class="bi bi-graph-up-arrow"></i> Business Performance
+          <i class="bi bi-graph-up-arrow"></i> Profitability
         </a>
       </div>
+      {% endcomment %}
 
       <!-- PERIOD TOTALS -->
       <div class="card">
@@ -347,10 +348,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <dl class="period-breakdown">
             <div><dt>Revenue</dt><dd class="text-success">₱{{ grand_total_revenue|floatformat:2|default:"0.00"|intcomma }}</dd></div>
             <div><dt>Collected</dt><dd class="text-success">₱{{ grand_collected|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Receivables (utang)</dt><dd style="color:var(--muted);">₱{{ grand_receivables|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Receivables (debt)</dt><dd style="color:var(--muted);">₱{{ grand_receivables|floatformat:2|intcomma }}</dd></div>
             <div><dt>Material Cost</dt><dd class="text-danger">₱{{ grand_material_total_cost|floatformat:2|default:"0.00"|intcomma }}</dd></div>
             <div><dt>Paid</dt><dd class="text-danger">₱{{ grand_paid|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Payables (utang)</dt><dd style="color:var(--muted);">₱{{ grand_payables|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Payables (debt)</dt><dd style="color:var(--muted);">₱{{ grand_payables|floatformat:2|intcomma }}</dd></div>
           </dl>
         </div>
       </div>
