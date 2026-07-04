@@ -182,7 +182,6 @@ class BusinessProfile(models.Model):
         help_text="Default lens for the dashboard KPIs. Owners can flip transiently on the dashboard.",
     )
 
-
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     address = models.TextField(null=True, blank=True, max_length=255)
     default_opening_cash = models.DecimalField(
@@ -237,6 +236,31 @@ class BusinessProfile(models.Model):
     # ── Discounts ───────────────────────────────────────────────
     enable_sale_discount = models.BooleanField(default=False)            # customer % discount at checkout
     enable_purchase_discount = models.BooleanField(default=False)        # whole-order % discount on purchases (on top of per-item flats)
+
+    # ── Tax / VAT ───────────────────────────────────────────────
+    is_vat_registered = models.BooleanField(
+        default=False,
+        help_text="Leave this off if you're a non-VAT business. Turn it on only if you're "
+                  "registered with BIR as VAT — receipts will then show a 12% VAT breakdown.",
+    )
+
+    tin = models.CharField(
+        max_length=20, null=True, blank=True,
+        help_text="Your Tax Identification Number, shown on receipts (e.g. 123-456-789-000).",
+    )
+    
+    # ── BIR accreditation (official invoice; OFF until accredited) ──
+    is_bir_active = models.BooleanField(
+        default=False,
+        help_text="Turn on only after BIR accredits this system to issue your official invoices. "
+                  "While off, the app prints a plain sales slip and you issue your own official receipt.",
+    )
+    bir_min = models.CharField(max_length=30, null=True, blank=True,
+                               help_text="Machine Identification Number (from BIR accreditation).")
+    bir_ptu = models.CharField(max_length=40, null=True, blank=True,
+                               help_text="Permit To Use (PTU) number.")
+    bir_accreditation = models.CharField(max_length=40, null=True, blank=True,
+                                         help_text="BIR Accreditation number.")
 
 
     class Meta:

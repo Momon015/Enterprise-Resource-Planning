@@ -94,6 +94,18 @@
             {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
           </div>
 
+          <!-- VAT -->
+          {% if current_business.is_vat_registered %}
+          <div class="mf-form-group">
+            <label for="{{ form.vat_class.id_for_label }}" class="mf-form-label">VAT Class</label>
+            {{ form.vat_class }}
+            <div class="mf-help">Most items are VATable — mark VAT-Exempt for maintenance medicines and basic goods.</div>
+            {% if form.vat_class.errors %}<div class="mf-error">{{ form.vat_class.errors|striptags }}</div>{% endif %}
+          </div>
+          {% else %}
+          {{ form.vat_class.as_hidden }}
+          {% endif %}
+
           {# Product Image #}
           {% comment %} <div class="form-group">
               <label for="{{ form.sku.id_for_label }}">SKU</label>

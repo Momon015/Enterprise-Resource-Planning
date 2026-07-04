@@ -1,0 +1,25 @@
+<table>
+    {% for item in goods_items %}
+    <tr><td colspan="3">{{ item.name }}</td></tr>
+    <tr>
+        <td class="qty">{{ item.quantity }} x</td>
+        <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% if service_items %}
+<div class="divider"></div>
+<div class="bold">Services</div>
+<table>
+    {% for item in service_items %}
+    <tr><td colspan="3">{{ item.name }}</td></tr>
+    <tr>
+        <td class="qty">{{ item.quantity }} x</td>
+        <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}

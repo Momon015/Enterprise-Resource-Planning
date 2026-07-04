@@ -1,0 +1,31 @@
+<div class="center bold">{{ business.business_name }}</div>
+{% if business.address %}<div class="center">{{ business.address }}</div>{% endif %}
+{% if business.business_phone_number %}<div class="center">Phone: {{ business.business_phone_number }}</div>{% endif %}
+
+<div class="divider"></div>
+
+<table>
+    <tr><td>Ref:</td><td class="right">{{ sale.reference }}</td></tr>
+    <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
+    <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
+    {% if sale.created_by %}<tr><td>Cashier:</td><td class="right">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td></tr>{% endif %}
+</table>
+
+<div class="divider"></div>
+
+{% include 'sales/_receipt_items.html' %}
+
+<div class="divider"></div>
+
+<table class="totals">
+    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    {% if sale.amount_paid %}<tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>{% endif %}
+    {% if not sale.is_fully_paid %}<tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>{% endif %}
+    <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
+</table>
+
+<div class="divider"></div>
+<div class="center">Thank you!</div>
+<div class="center">Please come again.</div>
+<div class="divider"></div>
+<div class="center" style="font-size:.9em;">This is not an official receipt.<br></div>

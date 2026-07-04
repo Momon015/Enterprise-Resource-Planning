@@ -3,14 +3,13 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Receipt — {{ sale.reference }}</title>
-</head>
+    <title>{% if is_official %}Invoice{% else %}Sales Slip{% endif %} — {{ sale.reference }}</title>
 <style>
     @page { size: {{ width }}mm auto; margin: 0; }
 
     @media screen {
         body {
-            background: #e5e7eb;  {% if embed %}#fff{% else %}#e5e7eb{% endif %};
+            background: {% if embed %}#fff{% else %}#e5e7eb{% endif %};
             margin: 0; padding: {% if embed %}0{% else %}24px 12px{% endif %};
             min-height: 100vh; font-family: 'Courier New', monospace;
         }
@@ -57,91 +56,17 @@
 <body>
     {% if not embed %}
     <div class="preview-toolbar">
-        <button class="primary" onclick="window.print()">🖨 Print Receipt</button>
+        <button class="primary" onclick="window.print()">🖨 Print</button>
         <button onclick="window.close()">Close</button>
     </div>
     {% endif %}
 
-
-        <div class="receipt">
-            <div class="center bold">{{ business.business_name }}</div>
-                {% if business.address %}
-                    <div class="center">{{ business.address }}</div>
-                {% endif %}
-                {% if business.business_phone_number %}
-                    <div class="center">Phone: {{ business.business_phone_number }}</div>
-                {% endif %}
-
-            <div class="divider"></div>
-
-
-        <table>
-            <tr><td>Ref:</td><td class="right">{{ sale.reference }}</td></tr>
-            <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
-            <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
-            {% if sale.created_by %}
-                <tr><td>Cashier:</td><td class="right">{{ sale.created_by.username }}</td></tr>
-            {% endif %}
-        </table>
-
-        <div class="divider"></div>
-
-                <table>
-            {% for item in goods_items %}
-            <tr><td colspan="3">{{ item.name }}</td></tr>
-            <tr>
-                <td class="qty">{{ item.quantity }} x</td>
-                <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
-                <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-
-        {% if service_items %}
-        <div class="divider"></div>
-        <div class="bold">Services</div>
-        <table>
-            {% for item in service_items %}
-            <tr><td colspan="3">{{ item.name }}</td></tr>
-            <tr>
-                <td class="qty">{{ item.quantity }} x</td>
-                <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
-                <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+    <div class="receipt">
+        {% if is_official %}
+            {% include 'sales/_official_invoice.html' %}
+        {% else %}
+            {% include 'sales/_receipt_slip.html' %}
         {% endif %}
-
-
-        <div class="divider"></div>
-
-        <table class="totals">
-            <tr class="bold">
-                <td>TOTAL</td>
-                <td class="right">P{{ sale.total_revenue|floatformat:2 }}</td>
-            </tr>
-            {% if sale.amount_paid %}
-            <tr>
-                <td>Paid</td>
-                <td class="right">P{{ sale.amount_paid|floatformat:2 }}</td>
-            </tr>
-            {% endif %}
-            {% if not sale.is_fully_paid %}
-            <tr class="bold">
-                <td>Balance</td>
-                <td class="right">P{{ sale.outstanding|floatformat:2 }}</td>
-            </tr>
-            {% endif %}
-            <tr>
-                <td>Items</td>
-                <td class="right">{{ sale.quantity_item }}</td>
-            </tr>
-        </table>
-
-        <div class="divider"></div>
-        <div class="center">Thank you!</div>
-        <div class="center">Please come again.</div>
     </div>
 </body>
-
 </html>

@@ -137,7 +137,12 @@ class BusinessProfileForm(ModelForm):
 
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address', 'business_phone_number']
+        fields = ['business_name', 'business_type', 'address', 'business_phone_number',
+                  'is_vat_registered', 'tin']
+        widgets = {
+            'is_vat_registered': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+        }
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -164,14 +169,6 @@ class BusinessProfileForm(ModelForm):
             raise forms.ValidationError(f"{business_type} is coming soon.")
         return cleaned_data
 
-            
-    def clean(self):
-        cleaned_data = super().clean()
-        business_type = cleaned_data.get('business_type')
-        if business_type in ['cafe', 'restaurant']:
-            raise forms.ValidationError(f"{business_type} is coming soon.")
-        return cleaned_data
-    
 class BusinessFeaturesForm(ModelForm):
     class Meta:
         model = BusinessProfile

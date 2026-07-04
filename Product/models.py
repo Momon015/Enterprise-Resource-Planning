@@ -28,6 +28,12 @@ class ServiceManager(models.Manager):
 
 
 class Product(SlugModel, TimeStampModel):
+    VAT_CLASS_CHOICES = [
+        ('vatable', 'VATable (12%)'),
+        ('exempt',  'VAT-Exempt'),
+        ('zero',    'Zero-Rated (0%)'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
     image = models.ImageField(upload_to=product_image_path, null=True, blank=True)
@@ -40,7 +46,15 @@ class Product(SlugModel, TimeStampModel):
     cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
     prepared_quantity = models.PositiveIntegerField()
     default_quantity = models.PositiveIntegerField(default=0) # preset
-    selling_price = models.DecimalField(max_digits=10, decimal_places=6) 
+    selling_price = models.DecimalField(max_digits=10, decimal_places=6)
+
+    vat_class = models.CharField(
+        max_length=8, choices=VAT_CLASS_CHOICES, default='vatable',
+        help_text="VAT treatment when your business is VAT-registered. Most goods are VATable; "
+                  "certain maintenance medicines and basic goods are VAT-Exempt. "
+                  "Ignored while you're Non-VAT.",
+    )
+
     low_stock_threshold  = models.PositiveIntegerField(default=25, help_text="Alert when stock drops to or below this level")
     high_stock_threshold = models.PositiveIntegerField(default=50, help_text="Considered fully stocked at or above this level")
     target_margin = models.PositiveSmallIntegerField(

@@ -1,0 +1,50 @@
+<div class="center bold">{{ business.business_name }}</div>
+{% if business.address %}<div class="center">{{ business.address }}</div>{% endif %}
+{% if business.business_phone_number %}<div class="center">Phone: {{ business.business_phone_number }}</div>{% endif %}
+{% if business.tin %}<div class="center">{% if business.is_vat_registered %}VAT Reg TIN{% else %}Non-VAT Reg TIN{% endif %}: {{ business.tin }}</div>{% endif %}
+{% if business.bir_min %}<div class="center">MIN: {{ business.bir_min }}</div>{% endif %}
+
+<div class="divider"></div>
+<div class="center bold">INVOICE</div>
+<div class="divider"></div>
+
+<table>
+    <tr><td>Invoice No:</td><td class="right">{{ sale.reference }}</td></tr>
+    <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
+    <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
+    {% if sale.created_by %}<tr><td>Cashier:</td><td class="right">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td></tr>{% endif %}
+</table>
+
+<div class="divider"></div>
+<table>
+    <tr><td>Name:</td><td class="right">________________</td></tr>
+    <tr><td>Address:</td><td class="right">________________</td></tr>
+    <tr><td>TIN:</td><td class="right">________________</td></tr>
+</table>
+
+<div class="divider"></div>
+
+{% include 'sales/_receipt_items.html' %}
+
+<div class="divider"></div>
+
+<table class="totals">
+    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    {% if sale.amount_paid %}<tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>{% endif %}
+    {% if not sale.is_fully_paid %}<tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>{% endif %}
+    <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
+    {% if business.is_vat_registered %}
+    <tr><td colspan="2"><div class="divider"></div></td></tr>
+    <tr><td>VATable Sales</td><td class="right">P{{ vat_summary.vatable|floatformat:2 }}</td></tr>
+    <tr><td>VAT Amount</td><td class="right">P{{ vat_summary.vat|floatformat:2 }}</td></tr>
+    <tr><td>VAT-Exempt Sales</td><td class="right">P{{ vat_summary.exempt|floatformat:2 }}</td></tr>
+    <tr><td>Zero-Rated Sales</td><td class="right">P{{ vat_summary.zero|floatformat:2 }}</td></tr>
+    {% endif %}
+</table>
+
+<div class="divider"></div>
+{% if business.bir_ptu %}<div class="center">PTU No: {{ business.bir_ptu }}</div>{% endif %}
+{% if business.bir_accreditation %}<div class="center">BIR Accr No: {{ business.bir_accreditation }}</div>{% endif %}
+<div class="center bold">THIS IS AN INVOICE</div>
+<div class="divider"></div>
+<div class="center">Thank you!</div>

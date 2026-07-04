@@ -966,14 +966,12 @@ def view_sale_summary(request, sale_id, business_slug):
 @xframe_options_sameorigin
 def sale_receipt(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
+    bp = getattr(business, 'plan', None)   # kept only to gate the OFFICIAL invoice
 
-    bp = getattr(business, 'plan', None)
-
-    if not bp or not bp.has_receipt_print():
-        messages.warning(request, 'Receipt printing is available on Premium and Pro plans.')
-        return redirect('sale-summary', business_slug=business_slug, sale_id=sale_id)
-    
+    # Plain sales slip prints on ALL plans (2026-06-29 decision). Only the official
+    # BIR invoice is gated: Premium/Pro AND BIR-accredited (is_bir_active).
     sale = get_object_or_404(Sale, business=business, id=sale_id)
+    
     sale_items = sale.sale_items.select_related('product').all()
     goods_items = [i for i in sale_items if not (i.product and i.product.is_service)]
     service_items = [i for i in sale_items if i.product and i.product.is_service]
@@ -990,6 +988,8 @@ def sale_receipt(request, business_slug, sale_id):
         'business': business,
         'width': width,
         'embed': request.GET.get('embed') == '1',
+        'vat_summary': sale.vat_summary(),
+        'is_official': bool(getattr(business, 'is_bir_active', False)) and bool(bp and bp.has_receipt_print()),
     }
     
     return render(request, 'sales/sale_receipt.html', context)
@@ -997,9 +997,6 @@ def sale_receipt(request, business_slug, sale_id):
 @login_required(login_url='login')
 def sale_receipt_modal(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
-    bp = getattr(business, 'plan', None)
-    if not bp or not bp.has_receipt_print():
-        return HttpResponse(status=403)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     return render(request, 'Sales/_receipt_modal.html', {'sale': sale})
 

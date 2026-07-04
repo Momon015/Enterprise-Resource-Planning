@@ -136,6 +136,27 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="mf-help">Optional — full street address for your business</div>
             </div>
 
+            <!-- TAX / BIR -->
+            <hr class="sd-section-divider" style="margin: 1rem 0;">
+            <div class="sd-section-label">Tax &amp; BIR</div>
+
+            <div class="mf-field-group" style="margin-bottom: 0.9rem;">
+              <label class="mf-form-label">TIN</label>
+              {{ form.tin }}
+              {% if form.tin.errors %}<div class="mf-error">{{ form.tin.errors.0 }}</div>{% endif %}
+              <div class="mf-help">Optional — your BIR Tax Identification Number, shown on receipts.</div>
+            </div>
+
+            <div class="mf-field-group">
+              <div class="form-check form-switch">
+                {{ form.is_vat_registered }}
+                <label class="form-check-label" for="{{ form.is_vat_registered.id_for_label }}">VAT-registered</label>
+              </div>
+              {% if form.is_vat_registered.errors %}<div class="mf-error">{{ form.is_vat_registered.errors.0 }}</div>{% endif %}
+              <div class="mf-help">No need to check this if you're a non-VAT business. Turn it on only if you're registered with BIR as VAT — receipts will then show a 12% VAT breakdown.</div>
+            </div>
+
+
             <!-- ACTIONS -->
             <div class="mf-form-actions">
               <a href="{{ request.session.return_to|default:detail_fallback }}" class="btn btn-outline-secondary">

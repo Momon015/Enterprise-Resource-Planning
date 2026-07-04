@@ -224,7 +224,6 @@
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem;">
 
     {# LEFT: receipt utility (replaces the print note) #}
-    {% if current_business.plan.has_receipt_print %}
     <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
        target="_blank"
        hx-get="{% url 'sale-receipt-modal' business_slug=current_business.slug sale_id=sale.id %}"
@@ -232,7 +231,7 @@
        class="btn btn-secondary">
       <i class="bi bi-printer"></i> Preview Receipt
     </a>
-    {% endif %}
+
 
      <div style="display:flex; gap:.5rem; margin-left:auto;">
 

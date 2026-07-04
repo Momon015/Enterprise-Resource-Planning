@@ -92,6 +92,34 @@ class Sale(TimeStampModel):
     def subtotal(self):
         """Gross line total before the whole-order discount (net + discount back-out)."""
         return (self.total_revenue or Decimal('0')) + self.discount_amount
+    
+    def vat_summary(self):
+        """PH 12% VAT breakdown, VAT-inclusive, discount-aware.
+        Buckets each line by its snapshot vat_class, applies the whole-order
+        discount proportionally, then extracts 12% from the VATable bucket."""
+        from decimal import Decimal, ROUND_HALF_UP
+        cents = Decimal('0.01')
+        keep = (Decimal('100') - (self.discount_percent or 0)) / Decimal('100')
+
+        buckets = {'vatable': Decimal('0'), 'exempt': Decimal('0'), 'zero': Decimal('0')}
+        for item in self.sale_items.all():
+            cls = item.vat_class if item.vat_class in buckets else 'vatable'
+            buckets[cls] += (item.price_at_sale or Decimal('0')) * item.quantity
+
+        # whole-order discount hits every bucket proportionally
+        for k in buckets:
+            buckets[k] = (buckets[k] * keep).quantize(cents, ROUND_HALF_UP)
+
+        vatable_incl = buckets['vatable']
+        vatable_base = (vatable_incl / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
+        return {
+            'vatable':      vatable_base,                       # VAT-exclusive VATable sales
+            'vat':          vatable_incl - vatable_base,        # the 12%
+            'exempt':       buckets['exempt'],
+            'zero':         buckets['zero'],
+            'vatable_incl': vatable_incl,                       # VAT-inclusive VATable
+            'total':        vatable_incl + buckets['exempt'] + buckets['zero'],
+        }
 
     @property
     def amount_paid(self):
@@ -153,9 +181,6 @@ class Sale(TimeStampModel):
     def is_fully_paid(self):
         return self.outstanding <= Decimal('0')
 
-
-
-        
 class SaleItem(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
@@ -171,6 +196,8 @@ class SaleItem(models.Model):
         null=True, blank=True, related_name='sale_items',
     )
     
+    vat_class = models.CharField(max_length=8, null=True, blank=True)   # snapshot of product.vat_class at sale time
+
     def __str__(self):
         if self.name:
             return f"{self.name} x {self.quantity}"
@@ -183,8 +210,11 @@ class SaleItem(models.Model):
             self.name = self.product.name
             if self.session_id:
                 self.name = f"{self.product.name} ({self.session.label})"
+            if not self.vat_class:                          # NEW — freeze VAT treatment at sale time
+                self.vat_class = self.product.vat_class
 
         super().save(*args, **kwargs)
+
 
         
     # def clean(self):

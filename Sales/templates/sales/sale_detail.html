@@ -333,7 +333,6 @@
             </a>
             {% endif %}
 
-            {% if current_business.plan.has_receipt_print %}
             <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
               target="_blank"
               hx-get="{% url 'sale-receipt-modal' business_slug=current_business.slug sale_id=sale.id %}"
@@ -341,7 +340,6 @@
               class="btn btn-light btn-block">
               <i class="bi bi-printer"></i> Preview Receipt
             </a>
-            {% endif %}
 
             {% if can_void %}
               <a href="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"

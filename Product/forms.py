@@ -12,7 +12,7 @@ class ProductForm(ModelForm):
     class Meta:
         model = Product
         fields = ['name', 'description', 'image', 'barcode',
-                  'prepared_quantity', 'selling_price', 'category',
+                  'prepared_quantity', 'selling_price', 'category', 'vat_class',
                   'low_stock_threshold', 'high_stock_threshold', 'target_margin', 'cost_price']
 
         widgets = {

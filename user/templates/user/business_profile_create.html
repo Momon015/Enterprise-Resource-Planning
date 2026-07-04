@@ -134,7 +134,10 @@
             {% for field in form %}
               {% if field.name == "offers_services" %}
                 {# rendered separately in the Features section below #}
+              {% elif field.name == "is_vat_registered" or field.name == "tin" %}
+                {# VAT status + TIN are configured later in the business profile, not at creation #}
               {% else %}
+
               <div class="mf-field" style="margin-bottom:0.9rem;">
                 <label class="mf-label" for="{{ field.id_for_label }}">
                   {{ field.label }}
@@ -211,6 +214,10 @@
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Restaurant</div>
             <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">Food service businesses with full kitchen operations. Track meals, ingredients, and employee shifts.</div>
+          </div>
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Pharmacy</div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.5;">Drugstores and small pharmacies. Keep track of medicines, health products, and daily sales.</div>
           </div>
           <div class="sd-note-box">
             <i class="bi bi-info-circle-fill sd-note-icon"></i>
