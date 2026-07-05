@@ -7920,3 +7920,30 @@ button.pd-menu__item {
 .kpi-card--hue-warning { --kpi-glow: var(--warning); }
 .kpi-card--hue-purple  { --kpi-glow: var(--violet); }
 .kpi-card--hue-danger  { --kpi-glow: var(--danger); }
+
+/* ── Global custom scrollbar ─────────────────────────────── */
+html { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+
+/* remove up/down (and left/right) arrow buttons — explicit variants for Windows Chrome */
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-button:single-button,
+::-webkit-scrollbar-button:vertical:decrement,
+::-webkit-scrollbar-button:vertical:increment,
+::-webkit-scrollbar-button:horizontal:decrement,
+::-webkit-scrollbar-button:horizontal:increment {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
+
+

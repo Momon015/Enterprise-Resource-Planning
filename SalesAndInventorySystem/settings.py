@@ -115,7 +115,7 @@ ALLOWED_HOSTS = ['*']
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-
+    'https://carl-initiatives-saved-lisa.trycloudflare.com'
     ]
 
 # Application definition
@@ -144,7 +144,7 @@ INSTALLED_APPS = [
     'user.apps.UserConfig',
     'core.apps.CoreConfig',
     'subscription.apps.SubscriptionConfig',
-    
+    'psgc.apps.PsgcConfig',
     'django.contrib.humanize',
     
     'rest_framework', 

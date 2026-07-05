@@ -333,7 +333,10 @@
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'business-profile-update' business_id=business.id business_slug=business.slug %}" class="btn btn-primary btn-sm btn-block">
+            <a href="{% url 'business-profile-update' business_id=business.id business_slug=business.slug %}" class="btn btn-primary btn-sm btn-block"
+              hx-get="{% url 'business-profile-update' business_id=business.id business_slug=business.slug %}"
+              hx-target="#confirmBody" 
+              hx-swap="innerHTML">
               <i class="bi bi-pencil"></i> Edit Business
             </a>
             <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm btn-block">

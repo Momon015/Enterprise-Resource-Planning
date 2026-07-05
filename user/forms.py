@@ -137,8 +137,10 @@ class BusinessProfileForm(ModelForm):
 
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address', 'business_phone_number',
-                  'is_vat_registered', 'tin']
+        fields = ['business_name', 'business_type', 'address',
+                  'street', 'barangay', 'city', 'province', 'region', 'zip_code',
+                  'business_phone_number', 'is_vat_registered', 'tin']
+
         widgets = {
             'is_vat_registered': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
         }

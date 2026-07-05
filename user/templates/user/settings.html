@@ -81,7 +81,8 @@
         {% endif %}
       </div>
 
-      <a href="{% url 'business-profile-create' %}" class="settings-row">
+      <a href="{% url 'business-profile-create' %}" class="settings-row"
+         hx-get="{% url 'business-profile-create' %}" hx-target="#confirmBody" hx-swap="innerHTML">
         <div class="settings-row__icon"><i class="bi bi-plus-circle-fill"></i></div>
         <div class="settings-row__body">
           <div class="settings-row__title">Create New Business</div>
@@ -91,7 +92,10 @@
       </a>
 
       {% if current_business %}
-        <a href="{% url 'business-profile-update' business_id=current_business.id business_slug=current_business.slug %}" class="settings-row">
+        <a href="{% url 'business-profile-update' business_id=current_business.id business_slug=current_business.slug %}" class="settings-row"
+          hx-get="{% url 'business-profile-update' business_id=current_business.id business_slug=current_business.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML">
+
           <div class="settings-row__icon"><i class="bi bi-pencil-square"></i></div>
           <div class="settings-row__body">
             <div class="settings-row__title">Edit Current Business</div>

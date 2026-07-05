@@ -504,15 +504,21 @@ def business_profile_create(request):
     
     rate_key = f'biz_create:{request.user.id}'
     rate_limited = cache.get(rate_key) is not None
-    
+    is_hx = request.headers.get('HX-Request') == 'true'
+    modal_tpl = 'user/partials/_business_create_modal.html'
+
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST)
-        
+
         if at_cap:
             messages.info(
                 request,
                 f"You've reached your limit of {cap} business(es). Contact support to add more."
             )
+            if is_hx:
+                resp = HttpResponse(status=204)
+                resp['HX-Redirect'] = reverse('user-profile', kwargs={'user_id': request.user.id, 'slug': request.user.slug})
+                return resp
             return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
 
         # If rate-limited, require the soft "confirm human" checkbox
@@ -523,8 +529,8 @@ def business_profile_create(request):
                 "Confirm you're human and try again."
             )
             context = {'form': form, 'show_human_check': True}
-            return render(request, 'user/business_profile_create.html', context)
-        
+            return render(request, modal_tpl if is_hx else 'user/business_profile_create.html', context)
+
         if form.is_valid():
             profile = form.save(commit=False)
             profile.user = request.user
@@ -532,9 +538,15 @@ def business_profile_create(request):
             request.session['active_business_slug'] = profile.slug   # land in the new business
             cache.set(rate_key, True, timeout=60)
             messages.success(request, "Your business profile has been created successfully.")
+            if is_hx:
+                resp = HttpResponse(status=204)
+                resp['HX-Redirect'] = reverse('user-profile', kwargs={'user_id': request.user.id, 'slug': request.user.slug})
+                return resp
             return redirect('user-profile', user_id=request.user.id, slug=request.user.slug)
 
         else:
+            if is_hx:   # re-render the modal with the form's errors
+                return render(request, modal_tpl, {'form': form, 'show_human_check': rate_limited})
             messages.error(request, "Cafe and Restaurant are coming soon.")
             return redirect('business-profile-create')
 
@@ -548,7 +560,7 @@ def business_profile_create(request):
         'cap': cap,
         'current_count': current_count,
     }
-    return render(request, 'user/business_profile_create.html', context)
+    return render(request, modal_tpl if is_hx else 'user/business_profile_create.html', context)
 
 @login_required(login_url='login')
 def business_profile_detail(request, business_id, business_slug):
@@ -562,22 +574,34 @@ def business_profile_detail(request, business_id, business_slug):
 def business_profile_update(request, business_slug, business_id):
     current_user = request.user
     business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
-    
+    is_hx = request.headers.get('HX-Request') == 'true'
+
     if request.method == 'POST':
         form = BusinessProfileForm(request.POST, instance=business)
-        
         if form.is_valid():
             obj = form.save(commit=False)
             obj.business_name = obj.business_name.title()
             obj.save()
             request.session['active_business_slug'] = obj.slug
-            
+            if is_hx:
+                resp = HttpResponse(status=204)
+                resp['HX-Redirect'] = (request.META.get('HTTP_REFERER')
+                    or reverse('business-profile-detail',
+                               kwargs={'business_id': obj.id, 'business_slug': obj.slug}))
+                return resp
             return redirect('settings', business_slug=obj.user.slug)
+        if is_hx:   # validation error → re-render the modal in place
+            return render(request, 'user/partials/_business_form_modal.html',
+                          {'form': form, 'business': business})
     else:
         form = BusinessProfileForm(instance=business)
-    
+        if is_hx:   # open the modal
+            return render(request, 'user/partials/_business_form_modal.html',
+                          {'form': form, 'business': business})
+
     context = {'form': form, 'business': business, 'section': 'user', 'current_user': current_user}
     return render(request, 'user/business_profile_update.html', context)
+
 
 @login_required(login_url='login')
 def regenerate_invite_code(request, business_id, business_slug):

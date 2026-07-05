@@ -1,7 +1,7 @@
 {% extends 'main.html' %}
 {% load static %}
 
-{% block title %}Add Business Profile — Swift ERP{% endblock %}
+{% block title %}Add Business Profile — paKITA{% endblock %}
 
 {# No business yet → locked onboarding sidebar. Has a business → real navbar. #}
 {% block sidebar %}
@@ -93,7 +93,7 @@
 <div class="page-wrapper">
   {% url 'business-list' as list_fallback %}
 
-  <div class="page-header">
+  {% comment %} <div class="page-header">
     <div class="page-header-left">
       <div class="page-breadcrumb">
         <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="breadcrumb-link">PROFILE</a>
@@ -103,7 +103,7 @@
       <h1 class="page-title">Add Business Profile</h1>
       <p class="page-subtitle">Create a new business profile to manage sales, inventory, and operations separately</p>
     </div>
-  </div>
+  </div> {% endcomment %}
 
   <div class="two-col-layout">
 
@@ -134,9 +134,10 @@
             {% for field in form %}
               {% if field.name == "offers_services" %}
                 {# rendered separately in the Features section below #}
-              {% elif field.name == "is_vat_registered" or field.name == "tin" %}
-                {# VAT status + TIN are configured later in the business profile, not at creation #}
+              {% elif field.name == "is_vat_registered" or field.name == "tin" or field.name == "address" or field.name == "street" or field.name == "barangay" or field.name == "city" or field.name == "province" or field.name == "region" or field.name == "zip_code" %}
+                {# structured address (PSGC) + tax rendered explicitly below the loop #}
               {% else %}
+
 
               <div class="mf-field" style="margin-bottom:0.9rem;">
                 <label class="mf-label" for="{{ field.id_for_label }}">
@@ -167,6 +168,47 @@
               </div>
               {% endif %}
             {% endfor %}
+
+            <!-- ADDRESS (PSGC cascade) -->
+            <div style="font-size:0.75rem; color:var(--muted); margin:0 0 0.6rem;"><i class="bi bi-signpost-2" style="margin-right:.3rem;"></i>Address — each dropdown filters the next.</div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">Region</label>
+              <select name="region" id="id_region" class="form-control" data-selected="{{ form.region.value|default:'' }}"></select>
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">Province</label>
+              <select name="province" id="id_province" class="form-control" data-selected="{{ form.province.value|default:'' }}" disabled></select>
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">City / Municipality</label>
+              <select name="city" id="id_city" class="form-control" data-selected="{{ form.city.value|default:'' }}" disabled></select>
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">Barangay</label>
+              <select name="barangay" id="id_barangay" class="form-control" data-selected="{{ form.barangay.value|default:'' }}" disabled></select>
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">Street / Building</label>
+              {{ form.street }}
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">ZIP Code</label>
+              {{ form.zip_code }}
+            </div>
+
+            <!-- TAX & BIR -->
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">TIN</label>
+              {{ form.tin }}
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">Optional — shown on receipts.</div>
+            </div>
+            <div style="margin-bottom:0.9rem;">
+              <div class="form-check form-switch">
+                {{ form.is_vat_registered }}
+                <label class="form-check-label" for="{{ form.is_vat_registered.id_for_label }}">VAT-registered</label>
+              </div>
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">Turn on only if BIR-registered as VAT — receipts show a 12% VAT breakdown.</div>
+            </div>
 
             {% if show_human_check %}
               <div class="form-check mt-3">
@@ -229,7 +271,7 @@
         </div>
       </div>
 
-      <div class="card">
+      {% comment %} <div class="card">
         <div class="card-header dark" style="background:#1e40af;">
           <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
             <i class="bi bi-credit-card"></i> Subscription
@@ -249,7 +291,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> {% endcomment %}
     </div>
 
   </div>
@@ -257,6 +299,59 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+/* PSGC address cascade (first-business full-page create) */
+(function () {
+  const R = document.getElementById('id_region');
+  const P = document.getElementById('id_province');
+  const C = document.getElementById('id_city');
+  const B = document.getElementById('id_barangay');
+  if (!R) return;
+  const PH = { region:'Select region', province:'Select province',
+               city:'Select city / municipality', barangay:'Select barangay' };
+  function fill(sel, items, sel_, ph) {
+    sel.innerHTML = '<option value="">— ' + ph + ' —</option>';
+    items.forEach(function (it) {
+      const o = document.createElement('option');
+      o.value = it.name; o.dataset.id = it.id; o.textContent = it.name;
+      if (sel_ && it.name === sel_) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.disabled = items.length === 0;
+  }
+  const reset   = (s, ph) => { s.innerHTML = '<option value="">— ' + ph + ' —</option>'; s.disabled = true; };
+  const loading = s => { s.innerHTML = '<option value="">Loading…</option>'; s.disabled = true; };
+  const na      = (s, l) => { s.innerHTML = '<option value="">' + l + '</option>'; s.disabled = true; };
+  const idOf    = s => s.selectedIndex > 0 ? s.options[s.selectedIndex].dataset.id : '';
+  const get     = u => fetch(u).then(r => r.json());
+  function afterRegion(pre) {
+    reset(P, PH.province); reset(C, PH.city); reset(B, PH.barangay);
+    const rid = idOf(R); if (!rid) return; loading(P);
+    return get('/psgc/provinces/?region_id=' + rid).then(function (pv) {
+      if (!pv.length) { na(P, '— Not applicable (Metro Manila) —'); loading(C);
+        return get('/psgc/cities/?region_id=' + rid).then(cs => afterCities(cs, pre)); }
+      fill(P, pv, pre ? P.dataset.selected : '', PH.province);
+      if (idOf(P)) return afterProvince(pre);
+    });
+  }
+  function afterProvince(pre) {
+    reset(C, PH.city); reset(B, PH.barangay);
+    const pid = idOf(P); if (!pid) return; loading(C);
+    return get('/psgc/cities/?province_id=' + pid).then(cs => afterCities(cs, pre));
+  }
+  function afterCities(cs, pre) { fill(C, cs, pre ? C.dataset.selected : '', PH.city); if (idOf(C)) return afterCity(pre); }
+  function afterCity(pre) {
+    reset(B, PH.barangay);
+    const cid = idOf(C); if (!cid) return; loading(B);
+    return get('/psgc/barangays/?city_id=' + cid).then(bg => fill(B, bg, pre ? B.dataset.selected : '', PH.barangay));
+  }
+  R.addEventListener('change', () => afterRegion(false));
+  P.addEventListener('change', () => afterProvince(false));
+  C.addEventListener('change', () => afterCity(false));
+  loading(R);
+  get('/psgc/regions/').then(function (rg) { fill(R, rg, R.dataset.selected, PH.region); if (idOf(R)) afterRegion(true); });
+})();
+</script>
 <script>
 (function () {
   var sidebar = document.getElementById('sidebar');

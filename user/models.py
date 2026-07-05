@@ -184,6 +184,15 @@ class BusinessProfile(models.Model):
 
     business_phone_number = models.CharField(max_length=11, validators=[phone_validators], null=True, blank=True)
     address = models.TextField(null=True, blank=True, max_length=255)
+    
+    # ── Structured address (PH) — preferred over the legacy `address` blob ──
+    street    = models.CharField(max_length=255, null=True, blank=True)   # street / building / unit
+    barangay  = models.CharField(max_length=100, null=True, blank=True)
+    city      = models.CharField(max_length=100, null=True, blank=True)   # City / Municipality
+    province  = models.CharField(max_length=100, null=True, blank=True)
+    region    = models.CharField(max_length=100, null=True, blank=True)
+    zip_code  = models.CharField(max_length=10, null=True, blank=True)
+
     default_opening_cash = models.DecimalField(
         max_digits=10, decimal_places=2,
         default=Decimal('500.00'),
@@ -313,5 +322,22 @@ class BusinessProfile(models.Model):
     def is_pharmacy(self):
         return self.business_type == 'pharmacy'
 
-    
+    @property
+    def address_lines(self):
+        """Multi-line address for thermal receipts; falls back to the legacy blob."""
+        line1 = ", ".join(p for p in [self.street, self.barangay] if p)
+        city_prov = ", ".join(p for p in [self.city, self.province] if p)
+        line2 = " ".join(p for p in [city_prov, self.zip_code] if p)
+        lines = [l for l in [line1, line2] if l]
+        return lines or ([self.address] if self.address else [])
+
+    @property
+    def full_address(self):
+        """One-line address for lists/detail; falls back to the legacy blob."""
+        parts = [p for p in [self.street, self.barangay, self.city,
+                             self.province, self.region, self.zip_code] if p]
+        return ", ".join(parts) or (self.address or "")
+
+
+
 

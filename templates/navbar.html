@@ -90,7 +90,7 @@
     <div class="sidebar-business__label">Current Business</div>
     <select class="sidebar-business__select" onchange="location = this.value;">
       {% for biz in user_businesses %}
-        <option value="{% url 'dashboard' business_slug=biz.slug %}"
+        <option value="{% if biz.plan.has_dashboard %}{% url 'dashboard' business_slug=biz.slug %}{% else %}{% url 'product-list' business_slug=biz.slug %}{% endif %}"
                 {% if current_business.id == biz.id %}selected{% endif %}>
           {{ biz.business_name }}
         </option>
@@ -234,7 +234,7 @@
       </button>
       <div class="sidebar-group__items" id="group-financial">
         <ul>
-          {% if current_business.plan.has_dashboard or current_business.plan.has_daily_summary %}
+
           <li>
             {% comment %} INTERIM: points at view-summary's cash lens until the dedicated
                 Cash Flow page is built (view split, phase 2 of the IA restructure) {% endcomment %}
@@ -286,7 +286,7 @@
         </ul>
       </div>
     </div>
-    {% endif %}
+
 
     {% if request.user.role == 'owner' %}
     <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->

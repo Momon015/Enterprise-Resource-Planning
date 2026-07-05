@@ -42,6 +42,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('user.urls')),
     path('', include('core.urls')),
+    path('psgc/', include('psgc.urls')),
     
     path('business/<str:business_slug>/', include([
         path('products/', include('Product.urls')),
@@ -56,7 +57,8 @@ urlpatterns = [
         path('employee/', include('Employee.urls')),
         path('', include('chatbot.urls')),
     ])),
-    
+        
+
 ]
 
 if settings.DEBUG:

@@ -127,14 +127,37 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="mf-help">Optional — appears on printed receipts</div>
             </div>
 
-            <div class="mf-field-group">
-              <label class="mf-form-label">Address</label>
-              {{ form.address }}
-              {% if form.address.errors %}
-                <div class="mf-error">{{ form.address.errors.0 }}</div>
-              {% endif %}
-              <div class="mf-help">Optional — full street address for your business</div>
+            <!-- ADDRESS -->
+            <div class="sd-section-label">Address</div>
+            <div class="mf-help" style="margin:-0.2rem 0 0.6rem;">Pick from the dropdowns — each one filters the next.</div>
+
+            <div class="mf-field-group" style="margin-bottom:0.9rem;">
+              <label class="mf-form-label">Region</label>
+              <select name="region" id="id_region" class="form-control" data-selected="{{ business.region|default:'' }}"></select>
             </div>
+            <div class="mf-field-group" style="margin-bottom:0.9rem;">
+              <label class="mf-form-label">Province</label>
+              <select name="province" id="id_province" class="form-control" data-selected="{{ business.province|default:'' }}" disabled></select>
+            </div>
+            <div class="mf-field-group" style="margin-bottom:0.9rem;">
+              <label class="mf-form-label">City / Municipality</label>
+              <select name="city" id="id_city" class="form-control" data-selected="{{ business.city|default:'' }}" disabled></select>
+            </div>
+            <div class="mf-field-group" style="margin-bottom:0.9rem;">
+              <label class="mf-form-label">Barangay</label>
+              <select name="barangay" id="id_barangay" class="form-control" data-selected="{{ business.barangay|default:'' }}" disabled></select>
+            </div>
+
+            <div class="mf-field-group" style="margin-bottom:0.9rem;">
+              <label class="mf-form-label">Street / Building</label>
+              {{ form.street }}
+            </div>
+            <div class="mf-field-group">
+              <label class="mf-form-label">ZIP Code</label>
+              {{ form.zip_code }}
+            </div>
+
+
 
             <!-- TAX / BIR -->
             <hr class="sd-section-divider" style="margin: 1rem 0;">
@@ -255,5 +278,80 @@ document.addEventListener("DOMContentLoaded", function () {
 
   </div>
 </div>
+
+<script>
+(function () {
+  const R = document.getElementById('id_region');
+  const P = document.getElementById('id_province');
+  const C = document.getElementById('id_city');
+  const B = document.getElementById('id_barangay');
+  if (!R) return;
+  const PH = { region:'Select region', province:'Select province',
+               city:'Select city / municipality', barangay:'Select barangay' };
+
+  function fill(sel, items, selectedName, placeholder) {
+    sel.innerHTML = '<option value="">— ' + placeholder + ' —</option>';
+    items.forEach(function (it) {
+      const o = document.createElement('option');
+      o.value = it.name; o.dataset.id = it.id; o.textContent = it.name;
+      if (selectedName && it.name === selectedName) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.disabled = items.length === 0;             // nothing to pick → stay greyed
+  }
+  const reset   = (sel, ph) => { sel.innerHTML = '<option value="">— ' + ph + ' —</option>'; sel.disabled = true; };
+  const loading = sel => { sel.innerHTML = '<option value="">Loading…</option>'; sel.disabled = true; };
+  const na      = (sel, label) => { sel.innerHTML = '<option value="">' + label + '</option>'; sel.disabled = true; };
+  const idOf    = sel => sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].dataset.id : '';
+  const get     = url => fetch(url).then(r => r.json());
+
+  function afterRegion(pre) {
+    reset(P, PH.province); reset(C, PH.city); reset(B, PH.barangay);
+    const rid = idOf(R);
+    if (!rid) return;
+    loading(P);
+    return get('/psgc/provinces/?region_id=' + rid).then(function (provs) {
+      if (!provs.length) {                          // NCR / province-less
+        na(P, '— Not applicable (Metro Manila) —');
+        loading(C);
+        return get('/psgc/cities/?region_id=' + rid).then(cs => afterCities(cs, pre));
+      }
+      fill(P, provs, pre ? P.dataset.selected : '', PH.province);
+      if (idOf(P)) return afterProvince(pre);
+    });
+  }
+  function afterProvince(pre) {
+    reset(C, PH.city); reset(B, PH.barangay);
+    const pid = idOf(P);
+    if (!pid) return;
+    loading(C);
+    return get('/psgc/cities/?province_id=' + pid).then(cs => afterCities(cs, pre));
+  }
+  function afterCities(cities, pre) {
+    fill(C, cities, pre ? C.dataset.selected : '', PH.city);
+    if (idOf(C)) return afterCity(pre);
+  }
+  function afterCity(pre) {
+    reset(B, PH.barangay);
+    const cid = idOf(C);
+    if (!cid) return;
+    loading(B);
+    return get('/psgc/barangays/?city_id=' + cid)
+      .then(bgys => fill(B, bgys, pre ? B.dataset.selected : '', PH.barangay));
+  }
+
+  R.addEventListener('change', () => afterRegion(false));
+  P.addEventListener('change', () => afterProvince(false));
+  C.addEventListener('change', () => afterCity(false));
+
+  loading(R);
+  get('/psgc/regions/').then(function (regions) {
+    fill(R, regions, R.dataset.selected, PH.region);
+    if (idOf(R)) afterRegion(true);
+  });
+})();
+</script>
+
+
 
 {% endblock %}

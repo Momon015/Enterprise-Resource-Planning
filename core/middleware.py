@@ -38,27 +38,28 @@ class ReturnToMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         try:
-            self._record(request)
+            self._record(request, response)
         except Exception:
-            pass  
+            pass
         return response
 
-    def _record(self, request):
+    def _record(self, request, response):
         if request.method != 'GET':
-            print(f"[RT] skip (not GET): {request.path}")
             return
         if request.headers.get('HX-Request') == 'true':
-            print(f"[RT] skip (htmx): {request.path}")
+            return
+        # Only track real navigational HTML pages — never JSON/API/AJAX endpoints
+        # (e.g. the PSGC cascade fetches) or file downloads. This is what stops
+        # Cancel from jumping to the last /psgc/… fetch URL.
+        if 'text/html' not in (response.get('Content-Type') or ''):
             return
         match = getattr(request, 'resolver_match', None)
         if not match:
-            print(f"[RT] skip (no match): {request.path}")
             return
         name = match.url_name or ''
         if any(s in name for s in self.SKIP):
-            print(f"[RT] skip (name='{name}'): {request.path}")
             return
         request.session['return_to'] = request.get_full_path()
-        print(f"[RT] RECORDED return_to = {request.get_full_path()}  (name='{name}')")
+
 
 

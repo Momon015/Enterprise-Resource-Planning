@@ -216,7 +216,7 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
 
-      <div class="card">
+      {% comment %} <div class="card">
         <div class="card-header">
           <span class="card-header-title" style="display:flex; align-items:center; gap:0.4rem;">
             <!-- <i class="bi bi-lightning"></i> -->
@@ -228,11 +228,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <a href="{% url 'user-edit-profile' slug=user.slug user_id=user.id %}" class="btn btn-primary btn-sm btn-block">
               <i class="bi bi-pencil-square"></i> Edit Profile
             </a>
-            {% comment %} {% if request.user.role == 'owner' %}
+            {% if request.user.role == 'owner' %}
             <a href="{% url 'business-profile-detail' business_id=business.id slug=business.slug %}" class="btn btn-outline-primary btn-sm btn-block">
               <i class="bi bi-shop"></i> Business Profile
             </a>
-            {% endif %} {% endcomment %}
+            {% endif %} 
             <a href="{% url 'user-edit-password' %}" class="btn btn-outline-secondary btn-sm btn-block"
                hx-get="{% url 'user-edit-password' %}" hx-target="#confirmBody" hx-swap="innerHTML">
               <i class="bi bi-lock-fill"></i> Change Password
@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
           </div>
         </div>
-      </div>
+      </div> {% endcomment %}
 
     </div>
 

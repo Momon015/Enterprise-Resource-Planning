@@ -1,0 +1,198 @@
+<div class="quickview__panel cm-panel cm-panel--form bpf-modal">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head bpf-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-plus-circle"></i></div>
+        <div>
+          <div class="cm-title">Create New Business</div>
+          <div class="cm-sub">Add another business under your account</div>
+        </div>
+      </div>
+
+      {% if at_cap %}
+      <div class="bpf-fields" style="padding-top:0.75rem;">
+        <div class="cm-note cm-note--warning">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          You've reached your limit of {{ cap }} business{{ cap|pluralize }}. Contact support to add more.
+        </div>
+      </div>
+      <div class="bpf-actions">
+        <button type="button" class="btn btn-outline-secondary" data-quickview-close>Close</button>
+      </div>
+      {% else %}
+      <form id="businessCreateForm" method="POST"
+            hx-post="{% url 'business-profile-create' %}"
+            hx-target="#confirmBody" hx-swap="innerHTML"
+            autocomplete="off" novalidate class="bpf-form">
+        {% csrf_token %}
+        <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <div class="bpf-fields">
+          <div class="sd-section-label">Basic Information</div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Business Name <span class="mf-required">*</span></label>
+            {{ form.business_name }}
+            {% if form.business_name.errors %}<div class="mf-error">{{ form.business_name.errors.0 }}</div>{% endif %}
+            <div class="mf-help">Used across receipts, reports, and statements.</div>
+          </div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Business Type <span class="mf-required">*</span></label>
+            {{ form.business_type }}
+            {% if form.business_type.errors %}<div class="mf-error">{{ form.business_type.errors.0 }}</div>{% endif %}
+            <div class="mf-help">Locked after creation — pick carefully.</div>
+          </div>
+
+          <hr class="sd-section-divider" style="margin:1.1rem 0;">
+          <div class="sd-section-label">Contact &amp; Location</div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Phone Number</label>
+            {{ form.business_phone_number }}
+            {% if form.business_phone_number.errors %}<div class="mf-error">{{ form.business_phone_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mf-help" style="margin:0 0 0.6rem;"><i class="bi bi-signpost-2" style="margin-right:.3rem;"></i>Address — each dropdown filters the next.</div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Region</label>
+            <select name="region" id="id_region" class="form-control" data-selected="{{ form.region.value|default:'' }}"></select>
+          </div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Province</label>
+            <select name="province" id="id_province" class="form-control" data-selected="{{ form.province.value|default:'' }}" disabled></select>
+          </div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">City / Municipality</label>
+            <select name="city" id="id_city" class="form-control" data-selected="{{ form.city.value|default:'' }}" disabled></select>
+          </div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Barangay</label>
+            <select name="barangay" id="id_barangay" class="form-control" data-selected="{{ form.barangay.value|default:'' }}" disabled></select>
+          </div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">Street / Building</label>
+            {{ form.street }}
+          </div>
+          <div class="mf-field-group">
+            <label class="mf-form-label">ZIP Code</label>
+            {{ form.zip_code }}
+          </div>
+
+          <hr class="sd-section-divider" style="margin:1.1rem 0;">
+          <div class="sd-section-label">Tax &amp; BIR</div>
+          <div class="mf-field-group" style="margin-bottom:0.9rem;">
+            <label class="mf-form-label">TIN</label>
+            {{ form.tin }}
+            {% if form.tin.errors %}<div class="mf-error">{{ form.tin.errors.0 }}</div>{% endif %}
+            <div class="mf-help">Optional — shown on receipts.</div>
+          </div>
+          <div class="mf-field-group">
+            <div class="form-check form-switch">
+              {{ form.is_vat_registered }}
+              <label class="form-check-label" for="{{ form.is_vat_registered.id_for_label }}">VAT-registered</label>
+            </div>
+            <div class="mf-help">Turn on only if BIR-registered as VAT — receipts show a 12% VAT breakdown.</div>
+          </div>
+
+          {% if show_human_check %}
+          <div class="mf-field-group" style="margin-top:0.9rem;">
+            <label class="form-check-label" style="display:flex; align-items:center; gap:.5rem;">
+              <input type="checkbox" name="confirm_human" class="form-check-input"> I'm not a robot
+            </label>
+            <div class="mf-help">Quick check — you're adding businesses in fast succession.</div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="bpf-actions">
+          <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg sl-me-1"></i> Create Business</button>
+        </div>
+      </form>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <style>
+    .bpf-modal .cm-card .card-body { padding: 0; display: flex; flex-direction: column; max-height: min(85vh, 780px); }
+    .bpf-modal .bpf-head { padding: 1.75rem 2rem 1rem; margin-bottom: 0; }
+    .bpf-modal .bpf-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    .bpf-modal .bpf-fields { padding: 0.35rem 2rem 0.85rem; overflow-y: auto; flex: 1; }
+    .bpf-modal .bpf-actions { display: flex; justify-content: flex-end; gap: .6rem;
+      padding: 1.1rem 2rem; border-top: 1px solid var(--border-light); }
+    /* the business-type <select> renders without a class — give it the form-control look */
+    .bpf-modal .bpf-fields select {
+      width: 100%; padding: 0.4rem 0.7rem; font-size: 0.875rem;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--surface); color: var(--text);
+    }
+    /* nested scroll area — match the global scrollbar */
+    .bpf-modal .bpf-fields { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    .bpf-modal .bpf-fields::-webkit-scrollbar { width: 12px; height: 12px; }
+    .bpf-modal .bpf-fields::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+    .bpf-modal .bpf-fields::-webkit-scrollbar-track { background: transparent; }
+    .bpf-modal .bpf-fields::-webkit-scrollbar-thumb {
+      background: var(--border-strong); border-radius: 10px;
+      border: 3px solid transparent; background-clip: padding-box;
+    }
+    .bpf-modal .bpf-fields::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+    @media (max-width: 576px) {
+      .bpf-modal .bpf-head { padding: 1.3rem 1.3rem 0.8rem; }
+      .bpf-modal .bpf-fields { padding: 0.35rem 1.3rem; }
+      .bpf-modal .bpf-actions { padding: 0.9rem 1.3rem; }
+    }
+  </style>
+
+  <script>
+  (function () {
+    const R = document.getElementById('id_region');
+    const P = document.getElementById('id_province');
+    const C = document.getElementById('id_city');
+    const B = document.getElementById('id_barangay');
+    if (!R) return;
+    const PH = { region:'Select region', province:'Select province',
+                 city:'Select city / municipality', barangay:'Select barangay' };
+    function fill(sel, items, sel_, ph) {
+      sel.innerHTML = '<option value="">— ' + ph + ' —</option>';
+      items.forEach(function (it) {
+        const o = document.createElement('option');
+        o.value = it.name; o.dataset.id = it.id; o.textContent = it.name;
+        if (sel_ && it.name === sel_) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.disabled = items.length === 0;
+    }
+    const reset   = (s, ph) => { s.innerHTML = '<option value="">— ' + ph + ' —</option>'; s.disabled = true; };
+    const loading = s => { s.innerHTML = '<option value="">Loading…</option>'; s.disabled = true; };
+    const na      = (s, l) => { s.innerHTML = '<option value="">' + l + '</option>'; s.disabled = true; };
+    const idOf    = s => s.selectedIndex > 0 ? s.options[s.selectedIndex].dataset.id : '';
+    const get     = u => fetch(u).then(r => r.json());
+    function afterRegion(pre) {
+      reset(P, PH.province); reset(C, PH.city); reset(B, PH.barangay);
+      const rid = idOf(R); if (!rid) return; loading(P);
+      return get('/psgc/provinces/?region_id=' + rid).then(function (pv) {
+        if (!pv.length) { na(P, '— Not applicable (Metro Manila) —'); loading(C);
+          return get('/psgc/cities/?region_id=' + rid).then(cs => afterCities(cs, pre)); }
+        fill(P, pv, pre ? P.dataset.selected : '', PH.province);
+        if (idOf(P)) return afterProvince(pre);
+      });
+    }
+    function afterProvince(pre) {
+      reset(C, PH.city); reset(B, PH.barangay);
+      const pid = idOf(P); if (!pid) return; loading(C);
+      return get('/psgc/cities/?province_id=' + pid).then(cs => afterCities(cs, pre));
+    }
+    function afterCities(cs, pre) { fill(C, cs, pre ? C.dataset.selected : '', PH.city); if (idOf(C)) return afterCity(pre); }
+    function afterCity(pre) {
+      reset(B, PH.barangay);
+      const cid = idOf(C); if (!cid) return; loading(B);
+      return get('/psgc/barangays/?city_id=' + cid).then(bg => fill(B, bg, pre ? B.dataset.selected : '', PH.barangay));
+    }
+    R.addEventListener('change', () => afterRegion(false));
+    P.addEventListener('change', () => afterProvince(false));
+    C.addEventListener('change', () => afterCity(false));
+    loading(R);
+    get('/psgc/regions/').then(function (rg) { fill(R, rg, R.dataset.selected, PH.region); if (idOf(R)) afterRegion(true); });
+  })();
+  </script>
+</div>
