@@ -4809,6 +4809,13 @@ details.filter-card summary:hover {
   --success-light:    #f0fdf4;
   --success-border:   #bbf7d0;
   --info:             #2563eb;
+  --cyan:             #0891b2;
+  --cyan-light:       #ecfeff;
+  --orange:           #ea580c;
+  --orange-light:     #fff7ed;
+  --silver:           #94a3b8;   /* cool silver — neutral card accent */
+  --emerald:          #10b981;   /* brighter, cooler green for KPI money-in cards (not the brand accent) */
+  --emerald-light:    #d1fae5;
   --info-light:       #eff6ff;
   --info-border:      #bfdbfe;
 
@@ -4964,6 +4971,13 @@ details.filter-card summary:hover {
   --success:          #22c55e;
   --success-light:    rgba(34, 197, 94, 0.12);
   --success-border:   rgba(34, 197, 94, 0.32);
+  --cyan:             #22d3ee;
+  --cyan-light:       rgba(34, 211, 238, 0.12);
+  --orange:           #fb923c;
+  --orange-light:     rgba(251, 146, 60, 0.12);
+  --silver:           #a8b3c4;
+  --emerald:          #34d399;
+  --emerald-light:    rgba(52, 211, 153, 0.14);
   --info:             #3b82f6;
   --info-light:       rgba(59, 130, 246, 0.12);
   --info-border:      rgba(59, 130, 246, 0.35);
@@ -5812,11 +5826,13 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   align-items: flex-start;
   gap: 0.875rem;
   padding: 1rem 1.1rem;
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--kpi-soft, var(--surface)) 0%, var(--surface) 60%);
   border: 1px solid var(--border);
   position: relative;
   border-radius: 12px;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
+  --kpi-glow: var(--silver);            /* neutral hover glow — cool silver */
+  --kpi-soft: color-mix(in srgb, var(--silver) 12%, var(--surface));   /* faint cool-silver wash, ~matches hued cards' tint strength */
 }
 
 .kpi-card:hover {
@@ -5826,9 +5842,9 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 
 /* Featured card (Net Profit) — subtle accent */
 .kpi-card--featured {
-  border-color: var(--success-light);
-  background: linear-gradient(180deg, var(--success-light) 0%, var(--surface) 60%);
+  border-color: var(--kpi-soft, var(--border));
 }
+
 
 /* Icon disc */
 .kpi-icon {
@@ -5842,11 +5858,14 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   font-size: 1.25rem;
 }
 
-.kpi-icon--success { background: var(--success-light); color: var(--success); }
+.kpi-icon--cyan { background: var(--cyan-light); color: var(--cyan); }
+.kpi-icon--success { background: var(--emerald-light); color: var(--emerald); }
 .kpi-icon--info    { background: var(--info-light); color: var(--info); }
 .kpi-icon--warning { background: var(--warning-light); color: var(--warning); }
 .kpi-icon--purple  { background: var(--violet-light); color: var(--violet); }
 .kpi-icon--danger  { background: var(--danger-light); color: var(--danger); }
+.kpi-icon--neutral { background: color-mix(in srgb, var(--silver) 14%, var(--surface)); color: var(--silver); }
+.kpi-icon--orange { background: var(--orange-light); color: var(--orange); }
 
 /* Body */
 .kpi-body {
@@ -7802,6 +7821,7 @@ button.pd-menu__item {
   background: var(--muted); display: inline-block; margin-right: .3rem;
 }
 .drawer-dot--open { background: var(--success); }
+.drawer-dot--closed { background: var(--danger); }
 
 /* ── NEEDS ATTENTION (dashboard) — actionable current state ── */
 .attention-list { display: flex; flex-direction: column; gap: .25rem; }
@@ -7898,8 +7918,8 @@ button.pd-menu__item {
 .kpi-card::after {
   content: "";
   position: absolute;
-  left: 12%;
-  right: 12%;
+  left: 5%;
+  right: 5%;
   bottom: -1px;               /* sits on the border line */
   height: 2px;
   border-radius: var(--radius-full);
@@ -7915,11 +7935,13 @@ button.pd-menu__item {
 .kpi-card.is-lit::after { opacity: 1; }
 
 /* Hue per card — matches the icon disc */
-.kpi-card--hue-success { --kpi-glow: var(--success); }
-.kpi-card--hue-info    { --kpi-glow: var(--info); }
-.kpi-card--hue-warning { --kpi-glow: var(--warning); }
-.kpi-card--hue-purple  { --kpi-glow: var(--violet); }
-.kpi-card--hue-danger  { --kpi-glow: var(--danger); }
+.kpi-card--hue-cyan { --kpi-glow: var(--cyan); --kpi-soft: var(--cyan-light); }
+.kpi-card--hue-success { --kpi-glow: var(--emerald); --kpi-soft: color-mix(in srgb, var(--emerald-light) 35%, var(--surface)); }
+.kpi-card--hue-info    { --kpi-glow: var(--info);    --kpi-soft: var(--info-light); }
+.kpi-card--hue-warning { --kpi-glow: var(--warning); --kpi-soft: var(--warning-light); }
+.kpi-card--hue-purple  { --kpi-glow: var(--violet);  --kpi-soft: var(--violet-light); }
+.kpi-card--hue-danger  { --kpi-glow: var(--danger);  --kpi-soft: color-mix(in srgb, var(--danger-light) 75%, var(--surface)); }
+.kpi-card--hue-orange { --kpi-glow: var(--orange); --kpi-soft: var(--orange-light); }
 
 /* ── Global custom scrollbar ─────────────────────────────── */
 html { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
@@ -7945,5 +7967,26 @@ html { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
   width: 0;
   height: 0;
 }
+
+/* ── SelectDateWidget (birthday, etc.) — Month · Day · Year inline dropdowns ── */
+select[name$="_month"],
+select[name$="_day"],
+select[name$="_year"] {
+  display: inline-block;
+  width: auto;
+  min-width: 0;
+  margin-right: .4rem;
+}
+select[name$="_year"] { margin-right: 0; }
+
+label:has(+ select[name$="_month"]),
+label:has(+ select[name$="_day"]),
+label:has(+ select[name$="_year"]) {
+  display: block;
+  margin-top: 0.7rem;
+  margin-bottom: 0.4rem;
+}
+
+
 
 

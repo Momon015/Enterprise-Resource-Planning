@@ -111,12 +111,12 @@ class UpdateUserForm(ModelForm):
         fields = ['username', 'first_name', 'last_name', 'birthday', 'phone_number']
         
         widgets = {
-            'birthday': forms.DateInput(
-                attrs={
-                    'type': 'date'
-                }
+            'birthday': forms.SelectDateWidget(
+                years=range(date.today().year, 1939, -1),   # newest year first
+                empty_label=("Year", "Month", "Day"),
             )
         }
+
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

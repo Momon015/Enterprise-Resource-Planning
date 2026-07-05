@@ -83,9 +83,9 @@
   <div class="kpi-row kpi-row--4col">
 
     <!-- NET PROFIT / NET CASH (the number owners actually care about) -->
-    <div class="kpi-card kpi-card--featured kpi-card--clickable kpi-card--hue-{% if basis == 'cash' and net_cash < 0 or basis != 'cash' and net_profit < 0 %}danger{% else %}success{% endif %}"
+    <div class="kpi-card kpi-card--featured kpi-card--clickable{% if hue_netprofit %} kpi-card--hue-{{ hue_netprofit }}{% endif %}"
          data-href="{% url 'view-summary' business_slug=current_business.slug %}?basis={{ basis }}" tabindex="0">
-      <div class="kpi-icon kpi-icon--success">
+      <div class="kpi-icon kpi-icon--{% if hue_netprofit %}{{ hue_netprofit }}{% else %}neutral{% endif %}">
         <i class="bi bi-graph-up-arrow"></i>
       </div>
       <div class="kpi-body">
@@ -117,9 +117,9 @@
     </div>
 
     <!-- REVENUE (accrual) / COLLECTED (cash) -->
-    <div class="kpi-card kpi-card--hue-info{% if collected_by_method or receivables or credit_used_today %} has-popover{% endif %} kpi-card--clickable"
+    <div class="kpi-card{% if hue_revenue %} kpi-card--hue-{{ hue_revenue }}{% endif %}{% if collected_by_method or receivables or credit_used_today %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'sale-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--info">
+      <div class="kpi-icon kpi-icon--{% if hue_revenue %}{{ hue_revenue }}{% else %}neutral{% endif %}">
         <i class="bi bi-cash-coin"></i>
       </div>
       <div class="kpi-body">
@@ -169,9 +169,10 @@
 
     <!-- EXPENSE COST (payroll + other expenses; + waste in the Profitability lens —
          waste is never a cash event, so the Cash Flow lens excludes it) -->
-    <div class="kpi-card kpi-card--hue-warning has-popover kpi-card--clickable"
+    <div class="kpi-card{% if hue_expense %} kpi-card--hue-{{ hue_expense }}{% endif %} has-popover kpi-card--clickable"
          data-href="{% url 'expense-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--warning">
+      <div class="kpi-icon kpi-icon--{% if hue_expense %}{{ hue_expense }}{% else %}neutral{% endif %}">
+
         <i class="bi bi-receipt"></i>
       </div>
       <div class="kpi-body">
@@ -217,9 +218,9 @@
     </div>
 
     <!-- MATERIAL COST (accrual) / PAID (cash) -->
-    <div class="kpi-card kpi-card--hue-purple{% if basis != 'cash' %} has-popover{% endif %} kpi-card--clickable"
+    <div class="kpi-card{% if hue_material %} kpi-card--hue-{{ hue_material }}{% endif %}{% if basis != 'cash' %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--purple">
+      <div class="kpi-icon kpi-icon--{% if hue_material %}{{ hue_material }}{% else %}neutral{% endif %}">
         <i class="bi bi-box-seam"></i>
       </div>
       <div class="kpi-body">
@@ -271,9 +272,9 @@
   <div class="kpi-row kpi-row--4col">
 
     <!-- TRANSACTIONS -->
-    <div class="kpi-card kpi-card--hue-info kpi-card--clickable"
+    <div class="kpi-card kpi-card--clickable"
          data-href="{% url 'sale-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--info"><i class="bi bi-receipt-cutoff"></i></div>
+      <div class="kpi-icon kpi-icon--neutral"><i class="bi bi-receipt-cutoff"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Transactions</div>
         <div class="kpi-value">{{ txn_count }}</div>
@@ -288,9 +289,9 @@
     </div>
 
     <!-- PURCHASES -->
-    <div class="kpi-card kpi-card--hue-purple kpi-card--clickable"
+    <div class="kpi-card kpi-card--clickable"
          data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--purple"><i class="bi bi-cart3"></i></div>
+      <div class="kpi-icon kpi-icon--neutral"><i class="bi bi-cart3"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Purchases</div>
         <div class="kpi-value">{{ pur_count }}</div>
@@ -306,14 +307,14 @@
 
     <!-- CASH DRAWER (only when the business tracks a drawer) -->
     {% if current_business.enable_cash_reconciliation %}
-    <div class="kpi-card kpi-card--hue-success{% if drawer %} has-popover{% endif %}">
-      <div class="kpi-icon kpi-icon--success"><i class="bi bi-cash-stack"></i></div>
+    <div class="kpi-card{% if drawer.is_open %} kpi-card--hue-cyan{% endif %}{% if drawer %} has-popover{% endif %}">
+      <div class="kpi-icon kpi-icon--{% if drawer.is_open %}cyan{% else %}neutral{% endif %}"><i class="bi bi-cash-stack"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Cash Drawer</div>
         {% if drawer %}
           <div class="kpi-value">₱{{ drawer_balance|floatformat:2|intcomma }}</div>
-          <div class="kpi-delta {% if drawer.is_open %}kpi-delta--up{% else %}kpi-delta--muted{% endif %}">
-            <span class="drawer-dot{% if drawer.is_open %} drawer-dot--open{% endif %}"></span>
+          <div class="kpi-delta {% if drawer.is_open %}kpi-delta--up{% else %}kpi-delta--down{% endif %}">
+            <span class="drawer-dot{% if drawer.is_open %} drawer-dot--open{% else %} drawer-dot--closed{% endif %}"></span>
             {% if drawer.is_open %}Open{% else %}Closed{% endif %}
           </div>
         {% else %}
@@ -339,9 +340,9 @@
     {% endif %}
 
     <!-- LOW STOCK -->
-    <div class="kpi-card kpi-card--hue-warning{% if stock_alert_top %} has-popover{% endif %}{% if stock_alert_count %}{% endif %} kpi-card--clickable"
+    <div class="kpi-card{% if hue_lowstock %} kpi-card--hue-{{ hue_lowstock }}{% endif %}{% if stock_alert_top %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--warning"><i class="bi bi-exclamation-triangle"></i></div>
+      <div class="kpi-icon kpi-icon--{% if hue_lowstock %}{{ hue_lowstock }}{% else %}neutral{% endif %}"><i class="bi bi-exclamation-triangle"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Low Stock</div>
         <div class="kpi-value">{{ stock_alert_count }}</div>

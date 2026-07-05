@@ -1,0 +1,185 @@
+{# core/templates/core/partials/_change_email_modal.html #}
+<style>
+  .ce-steps { display:flex; align-items:center; justify-content:center; gap:.4rem; margin:.25rem 0 1.35rem; }
+  .ce-step { display:flex; align-items:center; gap:.5rem; }
+  .ce-step__dot {
+    width:28px; height:28px; border-radius:50%; flex:0 0 28px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.85rem; font-weight:600; line-height:1;
+    background:var(--surface-hover); color:var(--muted);
+    border:1.5px solid var(--border-strong); transition:.18s ease;
+  }
+  .ce-step__label { font-size:.85rem; font-weight:500; color:var(--muted); white-space:nowrap; }
+  .ce-step.is-active .ce-step__dot { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .ce-step.is-active .ce-step__label { color:var(--text); }
+  .ce-step.is-done .ce-step__dot { background:#16a34a; color:#fff; border-color:#16a34a; }
+  .ce-step.is-done .ce-step__label { color:var(--text); }
+  .ce-step__line { flex:0 1 44px; height:2px; border-radius:2px; background:var(--border-strong); transition:.18s ease; }
+  .ce-step__line.is-done { background:#16a34a; }
+  @media (max-width:420px){ .ce-step__label { display:none; } .ce-step__line { flex-basis:32px; } }
+</style>
+
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+    {% if step != 'done' %}
+      {# ── STEPPER RAIL ── #}
+      <div class="ce-steps">
+        <div class="ce-step {% if step == 'form' %}is-active{% else %}is-done{% endif %}">
+          <span class="ce-step__dot">{% if step == 'form' %}1{% else %}<i class="bi bi-check-lg"></i>{% endif %}</span>
+          <span class="ce-step__label">New email</span>
+        </div>
+        <span class="ce-step__line {% if step != 'form' %}is-done{% endif %}"></span>
+        <div class="ce-step {% if step == 'verify' %}is-active{% endif %}">
+          <span class="ce-step__dot">2</span>
+          <span class="ce-step__label">Verify</span>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if step == 'form' %}
+      {# ── STEP 1: new email + password ── #}
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-envelope-fill"></i></div>
+        <div>
+          <div class="cm-title">Change email</div>
+          <div class="cm-sub">Enter the email you want to use</div>
+        </div>
+      </div>
+
+      <form hx-post="{% url 'change-email-form' %}" hx-target="#confirmBody" hx-swap="innerHTML" autocomplete="off">
+        {% csrf_token %}
+        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+               style="position:absolute;left:-9999px;width:1px;height:1px;">
+
+        {% if error %}<p class="cm-note cm-note--danger" style="margin-top:0;">{{ error }}</p>{% endif %}
+
+        <div class="form-field">
+          <label class="form-label">Current email</label>
+          <input type="email" class="form-control" value="{{ request.user.email }}" disabled>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="ce_new_email">New email</label>
+          <input type="email" name="new_email" id="ce_new_email" class="form-control"
+                 placeholder="you@example.com" value="{{ new_email|default:'' }}" required>
+          <small style="color:var(--muted); font-size:.8rem;">We'll send a 6-digit code here.</small>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="ce_password">Current password</label>
+          <div class="cm-pass-wrap">
+            <input type="password" name="current_password" id="ce_password" class="form-control"
+                   placeholder="Enter your password" required>
+            <button type="button" class="cm-pass-toggle" aria-label="Show password" tabindex="-1"><i class="bi bi-eye"></i></button>
+          </div>
+          <small style="color:var(--muted); font-size:.8rem;">Confirms it's really you.</small>
+        </div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-send-fill"></i> Send code</button>
+        </div>
+      </form>
+
+    {% elif step == 'verify' %}
+      {# ── STEP 2: OTP ── #}
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-shield-lock-fill"></i></div>
+        <div>
+          <div class="cm-title">Verify your email</div>
+          <div class="cm-sub">Code sent to {{ pending_email }}</div>
+        </div>
+      </div>
+
+      <form hx-post="{% url 'change-email-verify' %}" hx-target="#confirmBody" hx-swap="innerHTML"
+            autocomplete="off" id="ceVerifyForm">
+        {% csrf_token %}
+        <input type="hidden" name="otp" id="ceOtpFull">
+
+        {% if error %}<p class="cm-note cm-note--danger" style="margin-top:0;">{{ error }}</p>{% endif %}
+
+        <div class="cev-otp-group" style="margin-top:.5rem;">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" class="cev-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]">
+        </div>
+
+        <div style="text-align:center; margin-top:.75rem;">
+          <span class="cev-timer" id="ceCountdown" data-expires="{{ expires_at_iso }}">
+            <i class="bi bi-clock"></i> Expires in <span id="ceCountdownTime">--:--</span>
+          </span>
+        </div>
+
+        <div class="cm-actions" style="margin-top:1rem;">
+          <button type="button" class="btn btn-outline-secondary"
+                  hx-get="{% url 'change-email-form' %}" hx-target="#confirmBody" hx-swap="innerHTML">Back</button>
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check2-circle"></i> Verify</button>
+        </div>
+      </form>
+
+      <script>
+      (function(){
+        const scope = document.getElementById('confirmBody');
+        const boxes = scope.querySelectorAll('.cev-otp-input');
+        const hidden = scope.querySelector('#ceOtpFull');
+        const form = scope.querySelector('#ceVerifyForm');
+        if (!boxes.length || !form) return;
+        const sync = () => { hidden.value = Array.from(boxes).map(b => b.value).join(''); };
+        boxes.forEach((box, i) => {
+          box.addEventListener('input', () => {
+            box.value = box.value.replace(/\D/g, '');
+            if (box.value && i < boxes.length - 1) boxes[i+1].focus();
+            sync();
+            if (hidden.value.length === 6) form.requestSubmit();   // requestSubmit → htmx intercepts (NOT .submit())
+          });
+          box.addEventListener('keydown', e => {
+            if (e.key === 'Backspace' && !box.value && i > 0) boxes[i-1].focus();
+          });
+          box.addEventListener('paste', e => {
+            e.preventDefault();
+            const t = (e.clipboardData.getData('text') || '').replace(/\D/g,'').slice(0,6);
+            [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
+            sync();
+            if (t.length === 6) form.requestSubmit();
+          });
+        });
+        if (boxes[0]) boxes[0].focus();
+
+        const pill = scope.querySelector('#ceCountdown');
+        if (pill) {
+          const target = new Date(pill.dataset.expires).getTime();
+          const out = scope.querySelector('#ceCountdownTime');
+          const tick = () => {
+            const d = Math.max(0, target - Date.now());
+            const m = Math.floor(d/60000), s = Math.floor((d%60000)/1000);
+            out.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            if (d <= 0) pill.classList.add('cev-timer--expired');
+          };
+          tick(); setInterval(tick, 1000);
+        }
+      })();
+      </script>
+
+    {% elif step == 'done' %}
+      {# ── STEP 3: success (in-wizard, closes the loop) ── #}
+      <div data-reload-on-close style="text-align:center; padding:.75rem 0 .5rem;">
+        <div class="cm-thumb" style="width:56px; height:56px; border-radius:50%; margin:0 auto .9rem; background:rgba(34,197,94,.14); color:#16a34a; font-size:1.7rem; display:flex; align-items:center; justify-content:center;">
+          <i class="bi bi-check-lg"></i>
+        </div>
+        <div class="cm-title">Email updated</div>
+        <div class="cm-sub" style="margin-top:.25rem;">Your email is now<br><strong>{{ new_email }}</strong></div>
+        <div class="cm-actions" style="justify-content:center; margin-top:1.25rem;">
+          <button type="button" class="btn cm-btn cm-btn--success" data-quickview-close>Done</button>
+        </div>
+      </div>
+    {% endif %}
+
+    </div>
+  </div>
+</div>

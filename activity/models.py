@@ -32,11 +32,13 @@ class ActivityEvent(models.Model):
         ('purchase.paid',      'Purchase payment recorded'),
         ('stock.adjusted',     'Stock updated'),
         ('stock.low',          'Low stock alert'),
+        ('stock.critical',     'Critically low stock'),
         ('stock.out',          'Out of stock'),
         ('waste.recorded',     'Waste recorded'),
         ('trial.ending',       'Trial ending soon'),
         ('plan.expired',       'Plan expired'),
         ('plan.canceled',      'Subscription canceled'),
+        ('plan.expiring',      'Subscription ending soon'),
         ('staff.added',        'Staff added'),
         ('purchase.refunded',  'Purchase refunded'),
         ('sale.refunded',      'Sale refunded'),
@@ -91,13 +93,15 @@ class ActivityEvent(models.Model):
 
     @property
     def tone(self):
-        if self.verb in ('stock.low', 'stock.out', 'plan.expired',
+        if self.verb in ('stock.out', 'stock.critical', 'plan.expired',
                          'sale.refunded', 'purchase.refunded',
                          'waste.recorded', 'product.margin_low'):
             return 'danger'
-        if self.verb in ('trial.ending', 'plan.canceled',
+
+        if self.verb in ('stock.low','trial.ending', 'plan.expiring', 'plan.canceled',
                          'product.archived', 'material.archived', 'supplier.archived'):
             return 'warning'
+
         if self.verb == 'purchase.recorded':
             return 'purple'
         if self.verb == 'sale.completed':
@@ -122,6 +126,30 @@ class ActivityEvent(models.Model):
             return None
 
         try:
+            if self.verb.startswith('stock.'):
+                model = self.target_type.model if self.target_type else None
+                if model == 'product':
+                    from Product.models import Product
+                    try:
+                        p = Product.objects.only('id', 'slug').get(id=self.target_id)
+                        return reverse('product-detail', kwargs={
+                            'business_slug': business_slug, 'product_id': p.id, 'product_slug': p.slug,
+                        })
+                    except Product.DoesNotExist:
+                        return None
+                if model == 'stock':
+                    from Inventory.models import Stock
+                    try:
+                        s = Stock.objects.select_related('material').get(id=self.target_id)
+                    except Stock.DoesNotExist:
+                        return None
+                    if s.material_id:
+                        return reverse('material-detail', kwargs={
+                            'business_slug': business_slug, 'id': s.material.id, 'slug': s.material.slug,
+                        })
+                    return None
+                return None
+
             if self.verb == 'staff.added':
                 return reverse('employee-list', kwargs={'business_slug': business_slug})
             

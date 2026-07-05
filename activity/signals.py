@@ -26,76 +26,91 @@ def capture_old_quantity(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Stock)
 def log_stock_threshold_events(sender, instance, created, **kwargs):
-    """
-    Fire `stock.out` or `stock.low` events ONLY when a threshold is crossed.
-    Both are marked is_important=True so they show in the notification bell.
-    """
+    """Bell fires on stock.out / stock.critical for MATERIAL stock. 'Low' is NOT
+    belled (passive). Material alerts are cafe/restaurant only (raw ingredients);
+    retail/pharmacy track stock at the PRODUCT level (log_product_stock_events)."""
     if not instance.business:
         return
+    if instance.business.business_type not in ('cafe', 'restaurant'):
+        return
 
-    new_qty = instance.quantity
-    old_qty = getattr(instance, '_old_quantity', None)
+    threshold = getattr(instance, 'low_stock_threshold', LOW_STOCK_THRESHOLD)
+    critical = max(1, round(threshold * 0.2))
     material_name = instance.material.name if instance.material else (instance.name or 'Stock')
 
-    # Crossed into OUT-OF-STOCK (was > 0 or new, now 0)
-    if new_qty == NO_STOCK_THRESHOLD and (old_qty is None or old_qty > NO_STOCK_THRESHOLD):
-        log_activity(
-            business=instance.business,
-            actor=None,  # system event — no human actor
-            verb='stock.out',
-            target=instance,
-            description=f"{material_name} is out of stock",
-            metadata={'quantity': 0},
-            important=True,
-        )
-        return  # don't double-log low on the same save
+    def band(q):
+        if q is None:
+            return None
+        if q == 0:
+            return 'out'
+        if q <= critical:
+            return 'critical'
+        if q <= threshold:
+            return 'low'
+        return 'ok'
 
-    # Crossed into LOW (was above threshold or new, now 1-49)
-    threshold = getattr(instance, 'low_stock_threshold', LOW_STOCK_THRESHOLD)
-    if 1 <= new_qty <= threshold:
-        was_above = old_qty is None or old_qty > threshold
-        if was_above:
-            log_activity(
-                business=instance.business,
-                actor=None,
-                verb='stock.low',
-                target=instance,
-                description=f"{material_name} is very low ({new_qty} left)",
-                metadata={'quantity': new_qty, 'threshold': threshold},
-                important=True,
-            )
+    new_b = band(instance.quantity)
+    old_b = band(getattr(instance, '_old_quantity', None))
+
+    if new_b == 'out' and old_b != 'out':
+        log_activity(
+            business=instance.business, actor=None, verb='stock.out',
+            target=instance, description=f"{material_name} is out of stock",
+            metadata={'quantity': 0}, important=True,
+        )
+    elif new_b == 'critical' and old_b not in ('critical', 'out'):
+        log_activity(
+            business=instance.business, actor=None, verb='stock.critical',
+            target=instance,
+            description=f"{material_name} is critically low ({instance.quantity} left) — restock now",
+            metadata={'quantity': instance.quantity, 'threshold': critical}, important=True,
+        )
+
+            
 
 from Product.models import Product
-
 @receiver(pre_save, sender=Product)
 def capture_old_margin(sender, instance, **kwargs):
-    """Stash margin status before save so post_save can detect a crossing."""
+    """Stash margin status + prepared_quantity before save so post_save can detect crossings."""
     if not instance.pk:
         instance._old_margin_status = None
+        instance._old_prepared_quantity = None
         return
     try:
         old = Product.objects.select_related('category').get(pk=instance.pk)
         instance._old_margin_status = old.margin_status
+        instance._old_prepared_quantity = old.prepared_quantity
     except Product.DoesNotExist:
         instance._old_margin_status = None
+        instance._old_prepared_quantity = None
+
 
 
 @receiver(post_save, sender=Product)
-def log_margin_low_event(sender, instance, created, **kwargs):
-    """Fire `product.margin_low` ONLY when a product newly crosses under the 10% floor —
-    covers both supplier cost-hikes and owner price edits."""
+def log_product_stock_events(sender, instance, created, **kwargs):
+    """Bell fires on stock.out / stock.critical for GOODS products (all business
+    types). 'Low' is NOT belled — it's a passive dashboard (Needs Attention) signal."""
     if not instance.business:
         return
-    new_status = instance.margin_status
-    old_status = getattr(instance, '_old_margin_status', None)
-    if new_status == 'critical' and old_status != 'critical':
+    if instance.is_service or not instance.is_active:
+        return  # goods only (mirrors Product.goods)
+
+    new_status = instance.stock_status_for(instance.prepared_quantity)
+    old_status = instance.stock_status_for(getattr(instance, '_old_prepared_quantity', None))
+    name = instance.name
+
+    if new_status == 'out' and old_status != 'out':
         log_activity(
-            business=instance.business,
-            actor=None,  # system-detected, like stock.out
-            verb='product.margin_low',
-            target=instance,
-            description=f"{instance.name} margin critically low at {instance.current_margin:.0f}%",
-            metadata={'margin': float(instance.current_margin),
-                      'target': instance.effective_target_margin},
+            business=instance.business, actor=None, verb='stock.out',
+            target=instance, description=f"{name} is out of stock",
+            metadata={'quantity': 0}, important=True,
+        )
+    elif new_status == 'critical' and old_status not in ('critical', 'out'):
+        qty = instance.prepared_quantity
+        log_activity(
+            business=instance.business, actor=None, verb='stock.critical',
+            target=instance, description=f"{name} is critically low ({qty} left) — restock now",
+            metadata={'quantity': qty, 'threshold': instance.critical_stock_threshold},
             important=True,
         )
+

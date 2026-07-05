@@ -38,7 +38,9 @@
       <span class="settings-card__subtitle">{{ request.user.username }}</span>
     </div>
 
-    <a href="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}" class="settings-row">
+    <a href="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}" class="settings-row"
+       hx-get="{% url 'user-edit-profile' user_id=request.user.id slug=request.user.slug %}"
+       hx-target="#confirmBody" hx-swap="innerHTML">
       <div class="settings-row__icon"><i class="bi bi-pencil-square"></i></div>
       <div class="settings-row__body">
         <div class="settings-row__title">Edit Profile</div>
@@ -47,7 +49,8 @@
       <i class="bi bi-chevron-right settings-row__arrow"></i>
     </a>
 
-    <a href="{% url 'change-email-form' %}" class="settings-row">
+    <a href="{% url 'change-email-form' %}" class="settings-row"
+       hx-get="{% url 'change-email-form' %}" hx-target="#confirmBody" hx-swap="innerHTML">
       <div class="settings-row__icon"><i class="bi bi-envelope-fill"></i></div>
       <div class="settings-row__body">
         <div class="settings-row__title">Change Email</div>
@@ -55,7 +58,6 @@
       </div>
       <i class="bi bi-chevron-right settings-row__arrow"></i>
     </a>
-
 
     <a href="{% url 'user-edit-password' %}" class="settings-row"   
        hx-get="{% url 'user-edit-password' %}" hx-target="#confirmBody" hx-swap="innerHTML">

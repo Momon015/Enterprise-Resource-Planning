@@ -382,18 +382,19 @@ def set_theme(request):
 @login_required(login_url='login')
 def user_edit_profile(request, user_id, slug):
     user = get_object_or_404(User, slug=slug, id=user_id)
+    is_hx = request.headers.get('HX-Request')
 
     if user != request.user:
-            return render(request, 'core/no_access.html', status=403)
-        
+        return render(request, 'core/no_access.html', status=403)
+
     if request.method == 'POST':
-        
         # Honeypot
         if request.POST.get('website'):
+            if is_hx:
+                return HttpResponse(status=204)
             return redirect('user-profile', slug=user.slug, user_id=user_id)
-        
+
         form = UpdateUserForm(request.POST, instance=user)
-    
         if form.is_valid():
             user = form.save(commit=False)
             user.username = user.username.lower()
@@ -402,17 +403,24 @@ def user_edit_profile(request, user_id, slug):
             user.last_name = user.last_name.title()
             user.save()
             request.session['active_business_slug'] = user.slug
-            messages.success(request, f"Your profile has been updated.")
+            messages.success(request, "Your profile has been updated.")
+            if is_hx:
+                resp = HttpResponse(status=204)
+                resp['HX-Redirect'] = reverse('settings', kwargs={'business_slug': user.slug})
+                return resp
             return redirect('settings', business_slug=user.slug)
-        
         else:
             print(form.errors)
-            
+            if is_hx:
+                return render(request, 'core/partials/_profile_modal.html', {'form': form})
     else:
         form = UpdateUserForm(instance=user)
-    
+
+    if is_hx:
+        return render(request, 'core/partials/_profile_modal.html', {'form': form})
     context = {'form': form, 'page': 'user-edit-profile'}
     return render(request, 'user/edit_user_profile_form.html', context)
+
 
 @login_required(login_url='login')
 def user_edit_password(request):
@@ -662,31 +670,35 @@ def settings(request, business_slug):
 
 @login_required(login_url='login')
 def change_email_form(request):
+    is_hx = request.headers.get('HX-Request')
+
     if request.method == 'POST':
         # Honeypot
         if request.POST.get('website'):
+            if is_hx:
+                return HttpResponse(status=204)
             return redirect('change-email-form')
 
         new_email = request.POST.get('new_email', '').strip().lower()
         current_password = request.POST.get('current_password', '')
 
+        def _err(msg):
+            if is_hx:
+                return render(request, 'core/partials/_change_email_modal.html',
+                              {'step': 'form', 'error': msg, 'new_email': new_email})
+            messages.error(request, msg)
+            return redirect('change-email-form')
+
         # Verify current password (confirms it's really the user)
         user = authenticate(username=request.user.username, password=current_password)
         if user is None:
-            messages.error(request, "Incorrect password.")
-            return redirect('change-email-form')
-
+            return _err("Incorrect password.")
         if not new_email:
-            messages.error(request, "Please enter a new email address.")
-            return redirect('change-email-form')
-
+            return _err("Please enter a new email address.")
         if new_email == (request.user.email or '').lower():
-            messages.error(request, "That's already your current email.")
-            return redirect('change-email-form')
-
+            return _err("That's already your current email.")
         if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
-            messages.error(request, "That email is already in use.")
-            return redirect('change-email-form')
+            return _err("That email is already in use.")
 
         # Generate and send OTP to the NEW email
         try:
@@ -696,40 +708,50 @@ def change_email_form(request):
                 otp_obj = EmailOTP.objects.create(user=request.user, otp=otp)
                 send_email(new_email, otp)
         except Exception:
-            messages.error(request, "Couldn't send verification email. Please try again.")
-            return redirect('change-email-form')
+            return _err("Couldn't send verification email. Please try again.")
 
         request.session['change_email_pending'] = new_email
         request.session['change_email_otp_id'] = otp_obj.id
+
+        if is_hx:
+            expires_iso = (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat()
+            return render(request, 'core/partials/_change_email_modal.html',
+                          {'step': 'verify', 'pending_email': new_email, 'expires_at_iso': expires_iso})
         messages.success(request, f"Verification code sent to {new_email}.")
         return redirect('change-email-verify')
 
+    # GET
+    if is_hx:
+        return render(request, 'core/partials/_change_email_modal.html', {'step': 'form'})
     return render(request, 'user/change_email_form.html')
 
 
 @login_required(login_url='login')
 def change_email_verify(request):
+    is_hx = request.headers.get('HX-Request')
     pending_email = request.session.get('change_email_pending')
     otp_id = request.session.get('change_email_otp_id')
 
-    if not pending_email or not otp_id:
-        messages.error(request, "Please start the change email process again.")
+    def _restart(msg):
+        for k in ('change_email_pending', 'change_email_otp_id'):
+            request.session.pop(k, None)
+        if is_hx:
+            return render(request, 'core/partials/_change_email_modal.html',
+                          {'step': 'form', 'error': msg})
+        messages.error(request, msg)
         return redirect('change-email-form')
+
+    if not pending_email or not otp_id:
+        return _restart("Please start the change email process again.")
 
     try:
         otp_obj = EmailOTP.objects.get(id=otp_id, user=request.user, is_verified=False)
     except EmailOTP.DoesNotExist:
-        for k in ('change_email_pending', 'change_email_otp_id'):
-            request.session.pop(k, None)
-        messages.error(request, "Verification code is no longer valid.")
-        return redirect('change-email-form')
+        return _restart("Verification code is no longer valid.")
 
     if otp_obj.is_expired():
         otp_obj.delete()
-        for k in ('change_email_pending', 'change_email_otp_id'):
-            request.session.pop(k, None)
-        messages.error(request, "Verification code expired. Please try again.")
-        return redirect('change-email-form')
+        return _restart("Verification code expired. Please try again.")
 
     if request.method == 'POST':
         entered = request.POST.get('otp', '').strip()
@@ -739,23 +761,33 @@ def change_email_verify(request):
                 request.user.save(update_fields=['email'])
                 otp_obj.is_verified = True
                 otp_obj.save(update_fields=['is_verified'])
-                
-            business = request.user.business_profiles.first()
+
             for k in ('change_email_pending', 'change_email_otp_id'):
                 request.session.pop(k, None)
-            messages.success(request, "Email updated successfully.")
+            # messages.success(request, "Email updated successfully.")
+
+            if is_hx:
+                return render(request, 'core/partials/_change_email_modal.html',
+                              {'step': 'done', 'new_email': pending_email})
+            business = request.user.business_profiles.first()
             return redirect('settings', business_slug=business.slug)
         else:
+            if is_hx:
+                expires_iso = (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat()
+                return render(request, 'core/partials/_change_email_modal.html',
+                              {'step': 'verify', 'pending_email': pending_email,
+                               'expires_at_iso': expires_iso, 'error': "Invalid code. Please try again."})
             messages.error(request, "Invalid code. Please try again.")
-            
-    
+
+    # GET (or non-hx invalid fallthrough)
     context = {
         'pending_email': pending_email,
-        'expires_at_iso': otp_obj.expires_at.isoformat() if hasattr(otp_obj, 'expires_at') else (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat(),
+        'expires_at_iso': (otp_obj.created_at + datetime.timedelta(minutes=5)).isoformat(),
     }
+    if is_hx:
+        context['step'] = 'verify'
+        return render(request, 'core/partials/_change_email_modal.html', context)
     return render(request, 'user/change_email_verify.html', context)
-
-
 
 @login_required(login_url='login')
 def cash_drawer_settings(request, business_slug, business_id):

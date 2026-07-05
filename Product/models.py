@@ -166,6 +166,27 @@ class Product(SlugModel, TimeStampModel):
         if m < self.effective_target_margin:
             return 'warning'
         return 'good'
+    
+    @property
+    def critical_stock_threshold(self):
+        """~20% of the low threshold (min 1). low=25 → 5; auto-scales per product."""
+        return max(1, round(self.low_stock_threshold * 0.2))
+
+    def stock_status_for(self, qty):
+        if qty is None:
+            return None
+        if qty == 0:
+            return 'out'
+        if qty <= self.critical_stock_threshold:
+            return 'critical'
+        if qty <= self.low_stock_threshold:
+            return 'low'
+        return 'ok'
+
+    @property
+    def stock_status(self):
+        return self.stock_status_for(self.prepared_quantity)
+
 
     @property
     def suggested_price(self):

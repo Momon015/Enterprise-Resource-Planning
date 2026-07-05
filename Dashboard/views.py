@@ -434,6 +434,24 @@ def dashboard(request, business_slug):
     col_dir,   col_pct   = _pct_delta(collected, y_collected)
     paid_dir,  paid_pct  = _pct_delta(paid,      y_paid)
     ncash_dir, ncash_pct = _pct_delta(net_cash,  y_net_cash)
+    
+    # ── KPI status hues (green = money in, red = money out, neutral = nothing) ──
+    if basis == 'cash':
+        _rev = collected
+        _exp = metrics.get('total_opex') or Decimal('0')
+        _mat = paid
+        _np  = net_cash
+    else:
+        _rev = metrics.get('total_revenue') or Decimal('0')
+        _exp = metrics.get('total_expcost') or Decimal('0')
+        _mat = metrics.get('total_material_cost') or Decimal('0')
+        _np  = metrics.get('net_profit') or Decimal('0')
+
+    hue_revenue   = 'success' if _rev > 0 else ''
+    hue_expense   = 'danger'  if _exp > 0 else ''
+    hue_material  = 'danger'  if _mat > 0 else ''
+    hue_netprofit = 'success' if _np > 0 else ('danger' if _np < 0 else '')
+
 
     # Collected-by-method (cash-lens Revenue popover)
     method_names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
@@ -468,6 +486,15 @@ def dashboard(request, business_slug):
     cash_sales_today = SalesPayment.objects.filter(
         business=business, date=today, method='cash'
     ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    
+    cash_purchases_today = PurchasePayment.objects.filter(
+        business=business, date=today, method__in=['cash', 'cod']
+    ).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+
+    cash_refunds_today = SalesReturn.objects.filter(
+        business=business, date=today, refund_method='cash'
+    ).aggregate(t=Sum('refund_total'))['t'] or Decimal(0)
+
     # CashPayout.shift is a ShiftEmployee (not a Shift) — business/date live on ShiftEmployee.shift
     payouts_today = CashPayout.objects.filter(
         shift__shift__business=business, shift__shift__date=today
@@ -479,13 +506,30 @@ def dashboard(request, business_slug):
     drawer = None
     if business.enable_cash_reconciliation:
         drawer = DrawerSession.objects.filter(business=business, date=today).order_by('-opened_at').first()
-    drawer_balance = (drawer.opening_cash + cash_sales_today - payouts_today) if drawer else None
+    
+    drawer_balance = (
+        drawer.opening_cash + cash_sales_today
+        - payouts_today - cash_purchases_today - cash_refunds_today
+    ) if drawer else None
+
 
     stock_alert_qs    = Product.goods.filter(business=business, prepared_quantity__lte=F('low_stock_threshold'))
     stock_alert_count = stock_alert_qs.count()
     stock_alert_top   = list(stock_alert_qs.order_by('prepared_quantity')[:3])
     out_of_stock      = Product.goods.filter(business=business, prepared_quantity=0).count()
     low_only          = stock_alert_count - out_of_stock
+    # ── Low Stock severity — worst tier present drives the card color (reuses stock_status formula) ──
+    if out_of_stock > 0:
+        hue_lowstock = 'danger'                       # something's already OUT
+    elif stock_alert_count > 0:
+        has_critical = any(                            # any product at/below round(low×0.2)?
+            p.stock_status == 'critical'
+            for p in stock_alert_qs.only('prepared_quantity', 'low_stock_threshold')
+        )
+        hue_lowstock = 'orange' if has_critical else 'warning'
+    else:
+        hue_lowstock = ''                              # all stocked up → gray
+
 
     # ── Needs Attention — current state requiring action (bell = event stream) ──
     due_soon_count = sum(
@@ -553,6 +597,13 @@ def dashboard(request, business_slug):
         'payouts_today': payouts_today, 'returns_today': returns_today,
         'stock_alert_count': stock_alert_count, 'stock_alert_top': stock_alert_top,
         'attention': attention,
+        
+        'hue_revenue': hue_revenue,
+        'hue_expense': hue_expense,
+        'hue_material': hue_material,
+        'hue_netprofit': hue_netprofit,
+        'hue_lowstock': hue_lowstock,
+
 
     }
     return render(request, 'Dashboard/dashboard.html', context)

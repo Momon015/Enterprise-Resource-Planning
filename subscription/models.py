@@ -535,16 +535,17 @@ class BusinessPlan(models.Model):
     def can_self_switch_to(self, target_plan):
         """
         Self-serve plan change allowed?
-        - Trial businesses: ONLY Premium ↔ Pro (no Standard/Free swaps mid-trial)
-        - Non-trial: downgrades only; upgrades need support
+        - Trial businesses: ONLY Premium ↔ Pro (switch tiers while the trial runs).
+        - Paid (non-trial): NO self-serve switching at all — paid plans are
+          provisioned manually (Django / support). Downgrades go through the
+          cancellation flow; upgrades/changes go through support.
         """
         if target_plan == self.plan:
             return False
         if self.is_trial:
-            return target_plan in ('premium', 'pro')   # trial = premium/pro only
-        current_rank = PLAN_RANK.get(self.plan, 0)
-        target_rank = PLAN_RANK.get(target_plan, 0)
-        return target_rank < current_rank   # downgrade only
+            return target_plan in ('premium', 'pro')   # trial = Premium ↔ Pro only
+        return False   # paid = locked
+
 
         
 
