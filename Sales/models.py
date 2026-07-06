@@ -144,6 +144,36 @@ class Sale(TimeStampModel):
         label = next(iter(methods)) if len(methods) == 1 else 'Mixed'
         return f'Partial · {label}' if status == 'partial' else label
 
+    @property
+    def payment_method_code(self):
+        """Which method settled this sale — a single method code (cash/gcash/
+        bank/credit), 'mixed' when more than one, or None when nothing's paid
+        yet. Drives the payment-method icon in the sales list/detail."""
+        methods = {p.method for p in self.payments.all()}
+        if not methods:
+            return None
+        if len(methods) == 1:
+            return next(iter(methods))
+        return 'mixed'
+
+    @property
+    def settlement_badge(self):
+        """Paid-status chip data (label / icon / level / amount) shared by the
+        Status column and the detail page. Void is handled separately by the
+        caller. 'Paid' = settled at the counter (one payment, dated the sale
+        day); 'Fully Paid' = installments, mixed methods, or credit cleared on
+        a later date."""
+        if self.is_fully_paid:
+            payments = list(self.payments.all())
+            settled_at_counter = len(payments) == 1 and payments[0].date == self.date
+            label = 'Paid' if settled_at_counter else 'Fully Paid'
+            return {'label': label, 'icon': 'bi-check-circle-fill',
+                    'level': 'success', 'amount': None}
+        if self.amount_paid > 0:
+            return {'label': 'Partial', 'icon': '',
+                    'level': 'warning', 'amount': self.amount_paid}
+        return {'label': 'Debt', 'icon': 'bi-clock-history', 'level': 'danger', 'amount': None}
+
 
     @property
     def amount_refunded(self):

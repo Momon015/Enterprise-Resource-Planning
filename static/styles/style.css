@@ -142,6 +142,54 @@
   margin: 0;
 }
 
+/* Record masthead — thin "date · status" line for detail docs (number is in the topbar crumb) */
+.record-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;   /* date left, status pill right */
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.record-masthead__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+.record-masthead__icon { color: var(--text-muted); font-size: 0.9rem; }
+.record-masthead__date { font-weight: 600; color: var(--text-secondary); }
+.record-masthead__dot { color: var(--text-muted); }
+.record-masthead__time { color: var(--text-muted); }
+
+/* Page breadcrumb — own slim row between the topbar and the page content */
+.page-crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.page-crumb__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--success);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-crumb__back:hover { opacity: 0.75; }
+.page-crumb__sep { color: var(--text-muted); }
+.page-crumb__current {
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50ch;
+}
+
 /* Header Stats */
 .page-header-right {
   display: flex;
@@ -1611,6 +1659,36 @@ details.filter-card summary:hover {
   border-radius: 999px;
 }
 
+/* ── Payment-method badge ──────────────────────────────────
+   One colored pill per payment method, rendered by the
+   {% payment_method_badge %} tag. Icon + text share --pm-ink;
+   the wash is a soft mix of that ink into the surface. Neutral
+   (mixed / unknown) falls back to cool silver, not flat grey. */
+.pay-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.28rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border-radius: var(--radius-full);
+  color: var(--pm-ink, var(--silver));
+  background: var(--pm-soft, color-mix(in srgb, var(--silver) 12%, var(--surface)));
+}
+.pay-method > i { font-size: 0.95em; line-height: 1; }
+.pay-method__logo { height: 0.95em; width: auto; display: inline-block; }
+.pay-method-empty { color: var(--silver); }
+
+.pay-method--cash   { --pm-ink: var(--emerald);    --pm-soft: color-mix(in srgb, var(--emerald) 12%, var(--surface)); }
+.pay-method--gcash  { --pm-ink: var(--pay-gcash);  --pm-soft: color-mix(in srgb, var(--pay-gcash) 12%, var(--surface)); }
+.pay-method--bank   { --pm-ink: var(--pay-indigo); --pm-soft: color-mix(in srgb, var(--pay-indigo) 12%, var(--surface)); }
+.pay-method--cod    { --pm-ink: var(--orange);     --pm-soft: color-mix(in srgb, var(--orange) 12%, var(--surface)); }
+.pay-method--credit { --pm-ink: var(--pay-purple); --pm-soft: color-mix(in srgb, var(--pay-purple) 12%, var(--surface)); }
+.pay-method--mixed  { --pm-ink: var(--silver);     --pm-soft: color-mix(in srgb, var(--silver) 12%, var(--surface)); }
+
 /* Button Group */
 .btn-group {
   display: inline-flex;
@@ -1957,6 +2035,7 @@ details.filter-card summary:hover {
   border: 1px solid var(--warning-border);
   border-radius: var(--radius-md);
   padding: 0.8rem;
+  margin-top: 1rem;
   display: flex;
   gap: 0.65rem;
   font-size: 0.82rem;
@@ -4816,6 +4895,10 @@ details.filter-card summary:hover {
   --silver:           #94a3b8;   /* cool silver — neutral card accent */
   --emerald:          #10b981;   /* brighter, cooler green for KPI money-in cards (not the brand accent) */
   --emerald-light:    #d1fae5;
+  /* Payment-method badge accents (ink colors) */
+  --pay-gcash:        #007dff;   /* GCash brand blue */
+  --pay-indigo:       #4f46e5;   /* Bank Transfer — trust / banking */
+  --pay-purple:       #7c3aed;   /* Credit / card */
   --info-light:       #eff6ff;
   --info-border:      #bfdbfe;
 
@@ -4978,6 +5061,10 @@ details.filter-card summary:hover {
   --silver:           #a8b3c4;
   --emerald:          #34d399;
   --emerald-light:    rgba(52, 211, 153, 0.14);
+  /* Payment-method badge accents — lightened for dark surfaces */
+  --pay-gcash:        #3b9bff;
+  --pay-indigo:       #818cf8;
+  --pay-purple:       #a78bfa;
   --info:             #3b82f6;
   --info-light:       rgba(59, 130, 246, 0.12);
   --info-border:      rgba(59, 130, 246, 0.35);
@@ -5916,6 +6003,7 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 .kpi-delta--up    { color: var(--success); }
 .kpi-delta--down  { color: var(--danger); }
 .kpi-delta--warning { color: var(--warning); }
+.kpi-delta--good  { color: var(--emerald); }
 .kpi-delta--flat  { color: var(--muted); }
 .kpi-delta--muted { color: var(--text-faint); font-weight: 400; font-size: 0.72rem; }
 
@@ -7089,6 +7177,7 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   margin-inline: auto;   /* centered between the toggle and the action cluster */
 }
 
+
 .topbar-search__icon {
   position: absolute;
   left: 0.95rem; top: 50%; transform: translateY(-50%);
@@ -7844,7 +7933,7 @@ button.pd-menu__item {
 .attention-row:hover .attention-text { color: var(--text); }
 .attention-go { font-size: .7rem; color: var(--text-faint); }
 .attention-empty { text-align: center; padding: 1.25rem 0; color: var(--muted); }
-.attention-empty i { font-size: 1.4rem; color: var(--success); display: block; margin-bottom: .35rem; }
+.attention-empty i { font-size: 1.6rem; color: var(--emerald); display: block; margin-bottom: .35rem; }
 .attention-empty p { margin: 0; font-size: .82rem; }
 
 

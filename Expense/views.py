@@ -253,13 +253,29 @@ def purchase_history(request, business_slug):
         total_cost = purchases.purchase_total_cost()
         average_cost = purchases.average_total_cost()
 
+    # Payment-method filter — composes with the period/date/user filters above.
+    # Match on "has at least one payment via this method" using an id subquery so
+    # a multi-payment purchase never duplicates rows (which would skew totals).
+    payment_methods = PurchasePayment.PAYMENT_METHOD_CHOICES
+    active_payment = request.GET.get('payment')
+    if active_payment in {code for code, _ in payment_methods}:
+        paid_purchase_ids = PurchasePayment.objects.filter(
+            purchase__in=purchases, method=active_payment,
+        ).values_list('purchase_id', flat=True)
+        purchases = purchases.filter(id__in=paid_purchase_ids)
+        total_count = purchases.active().count()
+        total_cost = purchases.purchase_total_cost()
+        average_cost = purchases.average_total_cost()
+    else:
+        active_payment = None
+
     paid = PurchasePayment.objects.filter(purchase__in=purchases.active()).aggregate(t=Sum('amount'))['t'] or 0
     payables = (total_cost or 0) - paid
 
-    paginator = Paginator(purchases, 8)
+    paginator = Paginator(purchases.prefetch_related('payments'), 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     ytd_start = timezone.localdate().replace(month=1, day=1)
     ytd_spend = (
         Purchase.objects.active().filter(business=business, purchase_date__gte=ytd_start)
@@ -323,7 +339,11 @@ def purchase_history(request, business_slug):
         
         'users': users,
         'active_user': user_filter,
-        
+
+        # payment-method filter
+        'payment_methods': payment_methods,
+        'active_payment': active_payment,
+
         }
     return render(request, 'Expense/purchase_history.html', context)
 

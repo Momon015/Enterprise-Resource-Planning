@@ -27,22 +27,15 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
 
-  <!-- PAGE HEADER -->
-  <div class="page-header col-mobile-hidden">
-    <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>Inventory</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href={% url 'material-list' business_slug=current_business.slug %} class="breadcrumb-link">
-          <span>Material</span>
-        </a>
-        <i class="bi bi-chevron-right"></i>
-        <span>DETAIL</span>
-      </div>
-      <h1 class="page-title">Material Details</h1>
-      <p class="page-subtitle">Review this material's purchasing entry.</p>
-    </div>
-  </div>
+  {% url 'material-list' business_slug=current_business.slug as list_fallback %}
+  <!-- BREADCRUMB -->
+  <nav class="page-crumb col-mobile-hidden" aria-label="Breadcrumb">
+    <a href="{{ request.session.return_to|default:list_fallback }}" class="page-crumb__back">
+      <i class="bi bi-arrow-left"></i> Back to Materials
+    </a>
+    <span class="page-crumb__sep">/</span>
+    <span class="page-crumb__current">{{ material.name|capfirst }}</span>
+  </nav>
 
   <!-- CENTERED SUMMARY CARD -->
   <div class="form-page-wrap">

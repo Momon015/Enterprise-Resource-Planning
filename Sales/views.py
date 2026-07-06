@@ -218,14 +218,30 @@ def sale_list(request, business_slug):
         total_sales_count = sales.active().count()
         max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
 
+    # Payment-method filter — composes with the period/date/user filters above.
+    # Match on "has at least one payment via this method" using an id subquery so
+    # a multi-payment sale never duplicates rows (which would skew the aggregates).
+    payment_methods = SalesPayment.PAYMENT_METHOD_CHOICES
+    active_payment = request.GET.get('payment')
+    if active_payment in {code for code, _ in payment_methods}:
+        paid_sale_ids = SalesPayment.objects.filter(
+            sale__in=sales, method=active_payment,
+        ).values_list('sale_id', flat=True)
+        sales = sales.filter(id__in=paid_sale_ids)
+        total_revenue = sales.total_revenue()
+        average_total_revenue = sales.average_total_revenue()
+        total_sales_count = sales.active().count()
+        max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
+    else:
+        active_payment = None
 
     collected = SalesPayment.objects.filter(sale__in=sales.active()).aggregate(t=Sum('amount'))['t'] or 0
     receivables = (total_revenue or 0) - collected
 
-    paginator = Paginator(sales, 8)
+    paginator = Paginator(sales.prefetch_related('payments'), 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     recent_events = ActivityEvent.objects.filter(
         verb__startswith='sale.', business=business,
     )
@@ -283,9 +299,13 @@ def sale_list(request, business_slug):
         # employee
         'users': users,
         'active_user': user_filter,
-        
+
+        # payment-method filter
+        'payment_methods': payment_methods,
+        'active_payment': active_payment,
+
     }
-        
+
     return render(request, 'Sales/sale_list.html', context)
 
 @login_required(login_url='login')

@@ -1,20 +1,12 @@
 {% extends "main.html" %}
 {% block content %}
+{% url 'product-preset-list' business_slug=current_business.slug as list_fallback %}
 
 <div class="mf-page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>CATALOG</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link">PRODUCT</a>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'product-preset-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">PRESET</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>DELETE</span>
-      </div>
       <h1 class="page-title">Delete Preset</h1> <!-- style="color:var(--danger); -->
       <p class="page-subtitle">Review the products below before confirming deletion.</p>
     </div>

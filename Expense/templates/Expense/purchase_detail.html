@@ -1,5 +1,6 @@
 {% extends 'main.html' %}
 {% load static %}
+{% load payment_tags %}
 {% block locked_banner %}
   <div class="locked-banner-hide-mobile">
     {% include 'partials/_locked_items_banner.html' %}
@@ -31,20 +32,24 @@
 
 
 
-  <!-- PAGE HEADER -->
-  <div class="page-header col-mobile-hidden">
-    <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="breadcrumb-link">Purchases</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>DETAIL</span>
-      </div>
-      <h1 class="page-title">Purchase Record
-        {% if purchase.is_void %}<span class="sl-badge sl-badge-danger" style="font-size:.55em; vertical-align:middle; margin-left:.5rem;">Voided</span>{% endif %}
-      </h1>
-      <p class="page-subtitle">{{ purchase.purchase_date|date:"D, M d, Y" }} · {{ purchase.created_at|date:"h:i A" }}</p>
+  {% url 'purchase-list' business_slug=current_business.slug as list_fallback %}
+  <!-- BREADCRUMB -->
+  <nav class="page-crumb col-mobile-hidden" aria-label="Breadcrumb">
+    <a href="{{ request.session.return_to|default:list_fallback }}" class="page-crumb__back">
+      <i class="bi bi-arrow-left"></i> Back to Purchases
+    </a>
+    <span class="page-crumb__sep">/</span>
+    <span class="page-crumb__current">{{ purchase.reference }}</span>
+  </nav>
 
-    </div>
+  <!-- RECORD MASTHEAD — the doc's vitals (number is in the breadcrumb above) -->
+  <div class="record-masthead col-mobile-hidden">
+    <span class="record-masthead__meta">
+      <i class="bi bi-calendar3 record-masthead__icon"></i>
+      <span class="record-masthead__date">{{ purchase.purchase_date|date:"D, M d, Y" }}</span>
+      <span class="record-masthead__dot">·</span>
+      <span class="record-masthead__time">{{ purchase.created_at|date:"h:i A" }}</span>
+    </span>
   </div>
 
   <div class="two-col-layout">
@@ -144,30 +149,7 @@
                   <div class="cell-sub">{{ p.created_at|date:"h:i A" }}</div>
                 </td>
                 <td class="sl-text-center">
-                  {% if p.method == 'cash' %}
-                    <span class="sl-badge sl-badge-warning">
-                      <i class="bi bi-cash-stack"></i> Cash
-                    </span>
-                  {% elif p.method == 'gcash' %}
-                    <span class="sl-badge sl-badge-info">
-                      <img src="{% static 'images/gcash.svg' %}" alt="GCash" style="width:0.85rem; height:0.85rem; vertical-align:middle;">
-                      GCash
-                    </span>
-                  {% elif p.method == 'bank_transfer' or p.method == 'bank' %}
-                    <span class="sl-badge sl-badge-info">
-                      <i class="bi bi-bank"></i> Bank
-                    </span>
-                  {% elif p.method == 'cod' %}
-                    <span class="sl-badge sl-badge-light sl-badge--rect">
-                      <i class="bi bi-truck"></i> COD
-                    </span>
-                  {% elif p.method == 'credit' %}
-                    <span class="sl-badge sl-badge-info">
-                      <i class="bi bi-credit-card-2-back"></i> Credit
-                    </span>
-                  {% else %}
-                    <span class="sl-badge sl-badge-light">{{ p.get_method_display }}</span>
-                  {% endif %}
+                  {% payment_method_badge p.method %}
                 </td>
                 <td>
                   {% if p.note %}
@@ -271,11 +253,7 @@
             {% else %}
             <div>
               <dt>Status</dt>
-              <dd>
-                <span class="sl-badge sl-badge-success">
-                  <i class="bi bi-check-circle-fill"></i> Fully Paid
-                </span>
-              </dd>
+              <dd>{% settlement_badge purchase %}</dd>
             </div>
             {% endif %}
             {% endif %}

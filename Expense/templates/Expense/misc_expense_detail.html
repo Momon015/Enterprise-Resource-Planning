@@ -34,20 +34,15 @@ document.addEventListener("DOMContentLoaded", function () {
 <div class="page-wrapper">
 
 
-  <!-- PAGE HEADER -->
-  <div class="page-header col-mobile-hidden">
-    <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>DETAIL</span>
-      </div>
-      <h1 class="page-title">{{ misc_expense.name|capfirst }}</h1>
-      <p class="page-subtitle">Reusable expense template </p>
-    </div>
-  </div>
+  {% url 'misc-expense-list' business_slug=current_business.slug as list_fallback %}
+  <!-- BREADCRUMB -->
+  <nav class="page-crumb col-mobile-hidden" aria-label="Breadcrumb">
+    <a href="{{ request.session.return_to|default:list_fallback }}" class="page-crumb__back">
+      <i class="bi bi-arrow-left"></i> Back to Expense Templates
+    </a>
+    <span class="page-crumb__sep">/</span>
+    <span class="page-crumb__current">{{ misc_expense.name|capfirst }}</span>
+  </nav>
 
   <div class="two-col-layout">
 

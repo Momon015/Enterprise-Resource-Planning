@@ -21,11 +21,6 @@
 
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=shift_emp.id %}" class="breadcrumb-link">SHIFT</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>TIME OUT</span>
-      </div>
       <h1 class="page-title">Time Out</h1>
       <p class="page-subtitle">{{ shift_emp.employee.name|default:shift_emp.name|capfirst }} · timed in since {{ shift_emp.clock_in|date:"g:i A" }}</p>
     </div>

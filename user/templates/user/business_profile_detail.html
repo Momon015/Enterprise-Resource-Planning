@@ -63,11 +63,6 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <a href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}" class="breadcrumb-link">PROFILE</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>{{ business.business_name|upper }}</span>
-      </div>
       <h1 class="page-title">{{ business.business_name }}</h1>
       <p class="page-subtitle">
         {{ business.get_business_type_display }} · Business profile details

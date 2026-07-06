@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% block content %}
+{% url 'supplier-list' business_slug=current_business.slug as list_fallback %}
 
 <!-- FLASH MESSAGES -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
@@ -20,14 +21,6 @@
 <div class="mf-page-wrapper">
 
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>PURCHASING</span>
-        <a href="{% url 'supplier-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link"><i class="bi bi-chevron-right"></i>
-          <span>SUPPLIER</span>
-        </a>
-        <i class="bi bi-chevron-right"></i>
-        <span>EDIT</span>
-      </div>
       <h1 class="page-title">Edit Supplier</h1>
       <p class="page-subtitle">Update the supplier's details.</p>
     </div>

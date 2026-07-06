@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% load humanize %}
+{% load payment_tags %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -37,6 +38,16 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
+// Set/clear one query param while preserving every other active filter
+// (period, date range, user, …). Empty value removes the param. Resets page.
+function applyQueryFilter(key, value) {
+  const params = new URLSearchParams(window.location.search);
+  if (value) { params.set(key, value); } else { params.delete(key); }
+  params.delete("page");
+  const qs = params.toString();
+  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
+}
 </script>
 
 <div class="page-wrapper">
@@ -44,7 +55,6 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">TRANSACTIONS</div>
       <h1 class="page-title">Purchase Records</h1>
       <p class="page-subtitle">
         Supplier purchase receipts recorded into inventory levels
@@ -173,6 +183,10 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="filter-body">
           <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
 
+            <!-- keep the categorical filters when applying a month/date range -->
+            {% if active_payment %}<input type="hidden" name="payment" value="{{ active_payment }}">{% endif %}
+            {% if active_user %}<input type="hidden" name="user" value="{{ active_user }}">{% endif %}
+
             {% comment %}
             Search temporarily disabled due to duplicate rows caused by joins.
             Can be restored with .distinct() in queryset.
@@ -233,53 +247,56 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
-            <!-- QUICK RANGES — filter chips, moved from the old right column -->
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=today"
+            <!-- QUICK RANGES — set the date window; keep payment/user filters -->
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=today{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=last_week"
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=last_week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=week"
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=month"
+            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=month{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
           </div>
 
-            {% if request.user.role == 'owner' and users %}
-            <div class="header-filter-group">
+            <div class="user-filter-bar">
+              <!-- PAYMENT METHOD — available to every role -->
+              <label for="paymentFilter" class="user-filter-label">
+                <i class="bi bi-wallet2"></i> Payment
+              </label>
+              <select id="paymentFilter"
+                      class="user-filter-select {% if active_payment %}is-filtered{% endif %}"
+                      onchange="applyQueryFilter('payment', this.value)">
+                <option value="" {% if not active_payment %}selected{% endif %}>All payments</option>
+                {% for code, label in payment_methods %}
+                  <option value="{{ code }}" {% if active_payment == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+
+              {% if request.user.role == 'owner' and users %}
+              <!-- SHOW BY — owner only -->
               <label for="userFilter" class="user-filter-label">
                 <i class="bi bi-person-fill"></i> Show by
               </label>
-                <select id="userFilter"
-                        class="user-filter-select {% if active_user %}is-filtered{% endif %}"
-                        onchange="window.location.href=this.value">
-              <option value="?{% if request.GET.period %}period={{ request.GET.period }}{% endif %}"
-                      {% if not active_user %}selected{% endif %}>
-                All users
-              </option>
-              {% for s in users %}
-                <option value="?user={{ s.id }}{% if request.GET.period %}&period={{ request.GET.period }}{% endif %}"
-                        {% if active_user == s.id|stringformat:'s' %}selected{% endif %}>
-                  {{ s.display|capfirst }}{% if s.is_owner %} (Owner){% endif %}
-                </option>
-              {% endfor %}
-            </select>
-              {% if active_user %}
-              <a href="?{% if request.GET.period %}period={{ request.GET.period }}{% endif %}" class="filter-clear">
-                <i class="bi bi-x-circle"></i> Clear
-              </a>
+              <select id="userFilter"
+                      class="user-filter-select {% if active_user %}is-filtered{% endif %}"
+                      onchange="applyQueryFilter('user', this.value)">
+                <option value="" {% if not active_user %}selected{% endif %}>All users</option>
+                {% for s in users %}
+                  <option value="{{ s.id }}" {% if active_user == s.id|stringformat:'s' %}selected{% endif %}>
+                    {{ s.display|capfirst }}{% if s.is_owner %} (Owner){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
               {% endif %}
             </div>
-            {% else %}
-            <span class="card-header-sub">Most recent first</span>
-            {% endif %}
           </div>
 
 
@@ -293,6 +310,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center col-mobile-hidden">Qty</th>
                 <th class="sl-text-center col-mobile-hidden">Lines</th>
                 <th class="sl-text-end mobile-center">Total Cost</th>
+                <th class="sl-text-center col-mobile-hidden">Payment</th>
                 <th class="sl-text-center">Status</th>
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
@@ -324,15 +342,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
 
 
+                <td class="sl-text-center col-mobile-hidden">
+                  {% payment_method_badge purchase.payment_method_code %}
+                </td>
+
                 <td class="sl-text-center">
                     {% if purchase.is_void %}
-                        <span class="sl-badge sl-badge-light">Voided</span>
-                    {% elif purchase.is_fully_paid %}
-                        <span class="sl-badge sl-badge-success">Paid</span>
-                    {% elif purchase.amount_paid > 0 %}
-                        <span class="sl-badge sl-badge-warning">Partial ₱{{ purchase.amount_paid|floatformat:2 }}</span>
+                        <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
                     {% else %}
-                        <span class="sl-badge sl-badge-danger">Debt</span>
+                        {% settlement_badge purchase %}
                     {% endif %}
                 </td>
 
@@ -352,7 +370,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </table>
               {% else %}
               <tr>
-                <td colspan="6">
+                <td colspan="7">
                   <div class="empty-state">
                     <div class="empty-icon"><i class="bi bi-cart"></i></div>
                     <h3 class="empty-title">No purchase transactions found</h3>
@@ -368,12 +386,12 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="pagination-wrapper">
           <nav>
             <ul class="pagination">
-              {% with select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period user_param=request.GET.user %}
+              {% with select_month=request.GET.select_month start_date=request.GET.start_date end_date=request.GET.end_date period=request.GET.period user_param=request.GET.user pay=request.GET.payment %}
 
               <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
                 {% if page_obj.has_previous %}
                   <a class="page-link"
-                     href="?page={{ page_obj.previous_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     href="?page={{ page_obj.previous_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                   </a>
                 {% else %}
@@ -384,7 +402,7 @@ document.addEventListener("DOMContentLoaded", function () {
               {% for p in page_obj.paginator.page_range %}
               <li class="page-item {% if p == page_obj.number %}active{% endif %}">
                 <a class="page-link"
-                   href="?page={{ p }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                   href="?page={{ p }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">
                   {{ p }}
                 </a>
               </li>
@@ -393,7 +411,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
                 {% if page_obj.has_next %}
                   <a class="page-link"
-                     href="?page={{ page_obj.next_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}">
+                     href="?page={{ page_obj.next_page_number }}{% if select_month %}&select_month={{ select_month }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                   </a>
                 {% else %}

@@ -25,13 +25,6 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="breadcrumb-link">TRANSACTIONS</a>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}" class="breadcrumb-link">{{ sale.reference }}</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>RETURN</span>
-      </div>
       <h1 class="page-title">Return Items</h1>
       <p class="page-subtitle">Record returned items and process the refund.</p>
     </div>

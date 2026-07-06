@@ -78,15 +78,6 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>TRANSACTIONS</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">Expenses</a>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">TEMPLATES</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>NEW</span>
-      </div>
       <h1 class="page-title">New Expense Template</h1>
       <p class="page-subtitle">Add a reusable expense you record regularly.</p>
     </div>
@@ -263,13 +254,6 @@ document.addEventListener("DOMContentLoaded", function () {
   <!-- PAGE HEADER -->
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>TRANSACTIONS</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="breadcrumb-link">EXPENSES</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>LOG</span>
-      </div>
       <h1 class="page-title">Log Expense</h1>
       <p class="page-subtitle">Select templates, enter actual amounts, and set the date.</p>
     </div>

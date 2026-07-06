@@ -6,19 +6,13 @@
 {% endblock %}
 
 {% block content %}
+{% url 'employee-list' business_slug=current_business.slug as list_fallback %}
 
 <div class="page-wrapper">
 
   <!-- PAGE HEADER -->
   <div class="sl-page-header col-mobile-hidden">
     <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>TEAM</span>
-        <i class="bi bi-chevron-right"></i>
-        <a href="{% url 'employee-list' business_slug=current_business.slug as list_fallback %}" class="breadcrumb-link">Employee</a>
-        <i class="bi bi-chevron-right"></i>
-        <span>Edit</span>
-      </div>
       <h1 class="page-title">Edit Employee</h1>
       <p class="page-subtitle">Update the name and daily rate of this employee.</p>
     </div>

@@ -1,5 +1,6 @@
 {% extends 'main.html' %}
 {% load humanize %}
+
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -23,17 +24,15 @@ document.addEventListener("DOMContentLoaded", () =>
 
 <div class="page-wrapper">
 
-  <div class="page-header col-mobile-hidden">
-    <div class="page-header-left">
-      <div class="page-breadcrumb">
-        <span>CATALOG</span><i class="bi bi-chevron-right"></i>
-        <a href="{% url 'product-list' business_slug=current_business.slug %}" class="breadcrumb-link"><span>PRODUCT</span></a>
-        <i class="bi bi-chevron-right"></i><span>DETAIL</span>
-      </div>
-      <h1 class="page-title">Product Details</h1>
-      <p class="page-subtitle">Review and manage this product's catalog entry.</p>
-    </div>
-  </div>
+  {% url 'product-list' business_slug=current_business.slug as list_fallback %}
+  <!-- BREADCRUMB — own row above the hero -->
+  <nav class="page-crumb col-mobile-hidden" aria-label="Breadcrumb">
+    <a href="{{ request.session.return_to|default:list_fallback }}" class="page-crumb__back">
+      <i class="bi bi-arrow-left"></i> Back to Products
+    </a>
+    <span class="page-crumb__sep">/</span>
+    <span class="page-crumb__current">{{ product.name }}</span>
+  </nav>
 
     {% if product.prepared_quantity <= product.low_stock_threshold or product.margin_status == 'warning' or product.margin_status == 'critical' %}
     <div class="pd-alerts" data-session="{{ request.session.session_key }}" data-product="{{ product.id }}">

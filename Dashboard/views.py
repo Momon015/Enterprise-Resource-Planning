@@ -515,20 +515,25 @@ def dashboard(request, business_slug):
 
     stock_alert_qs    = Product.goods.filter(business=business, prepared_quantity__lte=F('low_stock_threshold'))
     stock_alert_count = stock_alert_qs.count()
-    stock_alert_top   = list(stock_alert_qs.order_by('prepared_quantity')[:3])
     out_of_stock      = Product.goods.filter(business=business, prepared_quantity=0).count()
-    low_only          = stock_alert_count - out_of_stock
-    # ── Low Stock severity — worst tier present drives the card color (reuses stock_status formula) ──
-    if out_of_stock > 0:
-        hue_lowstock = 'danger'                       # something's already OUT
-    elif stock_alert_count > 0:
-        has_critical = any(                            # any product at/below round(low×0.2)?
+    low_only          = stock_alert_count - out_of_stock          # running low but NOT yet out
+    low_stock_qs      = stock_alert_qs.filter(prepared_quantity__gt=0)
+    low_stock_top     = list(low_stock_qs.order_by('prepared_quantity')[:3])
+
+    # ── Out of Stock — red when anything's out, emerald when the shelf is clear ──
+    hue_outofstock = 'danger' if out_of_stock > 0 else 'success'
+    # ── Low Stock — amber/orange when running low; emerald only when FULLY clear
+    #    (nothing low AND nothing out); gray when low's clear but something's out ──
+    if low_only > 0:
+        has_critical = any(                            # any low product at/below round(low×0.2)?
             p.stock_status == 'critical'
-            for p in stock_alert_qs.only('prepared_quantity', 'low_stock_threshold')
+            for p in low_stock_qs.only('prepared_quantity', 'low_stock_threshold')
         )
         hue_lowstock = 'orange' if has_critical else 'warning'
+    elif out_of_stock == 0:
+        hue_lowstock = 'success'                        # everything healthy → emerald
     else:
-        hue_lowstock = ''                              # all stocked up → gray
+        hue_lowstock = ''                              # low's clear but stuff is out → gray
 
 
     # ── Needs Attention — current state requiring action (bell = event stream) ──
@@ -549,7 +554,7 @@ def dashboard(request, business_slug):
             'text': f"{low_only} product{'s are' if low_only != 1 else ' is'} running low on stock",
             'url': reverse('view-inventory-stock', kwargs={'business_slug': business.slug})})
     if due_soon_count:
-        attention.append({'tone': 'info', 'icon': 'bi-credit-card',
+        attention.append({'tone': 'info', 'icon': 'bi-credit-card-2-back',
             'text': f"{due_soon_count} supplier payment{'s' if due_soon_count != 1 else ''} due within 3 days",
             'url': reverse('purchase-payables', kwargs={'business_slug': business.slug})})
     if drawer and drawer.is_open:
@@ -595,7 +600,8 @@ def dashboard(request, business_slug):
         'drawer': drawer, 'drawer_balance': drawer_balance,
         'cash_sales_today': cash_sales_today,
         'payouts_today': payouts_today, 'returns_today': returns_today,
-        'stock_alert_count': stock_alert_count, 'stock_alert_top': stock_alert_top,
+        'stock_alert_count': stock_alert_count,
+        'out_of_stock': out_of_stock, 'low_only': low_only, 'low_stock_top': low_stock_top,
         'attention': attention,
         
         'hue_revenue': hue_revenue,
@@ -603,6 +609,7 @@ def dashboard(request, business_slug):
         'hue_material': hue_material,
         'hue_netprofit': hue_netprofit,
         'hue_lowstock': hue_lowstock,
+        'hue_outofstock': hue_outofstock,
 
 
     }

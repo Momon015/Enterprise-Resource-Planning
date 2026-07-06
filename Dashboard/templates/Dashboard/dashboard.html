@@ -8,7 +8,7 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <div class="page-header-left">
-      <div class="page-breadcrumb">Dashboard</div>
+      {% comment %} <div class="page-breadcrumb">Dashboard</div> {% endcomment %}
       <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}!</h1>
         <p class="page-subtitle">
           {{ today|date:"F d, Y" }} — {{ today|date:"l" }}
@@ -288,23 +288,6 @@
       </div>
     </div>
 
-    <!-- PURCHASES -->
-    <div class="kpi-card kpi-card--clickable"
-         data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--neutral"><i class="bi bi-cart3"></i></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Purchases</div>
-        <div class="kpi-value">{{ pur_count }}</div>
-        {% if pur_diff > 0 %}
-          <div class="kpi-delta kpi-delta--up"><i class="bi bi-arrow-up"></i> +{{ pur_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
-        {% elif pur_diff < 0 %}
-          <div class="kpi-delta kpi-delta--down"><i class="bi bi-arrow-down"></i> {{ pur_diff }} <span class="kpi-delta-note">vs Yesterday</span></div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— Same as yesterday</div>
-        {% endif %}
-      </div>
-    </div>
-
     <!-- CASH DRAWER (only when the business tracks a drawer) -->
     {% if current_business.enable_cash_reconciliation %}
     <div class="kpi-card{% if drawer.is_open %} kpi-card--hue-cyan{% endif %}{% if drawer %} has-popover{% endif %}">
@@ -339,33 +322,50 @@
     </div>
     {% endif %}
 
-    <!-- LOW STOCK -->
-    <div class="kpi-card{% if hue_lowstock %} kpi-card--hue-{{ hue_lowstock }}{% endif %}{% if stock_alert_top %} has-popover{% endif %} kpi-card--clickable"
+    <!-- LOW STOCK (running low, not yet out) -->
+    <div class="kpi-card{% if hue_lowstock %} kpi-card--hue-{{ hue_lowstock }}{% endif %}{% if low_stock_top %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
-      <div class="kpi-icon kpi-icon--{% if hue_lowstock %}{{ hue_lowstock }}{% else %}neutral{% endif %}"><i class="bi bi-exclamation-triangle"></i></div>
+      <div class="kpi-icon kpi-icon--{% if hue_lowstock %}{{ hue_lowstock }}{% else %}neutral{% endif %}"><i class="bi {% if hue_lowstock == 'success' %}bi-patch-check-fill{% else %}bi-exclamation-triangle{% endif %}"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Low Stock</div>
-        <div class="kpi-value">{{ stock_alert_count }}</div>
-        {% if stock_alert_count %}
-          <div class="kpi-delta kpi-delta--warning"><i class="bi bi-exclamation-circle"></i> Needs attention</div>
+        <div class="kpi-value">{{ low_only }}</div>
+        {% if low_only %}
+          <div class="kpi-delta kpi-delta--warning"><i class="bi bi-exclamation-circle"></i> Running low</div>
+        {% elif out_of_stock %}
+          <div class="kpi-delta kpi-delta--muted">— None running low</div>
         {% else %}
-          <div class="kpi-delta kpi-delta--muted">— All stocked up</div>
+          <div class="kpi-delta kpi-delta--good">Stock is healthy</div>
         {% endif %}
       </div>
 
-      {% if stock_alert_top %}
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Lowest stock">
+      {% if low_stock_top %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Running low">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
-        <div class="kpi-popover__title">Lowest stock</div>
-        {% for pr in stock_alert_top %}
+        <div class="kpi-popover__title">Running low</div>
+        {% for pr in low_stock_top %}
         <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
         {% endfor %}
-        <div class="kpi-popover__row kpi-popover__row--total"><span>Needs restocking</span><span class="num">{{ stock_alert_count }} item{{ stock_alert_count|pluralize }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Running low</span><span class="num">{{ low_only }} item{{ low_only|pluralize }}</span></div>
         <a class="kpi-popover__link" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">View inventory <i class="bi bi-arrow-right"></i></a>
       </div>
       {% endif %}
+    </div>
+
+    <!-- OUT OF STOCK -->
+    <div class="kpi-card{% if hue_outofstock %} kpi-card--hue-{{ hue_outofstock }}{% endif %} kpi-card--clickable"
+         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
+      <div class="kpi-icon kpi-icon--{% if hue_outofstock %}{{ hue_outofstock }}{% else %}neutral{% endif %}"><i class="bi {% if hue_outofstock == 'success' %}bi-patch-check-fill{% else %}bi-x-octagon{% endif %}"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Out of Stock</div>
+        <div class="kpi-value">{{ out_of_stock }}</div>
+        {% if out_of_stock %}
+          <div class="kpi-delta kpi-delta--down"><i class="bi bi-exclamation-circle"></i> Restock now</div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--good">All in stock</div>
+        {% endif %}
+      </div>
     </div>
 
   </div>
@@ -390,7 +390,7 @@
           </a>
           {% empty %}
           <div class="attention-empty">
-            <i class="bi bi-check2-circle"></i>
+            <i class="bi bi-patch-check-fill"></i>
             <p>All clear — nothing needs your attention</p>
           </div>
           {% endfor %}
