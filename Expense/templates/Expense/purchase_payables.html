@@ -122,13 +122,12 @@
                 <th class="sl-text-end col-mobile-hidden">Paid</th>
                 <th class="sl-text-end">Outstanding</th>
                 <th class="sl-text-center">Status</th>
+                <th class="sl-text-center">Payment</th>
               </tr>
             </thead>
             <tbody>
               {% for p in page_obj %}
-              <tr class="row-link {% if p.due_date and p.due_date < today %}is-overdue{% endif %}"
-                  hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
-                  hx-target="#confirmBody" hx-swap="innerHTML" style="cursor:pointer;">
+              <tr class="{% if p.due_date and p.due_date < today %}is-overdue{% endif %}">
 
                 <td class="cell-primary">
                   {{ p.purchase_date|date:"M d" }}<span class="col-mobile-hidden">, {{ p.purchase_date|date:"Y" }}</span>
@@ -136,7 +135,8 @@
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ p.reference }}</div>
+                  <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.id %}"
+                     class="link-accent cell-primary" title="View purchase details">{{ p.reference }}</a>
                 </td>
 
                 <td class="col-mobile-hidden">
@@ -152,7 +152,7 @@
                 </td>
 
                 <td class="sl-text-end col-mobile-hidden">
-                  <span class="text-success">₱{{ p.amount_paid|floatformat:2|intcomma }}</span>
+                  <span class="sl-text-emerald sl-fw-semibold">₱{{ p.amount_paid|floatformat:2|intcomma }}</span>
                 </td>
 
                 <td class="sl-text-end sl-fw-semibold text-danger">
@@ -167,15 +167,17 @@
                         {% if p.amount_paid > 0 %}
                         <span class="sl-badge sl-badge-warning">Partial</span>
                         {% else %}
-                        <span class="sl-badge sl-badge-light">Unpaid</span>
+                        <span class="sl-badge sl-badge-danger">Debt</span>
                         {% endif %}
                     </div>
                 </td>
 
                 <td class="sl-text-center">
-                  <div class="btn-group">
-                    <span class="row-chevron" title="Record payment">View</span>
-                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-primary"
+                          hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
+                          hx-target="#confirmBody" hx-swap="innerHTML" title="Record a payment for this purchase">
+                    <i class="bi bi-cash-coin"></i> Record payment
+                  </button>
                 </td>
               </tr>
               {% endfor %}

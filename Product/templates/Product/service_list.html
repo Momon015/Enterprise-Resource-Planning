@@ -96,7 +96,7 @@
           </div>
           <!-- QUICK LINKS — moved from the old right column -->
           <div class="d-flex gap-2">
-            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-outline-primary btn-sm">
+            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Create service
             </a>
             {% if request.user.role == 'owner' %}

@@ -122,13 +122,12 @@
                 <th class="sl-text-end col-mobile-hidden">Paid</th>
                 <th class="sl-text-end">Outstanding</th>
                 <th class="sl-text-center">Status</th>
+                <th class="sl-text-center">Payment</th>
               </tr>
             </thead>
             <tbody>
               {% for s in page_obj %}
-              <tr class="row-link"
-                  hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables"
-                  hx-target="#confirmBody" hx-swap="innerHTML" style="cursor:pointer;">
+              <tr>
 
                 <td class="cell-primary">
                     {{ s.date|date:"M d" }}<span class="col-mobile-hidden">, {{ s.date|date:"Y" }}</span>
@@ -136,7 +135,8 @@
                 </td>
 
                 <td>
-                    <div class="cell-primary">{{ s.reference }}</div>
+                    <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=s.id %}"
+                       class="link-accent cell-primary" title="View sale details">{{ s.reference }}</a>
                 </td>
 
                 <td class="sl-text-end col-mobile-hidden">
@@ -144,7 +144,7 @@
                 </td>
 
                 <td class="sl-text-end col-mobile-hidden">
-                    <span class="text-success">₱{{ s.amount_paid|floatformat:2|intcomma }}</span>
+                    <span class="sl-text-emerald sl-fw-semibold">₱{{ s.amount_paid|floatformat:2|intcomma }}</span>
                 </td>
 
                 <td class="sl-text-end sl-fw-semibold text-danger">
@@ -160,9 +160,11 @@
                 </td>
 
                 <td class="sl-text-center">
-                    <div class="btn-group">
-                        <span class="row-chevron" title="Record payment">View</span>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=s.id %}?next=receivables"
+                            hx-target="#confirmBody" hx-swap="innerHTML" title="Record a payment for this sale">
+                        <i class="bi bi-cash-coin"></i> Record payment
+                    </button>
                 </td>
 
             </tr>

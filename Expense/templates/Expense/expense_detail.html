@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </a>
     <span class="page-crumb__sep">/</span>
     <span class="page-crumb__current">
-      {% if shift.first.date %}{{ shift.first.date|date:"D, M d, Y" }}{% else %}{{ expense.first.date|date:"D, M d, Y" }}{% endif %}
+      {% if shift.first.date %}{{ shift.first.date|date:"D, M d, Y " }}{% else %}{{ expense.first.date|date:"D, M d, Y" }}{% endif %}
     </span>
   </nav>
 
@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="card-header-title">
               <i class="bi bi-wallet2"></i> Expense Records
             </span>
-            <span class="sl-badge sl-badge-light">{{ expense_count }} expense{{ expense_count|pluralize }}</span>
+            <span class="sl-badge sl-badge-light">{{ expense_items|length }} expense{{ expense_items|length|pluralize }}</span>
           </div>
           <span class="card-header-sub">Logged for this day</span>
         </div>
@@ -167,19 +167,52 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
 
-          <!-- Breakdown -->
+          {% if expense.first.created_by and request.user.role == 'owner' %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Recorded By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">{{ expense.first.created_by.username|slice:":1"|upper }}</div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ expense.first.created_by.get_full_name|default:expense.first.created_by.username }}</div>
+                <div class="created-by-meta">
+                  {% if expense.first.created_by.role == 'developer' %}
+                    <span class="role-badge role-dev">Developer</span>
+                  {% elif expense.first.created_by.role == 'owner' %}
+                    <span class="role-badge role-owner">Owner</span>
+                  {% else %}
+                    <span class="role-badge role-staff">Staff</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Note -->
+          <div class="sd-note-box">
+            <div class="sd-note-icon">
+              <i class="bi bi-info-circle-fill"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">About this expense</div>
+              <div class="sd-note-text">Recurring operational expenses monthly.
+              </div>
+            </div>
+          </div>
+
+          {% comment %} <!-- Breakdown -->
           <dl class="period-breakdown">
             <div>
               <dt>Expense cost</dt>
               <dd class="text-danger">₱{{ total_expense_cost|default:0|floatformat:2|intcomma }}</dd>
             </div>
-            {% comment %} <div>
+            <div>
               <dt>Salary cost</dt>
               <dd class="text-danger">₱{{ total_salary_cost|default:0|floatformat:2|intcomma }}</dd>
-            </div> {% endcomment %}
-          </dl>
+            </div> 
+          </dl> {% endcomment %}
 
-          <!-- Note -->
+          {% comment %} <!-- Note -->
           <div class="sd-note-box">
             <div class="sd-note-icon">
               <i class="bi bi-info-circle-fill"></i>
@@ -190,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 {% if shift.first.date %}{{ shift.first.date|date:"F d, Y" }}{% else %}{{ expense.first.date|date:"F d, Y" }}{% endif %}.
               </div>
             </div>
-          </div>
+          </div> {% endcomment %}
 
         </div>
       </div>

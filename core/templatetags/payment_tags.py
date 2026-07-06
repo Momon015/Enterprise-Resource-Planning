@@ -20,12 +20,13 @@ _LOGO_METHODS = {'gcash': 'images/gcash.svg'}
 
 
 @register.simple_tag
-def payment_method_badge(code):
+def payment_method_badge(code, muted=False):
     """Render a payment method as an icon + label pill.
 
     `code` is a Sale/Purchase.payment_method_code value. Reuses the existing
     sl-badge styling so no new CSS is needed. Shows a muted dash when nothing
-    has been paid yet (code is None)."""
+    has been paid yet (code is None). Pass `muted=True` (e.g. for a voided
+    transaction) to strip the method's hue so the pill reads as inactive."""
     if not code:
         return format_html('<span class="pay-method-empty">{}</span>', '—')
     icon, label = _METHOD_META.get(code, ('bi-cash-stack', code.title()))
@@ -36,9 +37,10 @@ def payment_method_badge(code):
         )
     else:
         mark = format_html('<i class="bi {}"></i>', icon)
+    modifier = 'void' if muted else code
     return format_html(
         '<span class="pay-method pay-method--{}">{} {}</span>',
-        code, mark, label,
+        modifier, mark, label,
     )
 
 

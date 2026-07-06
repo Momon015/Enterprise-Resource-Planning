@@ -143,6 +143,10 @@ document.addEventListener("DOMContentLoaded", function () {
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
+            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}"
+              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not request.GET.search %}active{% endif %}">
+              <i class="bi bi-grid"></i> All records
+            </a>
           </div>
           {% if stocks %}
           <!-- Quick Action — subtle outline button in the header (was "Most recent first") -->

@@ -1462,6 +1462,7 @@ table.data-table tbody tr:hover td {
 .sl-text-success { color: var(--success); }
 .sl-text-danger { color: var(--danger); }
 .sl-text-muted { color: var(--muted); }
+.sl-text-emerald { color: var(--emerald); }
 .sl-me-1 { margin-right: 0.25rem; }
 .sl-me-2 { margin-right: 0.5rem; }
 
@@ -1688,6 +1689,9 @@ details.filter-card summary:hover {
 .pay-method--cod    { --pm-ink: var(--orange);     --pm-soft: color-mix(in srgb, var(--orange) 12%, var(--surface)); }
 .pay-method--credit { --pm-ink: var(--pay-purple); --pm-soft: color-mix(in srgb, var(--pay-purple) 12%, var(--surface)); }
 .pay-method--mixed  { --pm-ink: var(--silver);     --pm-soft: color-mix(in srgb, var(--silver) 12%, var(--surface)); }
+/* Voided rows: strip the method's hue so the row reads as inactive at a glance */
+.pay-method--void   { --pm-ink: var(--silver);     --pm-soft: color-mix(in srgb, var(--silver) 12%, var(--surface)); opacity: .65; }
+.pay-method--void .pay-method__logo { filter: grayscale(1); }
 
 /* Button Group */
 .btn-group {

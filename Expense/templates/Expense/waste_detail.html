@@ -11,7 +11,7 @@
       <i class="bi bi-arrow-left"></i> Back to Waste
     </a>
     <span class="page-crumb__sep">/</span>
-    <span class="page-crumb__current">{{ waste.date|date:"M d, Y" }}</span>
+    <span class="page-crumb__current">{{ waste.created_at|date:"M d, Y g:i A" }}</span>
   </nav>
 
   <div class="two-col-layout">
@@ -35,7 +35,7 @@
                 <th class="sl-text-center">Type</th>
                 <th class="sl-text-center">Qty</th>
                 <th class="sl-text-end">Unit Price</th>
-                <th class="sl-text-end">Waste Cost</th>
+                <th class="sl-text-end">Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -75,51 +75,60 @@
     <!-- RIGHT PANEL -->
     <div class="right-panel">
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color:#fff; display:flex; align-items:center; gap:0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-trash2"></i> Waste Snapshot
           </span>
         </div>
-        <div class="card-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div class="card-body" style="padding: 1rem;">
 
-          <div class="sd-summary-block" style="background:var(--danger-light); border-color:var(--danger-border);">
-            <div class="sd-summary-block-label">Total Waste Cost</div>
-            <div class="sd-total-amount" style="color:var(--danger);">₱{{ waste.waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-          </div>
-
-          <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Details</div>
-            <div class="sd-info-row">
-              <span class="sd-info-label">Items Wasted</span>
-              <span class="sd-info-value">{{ waste_items|length }}</span>
-            </div>
-            {% if request.user.role == 'owner' %}
-            <div class="sd-info-row">
-              <span class="sd-info-label">Logged by</span>
-              <span class="sd-info-value">
-                {% if waste.created_by %}
-                  {{ waste.created_by.get_full_name|default:waste.created_by.username|capfirst }}
-                {% else %}
-                  <span class="cell-sub">—</span>
-                {% endif %}
-              </span>
-            </div>
-            {% endif %}
-            <div class="sd-info-row">
-              <span class="sd-info-label">Recorded at</span>
-              <span class="sd-info-value">{{ waste.created_at|date:"M d, Y g:i A" }}</span>
+          <!-- Featured Total Waste Cost -->
+          <div class="period-net period-net--loss">
+            <div class="period-net-label">TOTAL WASTE COST</div>
+            <div class="period-net-value">₱{{ waste.waste_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+            <div class="period-net-sub">
+              <i class="bi bi-box2"></i>
+              {{ waste_items|length }} item{{ waste_items|length|pluralize }}
             </div>
           </div>
 
+          <!-- Breakdown -->
+          <dl class="period-breakdown">
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ waste.get_reason_display }}</dd>
+            </div>
+          </dl>
+
+          {% if waste.created_by and request.user.role == 'owner' %}
           <div class="sd-summary-block">
-            <div class="sd-summary-block-label">Quick Links</div>
-            <div class="btn-grid">
-              <a href="{% url 'material-waste-create' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-secondary btn-block">
-                <i class="bi bi-plus-circle"></i> Log Waste
-              </a>
-              <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-sm btn-outline-secondary btn-block">
-                <i class="bi bi-list-ul"></i> All Records
-              </a>
+            <div class="sd-summary-block-label">Recorded By</div>
+            <div class="created-by-info">
+              <div class="created-by-avatar">{{ waste.created_by.username|slice:":1"|upper }}</div>
+              <div class="created-by-details">
+                <div class="created-by-name">{{ waste.created_by.get_full_name|default:waste.created_by.username }}</div>
+                <div class="created-by-meta">
+                  {% if waste.created_by.role == 'developer' %}
+                    <span class="role-badge role-dev">Developer</span>
+                  {% elif waste.created_by.role == 'owner' %}
+                    <span class="role-badge role-owner">Owner</span>
+                  {% else %}
+                    <span class="role-badge role-staff">Staff</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Note -->
+          <div class="sd-note-box">
+            <div class="sd-note-icon">
+              <i class="bi bi-shield-lock"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">Read-only</div>
+              <div class="sd-note-text">This waste record is final and can't be edited.</div>
             </div>
           </div>
 

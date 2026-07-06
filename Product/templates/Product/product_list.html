@@ -217,21 +217,6 @@
           <div class="card-header-left-group">
             <span class="card-header-title">Product Catalog</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
-          </div>
-          <div class="activity-header-right">
-            <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
-            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-plus-circle"></i> Create product
-            </a>
-            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-bookmark-fill"></i> Presets
-            </a>
-            <a href="{% url 'archived-products' business_slug=current_business.slug %}"
-               hx-get="{% url 'archived-products' business_slug=current_business.slug %}"
-               hx-target="#confirmBody" hx-swap="innerHTML"
-               class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-archive"></i> Archive
-            </a>
             <span class="card-header-sub" style="margin: 0;">
               {% if request.GET.stock == 'high' %}In Stock
               {% elif request.GET.stock == 'low' %}Low Stock
@@ -282,6 +267,73 @@
                 {% endwith %}
               </div>
             </details>
+          </div>
+          <div class="activity-header-right">
+
+            <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
+            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create product
+            </a>
+
+            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-bookmark-fill"></i> Presets
+            </a>
+            <a href="{% url 'archived-products' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-products' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-archive"></i> Archive
+            </a>
+            {% comment %} <span class="card-header-sub" style="margin: 0;">
+              {% if request.GET.stock == 'high' %}In Stock
+              {% elif request.GET.stock == 'low' %}Low Stock
+              {% elif request.GET.stock == 'none' %}Out of Stock
+              {% elif request.GET.velocity == 'best' %}Best sellers
+              {% elif request.GET.velocity == 'slow' %}Slow movers
+              {% elif request.GET.velocity == 'never' %}Never sold
+              {% else %}All status
+              {% endif %}
+            </span>
+            <details class="activity-filter-pop">
+              <summary class="activity-filter-trigger" title="Filter products">
+                <i class="bi bi-sliders"></i>
+              </summary>
+              <div class="activity-filter-menu">
+                {% with q=request.GET.search cat=request.GET.category %}
+                <a href="{% url 'product-list' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
+                   class="{% if not request.GET.stock and not request.GET.velocity %}is-active{% endif %}">
+                  <i class="bi bi-grid"></i> All
+                </a>
+                <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
+                  <i class="bi bi-box-seam"></i> In Stock
+                </a>
+                <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
+                  <i class="bi bi-slash-circle"></i> Out of Stock
+                </a>
+
+                <div style="border-top:1px solid var(--border-light); margin:.3rem 0;"></div>
+
+                <a href="?velocity=best{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'best' %}is-active{% endif %}">
+                  <i class="bi bi-trophy"></i> Best sellers
+                </a>
+                <a href="?velocity=slow{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'slow' %}is-active{% endif %}">
+                  <i class="bi bi-hourglass-split"></i> Slow movers
+                </a>
+                <a href="?velocity=never{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="{% if request.GET.velocity == 'never' %}is-active{% endif %}">
+                  <i class="bi bi-moon-stars"></i> Never sold
+                </a>
+                {% endwith %}
+              </div>
+            </details> {% endcomment %}
           </div>
 
         </div>
