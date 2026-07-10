@@ -13,7 +13,7 @@
 
       {# ⚠️ PLAIN LINKS ON PURPOSE — file downloads are binary and CANNOT be htmx-swapped. Do NOT add hx-* here. #}
       <div class="d-flex flex-column gap-2" style="margin:.75rem 0 1rem;">
-        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=xlsx" class="btn btn-primary">
+        <a href="{% url 'subscription-export' business_slug=business.slug %}?format=xlsx" class="btn cm-btn cm-btn--success">
           <i class="bi bi-file-earmark-excel"></i> Download Excel (.xlsx)
           <small style="opacity:.8; display:block; font-weight:400;">One workbook, a tab per data type</small>
         </a>

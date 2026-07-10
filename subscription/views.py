@@ -113,7 +113,7 @@ def subscription_settings(request, business_slug):
 
     if sub is None:
         messages.warning(request, 'No subscription found for this account.')
-        return redirect('dashboard', business_slug=business.slug)
+        return redirect('settings', business_slug=business.slug)
 
     from Product.models import Product, ProductPreset
     from Supplier.models import Material, MaterialPreset, Supplier
@@ -205,6 +205,7 @@ def subscription_settings(request, business_slug):
     yearly_total = sub.get_yearly_price()
     yearly_as_monthly = (yearly_total / 12).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if yearly_total else Decimal('0')
 
+    from user.models import BusinessProfile
     context = {
         'sub': sub,
         'business': business,
@@ -214,7 +215,8 @@ def subscription_settings(request, business_slug):
         'total_yearly': yearly_total,
         'total_yearly_monthly': yearly_as_monthly,   # ← new
         'bundle_count': BUNDLE_COUNT.get(sub.bundle, 1),
-        'business_count': owner.business_profiles.count(),
+        # Slots used = active + archived (archived still occupies a bundle slot)
+        'business_count': BusinessProfile.all_objects.filter(user=owner).count(),
     }
 
     return render(request, 'subscription/settings.html', context)
@@ -461,7 +463,7 @@ def cancel_business_confirm(request, business_slug):
         messages.info(request, "Nothing to cancel for this business.")
         return redirect('subscription-settings', business_slug=business.slug)
 
-    balance_due = target_bp.compute_balance_due() if (sub.billing_cycle == 'yearly' and sub.payment_method != 'upfront') else Decimal('0')
+    refund_due = target_bp.compute_refund_due() if sub.billing_cycle == 'yearly' else Decimal('0')
     months_used = target_bp.months_used_on_plan()
     cycle_end = target_bp.expires_at
 
@@ -490,7 +492,7 @@ def cancel_business_confirm(request, business_slug):
     # })
     context = {
         'business': business, 'target_biz': target_biz, 'target_bp': target_bp,
-        'balance_due': balance_due, 'months_used': months_used,
+        'refund_due': refund_due, 'months_used': months_used,
         'cycle_end': cycle_end, 'sub': sub,
     }
     if request.headers.get('HX-Request'):
@@ -499,27 +501,61 @@ def cancel_business_confirm(request, business_slug):
 
 
 
+@login_required(login_url='login')
+def resume_business_plan(request, business_slug):
+    """Undo a scheduled cancellation — the owner changed their mind before the
+    cycle ended. POST only; voids the pending refund and keeps the plan."""
+    business = get_business_for_user(request.user, business_slug)
+    target_biz_id = request.POST.get('target_business_id')
+
+    from user.models import BusinessProfile
+    try:
+        target_biz = request.user.business_profiles.get(id=target_biz_id)
+    except (BusinessProfile.DoesNotExist, ValueError, TypeError):
+        messages.error(request, 'Business not found.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    target_bp = getattr(target_biz, 'plan', None)
+    if target_bp is None:
+        messages.error(request, 'No active subscription found.')
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    if request.method != 'POST':
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    try:
+        target_bp.resume_cancellation()
+    except (ValueError, ValidationError) as e:
+        messages.error(request, str(e))
+        return redirect('subscription-settings', business_slug=business.slug)
+
+    messages.success(
+        request,
+        f"{target_biz.business_name} is back on {target_bp.get_plan_display()} — cancellation undone."
+    )
+    return redirect('subscription-settings', business_slug=business.slug)
+
+
 def _send_cancellation_emails(owner, target_biz, invoice):
     support_email = getattr(settings, 'SUPPORT_EMAIL', settings.EMAIL_HOST_USER)
     cycle_end_str = invoice.cycle_end_at.strftime('%b %d, %Y')
     due_str = invoice.due_at.strftime('%b %d, %Y')
 
-    if invoice.amount_due > 0:
-        balance_line = (
-            f"Because yearly billing gave you a discounted rate, the {invoice.months_used} month(s) "
-            f"you used are recalculated at the standard monthly rate. The difference is "
-            f"₱{invoice.amount_due} — just the discount for those months, no penalty. "
-            f"You can settle it anytime before {due_str}.\n\n"
+    if invoice.refund_amount > 0:
+        refund_line = (
+            f"Because you paid for the year upfront, the {invoice.months_used} month(s) "
+            f"you actually used are re-priced at the standard monthly rate and we refund "
+            f"the rest: ₱{invoice.refund_amount}. Expect it by {due_str}.\n\n"
         )
     else:
-        balance_line = "No additional payment is required.\n\n"
+        refund_line = "No refund is due for this cancellation.\n\n"
 
     owner_body = (
         f"Hi {owner.username},\n\n"
         f"Your cancellation for '{target_biz.business_name}' is confirmed.\n\n"
         f"• Plan ends on: {cycle_end_str} (your data stays accessible until then)\n"
         f"• Months used: {invoice.months_used}\n\n"
-        f"{balance_line}"
+        f"{refund_line}"
         f"Thanks for giving Swift ERP a try. You're always welcome back.\n\n"
         f"— Swift ERP"
     )
@@ -533,19 +569,23 @@ def _send_cancellation_emails(owner, target_biz, invoice):
     except Exception:
         pass
 
+    billing = (
+        owner.subscription.get_billing_cycle_display()
+        if getattr(owner, 'subscription', None) else 'n/a'
+    )
     support_body = (
         f"Cancellation logged.\n\n"
         f"Owner: {owner.username} ({owner.email})\n"
         f"Business: {target_biz.business_name} (slug: {target_biz.slug})\n"
         f"Plan: {invoice.plan_at_cancel.title()}\n"
-        f"Payment method: {getattr(owner.subscription, 'get_payment_method_display', lambda: 'n/a')()}\n"
+        f"Billing: {billing}\n"
         f"Cycle ends: {cycle_end_str}\n"
         f"Months used: {invoice.months_used}\n"
-        f"Balance due: ₱{invoice.amount_due} (status: {invoice.get_status_display()})\n"
+        f"Refund due: ₱{invoice.refund_amount} (status: {invoice.get_status_display()})\n"
         f"Invoice ID: {invoice.id}\n"
-        + ("\n⚠ UPFRONT payer — likely owed a refund. Compute manually: "
-           "total_paid − (months_used × standard_monthly_rate).\n"
-           if invoice.status == 'waived' else "")
+        + (f"\n⚠ REFUND PENDING — issue ₱{invoice.refund_amount} to the owner, "
+           f"then mark invoice {invoice.id} as refunded.\n"
+           if invoice.status == 'pending' else "")
     )
     try:
         EmailMultiAlternatives(

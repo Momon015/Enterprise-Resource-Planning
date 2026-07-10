@@ -17,6 +17,7 @@
 {% endif %}
 </div>
 
+{% url 'settings' business_slug=current_business.slug as list_fallback %}
 <div class="page-wrapper">
 
   <div class="page-header">
@@ -28,7 +29,7 @@
 
   <div class="card" style="max-width:620px; margin:0 auto;">
     <div class="card-header"><span class="card-header-title"><i class="bi bi-display"></i>&nbsp;Drawer Management</span>      
-      <a href="{{ settings_fallback }}" class="pd-icon-btn" data-form-close="drawerForm" title="Close"><i class="bi bi-x-lg"></i></a>
+      <a href="{{ list_fallback }}" class="pd-icon-btn" data-form-close="drawerForm" title="Close"><i class="bi bi-x-lg"></i></a>
     </div>
     <div class="card-body">
         {% if locked %}
@@ -87,7 +88,7 @@
 
         <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
           <a href="{% url 'settings' business_slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
-          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save Settings</button>
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check2"></i> Save Settings</button>
         </div>
       </form>
     </div>

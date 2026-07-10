@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% load humanize %}
+{% load payment_tags %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -154,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
             <a href="{% url 'expense-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
-              <i class="bi bi-grid"></i> All records
+              <i class="bi bi-grid"></i> All
             </a>
           </div>
           <!-- Quick Actions — subtle outline buttons in the header (was "Most recent first") -->
@@ -165,7 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
             <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}"
                class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-bookmark"></i> Manage templates
+              <i class="bi bi-bookmark-fill"></i> Manage templates
             </a>
           </div>
         </div>
@@ -177,8 +178,10 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 {% comment %} <th class="sl-text-center col-mobile-hidden">Salary Cost</th> {% endcomment %}
-                <th class="sl-text-center col-mobile-hidden">Expense Cost</th>
-                <th class="sl-text-end">Total Cost</th>
+                {% comment %} <th class="sl-text-center col-mobile-hidden">Expense Cost</th> {% endcomment %}
+                <th class="sl-text-center">Qty</th>
+                <th class="sl-text-center">Payment</th>
+                <th class="sl-text-center">Total Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -193,11 +196,19 @@ document.addEventListener("DOMContentLoaded", function () {
                   ₱{{ record.total_shift|default:0|floatformat:2|intcomma }}
                 </td> {% endcomment %}
 
-                <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_amount %}var(--danger){% else %}var(--muted){% endif %};">
+                {% comment %} <td class="sl-text-center sl-fw-semibold col-mobile-hidden" style="color: {% if record.total_amount %}var(--danger){% else %}var(--muted){% endif %};">
                   ₱{{ record.total_amount|default:0|floatformat:2|intcomma }}
+                </td> {% endcomment %}
+                
+                <td class="sl-text-center">
+                    {{record.expense_count}}
                 </td>
 
-                <td class="sl-text-end sl-fw-bold sl-text-danger">
+                <td class="sl-text-center">
+                  {% payment_method_badge record.payment_method %}
+                </td>
+
+                <td class="sl-text-center sl-fw-bold sl-text-danger">
                   ₱{{ record.total_amount|floatformat:2|intcomma }}
                 </td>
 
@@ -347,7 +358,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </a>
           <a href="{% url 'expense-list' business_slug=current_business.slug %}"
             class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
-            <i class="bi bi-grid"></i> All records
+            <i class="bi bi-grid"></i> All
           </a>
         </div>
       </div>

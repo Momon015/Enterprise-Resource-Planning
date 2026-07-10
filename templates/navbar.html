@@ -153,6 +153,51 @@
       {% endif %}
     {% endif %}
 
+    {% if request.user.role == 'owner' %}
+    <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->
+    <div class="sidebar-group" data-group="analytics">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-analytics">
+        <span class="sidebar-group__label">Analytics</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-analytics">
+        <ul>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'profit-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Profit-Analytics"{% endif %}>
+              <i class="bi bi-graph-up-arrow"></i>
+              <span>Profit Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+            <a class="sidebar-nav__link {% if section == 'sales-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Sales-Analytics"{% endif %}>
+              <i class="bi bi-clipboard-data"></i>
+              <span>Sales Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'expense-analytics' %}is-active{% endif %}"
+              href="#"
+              {% if request.user.role == 'staff' %}data-locked="Expense-Analytics"{% endif %}>
+              <i class="bi bi-pie-chart"></i>
+              <span>Expense Analytics</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- TRANSACTIONS -->
     <div class="sidebar-group" data-group="transactions">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-transactions">
@@ -252,9 +297,9 @@
             {% comment %} the old "Reports" page — accrual lens {% endcomment %}
             <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis != 'cash' %}is-active{% endif %}"
               href="{% url 'view-summary' business_slug=current_business.slug %}?basis=accrual"
-              {% if request.user.role == 'staff' %}data-locked="Profitability" data-locked-fixed="true"{% endif %}>
+              {% if request.user.role == 'staff' %}data-locked="close_book" data-locked-fixed="true"{% endif %}>
               <i class="bi bi-journal-bookmark"></i>
-              <span>Profitability</span>
+              <span>Accrual</span>
               {% if request.user.role == 'staff' %}
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
               {% endif %}
@@ -278,51 +323,6 @@
               {% if request.user.role == 'staff' %}data-locked="Payables"{% endif %}>
               <i class="bi bi-arrow-up-right-circle"></i>
               <span>Payables</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    {% endif %}
-
-    {% if request.user.role == 'owner' %}
-    <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->
-    <div class="sidebar-group" data-group="analytics">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-analytics">
-        <span class="sidebar-group__label">Analytics</span>
-        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
-      </button>
-      <div class="sidebar-group__items" id="group-analytics">
-        <ul>
-          <li>
-            <a class="sidebar-nav__link {% if section == 'profit-analytics' %}is-active{% endif %}"
-              href="#"
-              {% if request.user.role == 'staff' %}data-locked="Profit-Analytics"{% endif %}>
-              <i class="bi bi-graph-up-arrow"></i>
-              <span>Profit Analytics</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-            <a class="sidebar-nav__link {% if section == 'sales-analytics' %}is-active{% endif %}"
-              href="#"
-              {% if request.user.role == 'staff' %}data-locked="Sales-Analytics"{% endif %}>
-              <i class="bi bi-clipboard-data"></i>
-              <span>Sales Analytics</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-          <li>
-            <a class="sidebar-nav__link {% if section == 'expense-analytics' %}is-active{% endif %}"
-              href="#"
-              {% if request.user.role == 'staff' %}data-locked="Expense-Analytics"{% endif %}>
-              <i class="bi bi-pie-chart"></i>
-              <span>Expense Analytics</span>
               {% if request.user.role == 'staff' %}
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
               {% endif %}

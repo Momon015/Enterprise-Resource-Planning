@@ -46,7 +46,9 @@
         </div>
 
         <div class="cm-actions" style="margin-top:1rem;">
-          <button type="submit" class="btn btn-primary">
+          
+          <button type="button" class="btn btn-outline-secondary" data-quickview-close>{{ cm_cancel|default:'Cancel' }}</button>
+          <button type="submit" class="btn cm-btn cm-btn--success">
             <i class="bi bi-check-circle sl-me-1"></i> {{ cat_label }}
           </button>
         </div>

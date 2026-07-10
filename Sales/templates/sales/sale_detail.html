@@ -127,6 +127,11 @@
 
         <div class="table-responsive">
           {% if payments %}
+             {% comment %} Show "Recorded By" per payment only when money came in AFTER the counter —
+             i.e. Status ≠ Paid (debt / partial / installments). For a same-day counter
+             sale the collector is obviously the cashier who rang it, so it's redundant.
+             Owner-only, matching the sale's Recorded By panel.   {% endcomment %}
+          {% with show_recorder=sale.settlement_badge.label %}
           <table class="data-table">
             <thead>
               <tr>
@@ -134,6 +139,7 @@
                 <th class="sl-text-center">Method</th>
                 <th>Note</th>
                 <th class="sl-text-end">Amount</th>
+                {% if request.user.role == 'owner' and show_recorder != 'Paid' %}<th class="sl-text-end">Recorded By</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -156,10 +162,21 @@
                 <td class="sl-text-end sl-fw-semibold text-success">
                   ₱{{ p.amount|floatformat:2|intcomma }}
                 </td>
+                {% if request.user.role == 'owner' and show_recorder != 'Paid' %}
+                <td class="sl-text-end">
+                  {% if p.created_by %}
+                  <div class="cell-primary">{{ p.created_by.get_full_name|default:p.created_by.username }}</div>
+                  <div class="cell-sub">{% if p.created_by.role == 'owner' %}Owner{% elif p.created_by.role == 'developer' %}Developer{% else %}Staff{% endif %}</div>
+                  {% else %}
+                  <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          {% endwith %}
           {% else %}
           <div class="empty-state" style="padding: 1.5rem;">
             <div class="empty-icon" style="font-size: 1.5rem;">
@@ -258,7 +275,7 @@
                 {{ sale.created_by.username|slice:":1"|upper }}
               </div>
               <div class="created-by-details">
-                <div class="created-by-name">{{ sale.created_by.username }}</div>
+                <div class="created-by-name">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</div>
                 <div class="created-by-meta">
                   {% if sale.created_by.role == 'developer' %}
                     <span class="role-badge role-dev">Developer</span>

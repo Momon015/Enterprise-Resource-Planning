@@ -157,6 +157,16 @@ class EmailOTP(models.Model):
     def generate_otp(cls):
         return str(random.randint(0, 999999)).zfill(6)
 
+
+class ActiveBusinessManager(models.Manager):
+    """Default manager — only active (non-archived) businesses. Because reverse
+    access (user.business_profiles) uses the default manager, archived businesses
+    automatically drop out of switchers, billing sums, seat-cap counts, etc.
+    Use BusinessProfile.all_objects to reach archived rows (restore, audit)."""
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
 class BusinessProfile(models.Model):
     BUSINESS_TYPE_CHOICE = (
         ('retail', 'Retail'),
@@ -230,7 +240,14 @@ class BusinessProfile(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    # ── Soft-delete / archive ───────────────────────────────────
+    # Businesses are NEVER hard-deleted (BIR traceability): archiving flips
+    # is_active off and hides the business everywhere, but keeps every linked
+    # record (sales, cancellation invoices, receipts) intact and restorable.
+    is_active   = models.BooleanField(default=True, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
     invite_code = models.CharField(
         max_length=10, unique=True, db_index=True,
         null=True, blank=True, editable=False,
@@ -274,29 +291,53 @@ class BusinessProfile(models.Model):
 
     class Meta:
         unique_together = ('user', 'slug')
-    
+
+    objects = ActiveBusinessManager()   # default → active only (drives reverse access)
+    all_objects = models.Manager()      # everything, incl. archived (restore/audit)
+
     def save(self, *args, **kwargs):
         if not self.invite_code:
             code = generate_invite_code()
-            while BusinessProfile.objects.filter(invite_code=code).exists():
+            # Check ALL rows (incl. archived) — invite_code/slug are globally unique
+            # at the DB level, so a collision with an archived business is still an error.
+            while BusinessProfile.all_objects.filter(invite_code=code).exists():
                 code = generate_invite_code()
             self.invite_code = code
 
         base_slug = slugify(self.business_name)
         slug = base_slug
         counter = 1
-            
-        while BusinessProfile.objects.filter(user=self.user, slug=slug).exclude(id=self.id).exists():
+
+        while BusinessProfile.all_objects.filter(user=self.user, slug=slug).exclude(id=self.id).exists():
             slug = f"{base_slug}-{counter}"
             counter += 1
-            
-        self.slug = slug 
-        
+
+        self.slug = slug
+
         super().save(*args, **kwargs)
-    
-    
+
+
     def __str__(self):
         return f"{self.business_name} - {self.business_type}"
+
+    def delete(self, *args, **kwargs):
+        """Never hard-delete a business — archive it instead so all linked
+        records (sales, cancellation invoices, BIR history) survive."""
+        self.archive()
+
+    def archive(self):
+        """Soft-delete: hide the business everywhere while keeping its data."""
+        if self.is_active:
+            self.is_active = False
+            self.archived_at = timezone.now()
+            self.save(update_fields=['is_active', 'archived_at', 'updated_at'])
+
+    def restore(self):
+        """Bring an archived business back to active."""
+        if not self.is_active:
+            self.is_active = True
+            self.archived_at = None
+            self.save(update_fields=['is_active', 'archived_at', 'updated_at'])
 
     
     def regenerate_invite_code(self):

@@ -25,6 +25,13 @@
       <h1 class="page-title">Your Businesses</h1>
       <p class="page-subtitle">Switch between your businesses or manage their details.</p>
     </div>
+    {% if archived_count %}
+    <div class="page-header-right">
+      <a href="{% url 'archived-businesses' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-archive"></i> Archived <span class="sl-badge sl-badge-light">{{ archived_count }}</span>
+      </a>
+    </div>
+    {% endif %}
   </div>
 
   {% if businesses %}
@@ -116,7 +123,7 @@
         <!-- ACTIONS -->
         <div style="display:flex; gap:0.5rem; margin-top:auto;">
           {% if current_business.plan.has_dashboard %}
-          <a href="{% url 'dashboard' business_slug=biz.slug %}" class="btn btn-primary btn-sm" style="flex:1;">
+          <a href="{% url 'dashboard' business_slug=biz.slug %}" class="btn cm-btn cm-btn--success" style="flex:1;">
             <i class="bi bi-box-arrow-in-right"></i> {% if current_business.id == biz.id %}Open{% else %}Switch{% endif %}
           </a>
           {% else %}
@@ -127,6 +134,14 @@
           <a href="{% url 'business-profile-detail' business_id=biz.id business_slug=biz.slug %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-eye"></i> Detail
           </a>
+          {% if businesses|length > 1 %}
+          <a href="{% url 'business-archive' business_id=biz.id business_slug=biz.slug %}?next={{ request.path }}"
+             hx-get="{% url 'business-archive' business_id=biz.id business_slug=biz.slug %}?next={{ request.path }}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-outline-danger btn-sm" title="Archive this business">
+            <i class="bi bi-archive"></i>
+          </a>
+          {% endif %}
 
         </div>
 

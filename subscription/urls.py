@@ -18,6 +18,7 @@ urlpatterns = [
     path('settings/trial/', views.trial_modal, name='subscription-trial-modal'),
 
     path('settings/cancel/', views.cancel_business_confirm, name='subscription-cancel-confirm'),
+    path('settings/resume/', views.resume_business_plan, name='subscription-resume-plan'),
     path('export/', views.export_data, name='subscription-export'),
 
 ]

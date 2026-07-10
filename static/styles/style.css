@@ -6327,6 +6327,21 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 }
 .activity-filter-trigger::-webkit-details-marker { display: none; }
 .activity-filter-trigger:hover { background: var(--surface-hover); color: var(--text-strong); }
+/* labeled variant — icon + current-status text (e.g. Product list status filter) */
+.activity-filter-trigger--labeled {
+  width: auto; height: 30px;
+  gap: 0.4rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.activity-filter-trigger--labeled .filter-trigger-label { white-space: nowrap; }
+.activity-filter-pop[open] .activity-filter-trigger--labeled {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
 .activity-filter-menu {
   position: absolute;
   right: 0; top: 100%;

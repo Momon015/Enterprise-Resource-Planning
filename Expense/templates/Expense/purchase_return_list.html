@@ -137,7 +137,7 @@
             </a>
             <a href="{% url 'purchase-return-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not request.GET.q and not request.GET.reason %}active{% endif %}">
-              <i class="bi bi-grid"></i> All records
+              <i class="bi bi-grid"></i> All
             </a>
           </div>
           <span class="card-header-sub">Most recent first</span>
@@ -169,7 +169,7 @@
                 </td>
 
                 <td class="col-mobile-hidden">
-                  <span class="cell-sub">{{ r.original_purchase.reference }}</span>
+                  <span class="cell-primary">{{ r.original_purchase.reference }}</span>
                 </td>
 
                 <td class="col-mobile-hidden">

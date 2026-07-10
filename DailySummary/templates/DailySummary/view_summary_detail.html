@@ -1,86 +1,8 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load payment_tags %}
 {% block content %}
 
-<style>
-  .receipt-group { border-top: 1px solid var(--border); }
-  .receipt-group:first-of-type { border-top: none; }
-  .receipt-head {
-    display: flex; align-items: center; gap: .65rem;
-    padding: .65rem 1rem; cursor: pointer; list-style: none;
-  }
-
-  .receipt-head::-webkit-details-marker { display: none; }
-  .receipt-head:hover { background: rgba(0,0,0,0.02); }
-  .receipt-ref { display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .85rem; }
-  .receipt-ref a { color: var(--text); text-decoration: none; }
-  .receipt-ref a:hover { color: var(--accent); }
-  .receipt-total { font-weight: 600; font-size: .85rem; white-space: nowrap; }
-  .receipt-outstanding { margin-left: auto; font-size: .78rem; font-weight: 600; color: var(--warning); white-space: nowrap; }
-  .receipt-balance { font-weight: 500; font-size: .7rem; color: var(--muted); }
-  .receipt-chevron { color: var(--muted); font-size: .72rem; transition: transform .15s ease; }
-  .receipt-group[open] > .receipt-head .receipt-chevron { transform: rotate(90deg); }
-  .receipt-items { padding: 0 1rem .5rem 2.1rem; }
-  .receipt-chip--paid    { background: rgba(34,197,94,0.12);  color: var(--success); }
-  .receipt-chip--partial { background: rgba(212,129,26,0.12); color: var(--warning); }
-  .receipt-chip--unpaid  { background: rgba(220,38,38,0.12); color: var(--danger); }
-  .receipt-expand-all {
-    background: none; border: none; cursor: pointer; color: var(--accent);
-    font-size: .78rem; font-weight: 600; display: inline-flex; align-items: center; gap: .3rem;
-  }
-
-  .sd-close-banner {
-    display: flex; align-items: center; gap: .6rem;
-    padding: .7rem .9rem; margin-bottom: 1rem;
-    background: rgba(34,197,94,.10);
-    border: 1px solid var(--success);
-    border-radius: var(--radius, 10px);
-    color: var(--text); font-size: .9rem;
-  }
-  .sd-close-banner i { color: var(--success); font-size: 1.1rem; }
-  .sd-close-banner strong { color: var(--success); }
-
-</style>
-<script>
-  // Expand/collapse every receipt group in the ACTIVE tab
-  function toggleAllActive(btn) {
-    const panel = document.querySelector('#dayBreakdown .sd-tab-panel:not([hidden])');
-    if (!panel) return;
-    const groups = panel.querySelectorAll('.receipt-group');
-    const anyClosed = Array.from(groups).some(g => !g.open);
-    groups.forEach(g => g.open = anyClosed);
-    btn.innerHTML = anyClosed
-      ? '<i class="bi bi-arrows-collapse"></i> Collapse all'
-      : '<i class="bi bi-arrows-expand"></i> Expand all';
-  }
-
-  // Day-breakdown chip tabs — the chip counts replaced the "At a glance" panel
-  document.addEventListener('DOMContentLoaded', function () {
-    const card = document.getElementById('dayBreakdown');
-    if (!card) return;
-    const tabs = card.querySelectorAll('.sd-tab-btn');
-    const expandBtn = document.getElementById('sdExpandAll');
-
-    function activate(name) {
-      tabs.forEach(b => b.classList.toggle('active', b.dataset.sdTab === name));
-      card.querySelectorAll('.sd-tab-panel').forEach(p => { p.hidden = (p.id !== 'sdPanel-' + name); });
-      const panel = document.getElementById('sdPanel-' + name);
-      if (expandBtn) {   // cash basis has flat tables only — no expand button
-        expandBtn.hidden = !panel.querySelector('.receipt-group');
-        expandBtn.innerHTML = '<i class="bi bi-arrows-expand"></i> Expand all';
-      }
-    }
-
-    card.addEventListener('click', function (e) {
-      const btn = e.target.closest('.sd-tab-btn');
-      if (btn) activate(btn.dataset.sdTab);
-    });
-
-    // land on the first tab that actually has records
-    const first = Array.from(tabs).find(b => parseInt(b.dataset.count, 10) > 0) || tabs[0];
-    activate(first.dataset.sdTab);
-  });
-</script>
 
 {% block locked_banner %}{% endblock %}
 
@@ -90,7 +12,7 @@
   <div class="sd-page-header">
     <div>
       <h4 class="sd-page-title">
-        {% if basis == 'cash' %}Daily Cash Flow Details{% else %}Profitability Details{% endif %}
+        {% if basis == 'cash' %}Daily Cash Flow Details{% else %}Accrual Details{% endif %}
       </h4>
       <p class="sd-page-breadcrumb">
         Summary<span>•</span>Daily Breakdown
@@ -149,17 +71,19 @@
               <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
               <tbody>
                 {% for p in sales_payments %}
-                <tr>
+                <tr{% if p.sale.is_void %} class="sd-void-row"{% endif %}>
                   <td>
                     <span class="receipt-ref"><a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=p.sale.id %}">{{ p.sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
-                    {% if p.pay_status == 'partial' %}
+                    {% if p.sale.is_void %}
+                    <div class="cell-sub sd-void-note"><i class="bi bi-x-octagon"></i> Voided — cash returned, not counted</div>
+                    {% elif p.pay_status == 'partial' %}
                     <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
                     {% elif p.is_settlement %}
-                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
+                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.sale.date|date:"M d" }} debt · {% endif %}<i class="bi bi-check-circle-fill"></i> Fully Paid</div>
                     {% endif %}
                   </td>
-                  <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--success);">₱{{ p.amount|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-center"><span class="sl-badge {% if p.sale.is_void %}sl-badge-light{% else %}receipt-chip receipt-chip--{{ p.pay_status }}{% endif %}">{{ p.get_method_display }}</span></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:{% if p.sale.is_void %}var(--muted){% else %}var(--success){% endif %};">{% if p.sale.is_void %}<span class="sd-void-amt">₱{{ p.amount|floatformat:2|intcomma }}</span>{% else %}₱{{ p.amount|floatformat:2|intcomma }}{% endif %}</td>
                 </tr>
                 {% empty %}<tr class="sl-empty-row"><td colspan="3">No payments received.</td></tr>{% endfor %}
 
@@ -177,17 +101,19 @@
               <thead><tr><th>Reference</th><th class="sl-text-center">Method</th><th class="sl-text-end">Amount</th></tr></thead>
               <tbody>
                 {% for p in purchase_payments %}
-                <tr>
+                <tr{% if p.purchase.is_void %} class="sd-void-row"{% endif %}>
                   <td>
                     <span class="receipt-ref"><a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.purchase.id %}">{{ p.purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a></span>
-                    {% if p.pay_status == 'partial' %}
+                    {% if p.purchase.is_void %}
+                    <div class="cell-sub sd-void-note"><i class="bi bi-x-octagon"></i> Voided — cash returned, not counted</div>
+                    {% elif p.pay_status == 'partial' %}
                     <div class="cell-sub" style="color:var(--warning);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} unpaid · {% endif %}₱{{ p.pay_outstanding|floatformat:2|intcomma }} left</div>
                     {% elif p.is_settlement %}
-                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} unpaid · {% endif %}<i class="bi bi-check-circle"></i> Fully Paid</div>
+                    <div class="cell-sub" style="color:var(--success);">{% if p.is_earlier %}{{ p.purchase.purchase_date|date:"M d" }} unpaid · {% endif %}<i class="bi bi-check-circle-fill"></i> Fully Paid</div>
                     {% endif %}
                   </td>
-                  <td class="sl-text-center"><span class="sl-badge receipt-chip receipt-chip--{{ p.pay_status }}">{{ p.get_method_display }}</span></td>
-                  <td class="sl-text-end sl-fw-semibold" style="color:var(--danger);">₱{{ p.amount|floatformat:2|intcomma }}</td>
+                  <td class="sl-text-center"><span class="sl-badge {% if p.purchase.is_void %}sl-badge-light{% else %}receipt-chip receipt-chip--{{ p.pay_status }}{% endif %}">{{ p.get_method_display }}</span></td>
+                  <td class="sl-text-end sl-fw-semibold" style="color:{% if p.purchase.is_void %}var(--muted){% else %}var(--danger){% endif %};">{% if p.purchase.is_void %}<span class="sd-void-amt">₱{{ p.amount|floatformat:2|intcomma }}</span>{% else %}₱{{ p.amount|floatformat:2|intcomma }}{% endif %}</td>
                 </tr>
                 {% empty %}<tr class="sl-empty-row"><td colspan="3">No payments made.</td></tr>{% endfor %}
 
@@ -253,25 +179,37 @@
         <!-- SALES TAB (grouped per receipt) -->
         <div class="sd-tab-panel" id="sdPanel-sales">
           {% for sale in sales %}
-          <details class="receipt-group">
+          <details class="receipt-group{% if sale.is_void %} receipt-group--void{% endif %}">
             <summary class="receipt-head">
               <span class="receipt-ref">
                 <i class="bi bi-chevron-right receipt-chevron"></i>
                 <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=sale.id %}"
                    onclick="event.stopPropagation();">{{ sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
               </span>
-              <span class="sl-badge receipt-chip receipt-chip--{{ sale.status_asof }}">{{ sale.display_asof }}</span>
-              {% if sale.status_asof == 'partial' %}
+              {% if sale.is_void %}
+              <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
+              <span class="receipt-total receipt-total--void">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
+              {% elif sale.status_asof == 'paid' %}
+              {% payment_method_badge sale.method_code_asof %}
+              <span class="receipt-total">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
+              {% elif sale.status_asof == 'partial' %}
+              {% payment_method_badge sale.method_code_asof %}
+              <span class="sl-badge receipt-chip receipt-chip--partial">Partial{% if sale.changed_since_close %} · as of {{ detail_date|date:"M d" }}{% endif %}</span>
               <span class="receipt-total">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
               <span class="receipt-outstanding">Paid ₱{{ sale.paid_asof|floatformat:2|intcomma }} · Outstanding ₱{{ sale.outstanding_asof|floatformat:2|intcomma }}</span>
-              {% if sale.settled_later %}
-              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:.5rem;" title="Collected in full on {{ sale.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ sale.settled_later|date:"M d" }}</span>
-              {% endif %}
               {% else %}
+              <span class="sl-badge receipt-chip receipt-chip--unpaid">Debt{% if sale.changed_since_close %} · as of {{ detail_date|date:"M d" }}{% endif %}</span>
               <span class="receipt-total">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
-              {% if sale.settled_later %}
-              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:auto;" title="Collected in full on {{ sale.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ sale.settled_later|date:"M d" }}</span>
               {% endif %}
+              {% if not sale.is_void and sale.changed_since_close %}
+              <span class="receipt-now" title="Current status today. The {{ detail_date|date:'M d' }} books stay frozen — this payment posts forward.">
+                <i class="bi bi-arrow-return-right"></i> Now:
+                {% if sale.status_now == 'paid' %}
+                <b style="color:var(--success);"><i class="bi bi-check-circle"></i> Fully Paid</b>{% if sale.settled_later %} · {{ sale.settled_later|date:"M d" }}{% endif %}
+                {% else %}
+                <b>₱{{ sale.paid_now|floatformat:2|intcomma }} paid</b> · ₱{{ sale.outstanding_now|floatformat:2|intcomma }} left{% if sale.last_pmt_date %} · {{ sale.last_pmt_date|date:"M d" }}{% endif %}
+                {% endif %}
+              </span>
               {% endif %}
             </summary>
 
@@ -288,6 +226,27 @@
                   {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
                 </tbody>
               </table>
+
+              {% if sale.payments.all %}
+              <div class="receipt-payments">
+                <div class="receipt-payments__title">Payments</div>
+                {% for pmt in sale.payments.all %}
+                <div class="receipt-payments__row">
+                  <span class="receipt-payments__date">{{ pmt.date|date:"M d, Y" }}</span>
+                  {% payment_method_badge pmt.method %}
+                  <span class="receipt-payments__amt">₱{{ pmt.amount|floatformat:2|intcomma }}</span>
+                </div>
+                {% endfor %}
+                {% if sale.outstanding_now > 0 %}
+                <div class="receipt-payments__row receipt-payments__row--due">
+                  <span class="receipt-payments__date">Outstanding</span>
+                  <span class="receipt-payments__amt">₱{{ sale.outstanding_now|floatformat:2|intcomma }}</span>
+                </div>
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="receipt-payments--empty">No payments recorded yet — full ₱{{ sale.total_revenue|floatformat:2|intcomma }} outstanding.</div>
+              {% endif %}
             </div>
           </details>
           {% empty %}
@@ -298,25 +257,37 @@
         <!-- PURCHASES TAB (grouped per PO) -->
         <div class="sd-tab-panel" id="sdPanel-purchases" hidden>
           {% for purchase in purchases %}
-          <details class="receipt-group">
+          <details class="receipt-group{% if purchase.is_void %} receipt-group--void{% endif %}">
             <summary class="receipt-head">
               <span class="receipt-ref">
                 <i class="bi bi-chevron-right receipt-chevron"></i>
                 <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}"
                    onclick="event.stopPropagation();">{{ purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
               </span>
-              <span class="sl-badge receipt-chip receipt-chip--{{ purchase.status_asof }}">{{ purchase.display_asof }}</span>
-              {% if purchase.status_asof == 'partial' %}
+              {% if purchase.is_void %}
+              <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
+              <span class="receipt-total receipt-total--void">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
+              {% elif purchase.status_asof == 'paid' %}
+              {% payment_method_badge purchase.method_code_asof %}
+              <span class="receipt-total">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
+              {% elif purchase.status_asof == 'partial' %}
+              {% payment_method_badge purchase.method_code_asof %}
+              <span class="sl-badge receipt-chip receipt-chip--partial">Partial{% if purchase.changed_since_close %} · as of {{ detail_date|date:"M d" }}{% endif %}</span>
               <span class="receipt-total">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
               <span class="receipt-outstanding">Paid ₱{{ purchase.paid_asof|floatformat:2|intcomma }} · Outstanding ₱{{ purchase.outstanding_asof|floatformat:2|intcomma }}</span>
-              {% if purchase.settled_later %}
-              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:.5rem;" title="Paid in full on {{ purchase.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ purchase.settled_later|date:"M d" }}</span>
-              {% endif %}
               {% else %}
+              <span class="sl-badge receipt-chip receipt-chip--unpaid">Debt{% if purchase.changed_since_close %} · as of {{ detail_date|date:"M d" }}{% endif %}</span>
               <span class="receipt-total">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
-              {% if purchase.settled_later %}
-              <span class="sl-badge receipt-chip receipt-chip--paid" style="margin-left:auto;" title="Paid in full on {{ purchase.settled_later|date:'M d, Y' }}"><i class="bi bi-check-circle"></i> Settled {{ purchase.settled_later|date:"M d" }}</span>
               {% endif %}
+              {% if not purchase.is_void and purchase.changed_since_close %}
+              <span class="receipt-now" title="Current status today. The {{ detail_date|date:'M d' }} books stay frozen — this payment posts forward.">
+                <i class="bi bi-arrow-return-right"></i> Now:
+                {% if purchase.status_now == 'paid' %}
+                <b style="color:var(--success);"><i class="bi bi-check-circle"></i> Fully Paid</b>{% if purchase.settled_later %} · {{ purchase.settled_later|date:"M d" }}{% endif %}
+                {% else %}
+                <b>₱{{ purchase.paid_now|floatformat:2|intcomma }} paid</b> · ₱{{ purchase.outstanding_now|floatformat:2|intcomma }} left{% if purchase.last_pmt_date %} · {{ purchase.last_pmt_date|date:"M d" }}{% endif %}
+                {% endif %}
+              </span>
               {% endif %}
             </summary>
 
@@ -333,6 +304,27 @@
                   {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
                 </tbody>
               </table>
+
+              {% if purchase.payments.all %}
+              <div class="receipt-payments">
+                <div class="receipt-payments__title">Payments</div>
+                {% for pmt in purchase.payments.all %}
+                <div class="receipt-payments__row">
+                  <span class="receipt-payments__date">{{ pmt.date|date:"M d, Y" }}</span>
+                  {% payment_method_badge pmt.method %}
+                  <span class="receipt-payments__amt">₱{{ pmt.amount|floatformat:2|intcomma }}</span>
+                </div>
+                {% endfor %}
+                {% if purchase.outstanding_now > 0 %}
+                <div class="receipt-payments__row receipt-payments__row--due">
+                  <span class="receipt-payments__date">Outstanding</span>
+                  <span class="receipt-payments__amt">₱{{ purchase.outstanding_now|floatformat:2|intcomma }}</span>
+                </div>
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="receipt-payments--empty">No payments recorded yet — full ₱{{ purchase.total_cost|floatformat:2|intcomma }} outstanding.</div>
+              {% endif %}
             </div>
           </details>
           {% empty %}
@@ -465,7 +457,7 @@
           <dl class="period-breakdown">
             <div><dt>Sales</dt><dd class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</dd></div>
             <div><dt>Product Cost</dt><dd class="text-danger">₱{{ total_material_cost|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Staff Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
+            <div><dt>Payroll Cost</dt><dd class="text-danger">₱{{ total_salary_cost|floatformat:2|intcomma }}</dd></div>
             <div><dt>Business Expenses</dt><dd class="text-danger">₱{{ total_expense_cost|floatformat:2|intcomma }}</dd></div>
             <div><dt>Waste &amp; Losses</dt><dd class="text-danger">₱{{ total_waste_cost|floatformat:2|intcomma }}</dd></div>
           </dl>
@@ -499,5 +491,108 @@
 
   </div>
 </div>
+
+<style>
+  .receipt-group { border-top: 1px solid var(--border); }
+  .receipt-group:first-of-type { border-top: none; }
+  .receipt-head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .65rem;
+    padding: .65rem 1rem; cursor: pointer; list-style: none;
+  }
+
+  .receipt-head::-webkit-details-marker { display: none; }
+  .receipt-head:hover { background: rgba(0,0,0,0.02); }
+  .receipt-ref { display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .85rem; }
+  .receipt-ref a { color: var(--text); text-decoration: none; }
+  .receipt-ref a:hover { color: var(--accent); }
+  .receipt-total { font-weight: 600; font-size: .85rem; white-space: nowrap; }
+  .receipt-outstanding { margin-left: auto; font-size: .78rem; font-weight: 600; color: var(--warning); white-space: nowrap; }
+  .receipt-balance { font-weight: 500; font-size: .7rem; color: var(--muted); }
+  .receipt-chevron { color: var(--muted); font-size: .72rem; transition: transform .15s ease; }
+  .receipt-group[open] > .receipt-head .receipt-chevron { transform: rotate(90deg); }
+  .receipt-items { padding: 0 1rem .5rem 2.1rem; }
+  .receipt-chip--paid    { background: rgba(34,197,94,0.12);  color: var(--success); }
+  .receipt-chip--partial { background: rgba(212,129,26,0.12); color: var(--warning); }
+  .receipt-chip--unpaid  { background: rgba(220,38,38,0.12); color: var(--danger); }
+  /* voided rows — kept visible for transparency, lined-out, never counted in totals */
+  .receipt-total--void { text-decoration: line-through; color: var(--muted); opacity: .7; }
+  .receipt-group--void .receipt-ref a { color: var(--muted); }
+  .sd-void-row td { opacity: .7; }
+  .sd-void-amt { text-decoration: line-through; }
+  .sd-void-note { color: var(--muted); }
+  /* read-only "Now" line — current status of a closed-day record (frozen figures unchanged) */
+  .receipt-now {
+    flex-basis: 100%; margin-left: 1.6rem;
+    font-size: .75rem; font-weight: 500; color: var(--muted);
+    display: inline-flex; align-items: center; gap: .35rem;
+  }
+  .receipt-now i { font-size: .7rem; }
+  .receipt-now b { font-weight: 600; color: var(--text); }
+  /* payment timeline revealed on expand — date · method · amount */
+  .receipt-payments { margin-top: .6rem; padding-top: .55rem; border-top: 1px dashed var(--border); }
+  .receipt-payments__title { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; margin-bottom: .35rem; }
+  .receipt-payments__row { display: flex; align-items: center; gap: .6rem; padding: .22rem 0; font-size: .8rem; }
+  .receipt-payments__date { color: var(--muted); min-width: 6.5rem; white-space: nowrap; }
+  .receipt-payments__amt { margin-left: auto; font-weight: 600; white-space: nowrap; }
+  .receipt-payments__row--due .receipt-payments__date,
+  .receipt-payments__row--due .receipt-payments__amt { color: var(--warning); }
+  .receipt-payments--empty { margin-top: .6rem; padding-top: .55rem; border-top: 1px dashed var(--border); font-size: .78rem; color: var(--muted); }
+  .receipt-expand-all {
+    background: none; border: none; cursor: pointer; color: var(--accent);
+    font-size: .78rem; font-weight: 600; display: inline-flex; align-items: center; gap: .3rem;
+  }
+
+  .sd-close-banner {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .7rem .9rem; margin-bottom: 1rem;
+    background: rgba(34,197,94,.10);
+    border: 1px solid var(--success);
+    border-radius: var(--radius, 10px);
+    color: var(--text); font-size: .9rem;
+  }
+  .sd-close-banner i { color: var(--success); font-size: 1.1rem; }
+  .sd-close-banner strong { color: var(--success); }
+
+</style>
+<script>
+  // Expand/collapse every receipt group in the ACTIVE tab
+  function toggleAllActive(btn) {
+    const panel = document.querySelector('#dayBreakdown .sd-tab-panel:not([hidden])');
+    if (!panel) return;
+    const groups = panel.querySelectorAll('.receipt-group');
+    const anyClosed = Array.from(groups).some(g => !g.open);
+    groups.forEach(g => g.open = anyClosed);
+    btn.innerHTML = anyClosed
+      ? '<i class="bi bi-arrows-collapse"></i> Collapse all'
+      : '<i class="bi bi-arrows-expand"></i> Expand all';
+  }
+
+  // Day-breakdown chip tabs — the chip counts replaced the "At a glance" panel
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('dayBreakdown');
+    if (!card) return;
+    const tabs = card.querySelectorAll('.sd-tab-btn');
+    const expandBtn = document.getElementById('sdExpandAll');
+
+    function activate(name) {
+      tabs.forEach(b => b.classList.toggle('active', b.dataset.sdTab === name));
+      card.querySelectorAll('.sd-tab-panel').forEach(p => { p.hidden = (p.id !== 'sdPanel-' + name); });
+      const panel = document.getElementById('sdPanel-' + name);
+      if (expandBtn) {   // cash basis has flat tables only — no expand button
+        expandBtn.hidden = !panel.querySelector('.receipt-group');
+        expandBtn.innerHTML = '<i class="bi bi-arrows-expand"></i> Expand all';
+      }
+    }
+
+    card.addEventListener('click', function (e) {
+      const btn = e.target.closest('.sd-tab-btn');
+      if (btn) activate(btn.dataset.sdTab);
+    });
+
+    // land on the first tab that actually has records
+    const first = Array.from(tabs).find(b => parseInt(b.dataset.count, 10) > 0) || tabs[0];
+    activate(first.dataset.sdTab);
+  });
+</script>
 
 {% endblock content %}

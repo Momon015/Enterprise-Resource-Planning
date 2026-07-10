@@ -27,7 +27,7 @@
     <div class="page-header-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:.35rem;">
       <div class="basis-tabs basis-tabs--block" style="max-width:360px; margin:0;">
         <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
-          <i class="bi bi-graph-up-arrow"></i> Profitability
+          <i class="bi bi-graph-up-arrow"></i> Accrual
         </a>
         <a href="?basis=cash" class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
           <i class="bi bi-cash-stack"></i> Cash Flow
@@ -167,7 +167,7 @@
 
     </div>
 
-    <!-- EXPENSE COST (payroll + other expenses; + waste in the Profitability lens —
+    <!-- EXPENSE COST (payroll + other expenses; + waste in the accrual lens —
          waste is never a cash event, so the Cash Flow lens excludes it) -->
     <div class="kpi-card{% if hue_expense %} kpi-card--hue-{{ hue_expense }}{% endif %} has-popover kpi-card--clickable"
          data-href="{% url 'expense-list' business_slug=current_business.slug %}" tabindex="0">
@@ -206,7 +206,7 @@
       <div class="kpi-popover">
         <div class="kpi-popover__title">What's inside</div>
         <div class="kpi-popover__row"><span>Payroll</span><span class="num">₱{{ total_salary_cost|floatformat:2|intcomma }}</span></div>
-        <div class="kpi-popover__row"><span>Other expenses</span><span class="num">₱{{ total_expense_cost|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Business expenses</span><span class="num">₱{{ total_expense_cost|floatformat:2|intcomma }}</span></div>
         {% if basis != 'cash' %}
         <div class="kpi-popover__row"><span>Waste</span><span class="num">₱{{ total_waste_cost|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row kpi-popover__row--total"><span>Expense cost</span><span class="num">₱{{ total_expcost|floatformat:2|intcomma }}</span></div>
@@ -315,6 +315,7 @@
         <div class="kpi-popover__row"><span>Opening cash</span><span class="num">₱{{ drawer.opening_cash|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row"><span>Cash sales</span><span class="num">₱{{ cash_sales_today|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row"><span>Cash out</span><span class="num">− ₱{{ payouts_today|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Cash expenses</span><span class="num">− ₱{{ cash_expenses_today|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row kpi-popover__row--total"><span>Current balance</span><span class="num">₱{{ drawer_balance|floatformat:2|intcomma }}</span></div>
         <a class="kpi-popover__link" href="{% url 'shift-dashboard' business_slug=current_business.slug %}">View cash drawer <i class="bi bi-arrow-right"></i></a>
       </div>
@@ -348,14 +349,14 @@
         <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
         {% endfor %}
         <div class="kpi-popover__row kpi-popover__row--total"><span>Running low</span><span class="num">{{ low_only }} item{{ low_only|pluralize }}</span></div>
-        <a class="kpi-popover__link" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">View inventory <i class="bi bi-arrow-right"></i></a>
+        <a class="kpi-popover__link" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=low">View inventory <i class="bi bi-arrow-right"></i></a>
       </div>
       {% endif %}
     </div>
 
     <!-- OUT OF STOCK -->
     <div class="kpi-card{% if hue_outofstock %} kpi-card--hue-{{ hue_outofstock }}{% endif %} kpi-card--clickable"
-         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
+         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=none" tabindex="0">
       <div class="kpi-icon kpi-icon--{% if hue_outofstock %}{{ hue_outofstock }}{% else %}neutral{% endif %}"><i class="bi {% if hue_outofstock == 'success' %}bi-patch-check-fill{% else %}bi-x-octagon{% endif %}"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>

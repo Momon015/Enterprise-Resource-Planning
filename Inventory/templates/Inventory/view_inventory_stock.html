@@ -194,9 +194,9 @@
                 <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center">Qty</th>
                 <th class="sl-text-center col-mobile-hidden">Status</th>
-                <th class="sl-text-end col-mobile-hidden">Avg. Price</th>
+                <th class="sl-text-end col-mobile-hidden">Avg. Cost</th>
                 <th class="sl-text-end">Total Value</th>
-                <th class="sl-text-center">Availability</th>
+                {% comment %} <th class="sl-text-center">Availability</th> {% endcomment %}
               </tr>
             </thead>
             <tbody>
@@ -255,7 +255,7 @@
                   ₱{{ stock.total_value|floatformat:2|intcomma }}
                 </td>
 
-                <td class="sl-text-center">
+                {% comment %} <td class="sl-text-center">
                   {% if stock.quantity == 0 %}
                     <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">
                       <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Inactive
@@ -265,7 +265,7 @@
                       <i class="bi bi-circle-fill" style="font-size:0.5rem; vertical-align:middle;"></i> Active
                     </span>
                   {% endif %}
-                </td>
+                </td> {% endcomment %}
 
               </tr>
                {% endfor %}

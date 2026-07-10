@@ -49,7 +49,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F, Value, CharField
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg, Max, OuterRef, Subquery
+from django.db.models import Sum, Avg, Max, Count, OuterRef, Subquery
 
 from user.models import User
 
@@ -1907,18 +1907,24 @@ def expense_create(request, business_slug):
             messages.warning(request, f"You forgot to check the checkbox.")
         else:
             date_str = request.POST.get('date')
-            
+            # How the bill was paid — defaults to cash; only cash leaves the drawer.
+            payment_method = request.POST.get('payment_method', 'cash')
+            valid_methods = {code for code, _ in Expense.PAYMENT_METHOD_CHOICES}
+            if payment_method not in valid_methods:
+                payment_method = 'cash'
+
             # validate date
             try:
                 from datetime import date as date_type
                 expense_date = date_type.fromisoformat(date_str)
-                
+
                 expense = Expense.objects.create(
                     total_amount=0,
                     user=business.user,
                     business=business,
                     created_by=request.user,
                     date=timezone.localdate(),
+                    payment_method=payment_method,
                 )
                 
                 if expense_date > timezone.localdate():
@@ -2045,26 +2051,48 @@ def expense_list(request, business_slug):
                 'total_amount': 0,
             }
 
+    # Which payment method(s) each day used, so the list can show one pill per row
+    # (a single method's pill, or "Mixed" when a day mixed methods) — same convention
+    # as Sale/Purchase.payment_method_code.
+    methods_by_date = {}
+    for row in expenses.values('date', 'payment_method').distinct():
+        methods_by_date.setdefault(row['date'], set()).add(row['payment_method'])
+
+    # How many expense line-items (templates) were logged per day — one DB-side
+    # Count grouped by date (no N+1). Feeds the Qty column in the list.
+    items_by_date = {
+        row['expense__date']: row['n']
+        for row in ExpenseItem.objects.filter(expense__in=expenses)
+                    .values('expense__date').annotate(n=Count('id'))
+    }
+
     # Convert summary dict to list and sort
     summary_list = []
-    
+
     grand_total_expense = 0
     grand_total_salary = 0
-    
+
     for date, value in summary.items():
         total_amount = value['total_amount']
         total_shift = value['total_shift']
-        
+
         grand_total_expense += total_amount
         grand_total_salary += total_shift
-        
-        
+
+        codes = methods_by_date.get(date)
+        if not codes:
+            method_code = None
+        elif len(codes) == 1:
+            method_code = next(iter(codes))
+        else:
+            method_code = 'mixed'
+
         summary_list.append({
             'date': date,
             'total_amount': total_amount,
             'total_shift': total_shift,
-            
-            
+            'payment_method': method_code,
+            'expense_count': items_by_date.get(date, 0),
         })
         
     # Calculate average
@@ -2072,6 +2100,7 @@ def expense_list(request, business_slug):
     average_salary = shifts.values('date').aggregate(total_shift=Avg('amount'))['total_shift'] or 0
     
     sorted_list = sorted(summary_list, key=lambda x: x['date'], reverse=True)
+    
     
     
     # Pagination
@@ -2090,6 +2119,7 @@ def expense_list(request, business_slug):
         'grand_total_expense': grand_total_expense,
         'average_amount_cost': average_amount_cost,
         'form': form,
+        
     }
     
     return render(request, 'Expense/expense_list.html', context)
@@ -2102,7 +2132,7 @@ def expense_detail(request, business_slug, date):
     
     # Get all expenses and employees for this date
     expense = Expense.objects.filter(business=business, date=date)
-    exp_items = ExpenseItem.objects.filter(expense__in=expense)
+    exp_items = ExpenseItem.objects.filter(expense__in=expense).select_related('expense')
     
     # shift = Shift.objects.filter(business=business, date=date)
     # shift_employees = ShiftEmployee.objects.filter(shift__in=shift)
@@ -2114,7 +2144,8 @@ def expense_detail(request, business_slug, date):
     total_salary_cost = shift_employees.aggregate(total=Sum('daily_rate'))['total'] or 0
     total_cost = total_expense_cost + total_salary_cost
 
-    # Build expense items
+    # Build expense items — carry each line's payment method (from its parent
+    # Expense) so the detail table can show how it was paid.
     expense_items = []
     for exp in exp_items:
         expense_items.append({
@@ -2122,6 +2153,21 @@ def expense_detail(request, business_slug, date):
             'name': exp.name,
             'category': exp.category,
             'amount': exp.amount,
+            'payment_method': exp.expense.payment_method if exp.expense else 'cash',
+        })
+
+    # Day-level "Paid with" breakdown — total this day's expenses by method so the
+    # owner can reconcile against the drawer (only cash actually leaves the till).
+    method_labels = dict(Expense.PAYMENT_METHOD_CHOICES)
+    method_breakdown = []
+    for row in (expense.values('payment_method')
+                       .annotate(total=Sum('total_amount'))
+                       .order_by('-total')):
+        code = row['payment_method'] or 'cash'
+        method_breakdown.append({
+            'code': code,
+            'label': method_labels.get(code, code.title()),
+            'total': row['total'] or 0,
         })
     
     # Build employee items
@@ -2142,6 +2188,7 @@ def expense_detail(request, business_slug, date):
         'total_expense_cost': total_expense_cost,
         'total_salary_cost': total_salary_cost,
         'total_cost': total_cost,
+        'method_breakdown': method_breakdown,
         'expense_count': expense.count(),
         'employee_count': shift_employees.count(),
         'section': 'expense'

@@ -129,12 +129,13 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- ACTIONS -->
     <div class="card-body" style="border-top: 1px solid var(--border-light);">
       <div class="mf-form-actions">
-        <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-outline-primary">
-          <i class="bi bi-plus-circle"></i> Add 
+        <a href="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}" class="btn btn-outline-secondary">
+          <i class="bi bi-pencil sl-me-1"></i> Edit
         </a>
-        <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn btn-outline-secondary">
-          <i class="bi bi-cart3"></i> Cart
+        <a href="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-primary">
+          <i class="bi bi-plus"></i> Add to Cart
         </a>
+
       </div>
     </div>
 

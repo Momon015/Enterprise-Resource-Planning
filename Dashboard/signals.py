@@ -12,6 +12,16 @@ def bust_dashboard_cache(sender, instance, **kwargs):
     cache_key = f'dashboard:metrics:{business.id}:{today}'
     throttle_key = f'{cache_key}:bust_throttle'
 
+    # A void/unvoid flips a whole transaction in or out of the (accrual) KPIs — too
+    # important to let the debounce swallow it. Voids usually happen seconds after the
+    # sale, i.e. inside the same debounce window as the create, so a normal debounced
+    # bust would be skipped and the stale figure (sale still counted) would survive to
+    # the TTL. Force an immediate bust on any is_void change.
+    update_fields = kwargs.get('update_fields') or ()
+    if 'is_void' in update_fields:
+        cache.delete(cache_key)
+        return
+
     # Only bust once per BUST_DEBOUNCE window per business.
     if cache.add(throttle_key, True, timeout=BUST_DEBOUNCE):
         cache.delete(cache_key)

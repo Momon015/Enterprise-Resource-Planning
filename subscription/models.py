@@ -227,16 +227,17 @@ class FounderSlot(models.Model):
 # ── Subscription (Owner-level Billing Account) ───────────────────────────────
 
 class Subscription(models.Model):
-    PAYMENT_METHOD_CHOICES = [
-    ('installment', 'Monthly installments'),
-    ('upfront',     'Yearly upfront'),
-]
-    
-    """Owner-level billing account. Per-business plans live on BusinessPlan."""
+    """Owner-level billing account. Per-business plans live on BusinessPlan.
+
+    Billing is either monthly (pay-as-you-go — cancel anytime, nothing owed either
+    way) or yearly (paid UPFRONT in full at signup for the discounted rate). There
+    is no yearly-installment option: collecting the whole year upfront means an
+    early yearly cancel is settled by REFUNDING the customer, never by chasing a
+    balance from someone who has already left. See BusinessPlan.compute_refund_due.
+    """
     user          = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
     bundle        = models.CharField(max_length=20, choices=BUNDLE_CHOICES, default='triple')
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='installment')
     is_founder    = models.BooleanField(default=False)
     is_lifetime   = models.BooleanField(default=False)
     trial_used    = models.BooleanField(default=False)
@@ -692,15 +693,17 @@ class BusinessPlan(models.Model):
         months = (delta.days + 29) // 30   # round up partial months
         return max(1, months)
 
-    def compute_balance_due(self):
+    def compute_refund_due(self):
         """
-        Cancelling a yearly (discounted) plan early: the months already used are
-        recalculated at the standard monthly rate. Owner simply pays back the
-        discount for those months — no penalty.
+        Cancelling a yearly (upfront) plan early. The customer paid the full
+        discounted year at signup, so the months already used are re-priced at the
+        standard monthly rate (the yearly discount is forfeited) and we refund
+        whatever of the upfront payment is left over. Never negative — cancelling
+        near year-end simply yields no refund.
         """
-        months = self.months_used_on_plan()
-        diff = self._standard_monthly_rate() - self._yearly_monthly_rate()
-        return _peso(max(Decimal('0'), diff * months))
+        paid_upfront = self._yearly_monthly_rate() * 12
+        used_at_standard = self._standard_monthly_rate() * self.months_used_on_plan()
+        return _peso(max(Decimal('0'), paid_upfront - used_at_standard))
 
     def request_cancellation(self):
         if self.pending_cancellation:
@@ -716,20 +719,21 @@ class BusinessPlan(models.Model):
         months = self.months_used_on_plan()
         due = timezone.now() + timedelta(days=30)
 
-        # Determine the balance based on billing cycle + payment method.
-        if sub.billing_cycle == 'monthly':
-            amount, status = Decimal('0'), 'waived'
-        elif sub.payment_method == 'upfront':
-            amount, status = Decimal('0'), 'waived'
+        # Monthly = pay-as-you-go, nothing owed either way. Yearly = paid upfront,
+        # so an early cancel refunds the unused portion (used months re-priced at
+        # the standard rate). We hold the cash, so there's no balance to chase.
+        if sub.billing_cycle == 'yearly':
+            refund = self.compute_refund_due()
+            status = 'pending' if refund > 0 else 'none'
         else:
-            amount, status = self.compute_balance_due(), 'pending'
+            refund, status = Decimal('0'), 'none'
 
         with transaction.atomic():
             self.pending_cancellation = True
             self.save(update_fields=['pending_cancellation'])
             invoice = CancellationInvoice.objects.create(
                 business=self.business,
-                amount_due=amount,
+                refund_amount=refund,
                 plan_at_cancel=self.plan,
                 months_used=months,
                 cycle_end_at=self.expires_at,
@@ -738,30 +742,60 @@ class BusinessPlan(models.Model):
             )
         return invoice
 
-        
+    def resume_cancellation(self):
+        """Undo a scheduled cancellation before the cycle ends and keep the plan.
+
+        Safe while no refund has actually gone out: we clear the flag and mark
+        the pending refund record 'voided' — kept, not deleted, so the cancel →
+        resume event stays as history (churn-saved signal + pen-not-pencil). If
+        we've already paid the refund (status 'refunded'), the customer can't
+        silently resume for free — they must re-subscribe. Access never lapsed
+        (expires_at is untouched), so the plan simply carries on."""
+        if not self.pending_cancellation:
+            raise ValueError("This business has no pending cancellation to resume.")
+
+        invoice = self.business.cancellation_invoices.order_by('-created_at').first()
+        if invoice and invoice.status == 'refunded':
+            raise ValueError(
+                "A refund was already issued for this cancellation. "
+                "Please re-subscribe to continue on a paid plan."
+            )
+
+        with transaction.atomic():
+            self.pending_cancellation = False
+            self.save(update_fields=['pending_cancellation'])
+            if invoice and invoice.status in ('pending', 'none'):
+                invoice.status = 'voided'
+                invoice.save(update_fields=['status', 'updated_at'])
+        return True
+
+
 class CancellationInvoice(models.Model):
+    """Record of a plan cancellation. For yearly (upfront) plans it may carry a
+    refund WE owe the customer; monthly cancels carry no refund."""
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('paid',    'Paid'),
-        ('overdue', 'Overdue'),
-        ('waived',  'Waived'),
+        ('none',     'No refund'),
+        ('pending',  'Refund pending'),
+        ('refunded', 'Refunded'),
+        ('voided',   'Voided (cancellation undone)'),
     ]
     business      = models.ForeignKey('user.BusinessProfile', on_delete=models.CASCADE, related_name='cancellation_invoices')
-    amount_due    = models.DecimalField(max_digits=10, decimal_places=2)
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     plan_at_cancel = models.CharField(max_length=20, choices=PLAN_CHOICES)
     months_used   = models.PositiveIntegerField()
     cycle_end_at  = models.DateTimeField()
     due_at        = models.DateTimeField()
-    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='none')
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
     reminder_day_15_sent = models.BooleanField(default=False)
     reminder_day_30_sent = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.business.business_name} — ₱{self.amount_due} ({self.get_status_display()})"
+        return f"{self.business.business_name} — refund ₱{self.refund_amount} ({self.get_status_display()})"
 
     def is_overdue(self):
+        """Refund still unpaid past its target date — a nudge for us, not the customer."""
         return self.status == 'pending' and timezone.now() > self.due_at
 
 

@@ -267,7 +267,7 @@ function applyQueryFilter(key, value) {
             <!-- ALL RECORDS — clears every filter (date + payment/user); true reset -->
             <a href="{% url 'purchase-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user %}active{% endif %}">
-              <i class="bi bi-grid"></i> All records
+              <i class="bi bi-grid"></i> All
             </a>
           </div>
 

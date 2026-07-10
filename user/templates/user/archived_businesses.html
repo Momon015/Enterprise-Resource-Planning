@@ -1,0 +1,108 @@
+{% extends "main.html" %}
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Archived Businesses</h1>
+      <p class="page-subtitle">These are hidden and not billed. Their records are kept — restore any of them anytime.</p>
+    </div>
+    <div class="page-header-right">
+      <a href="{% url 'business-list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to businesses
+      </a>
+    </div>
+  </div>
+
+  {% if businesses %}
+  <div class="biz-grid">
+    {% for biz in businesses %}
+    <div class="card biz-card biz-card--archived">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.85rem; height:100%;">
+
+        <!-- HEAD: icon + name + archived badge -->
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div class="sd-header-icon" style="background:var(--surface-hover); color:var(--text-secondary); flex-shrink:0;">
+            {% if biz.business_type == 'cafe' or biz.business_type == 'restaurant' %}<i class="bi bi-cup-hot"></i>
+            {% elif biz.business_type == 'pharmacy' %}<i class="bi bi-capsule"></i>
+            {% elif biz.business_type == 'retail' %}<i class="bi bi-shop-window"></i>
+            {% else %}<i class="bi bi-shop"></i>{% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div class="card-header-title" style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ biz.business_name }}</div>
+            <div class="card-header-sub" style="margin:0;">{{ biz.get_business_type_display }}</div>
+          </div>
+          <span class="status-badge status-muted" style="margin-left:auto; white-space:nowrap;">
+            <i class="bi bi-archive"></i> Archived
+          </span>
+        </div>
+
+        <!-- META -->
+        <div class="sd-summary-block" style="margin:0;">
+          <div class="sd-info-row">
+            <span class="sd-info-label">Archived on</span>
+            <span class="sd-info-value">{{ biz.archived_at|date:"M d, Y"|default:"—" }}</span>
+          </div>
+          <div class="sd-info-row">
+            <span class="sd-info-label">Added</span>
+            <span class="sd-info-value">{{ biz.created_at|date:"M d, Y" }}</span>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div style="display:flex; gap:0.5rem; margin-top:auto;">
+          <form method="post" action="{% url 'business-restore' business_id=biz.id business_slug=biz.slug %}" style="flex:1;">
+            {% csrf_token %}
+            <button type="submit" class="btn cm-btn cm-btn--success btn-block">
+              <i class="bi bi-arrow-counterclockwise"></i> Restore
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="max-width:560px; margin:0 auto;">
+    <div class="empty-state" style="padding:3rem 1.5rem;">
+      <div class="empty-icon"><i class="bi bi-archive"></i></div>
+      <h3 class="empty-title">Nothing archived</h3>
+      <p class="empty-text">Businesses you archive will show up here, ready to restore.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<style>
+  .biz-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:1rem; }
+  .biz-card { flex:0 1 320px; max-width:100%; }
+  .biz-card--archived { opacity:0.92; }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+  });
+</script>
+
+{% endblock %}

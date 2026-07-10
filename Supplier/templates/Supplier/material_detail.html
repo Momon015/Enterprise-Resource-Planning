@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <hr class="sd-section-divider">
           <div class="sd-info-row">
             <span class="sd-info-label"><i class="bi bi-person-circle sl-me-1"></i>Recorded By</span>
-            <span class="sd-info-value">{{ material.created_by|capfirst }}</span>
+            <span class="sd-info-value">{{ material.created_by.get_full_name|default:material.created_by.username }}</span>
           </div>
           <div class="sd-info-row">
             <span class="sd-info-label"><i class="bi bi-calendar3 sl-me-1"></i>Date added</span>
@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <i class="bi bi-pencil sl-me-1"></i> Edit
           </a>
           <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle sl-me-1"></i> Add to Cart
+            <i class="bi bi-plus sl-me-1"></i> Add to Cart
           </a>
         </div>
 

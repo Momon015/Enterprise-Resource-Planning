@@ -13,7 +13,7 @@
 
         <div>
           <div class="cm-title">{{ cm_title }}</div>
-          {% if cm_subtitle %}<div class="cm-sub">{{ cm_subtitle }}</div>{% endif %}
+          {% if cm_subtitle %}<div class="cm-sub"{% if cm_sub_color %} style="color:{{ cm_sub_color }};font-weight:700;"{% endif %}>{{ cm_subtitle }}</div>{% endif %}
         </div>
       </div>
 
@@ -22,7 +22,7 @@
       <form method="POST" hx-post="{{ cm_action }}" hx-swap="none">
         {% csrf_token %}
         <div class="cm-actions">
-          {% comment %} <button type="button" class="btn btn-outline-secondary" data-quickview-close>{{ cm_cancel|default:'Cancel' }}</button> {% endcomment %}
+          <button type="button" class="btn btn-outline-secondary" data-quickview-close>{{ cm_cancel|default:'Cancel' }}</button>
           <button type="submit" class="btn cm-btn cm-btn--{{ cm_tone|default:'warning' }}">
             <i class="bi {{ cm_btn_icon|default:'bi-archive-fill' }}"></i> {{ cm_label|default:'Confirm' }}
           </button>

@@ -488,9 +488,20 @@ class ExpenseQuerySet(models.QuerySet):
         return self.aggregate(average_amount_cost=Avg('total_amount'))['average_amount_cost'] or 0
 
 class Expense(TimeStampModel):
+    # How the bill was paid. An expense is a single-shot outflow (no utang /
+    # installments), so the method lives right here — no separate payment ledger.
+    # Codes match core/templatetags/payment_tags.py so {% payment_method_badge %}
+    # renders it with no new CSS.
+    PAYMENT_METHOD_CHOICES = [
+        ('cash',  'Cash'),
+        ('gcash', 'GCash'),
+        ('bank',  'Bank Transfer'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses', null=True, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(db_index=True)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_expenses')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='expenses', null=True, blank=True)
     

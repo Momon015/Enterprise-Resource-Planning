@@ -27,9 +27,11 @@ class ActivityEvent(models.Model):
         ('sale.completed',     'Sale completed'),
         ('sale.reference',     'Sale reference'),
         ('sale.paid',          'Sale payment recorded'),
+        ('sale.voided',        'Sale voided'),
         ('purchase.recorded',  'Purchase recorded'),
         ('purchase.reference', 'Purchase reference'),
         ('purchase.paid',      'Purchase payment recorded'),
+        ('purchase.voided',    'Purchase voided'),
         ('stock.adjusted',     'Stock updated'),
         ('stock.low',          'Low stock alert'),
         ('stock.critical',     'Critically low stock'),
@@ -153,7 +155,7 @@ class ActivityEvent(models.Model):
             if self.verb == 'staff.added':
                 return reverse('employee-list', kwargs={'business_slug': business_slug})
             
-            if self.verb in ('sale.completed', 'sale.reference'):
+            if self.verb in ('sale.completed', 'sale.reference', 'sale.voided'):
                 return reverse('sale-detail', kwargs={'business_slug': business_slug, 'sale_id': self.target_id})
 
             if self.verb == 'sale.paid':
@@ -165,7 +167,7 @@ class ActivityEvent(models.Model):
             if self.verb == 'sale.refunded':
                 return reverse('sales-return-detail', kwargs={'business_slug': business_slug, 'return_id': self.target_id})
 
-            if self.verb in ('purchase.recorded', 'purchase.reference'):
+            if self.verb in ('purchase.recorded', 'purchase.reference', 'purchase.voided'):
                 return reverse('purchase-detail', kwargs={'business_slug': business_slug, 'purchase_id': self.target_id})
 
             if self.verb == 'purchase.paid':

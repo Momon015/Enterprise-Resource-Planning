@@ -42,5 +42,9 @@ urlpatterns = [
     path('settings/business/<int:business_id>/<slug:business_slug>/invite-code/regenerate/', views.regenerate_invite_code, name='regenerate-invite-code'),
     path('settings/business/<int:business_id>/<slug:business_slug>/staff-signup/toggle/', views.toggle_accepting_staff, name='toggle-accepting-staff'),
 
+    path('settings/business/archived/', views.archived_businesses, name='archived-businesses'),
+    path('settings/business/<int:business_id>/<slug:business_slug>/archive/', views.business_archive, name='business-archive'),
+    path('settings/business/<int:business_id>/<slug:business_slug>/restore/', views.business_restore, name='business-restore'),
+
 
 ]

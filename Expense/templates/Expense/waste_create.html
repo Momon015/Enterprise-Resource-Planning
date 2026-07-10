@@ -276,7 +276,7 @@ function selectAllVisible(master) {
             <div class="mf-form-actions" style="margin-top:1rem;">
               <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
               <button type="submit" class="btn btn-danger">
-                <i class="bi bi-trash2"></i> Log Selected Waste
+                <i class="bi bi-trash2"></i> Log Waste
               </button>
             </div>
           </form>
@@ -287,10 +287,9 @@ function selectAllVisible(master) {
     </div>
 
     <!-- RIGHT: GUIDE PANEL -->
-    <div class="right-panel">
       <div class="card">
-        <div class="card-header dark">
-          <span class="card-header-title" style="color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+        <div class="card-header">
+          <span class="card-header-title">
             <i class="bi bi-info-circle"></i>
             Waste Guide
           </span>
@@ -322,7 +321,7 @@ function selectAllVisible(master) {
             </div>
             <div class="sd-info-row">
               <span class="sd-info-label">3.</span>
-              <span class="sd-info-value">Click "Log Selected Waste" to confirm</span>
+              <span class="sd-info-value">Click "Log Waste" to confirm</span>
             </div>
           </div>
           {% endif %}

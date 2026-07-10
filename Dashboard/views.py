@@ -348,7 +348,7 @@ def dashboard(request, business_slug):
         more = e.expense_items.count() - 1
         activities.append({
             'kind': 'expense', 'icon': 'bi-receipt', 'tint': 'warning',
-            'title': f"Other Expense - {label}",
+            'title': f"Business Expense - {label}",
             'description': f"+{more} more" if more > 0 else "",
             'amount': e.total_amount,
             'ts': _ts(e, 'created_at', 'date'),
@@ -412,8 +412,10 @@ def dashboard(request, business_slug):
     # ── Today's cash lens ────────────────────────────────────────────────
     # Cash IN/OUT = payments made TODAY (collecting an old debt today still counts).
     # Store-credit redemptions settle debt but move NO cash — excluded from the cash lens.
-    collected = SalesPayment.objects.filter(business=business, date=today).exclude(method='credit').aggregate(t=Sum('amount'))['t'] or Decimal(0)
-    paid      = PurchasePayment.objects.filter(business=business, date=today).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    # Voided sales/purchases are cancelled (cash handed back) — excluded too, so this
+    # management cash view matches the Daily Summary. This is NOT a BIR X/Z ledger.
+    collected = SalesPayment.objects.filter(business=business, date=today).exclude(method='credit').exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    paid      = PurchasePayment.objects.filter(business=business, date=today).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
 
     # New utang created TODAY = unpaid portion of today's OWN sales/purchases (not all-time).
     receivables = sum((s.outstanding for s in sales), Decimal('0'))
@@ -427,8 +429,8 @@ def dashboard(request, business_slug):
 
     # Cash deltas vs yesterday (drive the arrows in Cash Flow mode)
     yesterday   = today - timedelta(days=1)
-    y_collected = SalesPayment.objects.filter(business=business, date=yesterday).exclude(method='credit').aggregate(t=Sum('amount'))['t'] or Decimal(0)
-    y_paid      = PurchasePayment.objects.filter(business=business, date=yesterday).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_collected = SalesPayment.objects.filter(business=business, date=yesterday).exclude(method='credit').exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    y_paid      = PurchasePayment.objects.filter(business=business, date=yesterday).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
     y_net_cash  = y_collected - y_paid - (metrics.get('y_opex') or Decimal('0'))
 
     col_dir,   col_pct   = _pct_delta(collected, y_collected)
@@ -458,21 +460,23 @@ def dashboard(request, business_slug):
     collected_by_method = [
         {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
         for r in SalesPayment.objects.filter(business=business, date=today)
-                 .exclude(method='credit')
+                 .exclude(method='credit').exclude(sale__is_void=True)
                  .values('method').annotate(t=Sum('amount')).order_by('-t')
     ]
     credit_used_today = SalesPayment.objects.filter(
         business=business, date=today, method='credit'
-    ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    ).exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
 
-    # Time-of-day greeting (Manila local time)
-    hour = timezone.localtime().hour
-    if 5 <= hour < 12:
-        greeting = 'Good morning'
-    elif hour < 18:
-        greeting = 'Good afternoon'
-    else:
-        greeting = 'Good evening'
+    # # Time-of-day greeting (Manila local time)
+    # hour = timezone.localtime().hour
+    # if 5 <= hour < 12:
+    #     greeting = 'Good morning'
+    # elif hour < 18:
+    #     greeting = 'Good afternoon'
+    # else:
+    #     greeting = 'Good evening'
+        
+    greeting = 'Welcome back'
 
     # ── Row-2 KPI cards: counts, drawer, stock alerts ──────────────────
     txn_count = sales.count()
@@ -485,7 +489,7 @@ def dashboard(request, business_slug):
 
     cash_sales_today = SalesPayment.objects.filter(
         business=business, date=today, method='cash'
-    ).aggregate(t=Sum('amount'))['t'] or Decimal(0)
+    ).exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or Decimal(0)
     
     cash_purchases_today = PurchasePayment.objects.filter(
         business=business, date=today, method__in=['cash', 'cod']
@@ -494,6 +498,11 @@ def dashboard(request, business_slug):
     cash_refunds_today = SalesReturn.objects.filter(
         business=business, date=today, refund_method='cash'
     ).aggregate(t=Sum('refund_total'))['t'] or Decimal(0)
+
+    # Only CASH bills leave the physical drawer — GCash/bank expenses don't touch it.
+    cash_expenses_today = Expense.objects.filter(
+        business=business, date=today, payment_method='cash'
+    ).aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
 
     # CashPayout.shift is a ShiftEmployee (not a Shift) — business/date live on ShiftEmployee.shift
     payouts_today = CashPayout.objects.filter(
@@ -509,7 +518,7 @@ def dashboard(request, business_slug):
     
     drawer_balance = (
         drawer.opening_cash + cash_sales_today
-        - payouts_today - cash_purchases_today - cash_refunds_today
+        - payouts_today - cash_purchases_today - cash_refunds_today - cash_expenses_today
     ) if drawer else None
 
 
@@ -599,6 +608,7 @@ def dashboard(request, business_slug):
         'pur_count': pur_count, 'pur_diff': pur_diff,
         'drawer': drawer, 'drawer_balance': drawer_balance,
         'cash_sales_today': cash_sales_today,
+        'cash_expenses_today': cash_expenses_today,
         'payouts_today': payouts_today, 'returns_today': returns_today,
         'stock_alert_count': stock_alert_count,
         'out_of_stock': out_of_stock, 'low_only': low_only, 'low_stock_top': low_stock_top,

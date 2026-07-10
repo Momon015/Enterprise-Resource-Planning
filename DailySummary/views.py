@@ -271,6 +271,8 @@ def view_summary(request, business_slug):
                 'total_revenue': total_revenue,
                 'total_waste_cost': total_waste_cost,
                 'total_expense_cost': total_expense_cost,
+                # All non-revenue costs, summed in Python (template |add truncates Decimals to int).
+                'total_cost': total_material_cost + total_salary_cost + total_waste_cost + total_expense_cost,
                 'net_profit': net_profit
             })
             
@@ -281,6 +283,10 @@ def view_summary(request, business_slug):
     grand_paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or 0
     grand_receivables = grand_total_revenue - grand_collected
     grand_payables    = grand_material_total_cost - grand_paid
+
+    # Accrual Expense Cost card = payroll + other expenses + waste. Summed in Python so
+    # it's exact (template |add truncates Decimals to int) and reconciles with Net Profit.
+    grand_expense_cost = grand_total_salary_cost + grand_total_expense_cost + grand_total_waste_cost
 
     
     sorted_list=sorted(summary_list, key=lambda x: x['date'], reverse=True)
@@ -300,6 +306,8 @@ def view_summary(request, business_slug):
             row['total_waste_cost']    = snap.total_waste_cost
             row['total_expense_cost']  = snap.total_expense_cost
             row['net_profit']          = snap.net_profit
+            row['total_cost'] = (snap.total_material_cost + snap.total_salary_cost
+                                 + snap.total_waste_cost + snap.total_expense_cost)
             row['is_closed'] = True
             row['closed_at'] = snap.closed_at
         else:
@@ -350,11 +358,15 @@ def view_summary(request, business_slug):
     worst_day = 0
     if sorted_list:
         best_day = max(sorted_list, key=lambda d: d['net_profit'])
-        worst_day = max(sorted_list, key=lambda d: d['net_profit'])
+        worst_day = min(sorted_list, key=lambda d: d['net_profit'])
         
     # ── CASH FLOW data (by PAYMENT date) ──
-    sales_pmts = SalesPayment.objects.filter(business=business)
-    purch_pmts = PurchasePayment.objects.filter(business=business)
+    # Scope to ACTIVE sales/purchases only — a voided sale is a cancelled transaction
+    # (money refunded), so its payment must not count as cash collected/paid. (This is a
+    # management cash view, not a BIR X/Z grand-total ledger.) all_sales/all_purchases are
+    # the active, business-scoped bases; payment-date filters below still apply.
+    sales_pmts = SalesPayment.objects.filter(business=business, sale__in=all_sales)
+    purch_pmts = PurchasePayment.objects.filter(business=business, purchase__in=all_purchases)
 
     # mirror the same filters onto payments (by their payment date)
     if form.is_valid():
@@ -376,27 +388,87 @@ def view_summary(request, business_slug):
         sales_pmts = sales_pmts.filter(date__week=_wk, date__year=iso_year)
         purch_pmts = purch_pmts.filter(date__week=_wk, date__year=iso_year)
 
-    collected_by_date = {r['date']: r['t'] for r in sales_pmts.values('date').annotate(t=Sum('amount'))}
+    # Cash lens = money that actually MOVED (by payment date). Store credit isn't
+    # real cash, so it's excluded here (keeps this consistent with the method rows below).
+    collected_by_date = {r['date']: r['t'] for r in sales_pmts.exclude(method='credit').values('date').annotate(t=Sum('amount'))}
     paid_by_date      = {r['date']: r['t'] for r in purch_pmts.values('date').annotate(t=Sum('amount'))}
     expense_by_date   = {r['date']: r['t'] for r in expenses.values('date').annotate(t=Sum('total_amount'))}
+
+    # Collected-by-method for the Revenue popover (Cash / GCash / …), period-scoped
+    # like the dashboard. Store credit isn't real cash, so it's excluded.
+    method_names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
+    collected_by_method = [
+        {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in sales_pmts.exclude(method='credit')
+                 .values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+
+    # Same idea for the Material Cost popover — how supplier payments were made.
+    purch_method_names = dict(PurchasePayment.PAYMENT_METHOD_CHOICES)
+    paid_by_method = [
+        {'label': purch_method_names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in purch_pmts.values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+
+    # Cash-lens totals (by PAYMENT date) = exactly the method-row sums above, so the
+    # Cash Flow cards reconcile with their breakdowns. These differ from grand_collected/
+    # grand_paid, which are transaction-scoped (payments on THIS period's sales/purchases)
+    # and stay the basis for the Accrual page's billed → collected → receivables chain.
+    cash_collected = sum((m['amount'] or 0) for m in collected_by_method)
+    cash_paid      = sum((m['amount'] or 0) for m in paid_by_method)
+
+    # Store credit settled on this period's payments but excluded from cash_collected
+    # (it isn't real cash). Shown as a footnote on the Money-in popover so the cash
+    # figure visibly reconciles to the accrual "Collected" (which keeps store credit).
+    cash_store_credit = sales_pmts.filter(method='credit').aggregate(t=Sum('amount'))['t'] or 0
+
+    # Accrual-lens method breakdown — payments on THIS period's sales/purchases (by
+    # transaction), so these sum to grand_collected / grand_paid and reconcile on the
+    # Accrual page's billed → collected → receivables chain. (Credit kept: on the accrual
+    # lens store credit is a valid way a receivable was settled.)
+    collected_by_method_acc = [
+        {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in SalesPayment.objects.filter(sale__in=sales)
+                 .values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+    paid_by_method_acc = [
+        {'label': purch_method_names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in PurchasePayment.objects.filter(purchase__in=purchases)
+                 .values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+
+    # Payroll is cash out too, so the cash lens counts it (by work date) alongside
+    # supplier payments + expenses — mirrors the dashboard's cash Expense Cost =
+    # payroll + expenses. Waste stays OUT (it's never a cash event).
+    salary_by_date = {s['date']: (s['total_salary_cost'] or 0) for s in shifts_by_date}
 
     cash_summary_list = []
     grand_spent = 0
 
-    for d in (set(collected_by_date) | set(paid_by_date) | set(expense_by_date)):
+    for d in (set(collected_by_date) | set(paid_by_date) | set(expense_by_date) | set(salary_by_date)):
         collected = collected_by_date.get(d, 0) or 0
-        spent     = (paid_by_date.get(d, 0) or 0) + (expense_by_date.get(d, 0) or 0)
+        paid      = paid_by_date.get(d, 0) or 0
+        expense   = expense_by_date.get(d, 0) or 0
+        salary    = salary_by_date.get(d, 0) or 0
+        spent     = paid + expense + salary
         cash_summary_list.append({
             'date': d,
             'collected': collected,
-            'paid': paid_by_date.get(d, 0) or 0,
-            'expense': expense_by_date.get(d, 0) or 0,
+            'paid': paid,
+            'expense': expense,
+            'salary': salary,
             'spent': spent,
             'net_cash': collected - spent,
         })
         grand_spent += spent
-        
+
     cash_summary_list.sort(key=lambda x: x['date'], reverse=True)
+
+    # Cash Expense Cost card = operating expenses = payroll + other expenses (no waste).
+    # Summed from the same per-day maps so it reconciles with the table + its dropdown.
+    cash_salary  = sum((v or 0) for v in salary_by_date.values())
+    cash_expense = sum((v or 0) for v in expense_by_date.values())
+    cash_opex    = cash_salary + cash_expense
 
     # Cash basis paginates too — override the accrual page_obj built above.
     if basis == 'cash':
@@ -410,11 +482,12 @@ def view_summary(request, business_slug):
     _qd['basis'] = basis        # basis defaults in-view, force it into the link
     querystring = _qd.urlencode()
 
-    grand_net_cash = (grand_collected or 0) - grand_spent
+    # Net cash = money in − money out, both by payment date (fully cash-scoped).
+    grand_net_cash = (cash_collected or 0) - grand_spent
 
     # Cash margin (net cash / collected) — the cash-basis twin of profit_margin
-    if grand_collected and grand_collected > 0:
-        cash_margin = (grand_net_cash / grand_collected) * 100
+    if cash_collected and cash_collected > 0:
+        cash_margin = (grand_net_cash / cash_collected) * 100
     else:
         cash_margin = 0
         
@@ -428,6 +501,7 @@ def view_summary(request, business_slug):
         'grand_total_waste_cost': grand_total_waste_cost,
         'grand_total_salary_cost': grand_total_salary_cost,
         'grand_total_expense_cost': grand_total_expense_cost,
+        'grand_expense_cost': grand_expense_cost,
         'grand_net_profit': grand_net_profit,
         'current_year': current_year,
         
@@ -438,6 +512,16 @@ def view_summary(request, business_slug):
         'grand_paid': grand_paid,
         'grand_receivables': grand_receivables,
         'grand_payables': grand_payables,
+        'collected_by_method': collected_by_method,
+        'paid_by_method': paid_by_method,
+        'collected_by_method_acc': collected_by_method_acc,
+        'paid_by_method_acc': paid_by_method_acc,
+        'cash_collected': cash_collected,
+        'cash_paid': cash_paid,
+        'cash_store_credit': cash_store_credit,
+        'cash_salary': cash_salary,
+        'cash_expense': cash_expense,
+        'cash_opex': cash_opex,
         
         'basis': basis,
         'cash_summary_list': cash_summary_list,
@@ -452,7 +536,11 @@ def view_summary(request, business_slug):
         'worst_day': worst_day,
     }
     
-    return render(request, 'DailySummary/view_summary.html', context)
+    # ?basis= routes to the split templates — Cash Flow vs Accrual are now two
+    # standalone pages (single-column + dashboard-style KPI card strip on top).
+    template = ('DailySummary/view_summary_cash.html' if basis == 'cash'
+                else 'DailySummary/view_summary_accrual.html')
+    return render(request, template, context)
 
 @login_required(login_url='login')
 @permission_required('staff_view')
@@ -461,14 +549,19 @@ def view_summary_detail(request, business_slug, date):
     business = get_business_for_user(request.user, business_slug)
     net_profit = 0
 
-    sales = Sale.objects.active().filter(business=business, date=date).prefetch_related('sale_items', 'payments').order_by('-date', '-id')
+    # Show voided sales/purchases in the day breakdown (lined-out, like Sales Records)
+    # rather than hiding them — the owner sees the void happened instead of a row silently
+    # vanishing. The money TOTALS below still EXCLUDE voided (a void = cancelled / cash
+    # returned; this is a management view, not a BIR X/Z ledger): display lists carry all,
+    # the sums use .filter(is_void=False).
+    sales = Sale.objects.filter(business=business, date=date).prefetch_related('sale_items', 'payments').order_by('-date', '-id')
     sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product').order_by('product__is_service', 'id')
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
-    total_revenue = sales.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
+    total_revenue = sales.filter(is_void=False).aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
 
     purchases = Purchase.objects.filter(business=business, purchase_date=date).prefetch_related('materials', 'payments').order_by('-purchase_date', '-id')
     purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
-    total_material_cost = purchases.aggregate(material_cost=Sum('total_cost'))['material_cost'] or 0
+    total_material_cost = purchases.filter(is_void=False).aggregate(material_cost=Sum('total_cost'))['material_cost'] or 0
 
     wastes = Waste.objects.filter(business=business, date=date)
     waste_items = WasteItem.objects.filter(waste__in=wastes)
@@ -484,8 +577,11 @@ def view_summary_detail(request, business_slug, date):
     net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
 
     basis = request.GET.get('basis', 'cash')
-    collected = SalesPayment.objects.filter(business=business, date=date).aggregate(t=Sum('amount'))['t'] or 0
-    paid      = PurchasePayment.objects.filter(business=business, date=date).aggregate(t=Sum('amount'))['t'] or 0
+    # Cash TOTALS exclude voided (a void = cancelled / cash returned; matches view_summary
+    # + the dashboard cash lens). The payment LISTS keep voided rows so the template can
+    # line them out (like Sales Records) — voided is styled, not counted.
+    collected = SalesPayment.objects.filter(business=business, date=date).exclude(sale__is_void=True).aggregate(t=Sum('amount'))['t'] or 0
+    paid      = PurchasePayment.objects.filter(business=business, date=date).exclude(purchase__is_void=True).aggregate(t=Sum('amount'))['t'] or 0
     net_cash  = collected - paid - total_expense_cost
     sales_payments    = SalesPayment.objects.filter(business=business, date=date).select_related('sale').prefetch_related('sale__payments').order_by('-date', '-id')
     purchase_payments = PurchasePayment.objects.filter(business=business, date=date).select_related('purchase').prefetch_related('purchase__payments').order_by('-date', '-id')
@@ -525,12 +621,36 @@ def view_summary_detail(request, business_slug, date):
                 return p.date
         return None
 
+    # "Now" = current live settlement (ALL payments, incl. those dated after this
+    # closed day). The frozen *_asof figures above are never touched; this only drives
+    # a read-only "Now:" annotation so an owner isn't confused when a closed-day row
+    # still shows Debt even though the customer has since paid (payment posts forward).
+    def _method_code_asof(obj, as_of):
+        # Which method(s) settled this record AS OF the given day — matches the
+        # payment_method_code vocabulary (cash/gcash/bank/credit/mixed) the
+        # payment_method_badge tag expects. None when nothing's paid yet.
+        methods = {p.method for p in obj.payments.all() if p.date and p.date <= as_of}
+        if not methods:
+            return None
+        return next(iter(methods)) if len(methods) == 1 else 'mixed'
+
+    _now_asof = datetime.max.date()
     for s in sales:
         s.paid_asof, s.outstanding_asof, s.status_asof, s.display_asof = _settlement_as_of(s, s.total_revenue, detail_date)
         s.settled_later = _settled_on(s, s.total_revenue) if s.status_asof != 'paid' else None
+        s.paid_now, s.outstanding_now, s.status_now, s.display_now = _settlement_as_of(s, s.total_revenue, _now_asof)
+        s.changed_since_close = s.status_now != s.status_asof or s.outstanding_now != s.outstanding_asof
+        s.method_code_asof = _method_code_asof(s, detail_date)
+        _later = [p.date for p in s.payments.all() if p.date and p.date > detail_date]
+        s.last_pmt_date = max(_later) if _later else None
     for pu in purchases:
         pu.paid_asof, pu.outstanding_asof, pu.status_asof, pu.display_asof = _settlement_as_of(pu, pu.total_cost, detail_date)
         pu.settled_later = _settled_on(pu, pu.total_cost) if pu.status_asof != 'paid' else None
+        pu.paid_now, pu.outstanding_now, pu.status_now, pu.display_now = _settlement_as_of(pu, pu.total_cost, _now_asof)
+        pu.changed_since_close = pu.status_now != pu.status_asof or pu.outstanding_now != pu.outstanding_asof
+        pu.method_code_asof = _method_code_asof(pu, detail_date)
+        _later = [p.date for p in pu.payments.all() if p.date and p.date > detail_date]
+        pu.last_pmt_date = max(_later) if _later else None
 
     # Cash Flow payment notes — running balance PER PAYMENT (orders same-day payments correctly)
     def _running_state(parent, total, pay, fallback_date):
@@ -602,6 +722,7 @@ def view_summary_detail(request, business_slug, date):
         'sales_payments': sales_payments,
         'purchase_payments': purchase_payments,
         'day_close': day_close,
+        'detail_date': detail_date,
     }
 
     return render(request, 'DailySummary/view_summary_detail.html', context)

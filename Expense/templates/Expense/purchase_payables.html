@@ -271,7 +271,7 @@
             </div>
           </div>
 
-          <dl class="period-breakdown">
+          {% comment %} <dl class="period-breakdown">
             <div>
               <dt>Open balances</dt>
               <dd>{{ page_obj.paginator.count }}</dd>
@@ -282,7 +282,7 @@
               <dd class="text-danger sl-fw-bold">{{ overdue_count }}</dd>
             </div>
             {% endif %}
-          </dl>
+          </dl> {% endcomment %}
 
           <!-- Quick Ranges -->
           <div class="card">

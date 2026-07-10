@@ -6,6 +6,7 @@
 {% endblock %}
 
 {% load humanize %}
+{% load payment_tags %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -69,6 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Expense Name</th>
                 <th>Category</th>
+                <th class="col-mobile-hidden">Paid with</th>
                 <th class="sl-text-end">Amount</th>
               </tr>
             </thead>
@@ -80,6 +82,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 </td>
                 <td>
                   <span class="cell-sub">{{ item.category|default:"—" }}</span>
+                </td>
+                <td class="col-mobile-hidden">
+                  {% payment_method_badge item.payment_method %}
                 </td>
                 <td class="sl-text-end sl-fw-semibold sl-text-danger">
                   ₱{{ item.amount|floatformat:2|intcomma }}
@@ -166,6 +171,23 @@ document.addEventListener("DOMContentLoaded", function () {
               Expenses
             </div>
           </div>
+
+          {% if method_breakdown %}
+          <div class="sd-summary-block">
+            <div class="sd-summary-block-label">Paid with</div>
+            <dl class="period-breakdown">
+              {% for m in method_breakdown %}
+              <div>
+                <dt>{% payment_method_badge m.code %}</dt>
+                <dd class="text-danger">₱{{ m.total|floatformat:2|intcomma }}</dd>
+              </div>
+              {% endfor %}
+            </dl>
+            <div class="sd-note-text" style="margin-top: 0.5rem; font-size: 0.75rem;">
+              Only cash leaves your drawer — GCash and bank don't.
+            </div>
+          </div>
+          {% endif %}
 
           {% if expense.first.created_by and request.user.role == 'owner' %}
           <div class="sd-summary-block">

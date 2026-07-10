@@ -93,7 +93,19 @@
             </div>
             <div style="display:flex; align-items:center; gap:.6rem;">
               <span class="status-badge status-success">{{ item.plan.get_plan_display }}</span>
-              {% if item.plan.plan != 'free' and not item.plan.pending_cancellation %}
+              {% if item.plan.plan != 'free' and item.plan.pending_cancellation %}
+              <span class="status-badge status-warning" style="white-space:nowrap;" title="This plan is scheduled to cancel and will switch to Free.">
+                <i class="bi bi-clock-history"></i>&nbsp;Cancellation scheduled{% if item.plan.expires_at %} · ends {{ item.plan.expires_at|date:"M d, Y" }}{% endif %}
+              </span>
+              <form method="post" action="{% url 'subscription-resume-plan' business_slug=business.slug %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="target_business_id" value="{{ item.business.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-success" style="white-space:nowrap;"
+                        title="Undo the cancellation and keep this plan.">
+                  <i class="bi bi-arrow-counterclockwise"></i> Resume
+                </button>
+              </form>
+              {% elif item.plan.plan != 'free' %}
               <a href="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
                  hx-get="{% url 'subscription-cancel-confirm' business_slug=business.slug %}?target_business_id={{ item.business.id }}"
                  hx-target="#confirmBody" hx-swap="innerHTML"

@@ -145,14 +145,14 @@ document.addEventListener("DOMContentLoaded", function () {
             </a>
             <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not request.GET.search %}active{% endif %}">
-              <i class="bi bi-grid"></i> All records
+              <i class="bi bi-grid"></i> All
             </a>
           </div>
           {% if stocks %}
           <!-- Quick Action — subtle outline button in the header (was "Most recent first") -->
           <a href="{% url 'material-waste-create' business_slug=current_business.slug %}"
              class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-trash2"></i> Log Stock Waste
+            <i class="bi bi-trash2"></i> Log waste
           </a>
           {% endif %}
         </div>
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th>Date</th>
                 <th>Quantity</th>
-                <th class="sl-text-end">Total Loss</th>
+                <th class="sl-text-center">Waste Cost</th>
                 <th class="sl-text-center col-mobile-hidden">Reason</th>
               </tr>
             </thead>
@@ -179,11 +179,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td>
                   <div class="cell-primary">{{ waste.waste_items.count }} waste{{ waste.waste_items.count|pluralize }}</div>
                   {% if request.user.role == 'owner' %}
-                  <div class="cell-sub"><i class="bi bi-person"></i> {{ waste.created_by.username|default:"—" }}</div>
+                  <div class="cell-sub"><i class="bi bi-person"></i> {{ waste.created_by.get_full_name|default:waste.created_by.username|default:"—" }}</div>
                   {% endif %}
                 </td>
 
-                <td class="sl-text-end sl-fw-semibold sl-text-danger">
+                <td class="sl-text-center sl-fw-semibold sl-text-danger">
                   ₱{{ waste.waste_cost|floatformat:2|intcomma }}
                 </td>
 

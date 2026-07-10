@@ -70,13 +70,13 @@
         <div class="mf-field-group" style="margin-top: 0.9rem;">
           <label class="mf-form-label">{{ form.dashboard_basis.label }}</label>
           {{ form.dashboard_basis }}
-          <div class="mf-help">Which lens the dashboard opens in. <strong>Profitability</strong> shows what you earned (sales made, profit); <strong>Cash Flow</strong> shows money actually collected and paid out. You can still flip temporarily on the dashboard.</div>
+          <div class="mf-help">Which lens the dashboard opens in. <strong>Accrual</strong> shows what you earned (sales made, profit); <strong>Cash Flow</strong> shows money actually collected and paid out. You can still flip temporarily on the dashboard.</div>
         </div>
         {% endif %}
 
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.25rem;">
           <a href="{% url 'settings' business_slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
-          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save Features</button>
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check2"></i> Save Features</button>
         </div>
       </form>
     </div>

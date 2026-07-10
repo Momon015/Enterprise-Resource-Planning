@@ -1,0 +1,330 @@
+{% extends 'main.html' %}
+{% load humanize %}
+
+{% comment %}
+  CASH FLOW page — money collected vs money spent, by payment date.
+  Split off from the old combined view_summary.html (2026-07-10): the ?basis=
+  router now picks this template (cash) or view_summary_accrual.html (accrual)
+  in the view. Single-column full-width; period totals shown as dashboard-style
+  KPI cards on top instead of a right-rail panel. Cards carry PERIOD totals
+  (not today) — that's the only real difference from the dashboard strip.
+{% endcomment %}
+
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const monthInput = document.querySelector('input[name="select_month"]');
+  const startDateInput = document.querySelector('input[name="start_date"]');
+  const endDateInput = document.querySelector('input[name="end_date"]');
+
+  if (monthInput) {
+    monthInput.addEventListener("change", function () {
+      if (startDateInput) startDateInput.value = "";
+      if (endDateInput) endDateInput.value = "";
+    });
+  }
+  [startDateInput, endDateInput].forEach(el => {
+    if (!el) return;
+    el.addEventListener("change", function () {
+      if (monthInput) monthInput.value = "";
+    });
+  });
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Cash Flow</h1>
+      <p class="page-subtitle">Money collected and spent each day</p>
+    </div>
+  </div>
+
+  <!-- KPI STATS ROW — period totals, dashboard-style cards -->
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- NET CASH — green when positive, red when negative (matches the dashboard) -->
+    <div class="kpi-card kpi-card--featured has-popover{% if grand_net_cash > 0 %} kpi-card--hue-success{% elif grand_net_cash < 0 %} kpi-card--hue-danger{% endif %}">
+      <div class="kpi-icon kpi-icon--{% if grand_net_cash > 0 %}success{% elif grand_net_cash < 0 %}danger{% else %}neutral{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Net Cash</div>
+        <div class="kpi-value {% if grand_net_cash < 0 %}text-danger{% endif %}">₱{{ grand_net_cash|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% if cash_collected > 0 %}
+        <div class="kpi-delta kpi-delta--muted"><i class="bi bi-percent"></i> {{ cash_margin|floatformat:1 }}% margin</div>
+        {% else %}
+        <div class="kpi-delta kpi-delta--muted">— {{ days_recorded }} day{{ days_recorded|pluralize }} in view</div>
+        {% endif %}
+      </div>
+
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Cash profitability">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Cash profitability</div>
+        <div class="kpi-popover__row"><span>Margin</span><span class="num">{{ cash_margin|floatformat:1 }}%</span></div>
+        <div class="kpi-popover__row"><span>Money in (collected)</span><span class="num">₱{{ cash_collected|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Money out (spent)</span><span class="num">− ₱{{ grand_spent|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Net cash</span><span class="num">₱{{ grand_net_cash|floatformat:2|intcomma }}</span></div>
+      </div>
+    </div>
+
+    <!-- REVENUE (money collected this period — green when there's money in) -->
+    <div class="kpi-card{% if cash_collected > 0 %} kpi-card--hue-success{% endif %} has-popover">
+      <div class="kpi-icon kpi-icon--{% if cash_collected > 0 %}success{% else %}neutral{% endif %}"><i class="bi bi-cash-coin"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Revenue</div>
+        <div class="kpi-value">₱{{ cash_collected|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="kpi-delta kpi-delta--muted">Collected this period</div>
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money in">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Money in</div>
+        {% for m in collected_by_method %}
+        <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
+        {% endfor %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Collected</span><span class="num">₱{{ cash_collected|floatformat:2|intcomma }}</span></div>
+        {% if cash_store_credit %}
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Store credit — not cash</span><span class="num">₱{{ cash_store_credit|floatformat:2|intcomma }}</span></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- EXPENSE COST (payroll + other expenses — red when there's spending; cash lens excludes waste) -->
+    <div class="kpi-card{% if cash_opex > 0 %} kpi-card--hue-danger{% endif %} has-popover">
+      <div class="kpi-icon kpi-icon--{% if cash_opex > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-receipt"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Expense Cost</div>
+        <div class="kpi-value">₱{{ cash_opex|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="kpi-delta kpi-delta--muted">Payroll &amp; expenses paid</div>
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="What's inside">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">What's inside</div>
+        <div class="kpi-popover__row"><span>Payroll</span><span class="num">₱{{ cash_salary|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Business expenses</span><span class="num">₱{{ cash_expense|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Expense cost</span><span class="num">₱{{ cash_opex|floatformat:2|intcomma }}</span></div>
+      </div>
+    </div>
+
+    <!-- MATERIAL COST (paid to suppliers this period — red when there's spending) -->
+    <div class="kpi-card{% if cash_paid > 0 %} kpi-card--hue-danger{% endif %} has-popover">
+      <div class="kpi-icon kpi-icon--{% if cash_paid > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Material Cost</div>
+        <div class="kpi-value">₱{{ cash_paid|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="kpi-delta kpi-delta--muted">Paid to suppliers</div>
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money out — materials">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Money out — materials</div>
+        {% for m in paid_by_method %}
+        <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
+        {% endfor %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Paid</span><span class="num">₱{{ cash_paid|floatformat:2|intcomma }}</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- .left-panel = flex column w/ gap; spaces the filter from the table (no right rail now) -->
+  <div class="left-panel">
+
+  <!-- CONTROLS — advanced filters (quick ranges live in the table header, below) -->
+  <details class="filter-card"
+           {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
+    <summary>
+      <i class="bi bi-sliders"></i>
+      <span>Advanced filters</span>
+      {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+        <span class="filter-badge">Active</span>
+      {% endif %}
+    </summary>
+    <div class="filter-body">
+      <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+        <input type="hidden" name='basis' value="cash">
+        <div class="form-field">
+          <label class="form-label"><i class="bi bi-calendar3"></i> Month</label>
+          <input type="month" name="select_month" class="form-control form-control--polish"
+                value="{{ request.GET.select_month|default:current_year }}">
+        </div>
+
+        <div class="form-field">
+          <label class="form-label"><i class="bi bi-calendar-event"></i> From</label>
+          <input type="date" name="start_date" class="form-control form-control--polish"
+                value="{{ request.GET.start_date|default:'' }}">
+        </div>
+
+        <div class="form-range-sep">→</div>
+
+        <div class="form-field">
+          <label class="form-label"><i class="bi bi-calendar-check"></i> To</label>
+          <input type="date" name="end_date" class="form-control form-control--polish"
+                value="{{ request.GET.end_date|default:'' }}">
+        </div>
+
+        <div class="form-actions-inline">
+          <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel-fill"></i> Apply</button>
+          <a href="{% url 'view-summary' business_slug=current_business.slug %}?basis=cash" class="btn btn-light btn-sm">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </a>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <!-- SUMMARY TABLE -->
+  <div class="card table-card">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">Transactions</span>
+        <span class="sl-badge sl-badge-light">{{ cash_summary_list|length }} day{{ cash_summary_list|length|pluralize }}</span>
+        <!-- QUICK RANGES — set the date window -->
+        <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=today&basis=cash"
+          class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
+          <i class="bi bi-calendar-day"></i> Today
+        </a>
+        <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=last_week&basis=cash"
+          class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
+          <i class="bi bi-clock-history"></i> Last week
+        </a>
+        <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_week&basis=cash"
+          class="quick-range-btn {% if request.GET.period == 'this_week' %}active{% endif %}">
+          <i class="bi bi-calendar-week"></i> This week
+        </a>
+        <a href="{% url 'view-summary' business_slug=current_business.slug %}?period=this_month&basis=cash"
+          class="quick-range-btn {% if request.GET.period == 'this_month' %}active{% endif %}">
+          <i class="bi bi-calendar-month"></i> This month
+        </a>
+        <!-- ALL — clears the date window (keeps this Cash Flow lens); true reset -->
+        <a href="{% url 'view-summary' business_slug=current_business.slug %}?basis=cash"
+          class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
+          <i class="bi bi-grid"></i> All
+        </a>
+      </div>
+      <span class="card-header-sub">Most recent first</span>
+    </div>
+
+    <div class="table-responsive">
+      {% if cash_summary_list %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="sl-text-end mobile-center">Revenue</th>
+            <th class="sl-text-end col-mobile-hidden">Product Cost</th>
+            <th class="sl-text-end col-mobile-hidden">Payroll Cost</th>
+            <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
+            <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->
+            <th class="sl-text-end mobile-center">Net Cash</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in page_obj %}
+          <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis=cash'">
+            <td>
+              <div class="cell-primary">{{ row.date|date:"M d" }}<span class="col-mobile-hidden">, {{ row.date|date:"Y" }}</span></div>
+              <div class="cell-sub">{{ row.date|date:"l" }}</div>
+            </td>
+            <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="color:var(--success);">₱{{ row.collected|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.paid|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.salary|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-end col-mobile-hidden"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.expense|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-end col-mobile-only mobile-center"><span class="sl-fw-semibold" style="color:var(--danger);">₱{{ row.spent|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="{% if row.net_cash < 0 %}color:var(--danger);{% else %}color:var(--success);{% endif %}">₱{{ row.net_cash|floatformat:2|intcomma }}</span></td>
+            <td class="sl-text-center"><div class="btn-group"><a href="{% url 'view-summary-detail' date=row.date business_slug=current_business.slug %}?basis=cash" class="row-chevron" title="View detail">View</a></div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-cash-stack"></i></div>
+        <h3 class="empty-title">No cash movement</h3>
+        <p class="empty-text">No money collected or spent for this period.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- PAGINATION -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination-wrapper">
+      <nav>
+        <ul class="pagination">
+          <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            {% if page_obj.has_previous %}
+              <a class="page-link" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
+            {% else %}
+              <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+            {% endif %}
+          </li>
+          {% for s in page_obj.paginator.page_range %}
+          <li class="page-item {% if s == page_obj.number %}active{% endif %}">
+            <a class="page-link" href="?{{ querystring }}&page={{ s }}">{{ s }}</a>
+          </li>
+          {% endfor %}
+          <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            {% if page_obj.has_next %}
+              <a class="page-link" href="?{{ querystring }}&page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
+            {% else %}
+              <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+            {% endif %}
+          </li>
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+
+  </div>
+  </div>
+</div>
+
+<script>
+  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
+  document.addEventListener('click', (e) => {
+    const btn  = e.target.closest('[data-kpi-popover]');
+    const open = document.querySelector('.kpi-card.popover-open');
+    if (btn) {
+      e.stopPropagation();
+      const card = btn.closest('.kpi-card');
+      if (open && open !== card) open.classList.remove('popover-open');
+      card.classList.toggle('popover-open');
+      return;
+    }
+    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.kpi-card.popover-open');
+      if (open) open.classList.remove('popover-open');
+    }
+  });
+</script>
+
+{% endblock %}

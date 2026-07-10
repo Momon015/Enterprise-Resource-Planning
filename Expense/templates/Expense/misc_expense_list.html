@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Quick Actions — moved from the old right column; Categories link dropped (own sidebar page) -->
           <div class="d-flex gap-2">
             <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
-               class="btn btn-outline-primary btn-sm">
+               class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Create template
             </a>
             <a href="{% url 'expense-create' business_slug=current_business.slug %}"

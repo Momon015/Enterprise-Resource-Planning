@@ -28,14 +28,14 @@
       <table class="data-table" style="margin-bottom:1rem;">
         <tr><td>Business</td><td class="sl-text-end"><strong>{{ target_biz.business_name }}</strong></td></tr>
         <tr><td>Current plan</td><td class="sl-text-end">{{ target_bp.get_plan_display }}</td></tr>
-        {% if balance_due > 0 %}
+        {% if refund_due > 0 %}
         <tr><td>Months used</td><td class="sl-text-end">{{ months_used }}</td></tr>
         {% endif %}
         <tr><td>Access until</td><td class="sl-text-end">{{ cycle_end|date:"M d, Y" }}</td></tr>
-        {% if balance_due > 0 %}
+        {% if refund_due > 0 %}
         <tr style="border-top:2px solid var(--border);">
-          <td><strong>Balance to settle</strong></td>
-          <td class="sl-text-end"><strong style="font-size:1.25rem;">₱{{ balance_due|floatformat:2 }}</strong></td>
+          <td><strong>Refund to you</strong></td>
+          <td class="sl-text-end"><strong style="font-size:1.25rem;">₱{{ refund_due|floatformat:2 }}</strong></td>
         </tr>
         {% endif %}
       </table>
@@ -44,11 +44,11 @@
         <ul style="margin:0; padding-left:1.25rem;">
           <li>{{ target_biz.business_name }} keeps working until <strong>{{ cycle_end|date:"M d, Y" }}</strong> — your data stays accessible.</li>
           <li>After that, it switches to the Free plan automatically.</li>
-          {% if balance_due > 0 %}
-            <li>Because yearly gave you a discounted rate, the {{ months_used }} month(s) you used are recalculated at the standard rate. The difference is <strong>₱{{ balance_due|floatformat:2 }}</strong> — just the discount for those months, no penalty.</li>
-            <li>Settle it anytime within 30 days. We'll send a friendly reminder if it's still open.</li>
+          {% if refund_due > 0 %}
+            <li>You paid for the year upfront, so the {{ months_used }} month(s) you used are re-priced at the standard rate and we refund the rest: <strong>₱{{ refund_due|floatformat:2 }}</strong>.</li>
+            <li>We'll process your refund within 30 days — nothing to do on your side.</li>
           {% else %}
-            <li>No additional payment is required — you're all set.</li>
+            <li>No refund is due — you're all set.</li>
             <li>Changed your mind later? You can re-subscribe anytime.</li>
           {% endif %}
 

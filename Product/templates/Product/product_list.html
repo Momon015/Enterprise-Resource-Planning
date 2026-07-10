@@ -217,19 +217,19 @@
           <div class="card-header-left-group">
             <span class="card-header-title">Product Catalog</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
-            <span class="card-header-sub" style="margin: 0;">
-              {% if request.GET.stock == 'high' %}In Stock
-              {% elif request.GET.stock == 'low' %}Low Stock
-              {% elif request.GET.stock == 'none' %}Out of Stock
-              {% elif request.GET.velocity == 'best' %}Best sellers
-              {% elif request.GET.velocity == 'slow' %}Slow movers
-              {% elif request.GET.velocity == 'never' %}Never sold
-              {% else %}All status
-              {% endif %}
-            </span>
             <details class="activity-filter-pop">
-              <summary class="activity-filter-trigger" title="Filter products">
+              <summary class="activity-filter-trigger activity-filter-trigger--labeled" title="Filter products">
                 <i class="bi bi-sliders"></i>
+                <span class="filter-trigger-label">
+                  {% if request.GET.stock == 'high' %}In Stock
+                  {% elif request.GET.stock == 'low' %}Low Stock
+                  {% elif request.GET.stock == 'none' %}Out of Stock
+                  {% elif request.GET.velocity == 'best' %}Best sellers
+                  {% elif request.GET.velocity == 'slow' %}Slow movers
+                  {% elif request.GET.velocity == 'never' %}Never sold
+                  {% else %}All status
+                  {% endif %}
+                </span>
               </summary>
               <div class="activity-filter-menu">
                 {% with q=request.GET.search cat=request.GET.category %}
@@ -348,8 +348,8 @@
                 <th>Name</th>
                 <th>SKU / Barcode </th>
                 <th class="sl-text-center col-mobile-hidden">Category</th>
-                <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center col-mobile-hidden">Cost</th>
+                <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center">Price</th>
                 <th class="sl-text-center col-mobile-hidden">Stock / Status</th>
                 <th class="sl-text-end col-mobile-hidden">Sold</th>
@@ -394,6 +394,10 @@
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
+                  ₱{% if product.cost_price %}{{ product.cost_price|floatformat:2 }}{% else %}0.00{% endif %}
+                </td>
+
+                <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">
                   {% if product.unit %}
                       {% if product.unit in multi_unit_types %}
@@ -407,9 +411,6 @@
                   {% endif %}
                 </td>
 
-                <td class="sl-text-center col-mobile-hidden">
-                  ₱{% if product.cost_price %}{{ product.cost_price|floatformat:2 }}{% else %}0.00{% endif %}
-                </td>
                 <td class="sl-text-center sl-fw-semibold">
                   ₱{{ product.selling_price|floatformat:2 }}
                   {% if product.margin_status %}

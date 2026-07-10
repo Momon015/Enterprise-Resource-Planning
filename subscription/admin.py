@@ -135,17 +135,13 @@ class FounderSlotAdmin(admin.ModelAdmin):
 
 @admin.register(CancellationInvoice)
 class CancellationInvoiceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'business', 'plan_at_cancel', 'amount_due', 'status', 'months_used', 'cycle_end_at', 'due_at', 'created_at')
+    list_display = ('id', 'business', 'plan_at_cancel', 'refund_amount', 'status', 'months_used', 'cycle_end_at', 'due_at', 'created_at')
     list_filter = ('status', 'plan_at_cancel', 'created_at')
     search_fields = ('business__business_name', 'business__user__username')
     readonly_fields = ('created_at', 'updated_at')
     date_hierarchy = 'created_at'
-    actions = ['mark_paid', 'mark_waived']
+    actions = ['mark_refunded']
 
-    @admin.action(description='Mark selected as PAID')
-    def mark_paid(self, request, queryset):
-        queryset.update(status='paid')
-
-    @admin.action(description='Mark selected as WAIVED')
-    def mark_waived(self, request, queryset):
-        queryset.update(status='waived')
+    @admin.action(description='Mark selected refund as REFUNDED')
+    def mark_refunded(self, request, queryset):
+        queryset.update(status='refunded')

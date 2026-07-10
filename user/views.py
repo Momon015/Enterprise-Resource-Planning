@@ -497,8 +497,9 @@ def user_logout(request):
 def business_list(request):
     user = request.user
     businesses = BusinessProfile.objects.filter(user=user)
-    
-    context = {'businesses': businesses}
+    archived_count = BusinessProfile.all_objects.filter(user=user, is_active=False).count()
+
+    context = {'businesses': businesses, 'archived_count': archived_count}
     return render(request, 'user/business_list.html', context)
     
 @login_required(login_url='login')
@@ -506,7 +507,10 @@ def business_profile_create(request):
     from subscription.models import BUNDLE_COUNT
     
     sub = request.user.subscription
-    current_count = request.user.business_profiles.count()
+    # Count ALL businesses (active + archived) against the bundle cap — archived
+    # ones still occupy a slot since they're kept, never deleted. Otherwise a user
+    # could archive to dodge the cap and hoard unlimited businesses' data.
+    current_count = BusinessProfile.all_objects.filter(user=request.user).count()
     cap = BUNDLE_COUNT[sub.bundle]
     at_cap = current_count >= cap
     
@@ -660,6 +664,132 @@ def toggle_accepting_staff(request, business_id, business_slug):
         return redirect(next_url)
     return redirect('business-profile-detail', business_id=business.id, business_slug=business.slug)
 
+
+def _tier_color(plan_code):
+    """CSS color used to tint the plan tier in the archive modal. Matches the existing
+    app-wide `.plan-badge--{tier}` convention (style.css) — Free neutral, Standard info-
+    blue, Premium violet, Pro gold. All tokens, so it tracks the theme."""
+    return {
+        'free':     'var(--muted)',
+        'standard': 'var(--info)',
+        'premium':  'var(--violet)',
+        'pro':      'var(--warning)',
+    }.get(plan_code, 'var(--text)')
+
+
+def _archive_note(business, owner):
+    """Tailor the archive-confirm message to what archiving does to THIS business's
+    billing. Only a yearly (paid-upfront) plan needs the 'Cancel first for a refund'
+    nudge — free/monthly owners shouldn't be worried with refund talk. Returned as
+    HTML (rendered via cm_note|safe)."""
+    try:
+        plan = business.plan
+    except Exception:
+        plan = None
+
+    is_paid = bool(plan and plan.plan != 'free')
+    if not is_paid:
+        return ("This business is on the Free plan, so there's nothing to bill. "
+                "It's hidden from your businesses but all records are kept — "
+                "you can restore it anytime.")
+
+    base = ("It's hidden from your businesses and stops future billing when the current "
+            "period ends. All records are kept — you can restore it anytime.")
+
+    if plan.pending_cancellation:
+        return base + ("<br><br>A cancellation is already scheduled here, so any refund "
+                       "still goes through — archiving just hides it now.")
+
+    sub = getattr(owner, 'subscription', None)
+    if sub and sub.billing_cycle == 'yearly':
+        return base + ("<br><br><i class=\"bi bi-lightbulb\"></i> <strong>Do this first:</strong> "
+                       "you paid for a full year up front, and archiving does <strong>not</strong> "
+                       "refund the unused months. To get that money back, hit <strong>Cancel</strong> "
+                       "first — it works out your refund — then archive.")
+
+    return base + ("<br><br>You won't be charged again after this period. No refund applies "
+                   "since you pay month to month.")
+
+
+@login_required(login_url='login')
+def business_archive(request, business_id, business_slug):
+    """Soft-delete (archive) a business. Data is kept and it can be restored;
+    it's never hard-deleted (BIR compliance)."""
+    # objects manager → only active businesses can be archived
+    business = get_object_or_404(BusinessProfile, user=request.user, id=business_id, slug=business_slug)
+    next_url = request.GET.get('next', '') or request.POST.get('next', '')
+
+    if request.method == 'GET':
+        if request.headers.get('HX-Request'):
+            action = reverse('business-archive',
+                             kwargs={'business_id': business.id, 'business_slug': business.slug})
+            return render(request, 'core/partials/_confirm_modal.html', {
+                'cm_title': business.business_name,
+                'cm_subtitle': business.plan.plan.upper(),
+                'cm_sub_color': _tier_color(getattr(business.plan, 'plan', 'free')),
+                'cm_note': _archive_note(business, request.user),
+                'cm_action': f"{action}?next={next_url}",
+                'cm_label': 'Confirm Archive',
+                'cm_tone': 'danger',
+                'cm_icon': 'bi-archive',
+                'cm_btn_icon': 'bi-archive',
+            })
+        return redirect('business-list')
+
+    # POST → archive, but never leave the owner with zero active businesses
+    if request.user.business_profiles.count() <= 1:
+        messages.warning(request, "You need at least one active business. Add another before archiving this one.")
+        return redirect('business-list')
+
+    business.archive()
+
+    # If we just archived the business the session was pointing at, move to another
+    if request.session.get('active_business_slug') == business.slug:
+        fallback_biz = request.user.business_profiles.first()
+        if fallback_biz:
+            request.session['active_business_slug'] = fallback_biz.slug
+        else:
+            request.session.pop('active_business_slug', None)
+
+    messages.success(request, f"{business.business_name} has been archived. You can restore it anytime.")
+
+    dest = next_url if next_url.startswith('/') else reverse('business-list')
+    if request.headers.get('HX-Request'):
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = dest
+        return resp
+    return redirect(dest)
+
+
+@login_required(login_url='login')
+@require_POST
+def business_restore(request, business_id, business_slug):
+    """Bring an archived business back to active (subject to the bundle seat cap)."""
+    from subscription.models import BUNDLE_COUNT
+    # all_objects → reach the archived row
+    business = get_object_or_404(
+        BusinessProfile.all_objects, user=request.user, id=business_id, slug=business_slug, is_active=False
+    )
+
+    sub = getattr(request.user, 'subscription', None)
+    cap = BUNDLE_COUNT.get(sub.bundle, 1) if sub else 1
+    if request.user.business_profiles.count() >= cap:
+        messages.info(request,
+            f"You're at your limit of {cap} active business(es). Archive another or contact support to add more.")
+        return redirect('archived-businesses')
+
+    business.restore()
+    messages.success(request, f"{business.business_name} is active again.")
+    return redirect('business-list')
+
+
+@login_required(login_url='login')
+def archived_businesses(request):
+    """List the owner's archived businesses with a restore option."""
+    businesses = BusinessProfile.all_objects.filter(
+        user=request.user, is_active=False
+    ).order_by('-archived_at')
+    return render(request, 'user/archived_businesses.html', {'businesses': businesses})
 
 
 @login_required(login_url='login')

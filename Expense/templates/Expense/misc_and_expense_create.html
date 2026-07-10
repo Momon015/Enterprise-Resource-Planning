@@ -325,24 +325,37 @@ document.addEventListener("DOMContentLoaded", function () {
             </table>
           </div>
 
-          <!-- DATE + SUBMIT -->
+          <!-- DATE + PAYMENT METHOD + SUBMIT -->
           <div class="card-body" style="border-top: 1px solid #f3f4f6; padding: 1.25rem;">
-            <div class="form-field">
-              <label class="form-label">
-                <i class="bi bi-calendar-event"></i> Date <span class="form-required">*</span>
-              </label>
-              <input type="date" name="date"
-                class="form-control form-control--polish"
-                style="max-width: 240px;"
-                value="{% now 'Y-m-d' %}" max="{{ today|date:'Y-m-d' }}" required>
+            <div class="form-grid-2col">
+              <div class="form-field">
+                <label class="form-label">
+                  <i class="bi bi-calendar-event"></i> Date <span class="form-required">*</span>
+                </label>
+                <input type="date" name="date"
+                  class="form-control form-control--polish"
+                  value="{% now 'Y-m-d' %}" max="{{ today|date:'Y-m-d' }}" required>
+              </div>
+
+              <!-- How it was paid — only cash comes out of the drawer -->
+              <div class="form-field">
+                <label class="form-label">
+                  <i class="bi bi-wallet2"></i> Paid with <span class="form-required">*</span>
+                </label>
+                <select name="payment_method" class="form-control form-control--polish" required>
+                  <option value="cash" selected>Cash</option>
+                  <option value="gcash">GCash</option>
+                  <option value="bank">Bank Transfer</option>
+                </select>
+              </div>
             </div>
 
             <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
               <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
                 Cancel
               </a>
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Log Selected
+              <button type="submit" class="btn cm-btn cm-btn--success">
+                <i class="bi bi-check-circle"></i> Log Expense
               </button>
 
             </div>
@@ -410,7 +423,7 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-block">
             <i class="bi bi-plus-circle"></i> Create template
           </a>
           <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">

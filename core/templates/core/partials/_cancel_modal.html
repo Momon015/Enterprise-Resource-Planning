@@ -1,3 +1,4 @@
+{% load humanize %}
 <div class="quickview__panel cm-panel">
   <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
   <div class="card cm-card">
@@ -6,26 +7,26 @@
       <div class="cm-head">
         <div class="cm-thumb cm-thumb--muted"><i class="bi bi-x-octagon"></i></div>
         <div>
-          <div class="cm-title">Cancel {{ target_biz.business_name }}?</div>
+          <div class="cm-title">{{ target_biz.business_name }}</div>
           <div class="cm-sub">{{ target_bp.get_plan_display }} · {{ sub.get_billing_cycle_display }} billing</div>
         </div>
       </div>
 
       <table class="data-table" style="margin-bottom:1rem;">
         <tr><td>Current plan</td><td class="sl-text-end">{{ target_bp.get_plan_display }}</td></tr>
-        {% if balance_due > 0 %}<tr><td>Months used</td><td class="sl-text-end">{{ months_used }}</td></tr>{% endif %}
+        {% if refund_due > 0 %}<tr><td>Months used</td><td class="sl-text-end">{{ months_used }}</td></tr>{% endif %}
         <tr><td>Access until</td><td class="sl-text-end"><strong>{{ cycle_end|date:"M d, Y" }}</strong></td></tr>
-        {% if balance_due > 0 %}
+        {% if refund_due > 0 %}
         <tr style="border-top:2px solid var(--border);">
-          <td><strong>Balance to settle</strong></td>
-          <td class="sl-text-end"><strong style="font-size:1.15rem;">₱{{ balance_due|floatformat:2 }}</strong></td>
+          <td><strong>Refund to you</strong></td>
+          <td class="sl-text-end"><strong style="font-size:1.15rem;">₱{{ refund_due|floatformat:2|intcomma }}</strong></td>
         </tr>
         {% endif %}
       </table>
 
       <p class="cm-note cm-note--warning">
         Keeps working until <strong>{{ cycle_end|date:"M d, Y" }}</strong>, then switches to <strong>Free</strong> automatically — your data stays.
-        {% if balance_due > 0 %} The {{ months_used }} month(s) used are recalculated at the standard rate: <strong>₱{{ balance_due|floatformat:2 }}</strong> (just the discount, no penalty), payable within 30 days.{% else %} No extra payment — and you can re-subscribe anytime.{% endif %}
+        {% if refund_due > 0 %} You paid the year upfront, so the {{ months_used }} month(s) used are re-priced at the standard rate and we refund the rest: <strong>₱{{ refund_due|floatformat:2|intcomma }}</strong>, within 30 days.{% else %} No refund is due — and you can re-subscribe anytime.{% endif %}
       </p>
 
       <form method="post" action="{% url 'subscription-cancel-confirm' business_slug=business.slug %}">

@@ -8,7 +8,7 @@ from subscription.models import CancellationInvoice
 
 
 class Command(BaseCommand):
-    help = "Send day-15 and day-30 reminders for unsettled cancellation balances."
+    help = "Nudge support at day 15 and day 30 about refunds still owed on cancelled yearly plans."
 
     def handle(self, *args, **options):
         now = timezone.now()
@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
         for inv in CancellationInvoice.objects.filter(
             status='pending', reminder_day_15_sent=False,
-            created_at__lte=d15, amount_due__gt=0,
+            created_at__lte=d15, refund_amount__gt=0,
         ):
             self._remind(inv, 15)
             inv.reminder_day_15_sent = True
@@ -25,30 +25,28 @@ class Command(BaseCommand):
 
         for inv in CancellationInvoice.objects.filter(
             status='pending', reminder_day_30_sent=False,
-            created_at__lte=d30, amount_due__gt=0,
+            created_at__lte=d30, refund_amount__gt=0,
         ):
             self._remind(inv, 30)
-            inv.status = 'overdue'
             inv.reminder_day_30_sent = True
-            inv.save(update_fields=['status', 'reminder_day_30_sent'])
+            inv.save(update_fields=['reminder_day_30_sent'])
 
     def _remind(self, inv, day):
-        owner = inv.business.user
-        if not owner.email:
+        support = getattr(settings, 'SUPPORT_EMAIL', settings.EMAIL_HOST_USER)
+        if not support:
             return
-        kind = "Final reminder" if day == 30 else "Friendly reminder"
+        kind = "OVERDUE" if day == 30 else "Reminder"
         body = (
-            f"Hi {owner.username},\n\n"
-            f"{kind}: there's still an open balance of ₱{inv.amount_due} "
-            f"from cancelling '{inv.business.business_name}'.\n\n"
-            f"It was due {inv.due_at.strftime('%b %d, %Y')}. "
-            f"Whenever you're ready, you can settle it — no rush, no extra fees.\n\n"
-            f"Questions? Just reply.\n\n— Swift ERP"
+            f"{kind}: refund still unpaid.\n\n"
+            f"A ₱{inv.refund_amount} refund for cancelling '{inv.business.business_name}' "
+            f"(owner {inv.business.user.username}) has been pending for {day} days.\n\n"
+            f"Target date was {inv.due_at.strftime('%b %d, %Y')}. "
+            f"Issue the refund, then mark invoice {inv.id} as refunded.\n"
         )
         try:
             EmailMultiAlternatives(
-                subject=f"[Swift ERP] {kind} — ₱{inv.amount_due} balance",
-                body=body, from_email=settings.EMAIL_HOST_USER, to=[owner.email],
+                subject=f"[Swift ERP Admin] {kind} — ₱{inv.refund_amount} refund owed",
+                body=body, from_email=settings.EMAIL_HOST_USER, to=[support],
             ).send()
         except Exception:
-            self.stderr.write(f"Reminder failed for invoice {inv.id}")
+            self.stderr.write(f"Refund reminder failed for invoice {inv.id}")
