@@ -12,7 +12,82 @@ from datetime import date
 
 from decimal import Decimal
 
+import calendar
+
 # Create your forms here.
+
+# Birthday = Month dropdown + typed Day / Year (no native calendar).
+MONTH_CHOICES = [
+    ('', 'Month'),
+    ('1', 'January'), ('2', 'February'), ('3', 'March'),  ('4', 'April'),
+    ('5', 'May'),     ('6', 'June'),     ('7', 'July'),    ('8', 'August'),
+    ('9', 'September'),('10', 'October'), ('11', 'November'),('12', 'December'),
+]
+
+
+class BirthdayWidget(forms.MultiWidget):
+    """Typed Day + Month dropdown + typed Year (subwidget names: birthday_0/1/2)."""
+
+    def __init__(self, attrs=None):
+        current_year = date.today().year
+        widgets = [
+            forms.NumberInput(attrs={
+                'class': 'form-control', 'placeholder': 'Day',
+                'min': 1, 'max': 31, 'inputmode': 'numeric', 'maxlength': '2',
+                'aria-label': 'Birth day',
+            }),
+            forms.Select(choices=MONTH_CHOICES,
+                         attrs={'class': 'form-select', 'aria-label': 'Birth month'}),
+            forms.NumberInput(attrs={
+                'class': 'form-control', 'placeholder': 'Year',
+                'min': current_year - 100, 'max': current_year,
+                'inputmode': 'numeric', 'maxlength': '4',
+                'aria-label': 'Birth year',
+            }),
+        ]
+        super().__init__(widgets, attrs)
+
+    def decompress(self, value):
+        if isinstance(value, date):
+            return [value.day, value.month, value.year]
+        return [None, None, None]
+
+
+class BirthdayField(forms.MultiValueField):
+    """Validates the three parts into a real date. Rejects impossible days
+    (e.g. April 31, Feb 30, Feb 29 on non-leap years) and caps the year to the
+    last 100 years."""
+
+    widget = BirthdayWidget
+
+    def __init__(self, **kwargs):
+        current_year = date.today().year
+        fields = (
+            forms.IntegerField(required=False, min_value=1, max_value=31),
+            forms.ChoiceField(choices=MONTH_CHOICES, required=False),
+            forms.IntegerField(required=False,
+                               min_value=current_year - 100, max_value=current_year),
+        )
+        kwargs.setdefault('require_all_fields', False)
+        super().__init__(fields=fields, **kwargs)
+
+    def compress(self, data_list):
+        if not data_list:
+            return None
+        day, month, year = data_list
+        # Fully blank -> leave birthday empty (it's optional).
+        if not month and not day and not year:
+            return None
+        # Partially filled -> nudge for the rest.
+        if not (month and day and year):
+            raise ValidationError("Please pick a month, day, and year for the birthday.")
+        month, day, year = int(month), int(day), int(year)
+        # Day must exist for that specific month/year (handles Feb 29 / 30-day months).
+        max_day = calendar.monthrange(year, month)[1]
+        if day > max_day:
+            month_name = dict(MONTH_CHOICES).get(str(month), 'That month')
+            raise ValidationError(f"{month_name} {year} only has {max_day} days.")
+        return date(year, month, day)
 
 class StyledPasswordChangeForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
@@ -106,29 +181,27 @@ class RegisterForm(UserCreationForm):
         
     
 class UpdateUserForm(ModelForm):
+    # Month dropdown + typed Day / Year, with real-date validation (see BirthdayField).
+    birthday = BirthdayField(required=False, label='Birthday')
+
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'birthday', 'phone_number']
-        
-        widgets = {
-            'birthday': forms.SelectDateWidget(
-                years=range(date.today().year, 1939, -1),   # newest year first
-                empty_label=("Year", "Month", "Day"),
-            )
-        }
 
-        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # self.fields['role'].empty_label = None
-        
-        for field in self.fields.values():
+
+        for name, field in self.fields.items():
+            # BirthdayField is a composite — its subwidgets carry their own classes.
+            if name == 'birthday':
+                continue
             field.widget.attrs['class'] = 'form-control'
 
     def clean_birthday(self):
         birthday = self.cleaned_data.get('birthday')
-        
+
         if birthday and birthday >= date.today():
             raise ValidationError(f"Birthday must be in the past")
         return birthday

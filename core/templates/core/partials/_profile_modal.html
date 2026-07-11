@@ -38,12 +38,41 @@
 </div>
 
 <style>
-  /* Birthday = Month · Day · Year dropdowns (no native calendar) */
-  #confirmBody .cm-card select[name^="birthday_"] {
-    display:inline-block;
-    width:auto;
-    min-width:0;
-    margin-right:.4rem;
+  /* Birthday = typed Day · Month dropdown · typed Year (no native calendar) */
+  /* Keep .form-field a normal block so its spacing matches the other fields; */
+  /* lay the three equal boxes out inline on one row, label on its own line.  */
+  /* Full-width but still inline-block like every other label, so the gap ABOVE
+     it matches the other fields exactly; width:100% pushes the boxes to the next line. */
+  #confirmBody .cm-card .form-field:has([name^="birthday_"]) > .form-label {
+    width:100%;
   }
-  #confirmBody .cm-card select[name="birthday_year"] { margin-right:0; }
+  #confirmBody .cm-card [name^="birthday_"] {
+    display:inline-block;
+    width:calc((100% - 1rem) / 3);   /* 3 boxes + two .5rem gaps = 100% */
+    margin-right:.5rem;
+    vertical-align:top;
+  }
+  #confirmBody .cm-card input[name="birthday_2"] { margin-right:0; }  /* Year = last box */
+  /* Hide the number-spinner arrows — typing only */
+  #confirmBody .cm-card input[name^="birthday_"]::-webkit-outer-spin-button,
+  #confirmBody .cm-card input[name^="birthday_"]::-webkit-inner-spin-button {
+    -webkit-appearance:none; margin:0;
+  }
+  #confirmBody .cm-card input[name^="birthday_"] { -moz-appearance:textfield; }
 </style>
+
+<script>
+  /* Sanitize Day/Year inputs: digits only, trimmed to their max length. */
+  (function () {
+    var body = document.getElementById('confirmBody');
+    if (!body) return;
+    ['birthday_0', 'birthday_2'].forEach(function (name) {  /* Day, Year */
+      var el = body.querySelector('input[name="' + name + '"]');
+      if (!el) return;
+      var max = parseInt(el.getAttribute('maxlength') || '4', 10);
+      el.addEventListener('input', function () {
+        el.value = el.value.replace(/\D/g, '').slice(0, max);
+      });
+    });
+  })();
+</script>

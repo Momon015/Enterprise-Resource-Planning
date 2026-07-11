@@ -26,11 +26,11 @@
     <!-- ACCOUNTING MODE (display-only · transient glimpse, reverts to saved default) -->
     <div class="page-header-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:.35rem;">
       <div class="basis-tabs basis-tabs--block" style="max-width:360px; margin:0;">
-        <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
-          <i class="bi bi-graph-up-arrow"></i> Accrual
-        </a>
         <a href="?basis=cash" class="basis-tab{% if basis == 'cash' %} is-active{% endif %}">
           <i class="bi bi-cash-stack"></i> Cash Flow
+        </a>
+        <a href="?basis=accrual" class="basis-tab{% if basis == 'accrual' %} is-active{% endif %}">
+          <i class="bi bi-graph-up-arrow"></i> Accrual
         </a>
       </div>
 

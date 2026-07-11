@@ -70,16 +70,27 @@ WAIT_TICK = 0.2         # poll interval
 WAIT_MAX_TICKS = 5      # 5 × 0.2s = 1s max wait before giving up
 
 def _pct_delta(today_val, yesterday_val):
-    """Return ('up'|'down'|'flat', pct_string) or (None, None) if no comparison."""
+    """Return ('up'|'down'|'flat', delta_string) or (None, None) if no comparison.
+
+    Direction is driven by the raw change (today - yesterday), NOT the sign of the
+    percentage. Net Cash / Net Profit can be negative, and dividing by a negative
+    base flips the percentage's sign — so a genuine improvement (e.g. -900 -> +1246)
+    would wrongly show a down arrow. When yesterday is negative a percentage is also
+    meaningless ("238% better than -900"?), so we show the peso swing instead.
+    """
     today_val = float(today_val or 0)
     yest_val  = float(yesterday_val or 0)
     if yest_val == 0:
         return (None, None)  # template hides the delta row
-    pct = ((today_val - yest_val) / yest_val) * 100
-    if abs(pct) < 0.05:
+    change = today_val - yest_val
+    if abs(change) < 0.005:
         return ('flat', '0.0%')
-    direction = 'up' if pct > 0 else 'down'
-    return (direction, f"{abs(pct):.1f}%")
+    direction = 'up' if change > 0 else 'down'
+    if yest_val < 0:
+        # Base is negative — a percentage would mislead; show the peso change.
+        return (direction, f"₱{abs(change):,.0f}")
+    pct = abs(change / yest_val) * 100
+    return (direction, f"{pct:.1f}%")
 
 
 def _compute_dashboard_metrics(business, today):
