@@ -324,7 +324,7 @@
         </div>
         <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-          {% if not purchase.is_void and not purchase.is_fully_paid %}
+          {% if not purchase.is_void and not purchase.is_fully_paid and can_view_payables %}
           <a href="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}?next=purchase-detail"
              hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=purchase.id %}?next=purchase-detail"
              hx-target="#confirmBody" hx-swap="innerHTML"

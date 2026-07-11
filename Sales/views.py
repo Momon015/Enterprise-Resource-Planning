@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseForbidden
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import authenticate, login, logout
@@ -49,7 +49,7 @@ from django.db.models.functions import Coalesce
 
 from decimal import Decimal, InvalidOperation
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff, can_handle_receivables
 from core.utils.cart import prune_stale_cart_lines
 
 from user.models import User
@@ -280,6 +280,62 @@ def sale_list(request, business_slug):
     sales_deltas['week_rev_dir'],  sales_deltas['week_rev_pct']  = _pct(c['revenue_week'],  c['revenue_last_week'])
     sales_deltas['month_rev_dir'], sales_deltas['month_rev_pct'] = _pct(c['revenue_month'], c['revenue_last_month'])
 
+    # ── Embedded Receivables panel ─────────────────────────────────────────
+    # Same "outstanding sales" data as the standalone Receivables page. Every
+    # filter param is recv_-prefixed so it can't clash with this page's own
+    # period/page/payment filters (one page = one request.GET). Shows ALL the
+    # business's debts (money owed to the business), regardless of who rang the
+    # sale — matching the standalone page.
+    #
+    # GUARD: owner/dev always see it; staff only if the owner granted them
+    # can_handle_receivables. When not permitted we skip the work entirely (not
+    # just hide it in the template) and the panel is left out of the page.
+    can_view_receivables = can_handle_receivables(request.user, business)
+
+    recv_page_obj = None
+    recv_total_outstanding = Decimal('0')
+    recv_period = recv_status = ''
+    recv_filter_active = False
+    recv_any_count = 0
+
+    if can_view_receivables:
+        recv_base = (
+            Sale.objects.filter(business=business)
+            .prefetch_related('payments', 'returns')
+            .order_by('-date')
+        )
+
+        recv_period = request.GET.get('recv_period', '')
+        recv_status = request.GET.get('recv_status', '')
+
+        recv_sales = recv_base
+        if recv_period == 'today':
+            recv_sales = recv_sales.filter(date=today)
+        elif recv_period == 'last_week':
+            recv_sales = recv_sales.filter(date__gte=today - timedelta(days=7))
+        elif recv_period == 'week':
+            recv_sales = recv_sales.filter(date__week=iso_week, date__iso_year=iso_year)
+        elif recv_period == 'month':
+            recv_sales = recv_sales.filter(date__month=month, date__year=year)
+
+        # outstanding is a computed property, not a DB field — filter in Python.
+        outstanding_sales = [s for s in recv_sales if s.outstanding > 0]
+        if recv_status == 'partial':
+            outstanding_sales = [s for s in outstanding_sales if s.amount_paid > 0]
+        elif recv_status == 'utang':
+            outstanding_sales = [s for s in outstanding_sales if s.amount_paid == 0]
+
+        recv_total_outstanding = sum((s.outstanding for s in outstanding_sales), Decimal('0'))
+        recv_paginator = Paginator(outstanding_sales, 7)
+        recv_page_obj = recv_paginator.get_page(request.GET.get('recv_page'))
+
+        # Business-wide count of unpaid sales, IGNORING the recv_ date/status filters —
+        # lets the empty state tell "no debts at all" apart from "none in this range"
+        # (e.g. all debts are June while the filter is July). Prevents the panel from
+        # cheerfully saying "all paid up" when unpaid sales exist outside the window.
+        recv_filter_active = bool(recv_period or recv_status)
+        recv_any_count = sum(1 for s in recv_base if s.outstanding > 0) if recv_filter_active else recv_paginator.count
+
     context = {
         'page_obj': page_obj,
         'total_revenue': total_revenue,
@@ -303,6 +359,15 @@ def sale_list(request, business_slug):
         # payment-method filter
         'payment_methods': payment_methods,
         'active_payment': active_payment,
+
+        # embedded receivables panel (recv_-prefixed params — see partial)
+        'can_view_receivables': can_view_receivables,
+        'recv_page_obj': recv_page_obj,
+        'recv_total_outstanding': recv_total_outstanding,
+        'recv_period': recv_period,
+        'recv_status': recv_status,
+        'recv_filter_active': recv_filter_active,
+        'recv_any_count': recv_any_count,
 
     }
 
@@ -785,6 +850,12 @@ def confirm_view_summary(request, business_slug):
 def add_sales_payment(request, business_slug, sale_id):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
+
+    # GUARD: recording a debt payment is a receivables action. Owner/dev, or staff
+    # the owner granted can_handle_receivables. Blocks direct URL/POST pokes even
+    # though the button is hidden for non-permitted staff.
+    if not can_handle_receivables(request.user, business):
+        return HttpResponseForbidden("You don't have access to receivables.")
     is_hx = request.headers.get('HX-Request')
 
     if request.method == 'POST':
@@ -1445,9 +1516,13 @@ def payment_recorded(request, business_slug, sale_id, payment_id):
     return render(request, 'Sales/payment_recorded.html', context)
 
 @login_required(login_url='login')
-@permission_required('staff_view')
 def sales_receivables(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+
+    # GUARD: owner/dev, or staff the owner granted can_handle_receivables.
+    if not can_handle_receivables(request.user, business):
+        messages.error(request, "You don't have access to receivables.")
+        return redirect('sale-list', business_slug=business.slug)
 
     sales = (
         Sale.objects.filter(business=business)

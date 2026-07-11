@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from core.utils.owner import get_business_for_user, get_owner
+from core.utils.owner import get_business_for_user, get_owner, can_handle_receivables, can_handle_payables
 from user.models import BusinessProfile
 
 
@@ -43,10 +43,20 @@ def business_context(request):
             from Employee.utils import pending_acks_for_staff   # local import avoids circular load
             pending_acks = pending_acks_for_staff(request.user, business)
 
+    # Debt-access flags for the whole UI (navbar lock badges, panels, buttons).
+    # Owner/dev always; staff only where the owner granted the per-employee flag.
+    can_view_receivables = False
+    can_view_payables = False
+    if business and request.user.is_authenticated:
+        can_view_receivables = can_handle_receivables(request.user, business)
+        can_view_payables = can_handle_payables(request.user, business)
+
     return {
         'current_business': business,
         'user_businesses': user_businesses,
         'pending_acks': pending_acks,
+        'can_view_receivables': can_view_receivables,
+        'can_view_payables': can_view_payables,
     }
 
 def cart_counts(request):

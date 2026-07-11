@@ -6,7 +6,8 @@ from Employee.models import Employee
 class EmployeeForm(ModelForm):
     class Meta:
         model = Employee
-        fields = ['name', 'daily_rate', 'is_cashier']
+        fields = ['name', 'daily_rate', 'is_cashier',
+                  'can_handle_receivables', 'can_handle_payables']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

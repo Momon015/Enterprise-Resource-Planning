@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseForbidden
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView, FormView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import authenticate, login, logout
@@ -53,7 +53,7 @@ from django.db.models import Sum, Avg, Max, Count, OuterRef, Subquery
 
 from user.models import User
 
-from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff
+from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff, can_handle_payables
 from core.utils.cart import prune_stale_cart_lines
 
 from django.contrib.messages import get_messages
@@ -128,6 +128,91 @@ def clear_cart(request, business_slug):
     return redirect('material-list', business_slug=business.slug)
 
 """clearing cart just in case there's a bug """
+
+def _build_payables_context(request, business):
+    """Shared Payables (open supplier balances) context for BOTH the embedded
+    panel in purchase_history AND the standalone purchase-payables page — one
+    partial, one computation, no drift.
+
+    Every param is pay_-prefixed (pay_period, pay_status, pay_page, plus the
+    standalone-only pay_select_month / pay_start_date / pay_end_date) so the
+    panel's filters never clash with the purchase list's own period/page/payment
+    filters when it's embedded (one page = one request.GET). Mirrors the
+    receivables recv_-prefixed block in Sales.sale_list.
+    """
+    from datetime import datetime as _dt
+
+    today = timezone.localdate()
+    iso_year, iso_week, _ = today.isocalendar()
+
+    base = (
+        Purchase.objects.filter(business=business)
+        .select_related('status')
+        .prefetch_related('payments', 'returns')
+        .order_by('due_date', '-purchase_date')
+    )
+
+    pay_period = request.GET.get('pay_period', '')
+    pay_status = request.GET.get('pay_status', '').strip()
+    pay_select_month = request.GET.get('pay_select_month', '').strip()
+    pay_start_date = request.GET.get('pay_start_date', '').strip()
+    pay_end_date = request.GET.get('pay_end_date', '').strip()
+
+    purchases = base
+    if pay_period == 'today':
+        purchases = purchases.filter(purchase_date=today)
+    elif pay_period == 'last_week':
+        purchases = purchases.filter(purchase_date__gte=today - timedelta(days=7))
+    elif pay_period == 'week':
+        purchases = purchases.filter(purchase_date__week=iso_week, purchase_date__iso_year=iso_year)
+    elif pay_period == 'month':
+        purchases = purchases.filter(purchase_date__month=today.month, purchase_date__year=today.year)
+
+    if pay_select_month:
+        try:
+            parsed = _dt.strptime(pay_select_month, '%Y-%m')
+            purchases = purchases.filter(purchase_date__year=parsed.year, purchase_date__month=parsed.month)
+        except ValueError:
+            pass
+
+    if pay_start_date and pay_end_date:
+        try:
+            sd = _dt.strptime(pay_start_date, '%Y-%m-%d').date()
+            ed = _dt.strptime(pay_end_date, '%Y-%m-%d').date()
+            purchases = purchases.filter(purchase_date__range=(sd, ed))
+        except ValueError:
+            pass
+
+    # outstanding is a computed property, not a DB field — filter in Python.
+    outstanding_purchases = [p for p in purchases if p.outstanding > 0]
+    if pay_status == 'partial':
+        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid > 0]
+    elif pay_status == 'utang':
+        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid == 0]
+
+    pay_total_outstanding = sum((p.outstanding for p in outstanding_purchases), Decimal('0'))
+    pay_overdue_count = sum(1 for p in outstanding_purchases if p.due_date and p.due_date < today)
+
+    paginator = Paginator(outstanding_purchases, 7)
+    pay_page_obj = paginator.get_page(request.GET.get('pay_page'))
+
+    # Business-wide count of unpaid purchases, IGNORING the pay_ filters — lets the
+    # empty state tell "no bills at all" apart from "none in this range" (e.g. every
+    # bill is June while the filter is July). Same honest-empty-state fix as recv_.
+    pay_filter_active = bool(pay_period or pay_status or pay_select_month or (pay_start_date and pay_end_date))
+    pay_any_count = sum(1 for p in base if p.outstanding > 0) if pay_filter_active else paginator.count
+
+    return {
+        'pay_page_obj': pay_page_obj,
+        'pay_total_outstanding': pay_total_outstanding,
+        'pay_overdue_count': pay_overdue_count,
+        'pay_period': pay_period,
+        'pay_status': pay_status,
+        'pay_filter_active': pay_filter_active,
+        'pay_any_count': pay_any_count,
+        'today': today,
+    }
+
 
 @login_required(login_url='login')
 # @permission_required('staff_view')
@@ -319,7 +404,12 @@ def purchase_history(request, business_slug):
     purchase_deltas['week_cost_dir'],  purchase_deltas['week_cost_pct']  = _pct(c['cost_week'],  c['cost_last_week'])
     purchase_deltas['month_cost_dir'], purchase_deltas['month_cost_pct'] = _pct(c['cost_month'], c['cost_last_month'])
 
-    
+    # ── Embedded Payables panel (pay_-prefixed params — see _payables_panel.html) ──
+    # Owner/dev always; staff only where the owner granted can_handle_payables.
+    # When not permitted we skip the work entirely and leave the panel off the page.
+    can_view_payables = can_handle_payables(request.user, business)
+    pay_ctx = _build_payables_context(request, business) if can_view_payables else {}
+
     context = {
         'page_obj': page_obj,      
         'total_count': total_count, 
@@ -344,7 +434,11 @@ def purchase_history(request, business_slug):
         'payment_methods': payment_methods,
         'active_payment': active_payment,
 
+        # embedded payables panel (pay_-prefixed params — see partial)
+        'can_view_payables': can_view_payables,
+
         }
+    context.update(pay_ctx)
     return render(request, 'Expense/purchase_history.html', context)
 
 @login_required(login_url='login')
@@ -925,6 +1019,11 @@ def add_purchase_payment(request, business_slug, purchase_id):
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
     is_hx = request.headers.get('HX-Request')
 
+    # GUARD: only owner/dev or a staffer the owner granted can_handle_payables may
+    # settle supplier bills. Blocks direct URL/POST pokes even if the button is hidden.
+    if not can_handle_payables(request.user, business):
+        return HttpResponseForbidden("You don't have access to payables.")
+
     if request.method == 'POST':
         amount_str = request.POST.get('amount', '').strip()
         method = request.POST.get('method', 'cod')
@@ -1488,77 +1587,25 @@ def purchase_return_detail(request, business_slug, return_id):
     return render(request, 'Expense/purchase_return_detail.html', context)
 
 @login_required(login_url='login')
-@permission_required('staff_view')   # owner-only (blocks staff)
 def purchase_payables(request, business_slug):
-    from datetime import datetime, timedelta
-
     business = get_business_for_user(request.user, business_slug)
 
-    purchases = (
-        Purchase.objects.filter(business=business)
-        .select_related('status')
-        .prefetch_related('payments', 'returns')
-        .order_by('due_date', '-purchase_date')
-    )
+    # GUARD: owner/dev, or staff the owner granted can_handle_payables.
+    # Replaces the old owner-only @permission_required('staff_view') so a granted
+    # staffer reaching this page from the navbar isn't bounced. Mirrors sales_receivables.
+    if not can_handle_payables(request.user, business):
+        messages.error(request, "You don't have access to payables.")
+        return redirect('purchase-list', business_slug=business.slug)
 
-    # Period filters (SQL-level, runs before the outstanding comprehension)
-    period = request.GET.get('period', '')
-    select_month = request.GET.get('select_month', '').strip()
-    start_date = request.GET.get('start_date', '').strip()
-    end_date = request.GET.get('end_date', '').strip()
-    status_filter = request.GET.get('status', '').strip()
-
+    # Unified: same _payables_panel.html partial + same _build_payables_context()
+    # helper that feeds the embedded panel in purchase_history — single source of
+    # truth, so the table can never drift between the two pages.
     today = timezone.localdate()
-    iso_year, iso_week, _ = today.isocalendar()
-
-    if period == 'today':
-        purchases = purchases.filter(purchase_date=today)
-    elif period == 'last_week':
-        last_week = today - timedelta(days=7)
-        purchases = purchases.filter(purchase_date__gte=last_week)
-    elif period == 'week':
-        purchases = purchases.filter(purchase_date__week=iso_week, purchase_date__iso_year=iso_year)
-    elif period == 'month':
-        purchases = purchases.filter(purchase_date__month=today.month, purchase_date__year=today.year)
-
-    if select_month:
-        try:
-            parsed = datetime.strptime(select_month, '%Y-%m')
-            purchases = purchases.filter(purchase_date__year=parsed.year, purchase_date__month=parsed.month)
-        except ValueError:
-            pass
-
-    if start_date and end_date:
-        try:
-            sd = datetime.strptime(start_date, '%Y-%m-%d').date()
-            ed = datetime.strptime(end_date, '%Y-%m-%d').date()
-            purchases = purchases.filter(purchase_date__range=(sd, ed))
-        except ValueError:
-            pass
-
-    # outstanding is a property → must filter Python-side
-    outstanding_purchases = [p for p in purchases if p.outstanding > 0]
-
-    # Status filter (Python-side, after outstanding comprehension)
-    if status_filter == 'partial':
-        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid > 0]
-    elif status_filter == 'utang':
-        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid == 0]
-
-    total_outstanding = sum((p.outstanding for p in outstanding_purchases), Decimal('0'))
-    overdue_count = sum(1 for p in outstanding_purchases if p.due_date and p.due_date < today)
-
-    paginator = Paginator(outstanding_purchases, 7)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     context = {
-        'page_obj': page_obj,
-        'total_outstanding': total_outstanding,
-        'overdue_count': overdue_count,
-        'today': today,
-        'current_year': f"{today.year}-{today.month:02d}",
         'section': 'payable',
+        'current_year': f"{today.year}-{today.month:02d}",
     }
+    context.update(_build_payables_context(request, business))
 
     return render(request, 'Expense/purchase_payables.html', context)
 

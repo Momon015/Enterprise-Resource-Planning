@@ -49,6 +49,26 @@ function applyQueryFilter(key, value) {
   const qs = params.toString();
   window.location.href = window.location.pathname + (qs ? "?" + qs : "");
 }
+
+// Twin of applyQueryFilter for the embedded Receivables panel: flips a recv_
+// filter while preserving every other param (incl. the sales table's own
+// filters). Resets only the receivables page, never the sales page.
+function applyRecvFilter(key, value) {
+  const params = new URLSearchParams(window.location.search);
+  if (value) { params.set(key, value); } else { params.delete(key); }
+  params.delete("recv_page");
+  const qs = params.toString();
+  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
+}
+
+// Clear every receivables filter at once (used by the "Show all" empty-state
+// link), preserving the sales table's own params.
+function clearRecvFilters() {
+  const params = new URLSearchParams(window.location.search);
+  ["recv_period", "recv_status", "recv_page"].forEach(k => params.delete(k));
+  const qs = params.toString();
+  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
+}
 </script>
 
 <div class="page-wrapper">
@@ -421,6 +441,15 @@ function applyQueryFilter(key, value) {
         {% endif %}
 
       </div>
+
+      {% comment %} Embedded Receivables — outstanding sales owed to the business.
+      Renamed (recv_-prefixed) params so its filters never clash with the sales
+      table above. Hidden unless owner/dev or a staffer the owner granted
+      can_handle_receivables. Step B wraps both in a Sales | Receivables toggle. {% endcomment %}
+      {% if can_view_receivables %}
+        {% include 'sales/partials/_receivables_panel.html' %}
+      {% endif %}
+
     </div>
 
     <!-- RIGHT PANEL -->

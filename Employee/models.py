@@ -54,6 +54,18 @@ class Employee(TimeStampModel, SlugModel):
         help_text="Handles a cash drawer (gets the starting-cash + cash-count flow). Off = attendance & payroll only.",
     )
 
+    # Owner-granted access to debts. Off by default — only staff the owner trusts
+    # to chase/collect money see these. Kept as two separate flags (not one) so an
+    # owner can grant one without the other. Enforced server-side, not just hidden.
+    can_handle_receivables = models.BooleanField(
+        default=False,
+        help_text="Can see and collect customer debt (receivables). Off = the receivables table is hidden for this staff.",
+    )
+    can_handle_payables = models.BooleanField(
+        default=False,
+        help_text="Can see and settle supplier bills (payables). Off = the payables table is hidden for this staff.",
+    )
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, db_index=True, default='active')
     
     objects = EmployeeManager()                  # active only + helpers  (was EmployeeQuerySet.as_manager())

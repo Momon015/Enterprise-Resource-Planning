@@ -198,6 +198,70 @@
     </div>
     {% endif %}
 
+    {% if request.user.role == 'owner' %}
+    <!-- FINANCIAL OVERVIEW — exact numbers & statements (Analytics = trends/charts) -->
+    <div class="sidebar-group" data-group="financial">
+      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-financial">
+        <span class="sidebar-group__label">Financial Overview</span>
+        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
+      </button>
+      <div class="sidebar-group__items" id="group-financial">
+        <ul>
+
+          <li>
+            {% comment %} INTERIM: points at view-summary's cash lens until the dedicated
+                Cash Flow page is built (view split, phase 2 of the IA restructure) {% endcomment %}
+            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis == 'cash' %}is-active{% endif %}"
+              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=cash"
+              {% if request.user.role == 'staff' %}data-locked="Cash Flow" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-cash-stack"></i>
+              <span>Cash Flow</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            {% comment %} the old "Reports" page — accrual lens {% endcomment %}
+            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis != 'cash' %}is-active{% endif %}"
+              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=accrual"
+              {% if request.user.role == 'staff' %}data-locked="close_book" data-locked-fixed="true"{% endif %}>
+              <i class="bi bi-journal-bookmark"></i>
+              <span>Accrual</span>
+              {% if request.user.role == 'staff' %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+
+          {% comment %} <li>
+            <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"
+              href="{% url 'sales-receivables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' and not can_view_receivables %}data-locked="Receivables"{% endif %}>
+              <i class="bi bi-arrow-down-left-circle"></i>
+              <span>Receivables</span>
+              {% if request.user.role == 'staff' and not can_view_receivables %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav__link {% if section == 'payable' %}is-active{% endif %}"
+              href="{% url 'purchase-payables' business_slug=current_business.slug %}"
+              {% if request.user.role == 'staff' and not can_view_payables %}data-locked="Payables"{% endif %}>
+              <i class="bi bi-arrow-up-right-circle"></i>
+              <span>Payables</span>
+              {% if request.user.role == 'staff' and not can_view_payables %}
+                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+            </a>
+          </li> {% endcomment %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
+
     <!-- TRANSACTIONS -->
     <div class="sidebar-group" data-group="transactions">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-transactions">
@@ -270,68 +334,6 @@
       </div>
     </div>
 
-    {% if request.user.role == 'owner' %}
-    <!-- FINANCIAL OVERVIEW — exact numbers & statements (Analytics = trends/charts) -->
-    <div class="sidebar-group" data-group="financial">
-      <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-financial">
-        <span class="sidebar-group__label">Financial Overview</span>
-        <i class="bi bi-chevron-down sidebar-group__chevron"></i>
-      </button>
-      <div class="sidebar-group__items" id="group-financial">
-        <ul>
-
-          <li>
-            {% comment %} INTERIM: points at view-summary's cash lens until the dedicated
-                Cash Flow page is built (view split, phase 2 of the IA restructure) {% endcomment %}
-            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis == 'cash' %}is-active{% endif %}"
-              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=cash"
-              {% if request.user.role == 'staff' %}data-locked="Cash Flow" data-locked-fixed="true"{% endif %}>
-              <i class="bi bi-cash-stack"></i>
-              <span>Cash Flow</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-          <li>
-            {% comment %} the old "Reports" page — accrual lens {% endcomment %}
-            <a class="sidebar-nav__link {% if section == 'summary' and request.GET.basis != 'cash' %}is-active{% endif %}"
-              href="{% url 'view-summary' business_slug=current_business.slug %}?basis=accrual"
-              {% if request.user.role == 'staff' %}data-locked="close_book" data-locked-fixed="true"{% endif %}>
-              <i class="bi bi-journal-bookmark"></i>
-              <span>Accrual</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-
-          <li>
-            <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"
-              href="{% url 'sales-receivables' business_slug=current_business.slug %}"
-              {% if request.user.role == 'staff' %}data-locked="Receivables"{% endif %}>
-              <i class="bi bi-arrow-down-left-circle"></i>
-              <span>Receivables</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-          <li>
-            <a class="sidebar-nav__link {% if section == 'payable' %}is-active{% endif %}"
-              href="{% url 'purchase-payables' business_slug=current_business.slug %}"
-              {% if request.user.role == 'staff' %}data-locked="Payables"{% endif %}>
-              <i class="bi bi-arrow-up-right-circle"></i>
-              <span>Payables</span>
-              {% if request.user.role == 'staff' %}
-                <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    {% endif %}
 
     <!-- CATALOG -->
     <div class="sidebar-group" data-group="catalog">

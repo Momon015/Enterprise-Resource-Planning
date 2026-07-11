@@ -83,8 +83,8 @@
                                 <img src="{% static 'images/gcash.svg' %}" alt="GCash" class="payment-method-logo">
                             {% elif value == 'bank_transfer' or value == 'bank' %}
                                 <i class="bi bi-bank"></i>
-                            {% elif value == 'credit' or value == 'store_credit' %}
-                                <i class="bi bi-credit-card-2-back"></i>
+                            {% comment %} {% elif value == 'credit' or value == 'store_credit' %}
+                                <i class="bi bi-credit-card-2-back"></i> {% endcomment %}
                             {% else %}
                                 <i class="bi bi-wallet2"></i>
                             {% endif %}

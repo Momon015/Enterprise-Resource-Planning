@@ -1,0 +1,216 @@
+{% load humanize %}
+
+{% comment %}
+Shared Payables panel — the SINGLE source of truth for open supplier balances,
+included by BOTH purchase_history (embedded under the purchase table) AND the
+standalone purchase-payables page. Data comes from _build_payables_context()
+under pay_-prefixed context (pay_page_obj, pay_total_outstanding, pay_period,
+pay_status, pay_filter_active, pay_any_count) so its filters never clash with the
+purchase list's own period/page/payment filters on the same page (one page = one
+request.GET). Filter controls call applyPayFilter()/clearPayFilters() (defined at
+the bottom of this partial so both hosts inherit them). Pagination uses the
+built-in {% templatetag openblock %} querystring {% templatetag closeblock %} tag,
+which keeps every other active param intact while turning pay_page.
+
+Mirrors Sales/templates/sales/partials/_receivables_panel.html.
+{% endcomment %}
+
+<div class="card table-card">
+  <div class="card-header">
+    <div class="card-header-left-group">
+      <span class="card-header-title">Payables</span>
+      <span class="sl-badge sl-badge-light">
+        {{ pay_page_obj.paginator.count }} record{{ pay_page_obj.paginator.count|pluralize }}
+      </span>
+
+      <!-- QUICK RANGES — pay_-scoped; preserve the purchase table's params -->
+      <button type="button" onclick="applyPayFilter('pay_period','today')"
+        class="quick-range-btn {% if pay_period == 'today' %}active{% endif %}">
+        <i class="bi bi-calendar-day"></i> Today
+      </button>
+      <button type="button" onclick="applyPayFilter('pay_period','last_week')"
+        class="quick-range-btn {% if pay_period == 'last_week' %}active{% endif %}">
+        <i class="bi bi-clock-history"></i> Last week
+      </button>
+      <button type="button" onclick="applyPayFilter('pay_period','week')"
+        class="quick-range-btn {% if pay_period == 'week' %}active{% endif %}">
+        <i class="bi bi-calendar-week"></i> This week
+      </button>
+      <button type="button" onclick="applyPayFilter('pay_period','month')"
+        class="quick-range-btn {% if pay_period == 'month' %}active{% endif %}">
+        <i class="bi bi-calendar-month"></i> This month
+      </button>
+      <button type="button" onclick="applyPayFilter('pay_period','')"
+        class="quick-range-btn {% if not pay_period %}active{% endif %}">
+        <i class="bi bi-grid"></i> All
+      </button>
+    </div>
+
+    <div class="user-filter-bar">
+      <!-- STATUS — Debt vs Partial -->
+      <label for="payStatusFilter" class="user-filter-label">
+        <i class="bi bi-flag"></i> Status
+      </label>
+      <select id="payStatusFilter"
+              class="user-filter-select {% if pay_status %}is-filtered{% endif %}"
+              onchange="applyPayFilter('pay_status', this.value)">
+        <option value="" {% if not pay_status %}selected{% endif %}>All</option>
+        <option value="utang" {% if pay_status == 'utang' %}selected{% endif %}>Debt (unpaid)</option>
+        <option value="partial" {% if pay_status == 'partial' %}selected{% endif %}>Partial</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    {% if pay_page_obj and pay_page_obj.object_list %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Purchase Date</th>
+          <th class="sl-text-center">Reference</th>
+          <th class="col-mobile-hidden">Due Date</th>
+          <th class="sl-text-end col-mobile-hidden">Total</th>
+          <th class="sl-text-end col-mobile-hidden">Paid</th>
+          <th class="sl-text-end">Outstanding</th>
+          <th class="sl-text-center">Status</th>
+          <th class="sl-text-center">Payment</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pay_page_obj %}
+        <tr class="{% if p.due_date and p.due_date < today %}is-overdue{% endif %}">
+          <td class="cell-primary">
+            {{ p.purchase_date|date:"M d" }}<span class="col-mobile-hidden">, {{ p.purchase_date|date:"Y" }}</span>
+            <div class="cell-sub">{{ p.purchase_date|date:"l" }}</div>
+          </td>
+
+          <td class="sl-text-center">
+            <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.id %}"
+               class="link-accent cell-primary" title="View purchase details">{{ p.reference }}</a>
+          </td>
+
+          <td class="col-mobile-hidden">
+            {% if p.due_date %}
+              <span class="cell-sub">{{ p.due_date|date:"M d, Y" }}</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+
+          <td class="sl-text-end col-mobile-hidden">
+            ₱{{ p.total_cost|floatformat:2|intcomma }}
+          </td>
+
+          <td class="sl-text-end col-mobile-hidden">
+            <span class="sl-text-emerald sl-fw-semibold">₱{{ p.amount_paid|floatformat:2|intcomma }}</span>
+          </td>
+
+          <td class="sl-text-end sl-fw-semibold text-danger">
+            ₱{{ p.outstanding|floatformat:2|intcomma }}
+          </td>
+
+          <td class="sl-text-center">
+            <div class="status-stack">
+              {% if p.due_date and p.due_date < today %}
+              <span class="sl-badge sl-badge-danger">Overdue</span>
+              {% endif %}
+              {% if p.amount_paid > 0 %}
+              <span class="sl-badge sl-badge-warning">Partial</span>
+              {% else %}
+              <span class="sl-badge sl-badge-danger">Debt</span>
+              {% endif %}
+            </div>
+          </td>
+
+          <td class="sl-text-center">
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
+                    hx-target="#confirmBody" hx-swap="innerHTML" title="Record a payment for this purchase">
+              <i class="bi bi-cash-coin"></i> Add payment
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% elif pay_filter_active and pay_any_count %}
+    <!-- Nothing in THIS date/status window, but the business still owes suppliers
+         outside it — don't falsely claim everything is paid. -->
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-funnel"></i></div>
+      <h3 class="empty-title">No bills in this range</h3>
+      <p class="empty-text">
+        {{ pay_any_count }} unpaid purchase{{ pay_any_count|pluralize }} outside this filter.
+        <a href="#" onclick="clearPayFilters(); return false;" class="link-accent">Show all</a>
+      </p>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon sl-text-emerald">
+        <i class="bi bi-check-circle-fill"></i>
+      </div>
+      <h3 class="empty-title">No outstanding payables</h3>
+      <p class="empty-text">All supplier purchases are fully paid. Nice work.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- PAGINATION — turns pay_page; {% templatetag openblock %} querystring {% templatetag closeblock %} keeps every other param -->
+  {% if pay_page_obj.paginator.num_pages > 1 %}
+  <div class="pagination-wrapper">
+    <nav>
+      <ul class="pagination">
+        <li class="page-item {% if not pay_page_obj.has_previous %}disabled{% endif %}">
+          {% if pay_page_obj.has_previous %}
+            <a class="page-link" href="{% querystring pay_page=pay_page_obj.previous_page_number %}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          {% else %}
+            <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+          {% endif %}
+        </li>
+
+        {% for p in pay_page_obj.paginator.page_range %}
+        <li class="page-item {% if p == pay_page_obj.number %}active{% endif %}">
+          <a class="page-link" href="{% querystring pay_page=p %}">{{ p }}</a>
+        </li>
+        {% endfor %}
+
+        <li class="page-item {% if not pay_page_obj.has_next %}disabled{% endif %}">
+          {% if pay_page_obj.has_next %}
+            <a class="page-link" href="{% querystring pay_page=pay_page_obj.next_page_number %}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          {% else %}
+            <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+          {% endif %}
+        </li>
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+
+{% comment %}
+Filter helpers live here (not in the host) so BOTH purchase_history and the
+standalone purchase-payables page inherit them from the single include. Twins of
+applyQueryFilter — flip a pay_ param while preserving every other param
+(including the host table's own filters); reset only pay_page.
+{% endcomment %}
+<script>
+function applyPayFilter(key, value) {
+  const params = new URLSearchParams(window.location.search);
+  if (value) { params.set(key, value); } else { params.delete(key); }
+  params.delete("pay_page");
+  const qs = params.toString();
+  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
+}
+
+function clearPayFilters() {
+  const params = new URLSearchParams(window.location.search);
+  ["pay_period", "pay_status", "pay_select_month", "pay_start_date", "pay_end_date", "pay_page"]
+    .forEach(k => params.delete(k));
+  const qs = params.toString();
+  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
+}
+</script>

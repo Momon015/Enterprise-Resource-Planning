@@ -312,7 +312,7 @@
           </div>
           <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-            {% if not sale.is_void and not sale.is_fully_paid %}
+            {% if not sale.is_void and not sale.is_fully_paid and can_view_receivables %}
             <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
                hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
                hx-target="#confirmBody" hx-swap="innerHTML"

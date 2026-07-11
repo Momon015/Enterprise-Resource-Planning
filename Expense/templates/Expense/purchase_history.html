@@ -428,6 +428,16 @@ function applyQueryFilter(key, value) {
         </div>
         {% endif %}
       </div>
+
+      {% comment %} EMBEDDED PAYABLES — the same _payables_panel.html partial the
+      standalone purchase-payables page uses (one source of truth). pay_-prefixed
+      params so its filters never clash with the purchase table above. Hidden
+      unless owner/dev or a staffer the owner granted can_handle_payables.
+      Mirrors the receivables panel in sale_list. {% endcomment %}
+      {% if can_view_payables %}
+        {% include 'Expense/partials/_payables_panel.html' %}
+      {% endif %}
+
     </div>
 
     <!-- RIGHT PANEL -->

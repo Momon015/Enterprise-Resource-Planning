@@ -34,13 +34,16 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
-      <!-- ADVANCED FILTER -->
+      {% comment %} ADVANCED FILTER — month + custom date range only (quick ranges +
+      status live in the panel below). pay_-prefixed field names match the shared
+      _payables_panel.html so nothing clashes; hidden inputs carry the panel's own
+      pay_period / pay_status through a GET submit so they aren't wiped. {% endcomment %}
       <details class="filter-card"
-        {% if request.GET.status or request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
+        {% if pay_select_month or request.GET.pay_start_date or request.GET.pay_end_date %}open{% endif %}>
         <summary>
           <i class="bi bi-sliders"></i>
           <span>Advanced filters</span>
-          {% if request.GET.status or request.GET.select_month or request.GET.start_date or request.GET.end_date %}
+          {% if pay_select_month or request.GET.pay_start_date or request.GET.pay_end_date %}
           <span class="filter-badge">Active</span>
           {% endif %}
         </summary>
@@ -48,31 +51,24 @@
         <div class="filter-body">
           <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
 
-            <div class="form-field">
-              <label class="form-label">
-                <i class="bi bi-flag"></i> Status
-              </label>
-              <select name="status" class="form-control form-control--polish">
-                <option value="">All</option>
-                <option value="utang" {% if request.GET.status == 'utang' %}selected{% endif %}>Debt (unpaid)</option>
-                <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>Partial</option>
-              </select>
-            </div>
+            <!-- preserve the panel's own quick-range/status selection -->
+            {% if pay_period %}<input type="hidden" name="pay_period" value="{{ pay_period }}">{% endif %}
+            {% if pay_status %}<input type="hidden" name="pay_status" value="{{ pay_status }}">{% endif %}
 
             <div class="form-field">
               <label class="form-label">
                 <i class="bi bi-calendar3"></i> Month
               </label>
-              <input type="month" name="select_month" class="form-control form-control--polish"
-                value="{{ request.GET.select_month|default:current_year }}">
+              <input type="month" name="pay_select_month" class="form-control form-control--polish"
+                value="{{ request.GET.pay_select_month|default:current_year }}">
             </div>
 
             <div class="form-field">
               <label class="form-label">
                 <i class="bi bi-calendar-event"></i> From
               </label>
-              <input type="date" name="start_date" class="form-control form-control--polish"
-                value="{{ request.GET.start_date|default:'' }}">
+              <input type="date" name="pay_start_date" class="form-control form-control--polish"
+                value="{{ request.GET.pay_start_date|default:'' }}">
             </div>
 
             <div class="form-range-sep">→</div>
@@ -81,8 +77,8 @@
               <label class="form-label">
                 <i class="bi bi-calendar-check"></i> To
               </label>
-              <input type="date" name="end_date" class="form-control form-control--polish"
-                value="{{ request.GET.end_date|default:'' }}">
+              <input type="date" name="pay_end_date" class="form-control form-control--polish"
+                value="{{ request.GET.pay_end_date|default:'' }}">
             </div>
 
             <div class="form-actions-inline">
@@ -98,144 +94,9 @@
         </div>
       </details>
 
-      <!-- TABLE -->
-      <div class="card table-card">
-        <div class="card-header">
-          <div class="card-header-left-group">
-            <span class="card-header-title">Open Balances</span>
-            <span class="sl-badge sl-badge-light">
-              {{ page_obj.paginator.count }} purchase{{ page_obj.paginator.count|pluralize }}
-            </span>
-          </div>
-          <span class="card-header-sub">Earliest due first</span>
-        </div>
+      <!-- OPEN BALANCES — shared panel (same partial the purchase list embeds) -->
+      {% include 'Expense/partials/_payables_panel.html' %}
 
-        <div class="table-responsive">
-          {% if page_obj and page_obj.object_list %}
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Purchase Date</th>
-                <th>Reference</th>
-                <th class="col-mobile-hidden">Due Date</th>
-                <th class="sl-text-end col-mobile-hidden">Total</th>
-                <th class="sl-text-end col-mobile-hidden">Paid</th>
-                <th class="sl-text-end">Outstanding</th>
-                <th class="sl-text-center">Status</th>
-                <th class="sl-text-center">Payment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for p in page_obj %}
-              <tr class="{% if p.due_date and p.due_date < today %}is-overdue{% endif %}">
-
-                <td class="cell-primary">
-                  {{ p.purchase_date|date:"M d" }}<span class="col-mobile-hidden">, {{ p.purchase_date|date:"Y" }}</span>
-                  <div class="cell-sub">{{ p.purchase_date|date:"l" }}</div>
-                </td>
-
-                <td>
-                  <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.id %}"
-                     class="link-accent cell-primary" title="View purchase details">{{ p.reference }}</a>
-                </td>
-
-                <td class="col-mobile-hidden">
-                  {% if p.due_date %}
-                    <span class="cell-sub">{{ p.due_date|date:"M d, Y" }}</span>
-                  {% else %}
-                    <span class="text-muted">—</span>
-                  {% endif %}
-                </td>
-
-                <td class="sl-text-end col-mobile-hidden">
-                  ₱{{ p.total_cost|floatformat:2|intcomma }}
-                </td>
-
-                <td class="sl-text-end col-mobile-hidden">
-                  <span class="sl-text-emerald sl-fw-semibold">₱{{ p.amount_paid|floatformat:2|intcomma }}</span>
-                </td>
-
-                <td class="sl-text-end sl-fw-semibold text-danger">
-                  ₱{{ p.outstanding|floatformat:2|intcomma }}
-                </td>
-
-                <td class="sl-text-center">
-                    <div class="status-stack">
-                        {% if p.due_date and p.due_date < today %}
-                        <span class="sl-badge sl-badge-danger">Overdue</span>
-                        {% endif %}
-                        {% if p.amount_paid > 0 %}
-                        <span class="sl-badge sl-badge-warning">Partial</span>
-                        {% else %}
-                        <span class="sl-badge sl-badge-danger">Debt</span>
-                        {% endif %}
-                    </div>
-                </td>
-
-                <td class="sl-text-center">
-                  <button type="button" class="btn btn-sm btn-outline-primary"
-                          hx-get="{% url 'add-purchase-payment' business_slug=current_business.slug purchase_id=p.id %}?next=payables"
-                          hx-target="#confirmBody" hx-swap="innerHTML" title="Record a payment for this purchase">
-                    <i class="bi bi-cash-coin"></i> Record payment
-                  </button>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% else %}
-          <div class="empty-state">
-            <div class="empty-icon" style="color: #16a34a;">
-              <i class="bi bi-check-circle-fill"></i>
-            </div>
-            <h3 class="empty-title">No outstanding payables</h3>
-            <p class="empty-text">All supplier purchases are fully paid. Nice work.</p>
-          </div>
-          {% endif %}
-        </div>
-
-        <!-- PAGINATION -->
-        {% if page_obj.paginator.num_pages > 1 %}
-        <div class="pagination-wrapper">
-          <nav>
-            <ul class="pagination">
-              {% with st=request.GET.status sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date pd=request.GET.period %}
-
-              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                {% if page_obj.has_previous %}
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
-                  <i class="bi bi-chevron-left"></i>
-                </a>
-                {% else %}
-                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                {% endif %}
-              </li>
-
-              {% for p in page_obj.paginator.page_range %}
-              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
-                  {{ p }}
-                </a>
-              </li>
-              {% endfor %}
-
-              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                {% if page_obj.has_next %}
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if st %}&status={{ st }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pd %}&period={{ pd }}{% endif %}">
-                  <i class="bi bi-chevron-right"></i>
-                </a>
-                {% else %}
-                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                {% endif %}
-              </li>
-
-              {% endwith %}
-            </ul>
-          </nav>
-        </div>
-        {% endif %}
-
-      </div>
     </div>
 
     <!-- RIGHT PANEL -->
@@ -248,12 +109,12 @@
             <i class="bi bi-graph-up-arrow"></i> Payables Summary
           </span>
           <span class="card-header-sub">
-            {% if request.GET.period == 'today' %}Today
-            {% elif request.GET.period == 'last_week' %}Last week
-            {% elif request.GET.period == 'week' %}This week
-            {% elif request.GET.period == 'month' %}This month
-            {% elif request.GET.select_month %}{{ request.GET.select_month }}
-            {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
+            {% if pay_period == 'today' %}Today
+            {% elif pay_period == 'last_week' %}Last week
+            {% elif pay_period == 'week' %}This week
+            {% elif pay_period == 'month' %}This month
+            {% elif request.GET.pay_select_month %}{{ request.GET.pay_select_month }}
+            {% elif request.GET.pay_start_date and request.GET.pay_end_date %}{{ request.GET.pay_start_date }} → {{ request.GET.pay_end_date }}
             {% else %}All time
             {% endif %}
           </span>
@@ -264,52 +125,21 @@
           <!-- Featured Total Owed -->
           <div class="period-net period-net--loss">
             <div class="period-net-label">TOTAL OWED</div>
-            <div class="period-net-value">₱{{ total_outstanding|floatformat:2|intcomma }}</div>
+            <div class="period-net-value">₱{{ pay_total_outstanding|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-building"></i>
-              {{ page_obj.paginator.count }} unpaid purchase{{ page_obj.paginator.count|pluralize }}
+              {{ pay_page_obj.paginator.count }} unpaid purchase{{ pay_page_obj.paginator.count|pluralize }}
             </div>
           </div>
 
-          {% comment %} <dl class="period-breakdown">
-            <div>
-              <dt>Open balances</dt>
-              <dd>{{ page_obj.paginator.count }}</dd>
-            </div>
-            {% if overdue_count %}
+          {% if pay_overdue_count %}
+          <dl class="period-breakdown">
             <div>
               <dt>Overdue</dt>
-              <dd class="text-danger sl-fw-bold">{{ overdue_count }}</dd>
+              <dd class="text-danger sl-fw-bold">{{ pay_overdue_count }}</dd>
             </div>
-            {% endif %}
-          </dl> {% endcomment %}
-
-          <!-- Quick Ranges -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-header-title">
-                <i class="bi bi-calendar-range"></i> Quick Ranges
-              </span>
-            </div>
-            <div class="card-body quick-ranges">
-              <a href="{% url 'purchase-payables' business_slug=current_business.slug %}?period=today"
-                class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
-                <i class="bi bi-calendar-day"></i> Today
-              </a>
-              <a href="{% url 'purchase-payables' business_slug=current_business.slug %}?period=last_week"
-                class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-                <i class="bi bi-clock-history"></i> Last week
-              </a>
-              <a href="{% url 'purchase-payables' business_slug=current_business.slug %}?period=week"
-                class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-                <i class="bi bi-calendar-week"></i> This week
-              </a>
-              <a href="{% url 'purchase-payables' business_slug=current_business.slug %}?period=month"
-                class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-                <i class="bi bi-calendar-month"></i> This month
-              </a>
-            </div>
-          </div>
+          </dl>
+          {% endif %}
 
         </div>
       </div>

@@ -59,6 +59,31 @@
             </label>
           </div>
 
+          {# Debts & collections — owner-granted, off by default. Enforced server-side. #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label class="mf-form-label">Debts &amp; collections</label>
+            <label style="display:flex; align-items:flex-start; gap:0.6rem; cursor:pointer; padding:0.85rem 1rem; border:1px solid var(--border); border-radius:10px; margin-bottom:0.6rem;">
+              <input type="checkbox" name="can_handle_receivables" id="id_can_handle_receivables" style="margin-top:0.2rem;"
+                     {% if form.can_handle_receivables.value %}checked{% endif %}>
+              <span>
+                <strong>Can see &amp; collect customer debt (receivables)</strong>
+                <span style="display:block; font-size:0.78rem; color:var(--muted); margin-top:0.25rem;">
+                  Shows who owes the business and lets this staff record payments. Leave off to hide the receivables table from them.
+                </span>
+              </span>
+            </label>
+            <label style="display:flex; align-items:flex-start; gap:0.6rem; cursor:pointer; padding:0.85rem 1rem; border:1px solid var(--border); border-radius:10px;">
+              <input type="checkbox" name="can_handle_payables" id="id_can_handle_payables" style="margin-top:0.2rem;"
+                     {% if form.can_handle_payables.value %}checked{% endif %}>
+              <span>
+                <strong>Can see &amp; settle supplier bills (payables)</strong>
+                <span style="display:block; font-size:0.78rem; color:var(--muted); margin-top:0.25rem;">
+                  Shows what the business owes suppliers and lets this staff record payments. Leave off to hide the payables table from them.
+                </span>
+              </span>
+            </label>
+          </div>
+
         </div>
 
         <div class="cm-actions" style="margin-top:1rem;">

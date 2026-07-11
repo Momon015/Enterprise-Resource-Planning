@@ -82,3 +82,25 @@ def filter_to_own_if_staff(user, queryset, owned_by_field='created_by'):
     if user.role == 'staff':
         return queryset.filter(**{owned_by_field: user})
     return queryset
+
+
+def can_handle_receivables(user, business):
+    """True if this user may see & collect customer debt for this business.
+    Owner/dev always; staff only if their Employee record for this business has
+    the owner-granted flag. Guards the receivables panel, page, and payment action."""
+    if user.role in ('owner', 'developer'):
+        return True
+    from Employee.models import Employee   # local import — avoids app-load cycle
+    return Employee.objects.filter(
+        staff_user=user, business=business, can_handle_receivables=True,
+    ).exists()
+
+
+def can_handle_payables(user, business):
+    """Twin of can_handle_receivables for supplier bills (payables)."""
+    if user.role in ('owner', 'developer'):
+        return True
+    from Employee.models import Employee
+    return Employee.objects.filter(
+        staff_user=user, business=business, can_handle_payables=True,
+    ).exists()
