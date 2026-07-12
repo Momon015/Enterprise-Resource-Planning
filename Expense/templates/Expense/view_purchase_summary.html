@@ -220,7 +220,7 @@ document.addEventListener("DOMContentLoaded", function () {
          hx-get="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
          hx-target="#confirmBody" hx-swap="innerHTML"
          class="btn btn-danger">
-        <i class="bi bi-x-lg"></i> Void
+        <i class="bi bi-ban"></i> Void
       </a>
 
       {% elif not purchase.is_void %}

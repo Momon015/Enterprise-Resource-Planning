@@ -1,5 +1,114 @@
 from activity.models import ActivityEvent
-from django.db.models import Q
+from django.db.models import Q, F, Count
+from django.urls import reverse
+
+
+def attention_items(business):
+    """PINNED bell items — things that are TRUE RIGHT NOW, not things that happened.
+
+    Deliberately NOT an ActivityEvent and NOT cached:
+      • not an event  — an event goes stale ("3 awaiting" is a lie the moment one is
+                        confirmed) and can be marked read while still true. State can't.
+      • not cached    — measured at 1.7ms worst case (100 businesses x 300 products,
+                        150 of them out of stock). A cache would save under a
+                        millisecond and buy a way for the panel to lie. Revisit only
+                        if ONE business's catalog passes ~10k products.
+
+    COUNTS ONLY — never enumerate rows. A 150-product outage must stay ONE line,
+    or it buries the feed underneath it (which is the thing this panel exists to stop).
+
+    Each row is a breadcrumb — ENTITY • STATE ("3 Products • Out of Stock") — and wears
+    its destination's SIDEBAR icon (basket=Products, boxes=Stock, box-seam=Materials), so
+    the row tells you where it lands before you click. Retail/pharmacy is 1:1 (products
+    only); phase 2 (cafe/restaurant) adds material rows beside them and the entity segment
+    is what keeps "5 Products • Out of Stock" and "2 Materials • Out of Stock" legible
+    stacked together.
+    """
+    from Sales.models import Sale
+    from Product.models import Product, CRITICAL_BAND_Q, LOW_BAND_Q, with_stock_bands
+
+    slug = business.slug
+    items = []
+
+    def row(icon, tone, count, noun, state, sub, text, url):
+        """One item, TWO renderings — the bell shows the breadcrumb (entity • state),
+        the dashboard panel shows the sentence (text). Same source, so the two
+        surfaces can never drift into telling different stories."""
+        items.append({
+            'icon':   icon,
+            'tone':   tone,
+            'entity': f"{count} {noun}{'' if count == 1 else 's'}",
+            'state':  state,
+            'sub':    sub,
+            'text':   text,
+            'url':    url,
+        })
+
+    def be(n):
+        return 'is' if n == 1 else 'are'
+
+    pending = Sale.objects.filter(business=business, status='pending').count()
+    if pending:
+        row('bi-hourglass-split', 'warning', pending, 'Sale', 'Awaiting Payment',
+            'Confirm after payment is received',
+            f"{pending} sale{'' if pending == 1 else 's'} {be(pending)} awaiting payment "
+            f"— confirm after payment is received",
+            reverse('sale-draft-list', kwargs={'business_slug': slug}))
+
+    # ── PRODUCTS (retail/pharmacy = the only stock there is) ──
+    # ONE conditional aggregate, not three counts — same table, same rows, so scanning
+    # it once and tallying three buckets beats three separate scans (measured 2.3ms/1q
+    # vs 3.0ms/3q). Each bucket mirrors a product_list ?stock= filter EXACTLY, so every
+    # number here lands on precisely that many rows when clicked.
+    #
+    #   out      → ?stock=none      qty = 0
+    #   critical → ?stock=critical  1 .. max(1, round(low * 0.2))
+    #   low      → ?stock=low       crit+1 .. low_stock_threshold
+    #
+    # The three bands are DISJOINT (Product/models.py) — a critically-low product is NOT
+    # also counted as Running Low. Severity order below: Out → Critically Low → Running Low.
+    product_url = reverse('product-list', kwargs={'business_slug': slug})
+    stock = with_stock_bands(Product.goods.filter(business=business)).aggregate(
+        out=Count('pk', filter=Q(prepared_quantity=0)),
+        critical=Count('pk', filter=CRITICAL_BAND_Q),
+        low=Count('pk', filter=LOW_BAND_Q),
+    )
+
+    out_of_stock = stock['out']
+    if out_of_stock:
+        row('bi-basket', 'danger', out_of_stock, 'Product', 'Out of Stock',
+            'Restock to avoid missed sales',
+            f"{out_of_stock} product{'' if out_of_stock == 1 else 's'} {be(out_of_stock)} "
+            f"out of stock — restock to avoid missed sales",
+            product_url + '?stock=none')
+
+    critical = stock['critical']
+    if critical:
+        # amber — the only warm step between red (out) and silver (low). Tried orange
+        # and yellow here first; both are <10 degrees from amber and read identically at 32px.
+        row('bi-basket', 'warning', critical, 'Product', 'Critically Low',
+            'Almost gone — restock now',
+            f"{critical} product{'' if critical == 1 else 's'} {be(critical)} "
+            f"critically low — restock now",
+            product_url + '?stock=critical')
+
+    low_only = stock['low']
+    if low_only:
+        # SILVER, not warm — "running low" is a nudge, not an alarm. Colouring it warm
+        # implies an urgency it doesn't have and steals the eye from the rows above.
+        row('bi-basket', 'neutral', low_only, 'Product', 'Running Low',
+            'Reorder soon',
+            f"{low_only} product{'' if low_only == 1 else 's'} {be(low_only)} running low on stock",
+            product_url + '?stock=low')
+
+    # ── PHASE 2 — cafe/restaurant also track raw MATERIALS (Inventory Stock).
+    #    Same two rows, `bi-boxes`, gated on business_type in ('cafe','restaurant')
+    #    — mirrors log_stock_threshold_events in activity/signals.py. Until this
+    #    lands, material stock.out events must STAY in the event feed or cafes
+    #    lose the alert entirely.
+
+    return items
+
 
 def scope_events_for_user(qs, user):
     """

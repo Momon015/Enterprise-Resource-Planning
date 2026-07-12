@@ -6,7 +6,10 @@ from django.db.models import Sum, F, Q, DecimalField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, KPI_CACHE_TTL, KPI_BUST_DEBOUNCE
+from core.constants import (LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD,
+                            CRITICAL_STOCK_THRESHOLD, KPI_CACHE_TTL, KPI_BUST_DEBOUNCE)
+from Product.models import CRITICAL_BAND_Q, LOW_BAND_Q, with_stock_bands
+from Inventory.models import STOCK_CRITICAL_Q, STOCK_LOW_Q
 
 CACHE_TTL = KPI_CACHE_TTL
 
@@ -51,10 +54,10 @@ def compute_product_kpis(business, as_of=None):
 
     total = qs.count()
     in_stock = qs.filter(prepared_quantity__gte=F('high_stock_threshold')).count()
-    low_stock = qs.filter(
-        prepared_quantity__lte=F('low_stock_threshold'),
-        prepared_quantity__gte=1,
-    ).count()
+    # low and critical are DISJOINT (Product/models.py) — Low Stock excludes the criticals
+    _banded = with_stock_bands(qs)
+    low_stock = _banded.filter(LOW_BAND_Q).count()
+    critical_stock = _banded.filter(CRITICAL_BAND_Q).count()
     out_of_stock = qs.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
 
     inventory_value = qs.aggregate(
@@ -94,6 +97,7 @@ def compute_product_kpis(business, as_of=None):
         'total': total,
         'in_stock': in_stock,
         'low_stock': low_stock,
+        'critical_stock': critical_stock,
         'out_of_stock': out_of_stock,
         'inventory_value': str(inventory_value),
         # velocity
@@ -230,11 +234,17 @@ def compute_inventory_kpis(business, as_of=None):
     qs = Stock.objects.filter(business=business).exclude(material__status='inactive')
 
     total = qs.count()
-    low_stock = qs.filter(
-        quantity__lte=LOW_STOCK_THRESHOLD, quantity__gte=1
-    ).count()
+    # Stock has NO per-item threshold (only Product does), so the bands use the globals.
+    # DISJOINT, same as products: Low Stock EXCLUDES the criticals. Give Material its own
+    # low_stock_threshold field and these become per-item like Product's.
+    low_stock = qs.filter(STOCK_LOW_Q).count()
+    critical_stock = qs.filter(STOCK_CRITICAL_Q).count()
     out_of_stock = qs.filter(quantity=NO_STOCK_THRESHOLD).count()
-    in_stock = qs.filter(quantity__gt=LOW_STOCK_THRESHOLD).count()
+    # >= HIGH, not > LOW. Was `quantity__gt=LOW_STOCK_THRESHOLD`, which disagreed with the
+    # ?stock=high filter this card CLICKS INTO (quantity__gte=HIGH_STOCK_THRESHOLD) — a
+    # material at qty 30 was counted here but then missing from the list. Mirrors Product's
+    # in_stock (prepared_quantity >= high_stock_threshold).
+    in_stock = qs.filter(quantity__gte=HIGH_STOCK_THRESHOLD).count()
 
 
     total_value = qs.aggregate(
@@ -248,6 +258,7 @@ def compute_inventory_kpis(business, as_of=None):
     return {
         'total': total,
         'low_stock': low_stock,
+        'critical_stock': critical_stock,
         'in_stock': in_stock,
         'out_of_stock': out_of_stock,
         'total_value': str(total_value),

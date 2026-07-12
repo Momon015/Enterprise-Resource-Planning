@@ -4,6 +4,62 @@
   /* Reclaim vertical space so the Items row fits without scroll */
   main { min-height: 0; }
   .page-header { margin-bottom: .6rem; }
+
+    /* Checkout decision modals + X close */
+  .ss-close{
+    position:absolute; top:.25rem; right:.5rem;
+    background:transparent; border:none; color:var(--muted);
+    font-size:1.15rem; line-height:1; padding:.35rem .5rem; cursor:pointer; border-radius:8px;
+    z-index:5;
+  }
+  .ss-close:hover{ color:var(--danger); background:var(--danger-light); }
+  .ss-modal-overlay{
+    position:fixed; inset:0; z-index:1080; background:rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center; padding:1rem;
+  }
+  .ss-modal-overlay[hidden]{ display:none; }
+  .ss-modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    width:100%; max-width:420px; box-shadow:0 18px 48px rgba(0,0,0,.28); overflow:hidden;
+  }
+  .ss-modal-head{ display:flex; gap:.75rem; align-items:flex-start; padding:1.1rem 1.25rem .4rem; }
+  .ss-modal-icon{
+    flex:0 0 auto; width:38px; height:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--accent-soft, var(--surface-alt)); color:var(--accent); font-size:1.15rem;
+  }
+  .ss-modal-icon--danger{ background:var(--danger-light); color:var(--danger); }
+  .ss-modal-title{ font-weight:700; color:var(--text); }
+  .ss-modal-sub{ font-size:.82rem; color:var(--muted); }
+  .ss-modal-body{ padding:.25rem 1.25rem 1rem; }
+  .ss-modal-text{ font-size:.88rem; color:var(--muted); margin:0; line-height:1.5; }
+  .ss-modal-actions{ display:flex; gap:.6rem; padding:0 1.25rem 1.25rem; }
+  .ss-modal-actions > *{ flex:1; margin:0; }
+  .ss-btn-danger{
+    display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
+    padding:.9rem; border-radius:var(--radius-md); background:var(--danger); color:#fff;
+    font-weight:700; text-decoration:none; border:none; cursor:pointer;
+  }
+  .ss-btn-danger:hover{ background:var(--danger-strong); color:#fff; }
+
+  /* Centered "Awaiting Payment" modal */
+  .ss-modal--center{ position:relative; text-align:center; padding:1.6rem 1.35rem 1.35rem; }
+  .ss-modal-x{
+    position:absolute; top:.55rem; right:.6rem; background:transparent; border:none;
+    color:var(--muted); font-size:1rem; line-height:1; padding:.3rem .45rem;
+    cursor:pointer; border-radius:8px;
+  }
+  .ss-modal-x:hover{ color:var(--text); background:var(--surface-alt); }
+  .ss-modal-badge {
+    width:58px; height:58px; margin:.25rem auto .85rem; border-radius:16px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--accent-light); color:var(--accent); font-size:1.55rem;
+  }
+  .ss-modal--center .ss-modal-title{ font-size:1.1rem; margin-bottom:.4rem; }
+  .ss-modal--center .ss-modal-text{ margin:0 auto 1.25rem; max-width:34ch; color:var(--muted); }
+  .ss-modal--center .ss-modal-actions{ padding:0; }
+  .ss-modal-badge--danger{ background:var(--danger-light); color:var(--danger); }
+
 </style>
 {% endblock %}
 
@@ -169,8 +225,10 @@ function toggleSalesPaymentFields() {
 
         </div>
 
-      <form method="POST" action="{% url 'sale-confirm-summary' business_slug=current_business.slug %}">
+      <form method="POST" action="{% url 'sale-confirm-summary' business_slug=current_business.slug %}" id="saleForm">
         {% csrf_token %}
+        <input type="hidden" name="sale_status" id="sale_status_input" value="completed">
+
 
         <!-- PAYMENT CARD -->
         <div class="pos-card">
@@ -241,9 +299,10 @@ function toggleSalesPaymentFields() {
                  style="flex:1; width:auto; margin:0;">
                 <i class="bi bi-pencil-square"></i> Edit
               </a>
-              <button type="submit" class="btn-confirm" style="flex:1; width:auto; margin:0;">
+              <button type="button" class="btn-confirm" style="flex:1; width:auto; margin:0;" onclick="ssHandleConfirm()">
                 <i class="bi bi-check2-circle"></i> Confirm
               </button>
+
             </div>
           </div>
         </div>
@@ -265,5 +324,34 @@ function toggleSalesPaymentFields() {
   {% endif %}
 
 </div>
+
+{% include 'sales/partials/_verify_payment_modal.html' %}
+
+{% include 'sales/partials/_discard_sale_modal.html' %}
+
+<script>
+  function ssOpenModal(id){ document.getElementById(id).hidden = false; }
+  function ssCloseModal(id){ document.getElementById(id).hidden = true; }
+  function ssSubmitSale(status){
+    document.getElementById('sale_status_input').value = status;
+    document.getElementById('saleForm').submit();
+  }
+  function ssHandleConfirm(){
+    const method = document.querySelector('#saleForm select[name="payment_method"]').value;
+    const checked = document.querySelector('#saleForm input[name="payment_status"]:checked');
+    const status = checked ? checked.value : 'full';
+    // Electronic payment we can't verify instantly → ask Now / Later; else post it.
+    if ((method === 'gcash' || method === 'bank') && status !== 'utang'){
+      ssOpenModal('verifyModal');
+    } else {
+      ssSubmitSale('completed');
+    }
+  }
+  // Close a modal by clicking its backdrop.
+  document.querySelectorAll('.ss-modal-overlay').forEach(function(o){
+    o.addEventListener('click', function(e){ if(e.target === o){ o.hidden = true; } });
+  });
+</script>
+
 
 {% endblock content %}

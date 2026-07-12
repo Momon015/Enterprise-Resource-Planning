@@ -240,7 +240,7 @@
          hx-get="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
          hx-target="#confirmBody" hx-swap="innerHTML"
          class="btn btn-outline-danger">
-        <i class="bi bi-x-lg"></i> Void
+        <i class="bi bi-ban"></i> Void
       </a>
       {% elif not sale.is_void %}
       <span class="btn btn-outline-danger" style="opacity:.5; cursor:not-allowed;"

@@ -1,11 +1,20 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 
 from core.models import TimeStampModel, SlugModel, Category
+from core.constants import LOW_STOCK_THRESHOLD, CRITICAL_STOCK_THRESHOLD
 from Supplier.models import Material
 from user.models import User, BusinessProfile
 
 # Create your models here.
+
+# Material-stock bands, DISJOINT — the Stock twin of Product's CRITICAL_BAND_Q / LOW_BAND_Q.
+# Stock has no per-item threshold, so these use the globals (see core/constants.py).
+#   critical  1 .. CRITICAL          low  CRITICAL+1 .. LOW      (low EXCLUDES critical)
+STOCK_CRITICAL_Q = Q(quantity__gte=1, quantity__lte=CRITICAL_STOCK_THRESHOLD)
+STOCK_LOW_Q      = Q(quantity__gt=CRITICAL_STOCK_THRESHOLD,
+                     quantity__lte=LOW_STOCK_THRESHOLD)
 
 class Stock(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stocks', null=True, blank=True)

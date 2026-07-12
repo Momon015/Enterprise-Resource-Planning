@@ -323,9 +323,44 @@
     </div>
     {% endif %}
 
-    <!-- LOW STOCK (running low, not yet out) -->
+    <!-- CRITICALLY LOW (almost gone — replaced the Low Stock card 2026-07-12) -->
+    <div class="kpi-card{% if hue_critical %} kpi-card--hue-{{ hue_critical }}{% endif %}{% if critical_top %} has-popover{% endif %} kpi-card--clickable"
+         data-href="{% url 'product-list' business_slug=current_business.slug %}?stock=critical" tabindex="0">
+      <!-- icon is CONSTANT (says what the card is about); only the COLOUR moves (says how
+           it's doing) — green when nothing is critical, amber when something is -->
+      <div class="kpi-icon kpi-icon--{% if hue_critical %}{{ hue_critical }}{% else %}neutral{% endif %}"><i class="bi bi-exclamation-octagon"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Critically Low</div>
+        <div class="kpi-value">{{ critical_count }}</div>
+        {% if critical_count %}
+          <div class="kpi-delta kpi-delta--warning"><i class="bi bi-exclamation-circle"></i> Restock now</div>
+        {% elif out_of_stock or low_only %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing critical</div>
+        {% else %}
+          <div class="kpi-delta kpi-delta--good"><i class="bi bi-check-circle"></i> All in stock</div>
+        {% endif %}
+      </div>
+
+      {% if critical_top %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Critically low">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Critically low</div>
+        {% for pr in critical_top %}
+        <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
+        {% endfor %}
+        <a class="kpi-popover__link" href="{% url 'product-list' business_slug=current_business.slug %}?stock=critical">View products <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
+    </div>
+
+    {% comment %} REPLACED 2026-07-12 by the Critically Low card above — the strip has only
+    2 stock slots, and critical + out are the states that cost you sales TODAY; merely-low
+    is a nudge (it still appears in Needs Attention and in the bell). `low_only` /
+    `low_stock_top` / `hue_lowstock` are all still computed in the view. Uncomment to restore.
     <div class="kpi-card{% if hue_lowstock %} kpi-card--hue-{{ hue_lowstock }}{% endif %}{% if low_stock_top %} has-popover{% endif %} kpi-card--clickable"
-         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" tabindex="0">
+         data-href="{% url 'product-list' business_slug=current_business.slug %}?stock=low" tabindex="0">
       <div class="kpi-icon kpi-icon--{% if hue_lowstock %}{{ hue_lowstock }}{% else %}neutral{% endif %}"><i class="bi {% if hue_lowstock == 'success' %}bi-patch-check-fill{% else %}bi-exclamation-triangle{% endif %}"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Low Stock</div>
@@ -338,33 +373,20 @@
           <div class="kpi-delta kpi-delta--good">Stock is healthy</div>
         {% endif %}
       </div>
-
-      {% if low_stock_top %}
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Running low">
-        <i class="bi bi-chevron-down"></i>
-      </button>
-      <div class="kpi-popover">
-        <div class="kpi-popover__title">Running low</div>
-        {% for pr in low_stock_top %}
-        <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
-        {% endfor %}
-        <div class="kpi-popover__row kpi-popover__row--total"><span>Running low</span><span class="num">{{ low_only }} item{{ low_only|pluralize }}</span></div>
-        <a class="kpi-popover__link" href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=low">View inventory <i class="bi bi-arrow-right"></i></a>
-      </div>
-      {% endif %}
     </div>
+    {% endcomment %}
 
     <!-- OUT OF STOCK -->
     <div class="kpi-card{% if hue_outofstock %} kpi-card--hue-{{ hue_outofstock }}{% endif %} kpi-card--clickable"
-         data-href="{% url 'view-inventory-stock' business_slug=current_business.slug %}?stock=none" tabindex="0">
-      <div class="kpi-icon kpi-icon--{% if hue_outofstock %}{{ hue_outofstock }}{% else %}neutral{% endif %}"><i class="bi {% if hue_outofstock == 'success' %}bi-patch-check-fill{% else %}bi-x-octagon{% endif %}"></i></div>
+         data-href="{% url 'product-list' business_slug=current_business.slug %}?stock=none" tabindex="0">
+      <div class="kpi-icon kpi-icon--{% if hue_outofstock %}{{ hue_outofstock }}{% else %}neutral{% endif %}"><i class="bi bi-slash-circle"></i></div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>
         <div class="kpi-value">{{ out_of_stock }}</div>
         {% if out_of_stock %}
           <div class="kpi-delta kpi-delta--down"><i class="bi bi-exclamation-circle"></i> Restock now</div>
         {% else %}
-          <div class="kpi-delta kpi-delta--good">All in stock</div>
+          <div class="kpi-delta kpi-delta--good"><i class="bi bi-check-circle"></i> All in stock</div>
         {% endif %}
       </div>
     </div>

@@ -58,7 +58,10 @@
   <!-- KPI STATS ROW (4-col) -->
   <div class="kpi-row kpi-row--4col">
 
-    <!-- TOTAL PRODUCTS (click = clear stock filter) -->
+    {% comment %} RETIRED 2026-07-12 — Total Products card dropped to make room for the
+    Critically Low card (5 cards crowded the strip). The count still lives in the table
+    header badge ("N items"), and clicking a state card is how you clear/reset anyway.
+    Uncomment to restore.
     <div class="kpi-card kpi-card--hue-info kpi-card--clickable"
          data-href="{% url 'product-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--info">
@@ -69,6 +72,7 @@
         <div class="kpi-value">{{ kpis.current.total|default:"0" }}</div>
       </div>
     </div>
+    {% endcomment %}
 
     {% comment %} MOVED TO ANALYTICS (IA phase 3) — Units Sold card commented 2026-07-04.
     units_sold_month + vs-last-month delta belong to Sales Analytics; replaced here
@@ -97,10 +101,10 @@
     </div>
 
 
-    <!-- LOW STOCK (click = filter) -->
-    <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
+    <!-- LOW STOCK (click = filter) — silver: a nudge, not an alarm -->
+    <div class="kpi-card kpi-card--hue-neutral kpi-card--clickable"
          data-href="?stock=low" tabindex="0">
-      <div class="kpi-icon kpi-icon--warning">
+      <div class="kpi-icon kpi-icon--neutral">
         <i class="bi bi-exclamation-triangle"></i>
       </div>
       <div class="kpi-body">
@@ -109,15 +113,34 @@
       </div>
     </div>
 
-    <!-- OUT OF STOCK (click = filter) -->
-    <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
+    <!-- CRITICALLY LOW (click = filter) — green + check when the count is 0: nothing
+         critical is GOOD NEWS, so the card must not sit there looking like an alarm -->
+    <div class="kpi-card {% if kpis.current.critical_stock %}kpi-card--hue-warning{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
+         data-href="?stock=critical" tabindex="0">
+      <div class="kpi-icon kpi-icon--{% if kpis.current.critical_stock %}warning{% else %}success{% endif %}">
+        <i class="bi {% if kpis.current.critical_stock %}bi-exclamation-octagon{% else %}bi-check2-circle{% endif %}"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Critically Low</div>
+        <div class="kpi-value">{{ kpis.current.critical_stock|default:"0" }}</div>
+        {% if not kpis.current.critical_stock %}
+        <div class="kpi-delta kpi-delta--good">No products are critically low</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- OUT OF STOCK (click = filter) — same: 0 is good news, not a red warning -->
+    <div class="kpi-card {% if kpis.current.out_of_stock %}kpi-card--hue-danger{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
          data-href="?stock=none" tabindex="0">
-      <div class="kpi-icon kpi-icon--danger">
-        <i class="bi bi-slash-circle"></i>
+      <div class="kpi-icon kpi-icon--{% if kpis.current.out_of_stock %}danger{% else %}success{% endif %}">
+        <i class="bi {% if kpis.current.out_of_stock %}bi-slash-circle{% else %}bi-check2-circle{% endif %}"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>
         <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
+        {% if not kpis.current.out_of_stock %}
+        <div class="kpi-delta kpi-delta--good">No products are out of stock</div>
+        {% endif %}
       </div>
     </div>
 
@@ -216,13 +239,14 @@
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">Product Catalog</span>
-            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} items</span>
+            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} products</span>
             <details class="activity-filter-pop">
               <summary class="activity-filter-trigger activity-filter-trigger--labeled" title="Filter products">
                 <i class="bi bi-sliders"></i>
                 <span class="filter-trigger-label">
                   {% if request.GET.stock == 'high' %}In Stock
                   {% elif request.GET.stock == 'low' %}Low Stock
+                  {% elif request.GET.stock == 'critical' %}Critically Low
                   {% elif request.GET.stock == 'none' %}Out of Stock
                   {% elif request.GET.velocity == 'best' %}Best sellers
                   {% elif request.GET.velocity == 'slow' %}Slow movers
@@ -235,7 +259,7 @@
                 {% with q=request.GET.search cat=request.GET.category %}
                 <a href="{% url 'product-list' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
                    class="{% if not request.GET.stock and not request.GET.velocity %}is-active{% endif %}">
-                  <i class="bi bi-grid"></i> All
+                  <i class="bi bi-grid"></i> All status
                 </a>
                 <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
@@ -244,6 +268,10 @@
                 <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
                   <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=critical{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'critical' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-octagon"></i> Critically Low
                 </a>
                 <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
@@ -269,11 +297,12 @@
             </details>
           </div>
           <div class="activity-header-right">
-
+            {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant'%}
             <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
             <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Create product
             </a>
+            {% endif %}
 
             <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-bookmark-fill"></i> Presets
@@ -287,6 +316,7 @@
             {% comment %} <span class="card-header-sub" style="margin: 0;">
               {% if request.GET.stock == 'high' %}In Stock
               {% elif request.GET.stock == 'low' %}Low Stock
+              {% elif request.GET.stock == 'critical' %}Critically Low
               {% elif request.GET.stock == 'none' %}Out of Stock
               {% elif request.GET.velocity == 'best' %}Best sellers
               {% elif request.GET.velocity == 'slow' %}Slow movers
@@ -311,6 +341,10 @@
                 <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
                   <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=critical{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'critical' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-octagon"></i> Critically Low
                 </a>
                 <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">

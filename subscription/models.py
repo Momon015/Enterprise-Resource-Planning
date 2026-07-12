@@ -469,7 +469,8 @@ class BusinessPlan(models.Model):
     
     def can_add_sale(self):
         from Sales.models import Sale
-        return self._can_add('max_sales', self._today_count(Sale.objects))
+        # Only completed sales count toward the cap — pending/canceled drafts are free.
+        return self._can_add('max_sales', self._today_count(Sale.objects.filter(status='completed')))
 
     def can_add_purchase(self):
         from Expense.models import Purchase

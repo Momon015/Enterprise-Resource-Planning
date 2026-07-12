@@ -67,10 +67,105 @@ import logging
 
 # Create your views here.
 
+PENDING_SALE_CAP = 5   # max concurrent 'pending' drafts per business (verify-soon queue, not storage)
+
+def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
+                   payment_note, amount_str):
+    """Post a sale for real: deduct stock, record the payment, log, lock.
+    Shared by the complete-now checkout path and (Stage 2) the draft-list confirm."""
+
+    # ── Stock deduction — completed sales only ──────────
+    for item in sale_obj.sale_items.select_related('product', 'product__material').all():
+        product = item.product
+        if not product:
+            continue
+        quantity = item.quantity
+        try:
+            stock = Stock.objects.get(business=business, material=product.material)
+            if stock.quantity >= quantity:
+                stock.quantity -= quantity
+                stock.save()
+            else:
+                messages.error(request, f"{stock.name}'s quantity - Insufficient stock. ")
+        except Exception:
+            pass
+
+        if not product.is_service:
+            if product.prepared_quantity < quantity:
+                messages.warning(request, f"{product.name} - Insufficient stock.")
+            product.prepared_quantity -= quantity
+            product.save()
+
+    # ── Payment capture ─────────────────────────────────
+    if payment_method in ('credit', 'store_credit'):
+        payment_method = 'cash'   # store credit paused — guard hand-crafted POSTs
+    payment_note = (payment_note or '').strip()
+
+    if payment_status == 'full':
+        payment_amount = sale_obj.total_revenue
+    elif payment_status == 'partial':
+        try:
+            payment_amount = Decimal((amount_str or '0').strip())
+        except (ValueError, ArithmeticError, InvalidOperation):
+            payment_amount = Decimal('0')
+        if payment_amount <= 0:
+            messages.warning(request, "Partial amount was invalid - recorded as debt instead.")
+            payment_amount = Decimal('0')
+        elif payment_amount >= sale_obj.total_revenue:
+            payment_amount = sale_obj.total_revenue
+            messages.info(request, "Amount matched total - recorded as paid in full")
+    else:
+        payment_amount = Decimal('0')
+
+    method_display = None
+    if payment_amount > 0:
+        payment = SalesPayment.objects.create(
+            sale=sale_obj, business=business, amount=payment_amount,
+            method=payment_method, note=payment_note, created_by=request.user,
+        )
+        method_display = payment.get_method_display()
+        paid_desc = f"via {method_display}"
+        if payment_status == 'partial':
+            paid_desc += f" (partial) · ₱{sale_obj.outstanding:.2f} outstanding"
+        log_activity(
+            business, request.user, 'sale.paid', target=payment, description=paid_desc,
+            metadata={'reference': sale_obj.reference, 'amount': f"{payment_amount:.2f}",
+                      'method': payment.method, 'outstanding': str(sale_obj.outstanding)},
+        )
+
+    if not sale_obj.total_revenue or sale_obj.total_revenue == 0:
+        payment_text = "Free"
+    elif payment_status == 'full' and method_display:
+        payment_text = f"via {method_display}"
+    elif payment_status == 'partial' and method_display:
+        payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
+    else:
+        payment_text = "Debt"
+
+    items_text = summarize_items(sale_obj.sale_items.all(), prefix='-')
+    log_activity(
+        business, request.user, 'sale.completed', target=sale_obj,
+        description=f"{payment_text} · {items_text}",
+        metadata={'reference': sale_obj.reference, 'total': f"{sale_obj.total_revenue:.2f}",
+                  'line_count': sale_obj.line_count, 'payment_status': payment_status,
+                  'payment_method': payment_method if payment_status != 'utang' else None},
+    )
+    log_audit(
+        business, request.user, 'create', target=sale_obj,
+        new_values={'total_revenue': sale_obj.total_revenue, 'line_count': sale_obj.line_count,
+                    'payment_status': payment_status,
+                    'payment_method': payment_method if payment_status != 'utang' else None},
+    )
+    sale_obj.is_locked = True
+    sale_obj.save(update_fields=['is_locked'])
+
+
 def can_void_sale(sale):
-    """Same-day, not already void, no returns, and the void window is open."""
+    """Same-day, not already void, no returns, and the void window is open.
+    Drafts (pending/canceled) were never posted, so there's nothing to void."""
     return (
-        not sale.is_void
+        sale.status == 'completed'
+        and not sale.is_void
         and not sale.returns.exists()
         and sale.date == timezone.localdate()
         and void_window_open(sale.business)
@@ -110,7 +205,9 @@ def clear_sale(request, business_slug):
 @permission_required('read_only') # dev
 def sale_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business).order_by('-reference')
+    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(
+        business=business, status='completed').order_by('-reference')   # drafts live in the draft list
+
     # for staff to see their own records
     sales = filter_to_own_if_staff(request.user, sales) 
     form = SaleFilterForm(request.GET or None)
@@ -300,7 +397,7 @@ def sale_list(request, business_slug):
 
     if can_view_receivables:
         recv_base = (
-            Sale.objects.filter(business=business)
+            Sale.objects.filter(business=business, status='completed')   # a pending draft isn't a receivable
             .prefetch_related('payments', 'returns')
             .order_by('-date')
         )
@@ -335,6 +432,13 @@ def sale_list(request, business_slug):
         # cheerfully saying "all paid up" when unpaid sales exist outside the window.
         recv_filter_active = bool(recv_period or recv_status)
         recv_any_count = sum(1 for s in recv_base if s.outstanding > 0) if recv_filter_active else recv_paginator.count
+        
+        # Pending-drafts count for the header "Drafts" chip (same staff scoping as the list).
+        pending_count = filter_to_own_if_staff(
+            request.user,
+            get_queryset_for_user(request.user, Sale.objects.filter(business=business, status='pending'))
+        ).count()
+
 
     context = {
         'page_obj': page_obj,
@@ -368,6 +472,7 @@ def sale_list(request, business_slug):
         'recv_status': recv_status,
         'recv_filter_active': recv_filter_active,
         'recv_any_count': recv_any_count,
+        'pending_count': pending_count,
 
     }
 
@@ -655,75 +760,58 @@ def confirm_view_summary(request, business_slug):
     sale = prune_stale_cart_lines(request, business, 'sale', Product)
     line_count = request.session.get('line_count', 0)
     total_salary_cost = request.session.get('total_salary_cost', 0)
+
+    # ── Complete-now vs park-as-pending (from the "Verify the payment?" modal) ──
+    payment_status = request.POST.get('payment_status', 'full')
+    payment_method = request.POST.get('payment_method', 'cash')
+    payment_note   = request.POST.get('payment_note', '')
+    amount_str     = request.POST.get('amount_paid', '0')
+
+    sale_status = request.POST.get('sale_status', 'completed')
+    # Deferring only makes sense for electronic payments we can't verify instantly.
+    if sale_status == 'pending' and (payment_method not in ('gcash', 'bank') or payment_status == 'utang'):
+        sale_status = 'completed'
+
+    # Concurrent-pending cap — a short verify queue, not storage.
+    if sale_status == 'pending':
+        pending_count = Sale.objects.filter(business=business, status='pending').count()
+        if pending_count >= PENDING_SALE_CAP:
+            messages.warning(
+                request,
+                f"You have {PENDING_SALE_CAP} sales awaiting payment confirmation. "
+                f"Confirm or cancel one before adding another sales."
+            )
+            return redirect('view-session-summary', business_slug=business.slug)
+
     total_revenue = 0
     total_cost_price = 0
-    
+
     try:
         with transaction.atomic():
             sale_obj = Sale.objects.create(
-                user=business.user,
-                business=business, 
-                total_revenue=0, 
-                total_salary_cost=0, 
-                created_by=request.user)
+                user=business.user, business=business,
+                total_revenue=0, total_salary_cost=0,
+                created_by=request.user, status=sale_status)
 
-            # employee_ids = request.session.get('selected_employee_ids', [])
-            # print('employee_ids', employee_ids)
-            # employees = Employee.objects.filter(id__in=employee_ids, user=owner)
-            # print('employees', employees)
-            # employee_id = employees.values_list('id', flat=True)
-            # print('employee_id', employee_id)
-            
             for product_id, data in sale.items():
                 product = get_object_or_404(Product, business=business, id=product_id)
                 quantity = data.get('quantity', 1)
                 cost_price = data.get('cost_price', 0)
                 selling_price = data.get('selling_price', 0)
                 session_id = data.get('session_id')
-                
-                # computations 
-                total_cost_price_per_line = Decimal(cost_price) * quantity
-                total_cost_price += total_cost_price_per_line
-                
-                total_selling_price = Decimal(selling_price) * quantity
-                total_revenue += total_selling_price
-                
-                try:
-                    stock = Stock.objects.get(business=business, material=product.material) # I removed the created_by=request.user because it's using filter/get
-                    if stock.quantity >= quantity:
-                        stock.quantity -= quantity
-                        stock.save()
-                    else:
-                        messages.error(request, f"{stock.name}'s quantity - Insufficient stock. ")
-                except:
-                    pass
-                
+
+                total_cost_price += Decimal(cost_price) * quantity
+                total_revenue    += Decimal(selling_price) * quantity
+
                 SaleItem.objects.create(
-                    sale=sale_obj,
-                    product=product,
-                    price_at_sale=selling_price,
-                    cost_price=cost_price,
-                    quantity=quantity,
-                    session_id=session_id,
+                    sale=sale_obj, product=product, price_at_sale=selling_price,
+                    cost_price=cost_price, quantity=quantity, session_id=session_id,
                 )
-                if not product.is_service:
-                    if product.prepared_quantity < quantity:
-                        messages.warning(request, f"{product.name} - Insufficient stock.")
-                
-                    product.prepared_quantity -= quantity
-                    product.save()
-                
-            # for employee in employees:
-            #     SaleEmployee.objects.create(
-            #         sale=sale_obj,
-            #         employee=employee,
-            #         daily_rate=employee.daily_rate,
-            #     )
-                
+            # NOTE: stock is deducted in _finalize_sale — completed sales only.
+            # A pending draft snapshots the items but touches no inventory until confirmed.
 
             # ── Whole-order customer discount (%) ───────────────
             gross = max(total_revenue, Decimal('0'))
-            discount_percent = Decimal('0')
             discount_percent = Decimal('0')
             if business.enable_sale_discount:
                 try:
@@ -732,118 +820,52 @@ def confirm_view_summary(request, business_slug):
                     discount_percent = Decimal('0')
                 discount_percent = max(Decimal('0'), min(discount_percent, Decimal('100')))
 
-
-            sale_obj.discount_percent = discount_percent
-            sale_obj.discount_amount  = gross * discount_percent / Decimal('100')
-            sale_obj.total_revenue    = max(gross - sale_obj.discount_amount, Decimal('0'))
-
+            sale_obj.discount_percent  = discount_percent
+            sale_obj.discount_amount   = gross * discount_percent / Decimal('100')
+            sale_obj.total_revenue     = max(gross - sale_obj.discount_amount, Decimal('0'))
             sale_obj.total_salary_cost = total_salary_cost
-            sale_obj.line_count = line_count
+            sale_obj.line_count        = line_count
             sale_obj.save()
-            
-            # ── Payment capture ─────────────────────────────────
-            payment_status = request.POST.get('payment_status', 'full')
-            payment_method = request.POST.get('payment_method', 'cash')
-            if payment_method in ('credit', 'store_credit'):
-                payment_method = 'cash'   # store credit paused — UI hides it; guard hand-crafted POSTs
-            payment_note = request.POST.get('payment_note', '').strip()
-            
-            if payment_status == 'full':
-                payment_amount = sale_obj.total_revenue
-            elif payment_status == 'partial':
-                amount_str = request.POST.get('amount_paid', '0').strip()
-                try:
-                    payment_amount = Decimal(amount_str)
-                except (ValueError, ArithmeticError):
-                    payment_amount = Decimal('0')
-                    
-                if payment_amount <= 0:
-                    messages.warning(request, "Partial amount was invalid - recorded as debt instead.")
-                    payment_amount = Decimal('0')
-                elif payment_amount >= sale_obj.total_revenue:
-                    payment_amount = sale_obj.total_revenue
-                    messages.info(request, "Amount matched total - recorded as paid in full")
-            # utang / debt
-            else:
-                payment_amount = Decimal('0')
-                
-            method_display = None
-            if payment_amount > 0:
-                payment = SalesPayment.objects.create(
-                    sale=sale_obj,
-                    business=business,
-                    amount=payment_amount,
-                    method=payment_method,
-                    note=payment_note,
-                    created_by=request.user,
-                )
-                method_display = payment.get_method_display()
 
-                paid_desc = f"via {method_display}"
+            if sale_status == 'completed':
+                _finalize_sale(request, sale_obj, business,
+                               payment_status, payment_method, payment_note, amount_str)
+            else:
+                # Park it — remember the intended payment so the draft-list
+                # "Confirm" can finalize later without re-asking.
+                sale_obj.pending_method = payment_method
+                sale_obj.pending_status = payment_status
                 if payment_status == 'partial':
-                    paid_desc += f" (partial) · ₱{sale_obj.outstanding:.2f} outstanding"
-
-                log_activity(
-                    business, request.user, 'sale.paid',
-                    target=payment,
-                    description=paid_desc,
-                    metadata={
-                        'reference': sale_obj.reference,
-                        'amount': f"{payment_amount:.2f}",
-                        'method': payment.method,
-                        'outstanding': str(sale_obj.outstanding),
-                    },
+                    try:
+                        sale_obj.pending_amount = Decimal((amount_str or '0').strip())
+                    except (ValueError, ArithmeticError, InvalidOperation):
+                        sale_obj.pending_amount = None
+                sale_obj.pending_note = (payment_note or '').strip()
+                sale_obj.save(update_fields=['pending_method', 'pending_status',
+                                             'pending_amount', 'pending_note'])
+                log_audit(
+                    business, request.user, 'create', target=sale_obj,
+                    new_values={'status': 'pending', 'total_revenue': sale_obj.total_revenue,
+                                'line_count': sale_obj.line_count, 'payment_method': payment_method},
                 )
-
-            if not sale_obj.total_revenue or sale_obj.total_revenue == 0:
-                payment_text = "Free"
-            elif payment_status == 'full' and method_display:
-                payment_text = f"via {method_display}"
-            elif payment_status == 'partial' and method_display:
-                payment_text = f"via {method_display} (partial ₱{payment_amount:.2f})"
-            else:
-                payment_text = "Debt"
-
-
-            items_text = summarize_items(sale_obj.sale_items.all(), prefix='-')
-            log_activity(
-                business, request.user, 'sale.completed',
-                target=sale_obj,
-                description=f"{payment_text} · {items_text}",
-                metadata={
-                    'reference': sale_obj.reference,
-                    'total': f"{sale_obj.total_revenue:.2f}",
-                    'line_count': sale_obj.line_count,
-                    'payment_status': payment_status,
-                    'payment_method': payment_method if payment_status != 'utang' else None,
-                },
-            )
-            log_audit(
-                business, request.user, 'create',
-                target=sale_obj,
-                new_values={
-                    'total_revenue': sale_obj.total_revenue,
-                    'line_count': sale_obj.line_count,
-                    'payment_status': payment_status,
-                    'payment_method': payment_method if payment_status != 'utang' else None,
-                },
-            )
-            sale_obj.is_locked = True
-            sale_obj.save(update_fields=['is_locked'])
 
     except ValidationError:
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
-        return redirect('view-sale', business_slug=business.slug)  # exits early if error occurs
-    
-    
+        return redirect('view-sale', business_slug=business.slug)
+
     for key in ('total_salary_cost', 'line_count', 'sale_discount_percent'):
         request.session.pop(key, 0)
-    
+
     request.session['sale'] = {}
     request.session.modified = True
-    # request.session['selected_employee_ids'] = []
-    
+
+    if sale_status == 'pending':
+        # Non-blocking: cart's cleared, serve the next customer right away.
+        messages.success(request, "Sale saved to pending. Confirm the payment once received.")
+        return redirect('view-sale', business_slug=business.slug)
+
     return redirect('sale-summary', business_slug=sale_obj.business.slug, sale_id=sale_obj.id)
+
 
 @login_required(login_url='login')
 @permission_required('add')
@@ -1189,6 +1211,124 @@ def void_sale(request, business_slug, sale_id):
         return redirect('dashboard', business_slug=business.slug)
     return redirect('product-list', business_slug=business.slug)
 
+@login_required(login_url='login')
+@permission_required('read_only')
+def sale_draft_list(request, business_slug):
+    """Parked sales (pending) + canceled ones — everything not yet completed.
+    Defaults to the Pending tab (the active verify queue)."""
+    business = get_business_for_user(request.user, business_slug)
+
+    base = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
+    base = filter_to_own_if_staff(request.user, base)
+
+    pending  = base.filter(status='pending').order_by('-created_at').prefetch_related('sale_items')
+    canceled = base.filter(status='canceled').order_by('-canceled_at').prefetch_related('sale_items')
+
+    pending_count  = pending.count()
+    canceled_count = canceled.count()
+
+    tab = request.GET.get('tab', 'pending')
+    if tab not in ('pending', 'canceled'):
+        tab = 'pending'
+
+    rows = pending if tab == 'pending' else canceled
+    paginator = Paginator(rows, 8)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'Sales/sale_draft_list.html', {
+        'section': 'sale',
+        'tab': tab,
+        'page_obj': page_obj,
+        'pending_count': pending_count,
+        'canceled_count': canceled_count,
+        'pending_cap': PENDING_SALE_CAP,
+    })
+
+@login_required(login_url='login')
+@capacity_required('sale')
+@permission_required('update')
+def confirm_sale_draft(request, business_slug, sale_id):
+    """Payment landed → post the parked sale for real (stock + payment + lock)."""
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+
+    if sale.status != 'pending':
+        messages.error(request, "This sale isn't awaiting confirmation.")
+        return redirect('sale-draft-list', business_slug=business.slug)
+
+    if request.method != 'POST':
+        return redirect('sale-draft-list', business_slug=business.slug)
+
+    with transaction.atomic():
+        # Snapshot the parked intent, then clear it — must happen BEFORE finalize
+        # locks the row (the immutability guard only allows void fields once locked).
+        p_status = sale.pending_status or 'full'
+        p_method = sale.pending_method or 'cash'
+        p_note   = sale.pending_note or ''
+        p_amount = str(sale.pending_amount) if sale.pending_amount is not None else '0'
+
+        sale.status = 'completed'
+        sale.pending_method = ''
+        sale.pending_status = ''
+        sale.pending_amount = None
+        sale.pending_note = ''
+        sale.save(update_fields=['status', 'pending_method', 'pending_status',
+                                 'pending_amount', 'pending_note'])
+
+        _finalize_sale(request, sale, business, p_status, p_method, p_note, p_amount)
+
+    messages.success(request, f"{sale.reference} confirmed and posted to sales.")
+    return redirect('sale-summary', business_slug=business.slug, sale_id=sale.id)
+
+@login_required(login_url='login')
+@permission_required('update')
+def cancel_sale_draft(request, business_slug, sale_id):
+    """Payment never landed → mark the parked sale canceled. Nothing to reverse
+    (a draft never touched stock or revenue). Kept on record, not deleted."""
+    business = get_business_for_user(request.user, business_slug)
+    sale = get_object_or_404(Sale, business=business, id=sale_id)
+    is_hx = request.headers.get('HX-Request')
+
+    if sale.status != 'pending':
+        messages.error(request, "Only a pending sale can be canceled.")
+        if is_hx:
+            resp = HttpResponse(status=204)
+            resp['HX-Redirect'] = reverse('sale-draft-list', kwargs={'business_slug': business.slug})
+            return resp
+        return redirect('sale-draft-list', business_slug=business.slug)
+
+    if request.method != 'POST':
+        if is_hx:
+            return render(request, 'sales/partials/_cancel_draft_modal.html', {
+                'sale': sale,
+                'reasons': Sale.CANCEL_REASON_CHOICES,
+                'action': reverse('sale-draft-cancel',
+                                  kwargs={'business_slug': business.slug, 'sale_id': sale.id}),
+            })
+        return redirect('sale-draft-list', business_slug=business.slug)
+
+    reason = request.POST.get('cancel_reason', '').strip()
+
+    sale.status = 'canceled'
+    sale.canceled_reason = reason
+    sale.canceled_by = request.user
+    sale.canceled_at = timezone.now()
+    sale.save(update_fields=['status', 'canceled_reason', 'canceled_by', 'canceled_at'])
+
+    log_activity(business, request.user, 'sale.canceled', target=sale,
+                 description=reason or 'Canceled',
+                 metadata={'reference': sale.reference})
+    log_audit(business, request.user, 'update', target=sale,
+              old_values={'status': 'pending'}, new_values={'status': 'canceled'}, reason=reason)
+
+    messages.success(request, f"{sale.reference} canceled.")
+    if is_hx:
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = reverse('sale-draft-list',
+                                      kwargs={'business_slug': business.slug}) + '?tab=canceled'
+        return resp
+    return redirect('sale-draft-list', business_slug=business.slug)
+
 
 # Map SalesReturn.reason → Waste.reason for damaged items
 RETURN_TO_WASTE_REASON = {
@@ -1525,10 +1665,11 @@ def sales_receivables(request, business_slug):
         return redirect('sale-list', business_slug=business.slug)
 
     sales = (
-        Sale.objects.filter(business=business)
+        Sale.objects.filter(business=business, status='completed')   # drafts aren't debts
         .prefetch_related('payments', 'returns')
         .order_by('-date')
     )
+
 
     # Date filters (SQL-level — applies to the queryset)
     period = request.GET.get('period', '')

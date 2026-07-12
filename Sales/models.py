@@ -21,8 +21,14 @@ from core.utils.owner import get_owner
 
 class SaleQuerySet(models.QuerySet):
     def active(self):
-        """Excludes voided sales — use for all revenue/count aggregations."""
-        return self.filter(is_void=False)
+        """Only real, countable sales — excludes voids AND non-completed drafts.
+        Use for all revenue/count aggregations."""
+        return self.filter(is_void=False, status='completed')
+
+    def drafts(self):
+        """Pending + canceled — the draft list (never in the sales record)."""
+        return self.exclude(status='completed')
+
     
     def total_revenue(self):
         return self.active().aggregate(total_revenue=Sum('total_revenue'))['total_revenue']
@@ -44,6 +50,24 @@ class Sale(TimeStampModel):
         ('Test / accidental entry','Test / accidental entry'),
         ('Other',                  'Other'),
     ]
+    
+    # ── Draft / payment-confirmation status ───────────────
+    STATUS_PENDING   = 'pending'
+    STATUS_CANCELED  = 'canceled'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING,   'Pending'),      # GCash/Bank not yet confirmed received
+        (STATUS_CANCELED,  'Canceled'),     # payment never landed — kept, never a real sale
+        (STATUS_COMPLETED, 'Completed'),    # confirmed received — the real sale
+    ]
+
+    CANCEL_REASON_CHOICES = [
+        ('Payment not received', 'Payment not received'),
+        ('Customer left',        'Customer left'),
+        ('Duplicate / mistake',  'Duplicate / mistake'),
+        ('Other',                'Other'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
     date = models.DateField(db_index=True)
     total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
@@ -60,9 +84,24 @@ class Sale(TimeStampModel):
     voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='voided_sales', null=True, blank=True)
     voided_at   = models.DateTimeField(null=True, blank=True)
     
+    # ── Draft status + Cancel (a draft whose payment never landed — NOT a void) ──
+    # "Draft" = any status that isn't 'completed'; drafts stay OUT of the sales record.
+    status          = models.CharField(max_length=10, choices=STATUS_CHOICES,
+                                        default=STATUS_COMPLETED, db_index=True)
+    canceled_reason = models.CharField(max_length=255, blank=True)
+    canceled_by     = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                        related_name='canceled_sales', null=True, blank=True)
+    canceled_at     = models.DateTimeField(null=True, blank=True)
+    
+    # ── Intended payment for a PENDING draft (consumed by finalize on confirm) ──
+    pending_method = models.CharField(max_length=20, blank=True)   # gcash / bank
+    pending_status = models.CharField(max_length=10, blank=True)   # full / partial
+    pending_amount = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    pending_note   = models.CharField(max_length=255, blank=True)
+
+
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (sales are %-only)
     discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
-
 
     objects = SaleQuerySet.as_manager()
     
@@ -71,6 +110,19 @@ class Sale(TimeStampModel):
     
     def quantity_item(self):
         return sum(item.quantity for item in self.sale_items.all())
+    
+    @property
+    def is_draft(self):
+        """Not yet a real sale (pending or canceled) — kept OUT of the sales record."""
+        return self.status != self.STATUS_COMPLETED
+    
+    @property
+    def is_pending(self):
+        return self.status == self.STATUS_PENDING
+    
+    @property
+    def is_canceled(self):
+        return self.status == self.STATUS_CANCELED
     
     def save(self, *args, **kwargs):
         if not self._state.adding and self.is_locked:
@@ -194,15 +246,17 @@ class Sale(TimeStampModel):
 
     @property
     def net_revenue(self):
-        """Revenue minus ALL refunds — for accounting / reports. Voided = 0."""
-        if self.is_void:
+        """Revenue minus ALL refunds — for accounting / reports. Voided or
+        non-completed draft (pending/canceled) counts as 0."""
+        if self.is_void or self.status != 'completed':
             return Decimal('0')
         return (self.total_revenue or Decimal('0')) - self.amount_refunded
 
     @property
     def outstanding(self):
-        """What customer still owes — voided sale owes nothing."""
-        if self.is_void:
+        """What customer still owes — voided or draft (pending/canceled) owes
+        nothing (a draft was never a real, posted sale)."""
+        if self.is_void or self.status != 'completed':
             return Decimal('0')
         return (self.total_revenue or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
 

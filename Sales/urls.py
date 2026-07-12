@@ -49,7 +49,9 @@ urlpatterns = [
     path('sale/<int:sale_id>/payment/add/', views.add_sales_payment, name='add-sales-payment'),
     path('sale/<int:sale_id>/payment/<int:payment_id>/success/', views.payment_recorded, name='sale-payment-success'),
 
-    
-    
+    # DRAFT sale
+    path('drafts/', views.sale_draft_list, name='sale-draft-list'),
+    path('draft/<int:sale_id>/confirm/', views.confirm_sale_draft, name='sale-draft-confirm'),
+    path('draft/<int:sale_id>/cancel/', views.cancel_sale_draft, name='sale-draft-cancel'),
 
 ]

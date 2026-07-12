@@ -1,0 +1,26 @@
+{% comment %}
+  Checkout "Awaiting Payment" decision modal (GCash / Bank Transfer only).
+  Client-only: buttons set #sale_status_input then submit #saleForm.
+  Confirm Later → status=pending (parked)  ·  Confirm Now → status=completed.
+{% endcomment %}
+<div class="ss-modal-overlay" id="verifyModal" hidden>
+  <div class="ss-modal ss-modal--center">
+    <button type="button" class="ss-modal-x"
+            onclick="ssCloseModal('verifyModal'); ssOpenModal('discardModal')" aria-label="Discard sale">
+      <i class="bi bi-x-lg"></i>
+    </button>
+
+    <div class="ss-modal-badge"><i class="bi bi-hourglass-split"></i></div>
+
+    <div class="ss-modal-title">Awaiting Payment</div>
+    <p class="ss-modal-text">Confirm the sale now, or save it to Pending and verify the payment later.</p>
+    <div class="ss-modal-actions">
+      <button type="button" class="btn-secondary-action" onclick="ssSubmitSale('pending')">
+        <i class="bi bi-clock-history"></i> Confirm Later
+      </button>
+      <button type="button" class="btn-confirm" onclick="ssSubmitSale('completed')">
+        <i class="bi bi-check2-circle"></i> Confirm Now
+      </button>
+    </div>
+  </div>
+</div>

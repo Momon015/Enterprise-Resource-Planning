@@ -1,0 +1,219 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% load payment_tags %}
+
+{% block extra_css %}
+<style>
+  .draft-tabs{ display:flex; gap:.5rem; flex-wrap:wrap; }
+  .draft-tab{
+    display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .8rem;
+    border-radius:10px; border:1px solid var(--border); background:transparent;
+    color:var(--muted); text-decoration:none; font-weight:600; font-size:.86rem;
+  }
+  .draft-tab:hover{ color:var(--text); }
+  .draft-tab.is-active{ background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+  .draft-tab-count{
+    background:var(--surface-alt); color:var(--text); border-radius:999px;
+    padding:0 .5rem; font-size:.78rem; font-weight:700;
+  }
+  .draft-tab.is-active .draft-tab-count{ background:var(--accent); color:#fff; }
+
+  .draft-actions{ display:flex; gap:.4rem; justify-content:center; }
+  .draft-btn{
+    display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .7rem;
+    border-radius:8px; font-size:.82rem; font-weight:600; border:1px solid transparent;
+    cursor:pointer; text-decoration:none;
+  }
+  .draft-btn--confirm{ background:var(--accent); color:#fff; }
+  .draft-btn--confirm:hover{ background:var(--accent-hover); color:#fff; }
+  .draft-btn--cancel{ background:transparent; color:var(--danger); border-color:var(--danger-border); }
+  .draft-btn--cancel:hover{ background:var(--danger-light); color:var(--danger); }
+  .draft-btn--view{ background:var(--surface-alt); color:var(--text); }
+  .draft-cap-hint{
+    display:inline-flex; align-items:center; gap:.3rem;
+    font-size:.8rem; color:var(--muted); white-space:nowrap;
+  }
+  /* empty state now sits INSIDE the white card — drop the dashed outline */
+  .table-card .empty-state{ border:none; border-radius:0; }
+
+  @media (max-width: 640px){
+    .card-header:has(.draft-tabs){ flex-direction:column; align-items:flex-start; gap:.6rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
+});
+</script>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Sales Awaiting Payment</h1>
+      <p class="page-subtitle">
+        Payment pending. Confirm the sale once the money is received, or cancel if payment is not completed.
+      </p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card table-card">
+
+    <!-- CARD HEADER — tabs left · cap hint right -->
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <div class="draft-tabs">
+          <a href="?tab=pending" class="draft-tab {% if tab == 'pending' %}is-active{% endif %}">
+            <i class="bi bi-hourglass-split"></i> Pending <span class="draft-tab-count">{{ pending_count }}</span>
+          </a>
+          <a href="?tab=canceled" class="draft-tab {% if tab == 'canceled' %}is-active{% endif %}">
+            <i class="bi bi-x-circle"></i> Canceled <span class="draft-tab-count">{{ canceled_count }}</span>
+          </a>
+        </div>
+      </div>
+
+      {% if tab == 'pending' %}
+      <span class="draft-cap-hint">
+        <i class="bi bi-info-circle"></i>
+        Up to {{ pending_cap }} sales can wait here at once. {{ pending_count }} of {{ pending_cap }} in use.
+      </span>
+      {% endif %}
+    </div>
+
+    <div class="table-responsive">
+    {% if page_obj and page_obj.object_list %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Rung up</th>
+          <th class="sl-text-center">Reference</th>
+          <th class="sl-text-end col-mobile-hidden">Items</th>
+          <th class="sl-text-end">Total</th>
+          {% if tab == 'pending' %}
+            <th class="sl-text-center col-mobile-hidden">Expected via</th>
+            <th class="sl-text-center">Action</th>
+          {% else %}
+            <th class="sl-text-center col-mobile-hidden">Reason</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in page_obj %}
+        <tr>
+          <td class="cell-primary">
+            {{ sale.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ sale.created_at|date:"Y" }}</span>
+            <div class="cell-sub">{{ sale.created_at|date:"g:i A" }}</div>
+          </td>
+          <td class="sl-text-center">
+            <div class="cell-primary">{{ sale.reference|default:"—" }}</div>
+          </td>
+          <td class="sl-text-end col-mobile-hidden">
+            <span class="sl-badge sl-badge-light">{{ sale.line_count }}</span>
+          </td>
+          <td class="sl-text-end sl-fw-semibold">₱{{ sale.total_revenue|floatformat:2|intcomma }}</td>
+
+          {% if tab == 'pending' %}
+          <td class="sl-text-center col-mobile-hidden">
+            {% payment_method_badge sale.pending_method %}
+          </td>
+          <td class="sl-text-center">
+            <div class="draft-actions">
+              <form method="post"
+                    action="{% url 'sale-draft-confirm' business_slug=current_business.slug sale_id=sale.id %}"
+                    style="display:inline;">
+                {% csrf_token %}
+              <a href="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+                 hx-get="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+                 hx-target="#confirmBody" hx-swap="innerHTML"
+                 class="draft-btn draft-btn--cancel">
+                Cancel
+              </a>
+                <button type="submit" class="draft-btn draft-btn--confirm">
+                  <i class="bi bi-check2-circle"></i> Confirm
+                </button>
+              </form>
+
+            </div>
+          </td>
+          {% else %}
+          <td class="sl-text-center col-mobile-hidden">
+            <span class="cell-primary">{{ sale.canceled_reason|default:"—" }}</span>
+            <div class="cell-sub">
+              {% if sale.canceled_by %}<i class="bi bi-person"></i> {{ sale.canceled_by.name|default:sale.canceled_by.username }}{% endif %}
+              {% if sale.canceled_at %}{% if sale.canceled_by %} · {% endif %}{{ sale.canceled_at|date:"M d, g:i A" }}{% endif %}
+            </div>
+          </td>
+          <td class="sl-text-center">
+            <a href="{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}"
+               class="draft-btn draft-btn--view" title="View detail">View</a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      {% if tab == 'pending' %}
+        <div class="empty-icon"><i class="bi bi-hourglass-split"></i></div>
+        <h3 class="empty-title">No sales awaiting confirmation</h3>
+        <p class="empty-text">Pending GCash or Bank Transfer sales, it waits here until you confirm the payment.</p>
+      {% else %}
+        <div class="empty-icon"><i class="bi bi-x-circle"></i></div>
+        <h3 class="empty-title">No canceled sales</h3>
+        <p class="empty-text">Canceled sales whose payment was not received will show up here.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+    </div>
+
+  </div>
+
+  <!-- PAGINATION -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="pagination-wrapper">
+    <nav>
+      <ul class="pagination">
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+          {% if page_obj.has_previous %}
+            <a class="page-link" href="?tab={{ tab }}&page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>
+          {% else %}<span class="page-link"><i class="bi bi-chevron-left"></i></span>{% endif %}
+        </li>
+        {% for p in page_obj.paginator.page_range %}
+        <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+          <a class="page-link" href="?tab={{ tab }}&page={{ p }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+          {% if page_obj.has_next %}
+            <a class="page-link" href="?tab={{ tab }}&page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>
+          {% else %}<span class="page-link"><i class="bi bi-chevron-right"></i></span>{% endif %}
+        </li>
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock content %}

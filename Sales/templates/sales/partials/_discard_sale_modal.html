@@ -1,0 +1,19 @@
+{% comment %}
+  Discard-sale confirmation (abort checkout — records nothing).
+  Opened from the verify modal's X. "Discard" empties the cart via clear-sale.
+{% endcomment %}
+<div class="ss-modal-overlay" id="discardModal" hidden>
+  <div class="ss-modal ss-modal--center">
+    <div class="ss-modal-badge ss-modal-badge--danger"><i class="bi bi-hourglass-split"></i></div>
+    <div class="ss-modal-title">Awaiting Payment</div>
+    <p class="ss-modal-text">This sale won't be recorded, and the items will be removed from the current transaction.</p>
+    <div class="ss-modal-actions">
+      <button type="button" class="btn-secondary-action" onclick="ssCloseModal('discardModal')">
+        <i class="bi bi-pencil-square"></i> Keep editing
+      </button>
+      <a href="{% url 'clear-sale' business_slug=current_business.slug %}" class="ss-btn-danger">
+        Discard
+      </a>
+    </div>
+  </div>
+</div>

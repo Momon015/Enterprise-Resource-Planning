@@ -22,10 +22,12 @@ from Supplier.forms import MaterialForm, MaterialFilterForm
 
 from Product.models import Product
 
-from Inventory.models import Stock
+from Inventory.models import Stock, STOCK_CRITICAL_Q, STOCK_LOW_Q
 from Inventory.forms import StockFilterForm
 
-from django.db.models import Q, F, Sum, Avg, Max
+from django.db.models import Q, F, Sum, Avg, Max, DecimalField
+from django.db.models.functions import Coalesce
+from decimal import Decimal
 
 from django.core.paginator import Paginator
 
@@ -38,7 +40,8 @@ from subscription.decorators import capacity_required
 from activity.models import ActivityEvent
 from activity.utils import scope_events_for_user
 
-from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
+from core.constants import (LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD,
+                            CRITICAL_STOCK_THRESHOLD)
 
 from activity.models import ActivityEvent 
 
@@ -71,9 +74,33 @@ def view_inventory_stock(request, business_slug):
     
     all_stocks = stocks.count()
     in_stock = stocks.filter(quantity__gte=HIGH_STOCK_THRESHOLD).count()
-    low_stock = stocks.filter(Q(quantity__lte=LOW_STOCK_THRESHOLD) & Q(quantity__gte=1)).count()
+    # low and critical are DISJOINT bands (Inventory/models.py) — Low Stock EXCLUDES the
+    # criticals, and ?stock=low does not list them.
+    low_stock = stocks.filter(STOCK_LOW_Q).count()
+    critical_stock = stocks.filter(STOCK_CRITICAL_Q).count()
     out_of_stock = stocks.filter(quantity=NO_STOCK_THRESHOLD).count()
-    
+
+    # ── Money tied up in each state (the KPI card ▼ breakdowns) ──────────────
+    # ONE pass over the same rows, three conditional sums — same bands as the counts above,
+    # so each ▼ describes exactly the rows its card counts. Computed BEFORE the search /
+    # category / stock filters below reassign `stocks`, so both always cover the whole catalog.
+    # No Out-of-Stock value: qty is 0 there, so price x qty can only ever be 0.
+    # Low and Critical are DISJOINT, so their money does NOT overlap — the two ▼ figures
+    # are separate pots and can be added together.
+    def _value_of(condition):
+        return Coalesce(
+            Sum(F('price') * F('quantity'), filter=condition,
+                output_field=DecimalField(max_digits=14, decimal_places=2)),
+            Decimal('0'),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        )
+
+    stock_values = stocks.aggregate(
+        in_stock=_value_of(Q(quantity__gte=HIGH_STOCK_THRESHOLD)),
+        low_stock=_value_of(STOCK_LOW_Q),
+        critical_stock=_value_of(STOCK_CRITICAL_Q),
+    )
+
     if form.is_valid():
         search = form.cleaned_data.get('search')
         category = form.cleaned_data.get('category')
@@ -96,8 +123,11 @@ def view_inventory_stock(request, business_slug):
         stocks = stocks.filter(quantity__gte=HIGH_STOCK_THRESHOLD)
         
     elif stock_filter == 'low':
-        stocks = stocks.filter(quantity__lte=LOW_STOCK_THRESHOLD, quantity__gte=1)
-    
+        stocks = stocks.filter(STOCK_LOW_Q)      # excludes critical
+
+    elif stock_filter == 'critical':
+        stocks = stocks.filter(STOCK_CRITICAL_Q)
+
     elif stock_filter == 'none':
         stocks = stocks.filter(quantity=NO_STOCK_THRESHOLD)
         
@@ -141,8 +171,10 @@ def view_inventory_stock(request, business_slug):
                'most_stock_category_name': most_stock_category_name,
                'out_of_stock': out_of_stock,
                'low_stock': low_stock,
+               'critical_stock': critical_stock,
                'in_stock': in_stock,
                'all_stocks': all_stocks,
+               'stock_values': stock_values,
                'categories': categories,
                'recent_events': recent_events,
                'kpis': kpis,

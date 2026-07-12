@@ -206,8 +206,8 @@
 
           <!-- Featured Total Revenue -->
           <div class="period-net" {% if sale.is_void %}style="background:#fdf0ef; border-color:var(--danger);"{% endif %}>
-            <div class="period-net-label">{% if sale.is_void %}VOIDED — NOT COUNTED{% else %}TOTAL REVENUE{% endif %}</div>
-            <div class="period-net-value" {% if sale.is_void %}style="color:var(--danger); text-decoration:line-through; opacity:.7;"{% endif %}>₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
+            <div class="period-net-label">{% if sale.is_void %}VOIDED — NOT COUNTED{% elif sale.status == 'canceled' %}CANCELED — NOT COUNTED{% elif sale.status == 'pending' %}PENDING — NOT YET COUNTED{% else %}TOTAL REVENUE{% endif %}</div>
+            <div class="period-net-value" {% if sale.is_void %}style="color:var(--danger); text-decoration:line-through; opacity:.7;"{% elif sale.status == 'canceled' %}style="color:var(--muted); text-decoration:line-through; opacity:.7;"{% elif sale.status == 'pending' %}style="color:var(--muted);"{% endif %}>₱{{ sale.total_revenue|floatformat:2|intcomma }}</div>
             <div class="period-net-sub">
               <i class="bi bi-basket"></i>
               {% regroup sale_items by product.is_service as kind_groups %}
@@ -232,7 +232,7 @@
             {% if sale.is_void %}
             <div>
               <dt>Status</dt>
-              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-x-octagon"></i> Voided</span></dd>
+              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-ban"></i> Voided</span></dd>
             </div>
             {% if sale.voided_by %}
             <div>
@@ -244,6 +244,34 @@
             <div>
               <dt>Reason</dt>
               <dd>{{ sale.void_reason }}</dd>
+            </div>
+            {% endif %}
+            {% elif sale.status == 'canceled' %}
+            <div>
+              <dt>Status</dt>
+              <dd><span class="sl-badge sl-badge-light"><i class="bi bi-x-circle"></i> Canceled</span></dd>
+            </div>
+            {% if sale.canceled_by %}
+            <div>
+              <dt>Canceled by</dt>
+              <dd>{{ sale.canceled_by.name|default:sale.canceled_by.username }}</dd>
+            </div>
+            {% endif %}
+            {% if sale.canceled_reason %}
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ sale.canceled_reason }}</dd>
+            </div>
+            {% endif %}
+            {% elif sale.status == 'pending' %}
+            <div>
+              <dt>Status</dt>
+              <dd><span class="sl-badge sl-badge-light" style="color:var(--warning);"><i class="bi bi-hourglass-split"></i> Awaiting Payment</span></dd>
+            </div>
+            {% if sale.pending_method %}
+            <div>
+              <dt>Expected via</dt>
+              <dd>{% payment_method_badge sale.pending_method %}</dd>
             </div>
             {% endif %}
             {% else %}
@@ -291,19 +319,32 @@
           {% endif %}
 
           <!-- Note -->
+          {% if sale.status == 'pending' %}
+          <div class="sd-note-box">
+            <div class="sd-note-icon">
+              <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div>
+              <div class="sd-note-title">Awaiting payment</div>
+              <div class="sd-note-text">This sale isn't posted yet. Confirm it once the payment lands, or cancel it below.</div>
+            </div>
+          </div>
+          {% else %}
           <div class="sd-note-box">
             <div class="sd-note-icon">
               <i class="bi bi-shield-lock"></i>
             </div>
             <div>
               <div class="sd-note-title">Read-only</div>
-              <div class="sd-note-text">This record is locked. To make a change, record a return or correction below.</div>
+              <div class="sd-note-text">{% if sale.status == 'canceled' %}This sale was canceled and kept for the record. It doesn't count toward sales.{% else %}This record is locked. To make a change, record a return or correction below.{% endif %}</div>
             </div>
           </div>
+          {% endif %}
          </div>
         </div>
 
-        <!-- Actions -->
+        <!-- Actions — nothing to do on a canceled draft, so skip the whole card -->
+        {% if sale.status != 'canceled' %}
         <div class="card">
           <div class="card-header">
             <span class="card-header-title">
@@ -312,7 +353,18 @@
           </div>
           <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
 
-            {% if not sale.is_void and not sale.is_fully_paid and can_view_receivables %}
+            {% if sale.status == 'pending' %}
+            <form method="post" action="{% url 'sale-draft-confirm' business_slug=current_business.slug sale_id=sale.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary btn-block"><i class="bi bi-check2-circle"></i> Confirm payment</button>
+            </form>
+            <a href="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+               hx-get="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-danger btn-block"><i class="bi bi-x-lg"></i> Cancel sale</a>
+            {% endif %}
+
+            {% if sale.status == 'completed' and not sale.is_void and not sale.is_fully_paid and can_view_receivables %}
             <a href="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
                hx-get="{% url 'add-sales-payment' business_slug=current_business.slug sale_id=sale.id %}?next=sale-detail"
                hx-target="#confirmBody" hx-swap="innerHTML"
@@ -322,13 +374,14 @@
 
             {% endif %}
 
-            {% if not sale.is_void %}
+            {% if sale.status == 'completed' and not sale.is_void %}
             <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
               class="btn btn-light btn-block">
               <i class="bi bi-arrow-return-left"></i> Return items
             </a>
             {% endif %}
 
+            {% if sale.status == 'completed' %}
             <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
               target="_blank"
               hx-get="{% url 'sale-receipt-modal' business_slug=current_business.slug sale_id=sale.id %}"
@@ -336,19 +389,21 @@
               class="btn btn-light btn-block">
               <i class="bi bi-printer"></i> Preview Receipt
             </a>
+            {% endif %}
 
             {% if can_void %}
               <a href="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
                 hx-get="{% url 'void-sale' business_slug=current_business.slug sale_id=sale.id %}"
                 hx-target="#confirmBody" hx-swap="innerHTML"
                 class="btn btn-outline-danger btn-block">
-                <i class="bi bi-x-lg"></i> Void
+                <i class="bi bi-ban"></i> Void
               </a>
             {% endif %}
 
 
           </div>
         </div>
+        {% endif %}
 
       </div>
 

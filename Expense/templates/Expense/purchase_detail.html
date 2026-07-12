@@ -243,7 +243,7 @@
             {% if purchase.is_void %}
             <div>
               <dt>Status</dt>
-              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-x-octagon"></i> Voided</span></dd>
+              <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-ban"></i> Voided</span></dd>
             </div>
             {% if purchase.voided_by %}
             <div>
@@ -344,7 +344,7 @@
               hx-get="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"
               hx-target="#confirmBody" hx-swap="innerHTML"
               class="btn btn-outline-danger btn-block">
-              <i class="bi bi-x-lg"></i> Void
+              <i class="bi bi-ban"></i> Void
             </a>
           {% endif %}
 

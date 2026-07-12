@@ -187,7 +187,7 @@
                    onclick="event.stopPropagation();">{{ sale.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
               </span>
               {% if sale.is_void %}
-              <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
+              <span class="sl-badge sl-badge-light"><i class="bi bi-ban"></i> Voided</span>
               <span class="receipt-total receipt-total--void">₱{{ sale.total_revenue|floatformat:2|intcomma }}</span>
               {% elif sale.status_asof == 'paid' %}
               {% payment_method_badge sale.method_code_asof %}
@@ -265,7 +265,7 @@
                    onclick="event.stopPropagation();">{{ purchase.reference|default:"—" }} <i class="bi bi-box-arrow-up-right" style="font-size:.7rem;"></i></a>
               </span>
               {% if purchase.is_void %}
-              <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
+              <span class="sl-badge sl-badge-light"><i class="bi bi-ban"></i> Voided</span>
               <span class="receipt-total receipt-total--void">₱{{ purchase.total_cost|floatformat:2|intcomma }}</span>
               {% elif purchase.status_asof == 'paid' %}
               {% payment_method_badge purchase.method_code_asof %}

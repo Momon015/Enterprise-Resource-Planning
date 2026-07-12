@@ -34,12 +34,53 @@
           style="cursor: help; font-size: 0.85em;"></i>
       </p>
     </div>
+
+    {% comment %} Inventory-value dropdown pulled from the page header 2026-07-12 — wrong
+    home for it. Markup kept (CSS `.value-peek*` is still in style.css) for whenever the
+    value gets a proper home. Uncomment to restore.
+    <div class="page-header-right">
+      <details class="value-peek">
+        <summary class="value-peek__trigger">
+          <i class="bi bi-cash-coin"></i>
+          <span>Inventory value</span>
+          <i class="bi bi-chevron-down value-peek__caret"></i>
+        </summary>
+        <div class="value-peek__body">
+          <div class="value-peek__row">
+            <span class="value-peek__label">All materials</span>
+            <span class="value-peek__amount">₱{{ kpis.current.total_value|default:"0"|floatformat:2|intcomma }}</span>
+          </div>
+          {% if request.GET.stock or request.GET.search or request.GET.category %}
+          <div class="value-peek__row value-peek__row--sub">
+            <span class="value-peek__label">Matching this filter</span>
+            <span class="value-peek__amount">₱{{ grand_total_value|default:"0"|floatformat:2|intcomma }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </details>
+    </div>
+    {% endcomment %}
   </div>
 
   <!-- KPI STRIP -->
   <div class="kpi-row kpi-row--4col">
 
-    <!-- IN STOCK (click = filter) -->
+    {% comment %} RETIRED 2026-07-12 — Total Inventory Value card dropped so the strip is
+    4 STATE cards only (5 crowded it, and this one was the odd card out: a money stat with
+    nothing to click into). It now lives in the "Inventory value" dropdown in the page
+    header. Uncomment to restore.
+    <div class="kpi-card kpi-card--hue-info">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Inventory Value</div>
+        <div class="kpi-value">₱{{ kpis.current.total_value|default:"0"|floatformat:2 }}</div>
+      </div>
+    </div>
+    {% endcomment %}
+
+    <!-- IN STOCK (click = filter · ▼ = money tied up here) -->
     <div class="kpi-card kpi-card--hue-success kpi-card--clickable"
          data-href="?stock=high" tabindex="0">
       <div class="kpi-icon kpi-icon--success">
@@ -49,40 +90,83 @@
         <div class="kpi-label">In Stock</div>
         <div class="kpi-value">{{ kpis.current.in_stock|default:"0" }}</div>
       </div>
+
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show value" title="Stock value">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Value in stock</div>
+        <div class="kpi-popover__row kpi-popover__row--total">
+          <span>Worth of these items</span>
+          <span class="num">₱{{ stock_values.in_stock|floatformat:2|intcomma }}</span>
+        </div>
+      </div>
     </div>
 
-    <!-- LOW STOCK (click = filter) -->
-    <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
+    <!-- LOW STOCK (click = filter · ▼ = money tied up here) -->
+    <div class="kpi-card kpi-card--hue-neutral kpi-card--clickable"
          data-href="?stock=low" tabindex="0">
-      <div class="kpi-icon kpi-icon--warning">
+      <div class="kpi-icon kpi-icon--neutral">
         <i class="bi bi-exclamation-triangle"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Low Stock</div>
         <div class="kpi-value">{{ kpis.current.low_stock|default:"0" }}</div>
       </div>
+
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show value" title="Stock value">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Value running low</div>
+        <div class="kpi-popover__row kpi-popover__row--total">
+          <span>Worth of these items</span>
+          <span class="num">₱{{ stock_values.low_stock|floatformat:2|intcomma }}</span>
+        </div>
+      </div>
     </div>
 
-    <!-- OUT OF STOCK (click = filter) -->
-    <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
+    <!-- CRITICALLY LOW (click = filter · ▼ = money tied up here) — urgent SUBSET of Low
+         Stock, so these are counted in BOTH cards on purpose (?stock=low still lists them) -->
+    <div class="kpi-card {% if kpis.current.critical_stock %}kpi-card--hue-warning{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
+         data-href="?stock=critical" tabindex="0">
+      <div class="kpi-icon kpi-icon--{% if kpis.current.critical_stock %}warning{% else %}success{% endif %}">
+        <i class="bi {% if kpis.current.critical_stock %}bi-exclamation-octagon{% else %}bi-check2-circle{% endif %}"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Critically Low</div>
+        <div class="kpi-value">{{ kpis.current.critical_stock|default:"0" }}</div>
+        {% if not kpis.current.critical_stock %}
+        <div class="kpi-delta kpi-delta--good">No materials are critically low</div>
+        {% endif %}
+      </div>
+
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show value" title="Stock value">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Value critically low</div>
+        <div class="kpi-popover__row kpi-popover__row--total">
+          <span>Worth of these items</span>
+          <span class="num">₱{{ stock_values.critical_stock|floatformat:2|intcomma }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUT OF STOCK (click = filter) — NO ▼ on purpose: value is price x qty, and qty is 0
+         here, so the number could only ever be ₱0.00 -->
+
+    <div class="kpi-card {% if kpis.current.out_of_stock %}kpi-card--hue-danger{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
          data-href="?stock=none" tabindex="0">
-      <div class="kpi-icon kpi-icon--danger">
-        <i class="bi bi-slash-circle"></i>
+      <div class="kpi-icon kpi-icon--{% if kpis.current.out_of_stock %}danger{% else %}success{% endif %}">
+        <i class="bi {% if kpis.current.out_of_stock %}bi-slash-circle{% else %}bi-check2-circle{% endif %}"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>
         <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
-      </div>
-    </div>
-
-    <!-- TOTAL INVENTORY VALUE (money stat — hover glow only, no filter to click into) -->
-    <div class="kpi-card kpi-card--hue-info">
-      <div class="kpi-icon kpi-icon--info">
-        <i class="bi bi-cash-coin"></i>
-      </div>
-      <div class="kpi-body">
-        <div class="kpi-label">Total Inventory Value</div>
-        <div class="kpi-value">₱{{ kpis.current.total_value|default:"0"|floatformat:2 }}</div>
+        {% if not kpis.current.out_of_stock %}
+        <div class="kpi-delta kpi-delta--good">No materials are out of stock</div>
+        {% endif %}
       </div>
     </div>
 
@@ -130,7 +214,7 @@
               <button class="btn btn-primary btn-sm" type="submit">
                 <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'product-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+              <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
                 <i class="bi bi-arrow-counterclockwise"></i>
                 Reset
               </a>
@@ -143,28 +227,30 @@
       <!-- STOCK TABLE -->
       <div class="card table-card">
         <div class="card-header">
+          <!-- title · count · filter pill — same grammar as Product Catalog's header:
+               the labeled trigger carries the active filter name, so the separate
+               right-side status text is gone (it said the same thing twice). -->
           <div class="card-header-left-group">
             <span class="card-header-title">Stock Records</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
-          </div>
 
-          <div class="activity-header-right">
-            <span class="card-header-sub" style="margin: 0;">
-              {% if request.GET.stock == 'high' %}In Stock
-              {% elif request.GET.stock == 'low' %}Low Stock
-              {% elif request.GET.stock == 'none' %}Out of Stock
-              {% else %}All status
-              {% endif %}
-            </span>
             <details class="activity-filter-pop">
-              <summary class="activity-filter-trigger" title="Filter by status">
+              <summary class="activity-filter-trigger activity-filter-trigger--labeled" title="Filter by status">
                 <i class="bi bi-sliders"></i>
+                <span class="filter-trigger-label">
+                  {% if request.GET.stock == 'high' %}In Stock
+                  {% elif request.GET.stock == 'low' %}Low Stock
+                  {% elif request.GET.stock == 'critical' %}Critically Low
+                  {% elif request.GET.stock == 'none' %}Out of Stock
+                  {% else %}All status
+                  {% endif %}
+                </span>
               </summary>
               <div class="activity-filter-menu">
                 {% with q=request.GET.search cat=request.GET.category %}
                 <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
                    class="{% if not request.GET.stock %}is-active{% endif %}">
-                  <i class="bi bi-grid"></i> All
+                  <i class="bi bi-grid"></i> All status
                 </a>
                 <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
@@ -173,6 +259,10 @@
                 <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
                   <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </a>
+                <a href="?stock=critical{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                  class="filter-tone-warning {% if request.GET.stock == 'critical' %}is-active{% endif %}">
+                  <i class="bi bi-exclamation-octagon"></i> Critically Low
                 </a>
                 <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
                   class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
@@ -345,9 +435,36 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   // KPI cards navigate to their stock filter (same pattern as Products/dashboard)
-  document.querySelectorAll('.kpi-card--clickable[data-href]').forEach(card => {
-    card.addEventListener('click', () => { window.location = card.dataset.href; });
-    card.addEventListener('keydown', e => { if (e.key === 'Enter') window.location = card.dataset.href; });
+  // KPI cards: body click = filter, ▼ = value popover. Same behaviour as the dashboard.
+  // The ▼ and the popover must NEVER navigate, or opening the breakdown would bounce
+  // you to the filtered list instead.
+  document.addEventListener('click', (e) => {
+    const btn  = e.target.closest('[data-kpi-popover]');
+    const open = document.querySelector('.kpi-card.popover-open');
+
+    if (btn) {
+      e.stopPropagation();
+      const card = btn.closest('.kpi-card');
+      if (open && open !== card) open.classList.remove('popover-open');
+      card.classList.toggle('popover-open');
+      return;
+    }
+    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
+
+    const card = e.target.closest('.kpi-card--clickable[data-href]');
+    if (card && !e.target.closest('.kpi-peek') && !e.target.closest('.kpi-popover')) {
+      window.location = card.dataset.href;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.kpi-card.popover-open');
+      if (open) open.classList.remove('popover-open');
+    }
+    if (e.key === 'Enter') {
+      const card = e.target.closest && e.target.closest('.kpi-card--clickable[data-href]');
+      if (card && !e.target.closest('.kpi-peek')) window.location = card.dataset.href;
+    }
   });
 });
 </script>

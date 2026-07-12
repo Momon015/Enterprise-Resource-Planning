@@ -1,6 +1,23 @@
 {% extends "main.html" %}
 {% load humanize %}
 {% load payment_tags %}
+{% block extra_css %}
+<style>
+  .drafts-link{
+    display:inline-flex; align-items:center; gap:.4rem; padding:.42rem .8rem;
+    border-radius:8px; font-size:.85rem; font-weight:600; text-decoration:none;
+    border:1px solid var(--border); background:var(--surface); color:var(--muted); white-space:nowrap;
+  }
+  .drafts-link:hover{ color:var(--text); border-color:var(--muted); }
+  .drafts-link--active{ background:var(--warning-light); color:var(--warning); border-color:var(--warning-border); }
+  .drafts-link__count{
+    background:var(--warning); color:#fff; border-radius:999px;
+    padding:0 .45rem; font-size:.75rem; font-weight:700; min-width:1.15rem; text-align:center;
+  }
+  .drafts-sep{ width:1px; height:20px; background:var(--border); margin:0 .25rem; align-self:center; }
+
+</style>
+{% endblock %}
 
 {% block content %}
 
@@ -269,6 +286,15 @@ function clearRecvFilters() {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
+
+            <a href="{% url 'sale-draft-list' business_slug=current_business.slug %}"
+              class="drafts-link {% if pending_count %}drafts-link--active{% endif %}"
+              title="Sales awaiting payment confirmation">
+              <i class="bi bi-hourglass-split"></i> Drafts
+              {% if pending_count %}<span class="drafts-link__count">{{ pending_count }}</span>{% endif %}
+            </a>
+            <span class="drafts-sep" aria-hidden="true"></span>
+
             <!-- QUICK RANGES — set the date window; keep payment/user filters -->
             <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
@@ -292,6 +318,9 @@ function clearRecvFilters() {
               <i class="bi bi-grid"></i> All
             </a>
           </div>
+
+
+
             <div class="user-filter-bar">
               <!-- PAYMENT METHOD — available to every role -->
               <label for="paymentFilter" class="user-filter-label">
@@ -372,7 +401,7 @@ function clearRecvFilters() {
 
                 <td class="sl-text-center">
                     {% if sale.is_void %}
-                        <span class="sl-badge sl-badge-light"><i class="bi bi-x-octagon"></i> Voided</span>
+                        <span class="sl-badge sl-badge-light"><i class="bi bi-ban"></i> Voided</span>
                     {% else %}
                         {% settlement_badge sale %}
                     {% endif %}

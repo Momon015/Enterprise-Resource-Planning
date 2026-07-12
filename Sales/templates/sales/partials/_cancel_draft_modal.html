@@ -1,0 +1,35 @@
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-x-circle"></i></div>
+        <div>
+          <div class="cm-title">Cancel this sale?</div>
+          <div class="cm-sub">{{ sale.reference }} · ₱{{ sale.total_revenue|floatformat:2 }}</div>
+        </div>
+      </div>
+
+      <form method="post" action="{{ action }}">
+        {% csrf_token %}
+        <p class="cm-note">
+            Payment was not received, so this sale has been marked as canceled. Nothing was added to stock or revenue. It will remain available in the Canceled tab for record-keeping.
+        </p>
+
+        <label class="cm-field-label">Reason</label>
+        <select name="cancel_reason" class="form-select cm-select">
+          {% for value, label in reasons %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+
+        <div class="cm-actions">
+          <button type="button" class="btn btn-outline-secondary" data-quickview-close>Keep it pending</button>
+          <button type="submit" class="btn cm-btn cm-btn--danger">Cancel sale</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

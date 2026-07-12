@@ -31,6 +31,7 @@ from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
 from activity.utils import log_activity, scope_events_for_user
+from Product.models import CRITICAL_BAND_Q, LOW_BAND_Q, with_stock_bands
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
 from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
@@ -81,7 +82,11 @@ def product_list(request, business_slug):
     
     all_products = products.count()
     in_stock = products.filter(prepared_quantity__gte=F('high_stock_threshold')).count()
-    low_stock = products.filter(Q(prepared_quantity__lte=F('low_stock_threshold')) & Q(prepared_quantity__gte=1)).count()
+    # low and critical are DISJOINT bands (see Product/models.py) — a critically-low
+    # product is NOT counted in Low Stock, and ?stock=low does not list it.
+    _banded = with_stock_bands(products)
+    low_stock = _banded.filter(LOW_BAND_Q).count()
+    critical_stock = _banded.filter(CRITICAL_BAND_Q).count()
     out_of_stock = products.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
     
     
@@ -105,7 +110,10 @@ def product_list(request, business_slug):
         if stock_filter == 'high':
             products = products.filter(prepared_quantity__gte=F('high_stock_threshold'))
         elif stock_filter == 'low':
-            products = products.filter(Q(prepared_quantity__lte=F('low_stock_threshold')) & Q(prepared_quantity__gte=1))
+            # low EXCLUDES critical — the two cards are separate buckets
+            products = with_stock_bands(products).filter(LOW_BAND_Q)
+        elif stock_filter == 'critical':
+            products = with_stock_bands(products).filter(CRITICAL_BAND_Q)
         elif stock_filter == 'none':
             products = products.filter(prepared_quantity=NO_STOCK_THRESHOLD)
             
@@ -160,6 +168,7 @@ def product_list(request, business_slug):
         "categories": categories,
         "out_of_stock": out_of_stock,
         'low_stock': low_stock,
+        'critical_stock': critical_stock,
         'in_stock': in_stock,
         'all_products': all_products,
         'multi_unit_types': MULTI_UNIT_TYPES,
@@ -184,7 +193,23 @@ def product_list(request, business_slug):
 @permission_required('add') # dev
 def product_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    
+
+    # ── Retail / pharmacy: products are BORN from purchases, never hand-made ──────
+    # Recording a purchase creates the Material's Stock row AND the Product together
+    # (Expense/views.py), so they stay linked. A hand-made product has material=None,
+    # which means: Sales can't find its Stock row (the lookup is keyed on material and
+    # the miss is swallowed), and a purchase can never restock it — it would only ever
+    # count DOWN. So this is a real dead-end, not just UI tidiness: the button is hidden
+    # in the template AND the URL is closed here.
+    # Cafe/restaurant are exempt — there, products (menu items) genuinely are hand-made
+    # FROM materials, so the two are different things. Services have their own
+    # service_create view and are unaffected.
+    # 404, not a redirect: nobody reaches this by accident (the button is hidden for these
+    # types), so the only visitor is someone poking at the URL — and bouncing a real user
+    # to a page they didn't ask for is more confusing than saying the page isn't there.
+    if business.business_type in ('retail', 'pharmacy'):
+        raise Http404("Products are created from purchases for this business type.")
+
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, business=business, user=request.user)
 

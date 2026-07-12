@@ -1,4 +1,5 @@
 from .models import ActivityEvent
+from .utils import attention_items
 
 def notification_badge(request):
     if not request.user.is_authenticated:
@@ -18,13 +19,34 @@ def notification_badge(request):
     except BusinessProfile.DoesNotExist:
         return {}
 
+    # PRODUCT stock events are dropped from the bell — the pinned block above already
+    # says "N Products • Out of Stock", live, so belling them too says it twice (and the
+    # event lies once it's restocked, while the pin self-clears). They're still LOGGED
+    # and still on "See all activities" — this hides them from the dropdown only.
+    #
+    # Filtered by verb + TARGET TYPE, not verb alone: material stock (cafe/restaurant)
+    # fires the SAME verbs from log_stock_threshold_events and has NO pinned row yet,
+    # so those must keep belling until phase 2 pins materials.
+    from Product.models import Product
+    from django.contrib.contenttypes.models import ContentType
+
     unread = ActivityEvent.objects.filter(
         business=business, is_important=True, is_read=False
+    ).exclude(
+        verb__startswith='stock.',
+        target_type=ContentType.objects.get_for_model(Product),
     )[:10]
-    
+
     unread_list = list(unread)
 
     return {
-        'notification_count': unread.count(),
+        # FEED — events (things that happened). Read/unread, drives the badge.
+        # count from the already-fetched list: the qs is sliced [:10], so .count()
+        # could never exceed 10 anyway — it was a second query for the same number.
+        'notification_count': len(unread_list),
         'notification_events': unread_list,
+
+        # PINNED — state (things that are true right now). Never read/unread,
+        # never counted in the badge (or the badge could never reach zero).
+        'pinned_items': attention_items(business),
     }

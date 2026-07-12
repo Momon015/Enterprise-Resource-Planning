@@ -8,9 +8,38 @@ from core.utils.images import product_image_path
 
 from decimal import Decimal
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import F, Q, Value, IntegerField
+from django.db.models.functions import Round, Greatest, Cast
 from core.constants import MARGIN_DEFAULT_TARGET, MARGIN_DANGER_FLOOR
 
 # Create your models here.
+
+# DB mirror of Product.critical_stock_threshold — max(1, round(low * 0.2)).
+# Lives beside the property ON PURPOSE: the two must always agree, and a filter
+# built from this must return exactly the rows a count built from it counted.
+# (Integer low_stock_threshold can never make low*0.2 land on .5, so SQL's
+#  round-half-up and Python's round-half-even can't disagree here.)
+CRITICAL_THRESHOLD_EXPR = Greatest(
+    Value(1),
+    Cast(Round(F('low_stock_threshold') * Value(0.2)), IntegerField()),
+    output_field=IntegerField(),
+)
+
+# The stock bands, DISJOINT — exactly the bands stock_status_for() already returns:
+#   out       qty = 0
+#   critical  1 .. crit
+#   low       crit+1 .. low_stock_threshold      <- does NOT include critical
+#   (ok/high above that)
+# Defined once so a COUNT and the FILTER it clicks into can never drift apart.
+# Both require .annotate(_crit=...) first — use with_stock_bands(qs).
+CRITICAL_BAND_Q = Q(prepared_quantity__gte=1, prepared_quantity__lte=F('_crit'))
+LOW_BAND_Q      = Q(prepared_quantity__gt=F('_crit'),
+                    prepared_quantity__lte=F('low_stock_threshold'))
+
+
+def with_stock_bands(qs):
+    """Annotate the per-product critical threshold so CRITICAL_BAND_Q / LOW_BAND_Q work."""
+    return qs.annotate(_crit=CRITICAL_THRESHOLD_EXPR)
 
 class ActiveManager(models.Manager):
     def get_queryset(self):

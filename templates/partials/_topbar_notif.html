@@ -9,6 +9,28 @@
     {% if notification_count %}<span class="topbar-notif__count">{{ notification_count }}</span>{% endif %}
   </div>
 
+  <!-- PINNED — current state, not events. Navigates but never marks read;
+       clears itself only when the condition ends. Not in the badge count. -->
+  {% if pinned_items %}
+  <div class="topbar-notif__pinned">
+    <div class="topbar-notif__pinned-label">
+      <i class="bi bi-pin-angle-fill"></i> Pinned
+    </div>
+    {% for item in pinned_items %}
+    <a class="topbar-notif__pin topbar-notif__pin--{{ item.tone }}" href="{{ item.url }}">
+      <span class="topbar-notif__icon"><i class="bi {{ item.icon }}"></i></span>
+      <span class="topbar-notif__text">
+        <span class="topbar-notif__title">
+          {{ item.entity }}<span class="topbar-notif__crumb">•</span>{{ item.state }}
+        </span>
+        <span class="topbar-notif__desc">{{ item.sub }}</span>
+      </span>
+      <i class="bi bi-chevron-right topbar-notif__pin-go"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="topbar-notif__list">
     {% for event in notification_events %}
     <a class="topbar-notif__item topbar-notif__item--{{ event.tone }}"
@@ -21,10 +43,12 @@
       </span>
     </a>
     {% empty %}
+    {% if not pinned_items %}
     <div class="topbar-notif__empty">
       <i class="bi bi-check2-circle"></i>
       <span>You're all caught up</span>
     </div>
+    {% endif %}
     {% endfor %}
   </div>
 

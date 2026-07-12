@@ -7449,6 +7449,48 @@ button.topbar-account__item {
 }
 .topbar-notif__time { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
 
+/* ── PINNED — current state, sits ABOVE the event feed ──────────────
+   Reads as a status board, not a message: no timestamp (it has no "when" —
+   it's true now), no read/unread, and NO tone colour. The count itself carries
+   the urgency ("150 Products Out of Stock" needs no red bar); colour here just
+   read as alarm and drowned out the feed below it. */
+.topbar-notif__pinned {
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-notif__pinned-label {
+  display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.5rem 0.85rem 0.3rem;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.topbar-notif__pin {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  text-decoration: none;
+}
+.topbar-notif__pin + .topbar-notif__pin { border-top: 1px solid var(--border-light); }
+.topbar-notif__pin:hover { background: var(--surface-hover); }
+.topbar-notif__pin .topbar-notif__text { flex: 1; }
+.topbar-notif__pin-go { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+/* ENTITY • STATE — the separator is a divider, so keep it quieter than both sides */
+.topbar-notif__crumb { color: var(--muted); font-weight: 400; margin: 0 0.32rem; }
+
+/* Severity lives in the ICON ONLY — the row stays neutral (a coloured row read as an
+   alarm banner and drowned the feed).
+   Ramp separates by SATURATION, not hue: red→orange→amber→yellow are all one narrow
+   band (~40°) and any two of them are the same colour at 32px behind a 12% tint.
+     out of stock   → red     losing sales RIGHT NOW
+     critically low → amber   almost gone, act today
+     running low    → SILVER  a nudge, not an alarm — must not steal the eye from above
+   Neutral fill differs per panel because the GROUNDS differ: the bell's pinned block
+   sits on --surface-alt (so the chip is --surface), the dashboard rows sit on a white
+   card (so the chip is --surface-alt). Same idea, inverted, or the chip disappears. */
+.topbar-notif__pin--danger   .topbar-notif__icon { background: var(--danger-light);  color: var(--danger); }
+.topbar-notif__pin--warning  .topbar-notif__icon { background: var(--warning-light); color: var(--warning); }
+.topbar-notif__pin--neutral  .topbar-notif__icon { background: var(--surface);       color: var(--silver); }
+.topbar-notif__pin--info     .topbar-notif__icon { background: var(--info-light);    color: var(--info); }
+
 .topbar-notif__empty {
   display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
   padding: 1.6rem; color: var(--muted); font-size: 0.82rem; text-align: center;
@@ -7945,9 +7987,10 @@ button.pd-menu__item {
   display: inline-flex; align-items: center; justify-content: center;
   font-size: .9rem;
 }
-.attention-icon--danger  { background: var(--danger-light);  color: var(--danger); }
-.attention-icon--warning { background: var(--warning-light); color: var(--warning); }
-.attention-icon--info    { background: var(--info-light);    color: var(--info); }
+.attention-icon--danger   { background: var(--danger-light);  color: var(--danger); }
+.attention-icon--warning  { background: var(--warning-light); color: var(--warning); }
+.attention-icon--neutral  { background: var(--surface-alt);   color: var(--silver); }
+.attention-icon--info     { background: var(--info-light);    color: var(--info); }
 .attention-text { flex: 1; font-size: .82rem; color: var(--text-secondary); }
 .attention-row:hover .attention-text { color: var(--text); }
 .attention-go { font-size: .7rem; color: var(--text-faint); }
@@ -8045,6 +8088,43 @@ button.pd-menu__item {
 /* Hue per card — matches the icon disc */
 .kpi-card--hue-cyan { --kpi-glow: var(--cyan); --kpi-soft: var(--cyan-light); }
 .kpi-card--hue-success { --kpi-glow: var(--emerald); --kpi-soft: color-mix(in srgb, var(--emerald-light) 35%, var(--surface)); }
+/* Low Stock = cool silver: a nudge, not an alarm. Keeps warm hues (amber = critical,
+   red = out) meaning something, and stops the low card competing with the two above it. */
+.kpi-card--hue-neutral { --kpi-glow: var(--silver);  --kpi-soft: color-mix(in srgb, var(--silver) 12%, var(--surface)); }
+
+/* ── Value peek — a money stat parked in the page header, collapsed ──────────
+   Money is not a STATE, so it doesn't belong in a state-count KPI strip. This is
+   where it goes instead: answered on demand, not shouted every visit. */
+.value-peek { position: relative; }
+.value-peek__trigger {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .45rem .8rem; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: .85rem; font-weight: 600; color: var(--text);
+  list-style: none; user-select: none;
+}
+.value-peek__trigger::-webkit-details-marker { display: none; }
+.value-peek__trigger:hover { background: var(--surface-hover); }
+.value-peek__trigger i:first-child { color: var(--muted); }
+.value-peek__caret { font-size: .7rem; color: var(--muted); transition: transform .15s; }
+.value-peek[open] .value-peek__caret { transform: rotate(180deg); }
+
+.value-peek__body {
+  position: absolute; right: 0; top: calc(100% + .4rem); z-index: 30;
+  min-width: 230px; padding: .35rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow-md);
+}
+.value-peek__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .5rem .6rem; border-radius: 8px;
+}
+.value-peek__row--sub { border-top: 1px solid var(--border-light); }
+.value-peek__label  { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.value-peek__amount {
+  font-size: .95rem; font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
 .kpi-card--hue-info    { --kpi-glow: var(--info);    --kpi-soft: var(--info-light); }
 .kpi-card--hue-warning { --kpi-glow: var(--warning); --kpi-soft: var(--warning-light); }
 .kpi-card--hue-purple  { --kpi-glow: var(--violet);  --kpi-soft: var(--violet-light); }
