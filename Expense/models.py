@@ -140,15 +140,66 @@ class Purchase(TimeStampModel):
 
     @property
     def amount_refunded_credit(self):
-        """Sum of credit-method refunds (these reduce outstanding)."""
-        return self.returns.filter(refund_method='credit').aggregate(
-            t=models.Sum('refund_total'))['t'] or Decimal('0')
+        """Knocked off what we owe the supplier — no money moved. Reduces outstanding."""
+        return self.returns.aggregate(t=models.Sum('refund_credit'))['t'] or Decimal('0')
 
     @property
     def amount_refunded_cash(self):
-        """Sum of cash-method refunds (these don't reduce outstanding — money already returned)."""
-        return self.returns.filter(refund_method='cash').aggregate(
-            t=models.Sum('refund_total'))['t'] or Decimal('0')
+        """Cash the supplier handed back. Doesn't reduce outstanding — the balance was
+        already settled, which is the only way cash can come back at all.
+
+        Sums the refund_cash COLUMN, not rows whose method == 'cash': one return can be
+        part credit and part cash, and filtering by the method string would count the
+        whole of a mixed refund as one or the other.
+        """
+        return self.returns.aggregate(t=models.Sum('refund_cash'))['t'] or Decimal('0')
+
+    @property
+    def amount_refunded(self):
+        """Every peso the supplier gave back — cash refunds AND credit notes."""
+        return self.returns.aggregate(t=models.Sum('refund_total'))['t'] or Decimal('0')
+
+    @property
+    def has_returnable_items(self):
+        """False once every unit has already gone back to the supplier. Mirror of
+        Sale.has_returnable_items — same bug, same fix: don't offer a Return form that
+        has nothing left to return."""
+        if self.is_void:
+            return False
+        return any(i.returnable_quantity > 0 for i in self.materials.all())
+
+    @property
+    def return_summary(self):
+        """Return activity on this purchase — None when nothing went back.
+
+        The mirror of Sale.return_summary, and it exists for the same reason: a purchase
+        we sent back to the supplier still displayed as a clean, fully-Paid order with no
+        sign anything had been returned. Sits BESIDE the settlement badge — "we paid" and
+        "we sent it back" are independent facts.
+
+        Like the sales side, this does NOT rewrite the purchase: the order really was
+        placed on its date, and the refund lands on the RETURN's own date.
+        """
+        if self.is_void:
+            return None
+
+        returns = list(self.returns.all())
+        if not returns:
+            return None
+
+        refunded = sum((r.refund_total or Decimal('0')) for r in returns)
+        total    = self.total_cost or Decimal('0')
+        full     = total > 0 and refunded >= total
+
+        return {
+            'full':    full,
+            'label':   'Returned' if full else 'Partly returned',
+            'detail':  'Fully returned' if full else 'Partly returned',
+            'amount':  refunded,
+            'count':   len(returns),
+            'only':    returns[0] if len(returns) == 1 else None,
+            'returns': returns,
+        }
 
     @property
     def outstanding(self):
@@ -312,9 +363,13 @@ class PurchaseReturnSequence(AbstractDocumentSequence):
     pass
 
 class PurchaseReturn(TimeStampModel):
+    # ★ refund_method is now DERIVED, not chosen (2026-07-12) — mirror of SalesReturn.
+    # The refund is split by core.utils.returns.split_refund (debt first, cash second),
+    # so a cash refund on an order we never paid for can't be represented at all.
     REFUND_METHOD_CHOICES = [
         ('cash',   'Cash refund'),
         ('credit', 'Credit on outstanding balance'),
+        ('mixed',  'Credit + cash'),
     ]
     
     REASON_CHOICES = [
@@ -338,6 +393,15 @@ class PurchaseReturn(TimeStampModel):
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='defective')
     reason_note = models.CharField(max_length=255, blank=True)
     refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    # The actual split — refund_total = refund_cash + refund_credit, always.
+    #   refund_credit = knocked off what we still owe the supplier (no money moves)
+    #   refund_cash   = money the supplier physically handed back
+    # Cash can only be non-zero once the balance is settled. See split_refund().
+    refund_cash   = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_credit = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    # Derived from the split above — for badges only. Never trust it for money.
     refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
     reference = models.CharField(max_length=255, blank=True) # auto-generated PRR-0000000001
     

@@ -83,8 +83,10 @@ with the full month/custom-date-range filters.
           </td>
 
           <td class="sl-text-center">
+            {% comment %} Same ↗ as the payables panel and the Returns card — a link out of the row
+            should look like one. {% endcomment %}
             <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=s.id %}"
-               class="link-accent cell-primary" title="View sale details">{{ s.reference }}</a>
+               class="link-accent cell-primary" title="View sale details">{{ s.reference }} <i class="bi bi-box-arrow-up-right"></i></a>
           </td>
 
           <td class="sl-text-end col-mobile-hidden">

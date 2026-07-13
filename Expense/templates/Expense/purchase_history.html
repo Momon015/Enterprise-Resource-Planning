@@ -351,11 +351,25 @@ function applyQueryFilter(key, value) {
                   {% payment_method_badge purchase.payment_method_code muted=purchase.is_void %}
                 </td>
 
+                {% comment %} Status = the PAYMENT chip, plus a return chip BESIDE it when stock
+                went back to the supplier. Mirror of the sales list: a purchase we returned still
+                showed as a clean "Paid" order with nothing to say the goods had gone back. Cost
+                stays at what the order was — the refund is its own record, on its own date. {% endcomment %}
                 <td class="sl-text-center">
                     {% if purchase.is_void %}
                         <span class="sl-badge sl-badge-light"><i class="bi bi-ban"></i> Voided</span>
                     {% else %}
                         {% settlement_badge purchase %}
+                        {% with ret=purchase.return_summary %}
+                        {% if ret %}
+                          {% comment %} Chip only — no link out. The list is for scanning; the way
+                          into the return record is on the purchase's detail page. {% endcomment %}
+                          <span class="sl-badge sl-badge-warning"
+                                title="₱{{ ret.amount|floatformat:2|intcomma }} refunded">
+                            <i class="bi bi-arrow-return-left"></i> {{ ret.label }}
+                          </span>
+                        {% endif %}
+                        {% endwith %}
                     {% endif %}
                 </td>
 

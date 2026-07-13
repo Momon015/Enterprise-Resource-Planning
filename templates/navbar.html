@@ -172,24 +172,37 @@
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
               {% endif %}
             </a>
+            {% comment %} LIVE 2026-07-12 — first Analytics page. Unlike Dashboard (which
+            the sidebar HIDES below Pro), this stays visible and wears a lock: Analytics is
+            the thing people upgrade FOR, and an invisible feature sells nothing. Non-Pro
+            lands on pricing. The view is gated too — the lock is a signpost, not the fence.
+            {% endcomment %}
             <a class="sidebar-nav__link {% if section == 'sales-analytics' %}is-active{% endif %}"
-              href="#"
+              href="{% if current_business.plan.has_analytics %}{% url 'sales-analytics' business_slug=current_business.slug %}{% else %}{% url 'subscription-pricing' business_slug=current_business.slug %}{% endif %}"
               {% if request.user.role == 'staff' %}data-locked="Sales-Analytics"{% endif %}>
               <i class="bi bi-clipboard-data"></i>
               <span>Sales Analytics</span>
               {% if request.user.role == 'staff' %}
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% elif not current_business.plan.has_analytics %}
+                <span class="lock-badge" title="Pro plan"><i class="bi bi-lock-fill"></i></span>
               {% endif %}
             </a>
           </li>
           <li>
+            {% comment %} LIVE 2026-07-12 — second Analytics page. Same visible-but-locked
+            treatment as Sales Analytics above: non-Pro sees the item and a lock, and lands
+            on pricing. The view is gated too — the lock is a signpost, not the fence.
+            {% endcomment %}
             <a class="sidebar-nav__link {% if section == 'expense-analytics' %}is-active{% endif %}"
-              href="#"
+              href="{% if current_business.plan.has_analytics %}{% url 'expense-analytics' business_slug=current_business.slug %}{% else %}{% url 'subscription-pricing' business_slug=current_business.slug %}{% endif %}"
               {% if request.user.role == 'staff' %}data-locked="Expense-Analytics"{% endif %}>
               <i class="bi bi-pie-chart"></i>
               <span>Expense Analytics</span>
               {% if request.user.role == 'staff' %}
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% elif not current_business.plan.has_analytics %}
+                <span class="lock-badge" title="Pro plan"><i class="bi bi-lock-fill"></i></span>
               {% endif %}
             </a>
           </li>

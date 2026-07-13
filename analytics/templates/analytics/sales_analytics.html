@@ -1,0 +1,661 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}Sales Analytics · paKITA{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* The shared Analytics chrome (.an-period / .an-chip / .an-chart / .an-rank / .an-link)
+     was PROMOTED into style.css 2026-07-12 when Expense Analytics wanted the same period
+     bar. Only what is specific to THIS page lives here. */
+
+  /* ══ ONE SWITCH: the "sales" accent for this whole page ══════════════════════════
+     BLUE, chosen over cyan 2026-07-12 after rendering both. Cyan was the better-looking
+     of the two in dark mode (it's analogous to the emerald trend line, so the page read
+     as more of a piece) but it lost on two counts: --cyan-light is #ecfeff, near-white,
+     so the tinted card and the #1 chip all but vanished in the LIGHT theme; and cyan
+     already means "cash drawer, open" in the KPI colour system — reusing it for "sales"
+     would spend a hue that currently carries live state.
+     To try another: change these two lines AND the two class names on the Sales KPI card
+     (kpi-card--hue-info / kpi-icon--info). The rank chip and all three charts read the
+     variable and follow automatically. */
+  .page-wrapper {
+    --an-accent:      var(--info);
+    --an-accent-soft: var(--info-light);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Sales Analytics</h1>
+      <p class="page-subtitle">What sells, when it sells, and what isn't moving</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-calendar3"></i>
+        <strong>{{ period.label }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERIOD BAR — quick ranges + a custom window.
+       Filters are open to every tier; the PAGE is the Pro gate, not the range. -->
+  <div class="an-period">
+    <div class="an-chips">
+      {% for key, label, icon in range_choices %}
+      <a class="an-chip {% if period.key == key %}an-chip--active{% endif %}"
+         href="?range={{ key }}">
+        <i class="bi {{ icon }}"></i> {{ label }}
+      </a>
+      {% endfor %}
+      {% comment %} Custom has no chip of its own to click — it only appears once a date
+      range is applied, as a read-out of where you are. {% endcomment %}
+      {% if period.key == 'custom' %}
+      <span class="an-chip an-chip--active">
+        <i class="bi bi-calendar-range"></i> Custom
+      </span>
+      {% endif %}
+    </div>
+
+    <form method="get" class="an-custom" autocomplete="off">
+      <input type="date" name="start" value="{{ period.start|date:'Y-m-d' }}" aria-label="Start date">
+      <span class="an-custom__sep">to</span>
+      <input type="date" name="end" value="{{ period.end|date:'Y-m-d' }}" aria-label="End date">
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-funnel-fill"></i> Apply
+      </button>
+    </form>
+  </div>
+
+  <!-- HEADLINE KPIs — the period, against the same number of days before it -->
+  <div class="kpi-row kpi-row--4col">
+
+    {% comment %} Colour language, same as everywhere else: money-in is green (emerald),
+    sales activity is blue. Average sale and Units sold are neither — they're ratios and
+    counts, not money coming in — so they stay silver/neutral rather than borrowing a hue
+    that would imply good-vs-bad. See the KPI colour system. {% endcomment %}
+
+    <!-- REVENUE — net of customer refunds; the working lives in the dropdown -->
+    <div class="kpi-card kpi-card--hue-success has-popover">
+      <div class="kpi-icon kpi-icon--success">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Revenue</div>
+        <div class="kpi-value">₱{{ kpi.revenue|floatformat:2|intcomma }}</div>
+        {% comment %} `delta` is None on All time — no row at all, not even a muted one.
+        There is nothing before the first sale to compare against. {% endcomment %}
+        {% if delta %}
+          {% if delta.revenue.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.revenue.0 }}">
+              <i class="bi bi-arrow-{% if delta.revenue.0 == 'up' %}up{% elif delta.revenue.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.revenue.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% comment %} Billed → returned → collected → still owed. Deliberately NO payment-method
+      rows: that breakdown belongs to the Daily Summary, and repeating it on a trends page is
+      noise. Gross leads so the card's net figure reads as derived, not as a number that shrank.
+      {% endcomment %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Revenue">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Revenue</div>
+        <div class="kpi-popover__row"><span>Revenue (billed)</span><span class="num">₱{{ kpi.gross|floatformat:2|intcomma }}</span></div>
+        {% if kpi.refunds > 0 %}
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ kpi.refunds|floatformat:2|intcomma }}</span></div>
+        {% endif %}
+        <div class="kpi-popover__row"><span>Collected</span><span class="num">₱{{ settle.collected|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Receivables (unpaid)</span><span class="num">₱{{ settle.receivables|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'sale-list' business_slug=current_business.slug %}">View sales <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+
+    <!-- SALES COUNT — the two class names to flip when swapping the page accent (see the
+         ONE SWITCH block in extra_css). -->
+    <div class="kpi-card kpi-card--hue-info kpi-card--clickable"
+         data-href="{% url 'sale-list' business_slug=current_business.slug %}" tabindex="0">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-receipt-cutoff"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Sales</div>
+        <div class="kpi-value">{{ kpi.count|intcomma }}</div>
+        {% if delta %}
+          {% if delta.count.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.count.0 }}">
+              <i class="bi bi-arrow-{% if delta.count.0 == 'up' %}up{% elif delta.count.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.count.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% comment %} AVERAGE SALE — what a typical customer spends. Rises when you upsell, falls
+    when you discount. bi-cash-stack, NOT bi-basket: basket is the Products icon everywhere
+    else in the app, and this card is about money per sale, not a basket of goods. {% endcomment %}
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--neutral">
+        <i class="bi bi-cash-stack"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Average Sale</div>
+        <div class="kpi-value">₱{{ kpi.avg|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.avg.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.avg.0 }}">
+              <i class="bi bi-arrow-{% if delta.avg.0 == 'up' %}up{% elif delta.avg.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.avg.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- UNITS SOLD -->
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-icon--neutral">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Units Sold</div>
+        <div class="kpi-value">{{ kpi.units|intcomma }}</div>
+        {% if delta %}
+          {% if delta.units.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.units.0 }}">
+              <i class="bi bi-arrow-{% if delta.units.0 == 'up' %}up{% elif delta.units.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.units.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  {% if period.compare_note %}
+  <div class="an-compare-note">
+    <i class="bi bi-info-circle"></i> {{ period.compare_note }}
+  </div>
+  {% endif %}
+
+  {% if has_data %}
+
+  <!-- REVENUE TREND -->
+  <div class="card" style="margin-bottom: 0.85rem;">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">Revenue Trend</span>
+        <span class="sl-badge sl-badge-light">{{ period.bucket_label }}</span>
+      </div>
+      <span class="card-header-sub">{{ period.label }}</span>
+    </div>
+    <div class="card-body an-chart an-chart--tall">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <div class="two-col-layout">
+
+    <!-- LEFT: what sold, what didn't -->
+    <div class="left-panel">
+
+      {% comment %} TOP PRODUCTS — table form (restored 2026-07-12 after trying the ranked-list
+      form; the alternate markup is parked at the bottom of this file if you want to flip back).
+      Ranked two ways because money is the owner's language, but a cheap fast-mover is the thing
+      you actually run out of. Column headers earn their keep here: with two figures per row, the
+      reader needs to be told which is which. Rank chips are neutral except #1, which goes blue.
+      {% endcomment %}
+      <div class="card an-top">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-trophy"></i> Top Products
+            </span>
+          </div>
+          <div class="activity-header-right">
+            <button type="button" class="top-items-toggle is-active" data-top-tab="revenue">By revenue</button>
+            <button type="button" class="top-items-toggle" data-top-tab="units">By units</button>
+          </div>
+        </div>
+
+        {% for tab, rows in top_tabs %}
+        <div class="table-responsive" data-top-panel="{{ tab }}" {% if tab == 'units' %}style="display:none;"{% endif %}>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:2.5rem;"></th>
+                <th>Product</th>
+                <th class="sl-text-end">Units</th>
+                <th class="sl-text-end">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+                <td>
+                  {% if row.product__slug %}
+                  <a class="an-link" href="{% url 'product-detail' business_slug=current_business.slug product_id=row.product_id product_slug=row.product__slug %}">
+                    {{ row.product__name }}
+                  </a>
+                  {% else %}
+                    {{ row.product__name|default:"(removed product)" }}
+                  {% endif %}
+                </td>
+                {% comment %} Both figures on every row — the tabs change the ORDER only, so a row
+                never hides the number you didn't sort by. The sorted column is the lit one. {% endcomment %}
+                <td class="sl-text-end an-num {% if tab == 'units' %}an-figure--lead{% endif %}">{{ row.units|intcomma }}</td>
+                <td class="sl-text-end an-num {% if tab == 'revenue' %}an-figure--lead{% endif %}">₱{{ row.revenue|floatformat:2|intcomma }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="top-item-empty">No sales in this period.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- NOT SOLD — money standing still. Ranked by capital tied up, because that's
+           what decides whether it's worth acting on. -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Didn't Sell</span>
+            {% if unsold.count %}
+            <span class="sl-badge sl-badge-light">{{ unsold.count }} product{{ unsold.count|pluralize }}</span>
+            {% endif %}
+          </div>
+          {% if unsold.count %}
+          <span class="card-header-sub">₱{{ unsold.value|floatformat:2|intcomma }} tied up</span>
+          {% endif %}
+        </div>
+
+        {% if unsold.rows %}
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="sl-text-end">On hand</th>
+                <th class="sl-text-end">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in unsold.rows %}
+              <tr>
+                <td>
+                  <a class="an-link" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.id product_slug=p.slug %}">
+                    {{ p.name }}
+                  </a>
+                </td>
+                <td class="sl-text-end an-num">{{ p.prepared_quantity|intcomma }}</td>
+                <td class="sl-text-end an-num">₱{{ p.idle|floatformat:2|intcomma }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon sl-text-emerald"><i class="bi bi-check-circle-fill"></i></div>
+          <h3 class="empty-title">Everything moved</h3>
+          <p class="empty-text">Every product on the shelf sold at least once this period.</p>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- RIGHT: when it sold -->
+    <div class="right-panel">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Busiest Hours</span>
+            {% if peaks.peak_hour %}
+            <span class="sl-badge sl-badge-light">Peak {{ peaks.peak_hour }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body an-chart an-chart--short">
+          <canvas id="hourChart"></canvas>
+        </div>
+        <div class="card-body" style="padding: 0 1rem 0.9rem; font-size: 0.78rem; color: var(--muted);">
+          <i class="bi bi-info-circle"></i> Based on when each sale was recorded.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Busiest Days</span>
+            {% if peaks.peak_dow %}
+            <span class="sl-badge sl-badge-light">Peak {{ peaks.peak_dow }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body an-chart an-chart--short">
+          <canvas id="dowChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {% else %}
+
+  <!-- No posted sales in the window. Say so plainly rather than drawing four
+       flat-zero charts, which read as a broken page. -->
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-graph-up"></i></div>
+      <h3 class="empty-title">No sales in this period</h3>
+      <p class="empty-text">
+        Nothing was sold in this window ({{ period.label }}). Pick a wider range, or
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="link-accent">check your sales records</a>.
+      </p>
+    </div>
+  </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}
+{# Vendored, not CDN — a silently-failing chart library is a blank page. #}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  // Colours come from the same CSS tokens the rest of the app uses, read at paint
+  // time. Do NOT sniff classList.contains('dark') — this app marks the theme with
+  // [data-theme], and the old dashboard charts got this wrong.
+  // Money is emerald, sales activity is blue — the same two hues the KPI cards above
+  // wear, so a chart and the card it belongs to are literally the same green/blue.
+  // --emerald (not --success) is the KPI money-in green; they are different tokens.
+  // Read off .page-wrapper, not the root, because --an-accent (the page's sales hue) is
+  // declared there — that's the single switch the whole page follows.
+  function tokens() {
+    const cs = getComputedStyle(document.querySelector('.page-wrapper'));
+    const get = (n, fallback) => (cs.getPropertyValue(n).trim() || fallback);
+    return {
+      grid:    get('--border', '#e5e7eb'),
+      text:    get('--muted', '#6b7280'),
+      emerald: get('--emerald', '#10b981'),      // revenue — money is always green
+      info:    get('--an-accent', '#2563eb'),    // sales — cyan or blue, per the switch
+    };
+  }
+
+  // Chart.js needs a real rgba() for fills. Tokens are hex in the light theme but some are
+  // already rgba() in dark, and --an-accent resolves through another var — so accept both
+  // shapes rather than assuming hex and silently falling back to the wrong colour.
+  function alpha(color, a) {
+    const rgb = color.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+    if (rgb) return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${a})`;
+
+    const h = color.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const n = parseInt(full, 16);
+    if (Number.isNaN(n) || full.length !== 6) return `rgba(16,185,129,${a})`;   // --emerald
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
+
+  const peso = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+
+  let t = tokens();
+  const charts = [];
+
+  // ── Revenue trend ────────────────────────────────────────────────────────
+  charts.push(new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: {{ trend_labels|safe }},
+      datasets: [{
+        label: 'Revenue',
+        data: {{ trend_data|safe }},
+        borderColor: t.emerald,
+        backgroundColor: alpha(t.emerald, 0.12),
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+      },
+      scales: {
+        x: { ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: t.text, callback: peso }, grid: { color: t.grid } }
+      }
+    }
+  }));
+
+  // ── Busiest hours ────────────────────────────────────────────────────────
+  charts.push(new Chart(document.getElementById('hourChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ hour_labels|safe }},
+      datasets: [{
+        label: 'Revenue',
+        data: {{ hour_data|safe }},
+        backgroundColor: alpha(t.info, 0.55),
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+      },
+      scales: {
+        // Every 3rd label — 24 of them will not fit in a 420px panel.
+        x: { ticks: { color: t.text, maxRotation: 0, autoSkip: false,
+                      callback: function (v, i) { return i % 3 === 0 ? this.getLabelForValue(v) : ''; } },
+             grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: t.text, callback: peso, maxTicksLimit: 4 }, grid: { color: t.grid } }
+      }
+    }
+  }));
+
+  // ── Busiest days ─────────────────────────────────────────────────────────
+  charts.push(new Chart(document.getElementById('dowChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ dow_labels|safe }},
+      datasets: [{
+        label: 'Revenue',
+        data: {{ dow_data|safe }},
+        backgroundColor: alpha(t.info, 0.55),
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+      },
+      scales: {
+        x: { ticks: { color: t.text }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: t.text, callback: peso, maxTicksLimit: 4 }, grid: { color: t.grid } }
+      }
+    }
+  }));
+
+  // ── Repaint on theme flip ────────────────────────────────────────────────
+  // The topbar toggle swaps [data-theme] in place, no reload — without this the
+  // axes keep the old theme's greys and go invisible against the new ground.
+  new MutationObserver(function () {
+    t = tokens();
+    charts.forEach(function (c) {
+      c.options.scales.x.ticks.color = t.text;
+      c.options.scales.y.ticks.color = t.text;
+      c.options.scales.y.grid.color  = t.grid;
+      c.update('none');
+    });
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ── Top Products tabs ────────────────────────────────────────────────────
+  document.querySelectorAll('[data-top-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const want = btn.dataset.topTab;
+      document.querySelectorAll('[data-top-tab]').forEach(b =>
+        b.classList.toggle('is-active', b === btn));
+      document.querySelectorAll('[data-top-panel]').forEach(p =>
+        p.style.display = (p.dataset.topPanel === want) ? '' : 'none');
+    });
+  });
+
+});
+</script>
+{% endif %}
+
+{% comment %} OUTSIDE the has_data guard on purpose — the KPI strip (and its dropdowns) render
+even on an empty period, so the toggle has to exist there too.
+
+Same delegated handler as the Dashboard / Daily Summary pages. It is copy-pasted rather than
+shared because those pages bury it inside a <script> block that also holds page-specific code,
+so there's no clean single copy to lift out yet. Worth extracting into one global file — but
+whoever does it must remove ALL the inline copies in the same pass: two delegated listeners
+would each toggle the class and cancel each other out, silently killing every popover. {% endcomment %}
+<script>
+  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
+  document.addEventListener('click', (e) => {
+    const btn  = e.target.closest('[data-kpi-popover]');
+    const open = document.querySelector('.kpi-card.popover-open');
+    if (btn) {
+      e.stopPropagation();
+      const card = btn.closest('.kpi-card');
+      if (open && open !== card) open.classList.remove('popover-open');
+      card.classList.toggle('popover-open');
+      return;
+    }
+    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.kpi-card.popover-open');
+      if (open) open.classList.remove('popover-open');
+    }
+  });
+</script>
+{% endblock %}
+
+{# ═══════════════════════════════════════════════════════════════════
+   PARKED — Top Products, ranked-list form. Built 2026-07-12, swapped back
+   out for the table above. Kept because the two were close and this may be
+   wanted again; it reuses the global .top-items-* component (same look as the
+   old Top Items card) instead of a table: circular badges, no column headers,
+   units centred mid-row, peso at the right edge.
+
+   To flip back: drop this markup in place of the table card, and restore the
+   CSS block below into the {% comment %}extra_css{% endcomment %} <style>.
+   Everything else (top_tabs context, the tab JS) works with either form.
+
+   CSS:
+     .an-top .top-item-rank { background: var(--surface-alt); color: var(--muted);
+                              font-variant-numeric: tabular-nums; }
+     .an-top .top-item-row:first-child .top-item-rank { background: var(--info-light); color: var(--info); }
+     .an-top .top-item-units { font-variant-numeric: tabular-nums; }
+     .an-top .top-item-name  { flex: 1 1 0; }
+     .an-top .an-units { flex: 1 1 0; text-align: center; }
+     .an-top .an-money { flex: 0 0 7rem; text-align: right; }
+     .an-top .an-figure--lead { color: var(--text); font-weight: 700; }
+═══════════════════════════════════════════════════════════════════ #}
+
+{% comment %}
+<div class="card an-top">
+  <div class="card-header">
+    <div class="card-header-left-group">
+      <span class="card-header-title">
+        <i class="bi bi-trophy"></i> Top Products
+      </span>
+    </div>
+    <div class="activity-header-right">
+      <button type="button" class="top-items-toggle is-active" data-top-tab="revenue">By revenue</button>
+      <button type="button" class="top-items-toggle" data-top-tab="units">By units</button>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding:0;">
+    {% for tab, rows in top_tabs %}
+    <ol class="top-items-list" data-top-panel="{{ tab }}" {% if tab == 'units' %}style="display:none;"{% endif %}>
+      {% for row in rows %}
+      <li class="top-item-row">
+        <span class="top-item-rank">{{ forloop.counter }}</span>
+        {% if row.product__slug %}
+        <a class="top-item-name an-link"
+           href="{% url 'product-detail' business_slug=current_business.slug product_id=row.product_id product_slug=row.product__slug %}">
+          {{ row.product__name }}
+        </a>
+        {% else %}
+        <span class="top-item-name">{{ row.product__name|default:"(removed product)" }}</span>
+        {% endif %}
+        <span class="top-item-units an-units {% if tab == 'units' %}an-figure--lead{% endif %}">
+          {{ row.units|intcomma }} unit{{ row.units|pluralize }}
+        </span>
+        <span class="top-item-units an-money {% if tab == 'revenue' %}an-figure--lead{% endif %}">
+          ₱{{ row.revenue|floatformat:2|intcomma }}
+        </span>
+      </li>
+      {% empty %}
+      <li class="top-item-empty">No sales in this period.</li>
+      {% endfor %}
+    </ol>
+    {% endfor %}
+  </div>
+</div>
+{% endcomment %}

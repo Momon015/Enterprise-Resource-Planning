@@ -189,6 +189,82 @@
         </div>
       </div>
 
+      {% comment %} RETURNS card — sibling of Payments (mirror of purchase_detail). One sale can
+      have several returns, and stacking them as bare reference links in the Summary panel stopped
+      being readable at two. A return is an event with a date, a reason, an amount and a person
+      behind it — the same shape as a payment — so it gets the same table. The Summary panel keeps
+      only the headline. Not rendered at all when nothing came back: a clean sale shouldn't carry an
+      empty card. {% endcomment %}
+      {% with ret=sale.return_summary %}
+      {% if ret %}
+      <div class="card" style="margin-top: 1rem;">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-arrow-return-left"></i> Returns
+            </span>
+            <span class="sl-badge sl-badge-light">
+              {{ ret.count }} return{{ ret.count|pluralize }}
+            </span>
+          </div>
+          <span class="card-header-sub">₱{{ ret.amount|floatformat:2|intcomma }} refunded</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Reason</th>
+                <th class="sl-text-center">Method</th>
+                <th class="sl-text-end">Refund</th>
+                {% if request.user.role == 'owner' %}<th class="sl-text-end">Recorded By</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in ret.returns %}
+              <tr>
+                <td class="cell-primary">
+                  {{ r.date|date:"M d, Y" }}
+                  <div class="cell-sub">{{ r.created_at|date:"h:i A" }}</div>
+                </td>
+                <td>
+                  <a class="link-accent" href="{% url 'sales-return-detail' business_slug=current_business.slug return_id=r.id %}">
+                    {{ r.reference }} <i class="bi bi-box-arrow-up-right"></i>
+                  </a>
+                </td>
+                <td>
+                  <span class="cell-sub">{{ r.get_reason_display }}</span>
+                  {% if r.reason_note %}<div class="cell-sub">{{ r.reason_note }}</div>{% endif %}
+                </td>
+                {% comment %} Derived from the cash/credit split, never chosen — you can't hand a
+                customer cash for a sale they never paid for. See split_refund(). {% endcomment %}
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
+                </td>
+                <td class="sl-text-end sl-fw-semibold text-danger">
+                  −₱{{ r.refund_total|floatformat:2|intcomma }}
+                </td>
+                {% if request.user.role == 'owner' %}
+                <td class="sl-text-end">
+                  {% if r.created_by %}
+                  <div class="cell-primary">{{ r.created_by.get_full_name|default:r.created_by.username }}</div>
+                  <div class="cell-sub">{% if r.created_by.role == 'owner' %}Owner{% elif r.created_by.role == 'developer' %}Developer{% else %}Staff{% endif %}</div>
+                  {% else %}
+                  <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+      {% endwith %}
+
     </div>
 
 
@@ -290,6 +366,28 @@
               <dd>{% settlement_badge sale %}</dd>
             </div>
             {% endif %}
+
+            {% comment %} RETURNS — headline only. The per-return references, reasons and who
+            recorded them live in the Returns CARD below Payments; a stacked column of bare
+            reference links stopped being readable the moment there were two.
+            The Total Revenue above stays at what was actually rung up — the refund is a separate
+            record dated the day the goods came back, not a rewrite of the sale. {% endcomment %}
+            {% with ret=sale.return_summary %}
+            {% if ret %}
+            <div>
+              <dt>Returns</dt>
+              <dd>
+                <span class="sl-badge sl-badge-warning">
+                  <i class="bi bi-arrow-return-left"></i> {{ ret.detail }}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Refunded</dt>
+              <dd class="text-danger sl-fw-bold">−₱{{ ret.amount|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            {% endwith %}
             {% endif %}
           </dl>
 
@@ -374,7 +472,10 @@
 
             {% endif %}
 
-            {% if sale.status == 'completed' and not sale.is_void %}
+            {% comment %} has_returnable_items, not just "completed and not void" — once every
+            unit is back there is nothing left to return, and the form would open on a table of
+            "Fully returned" rows with no inputs at all. {% endcomment %}
+            {% if sale.has_returnable_items %}
             <a href="{% url 'sales-return-create' business_slug=current_business.slug sale_id=sale.id %}"
               class="btn btn-light btn-block">
               <i class="bi bi-arrow-return-left"></i> Return items
@@ -382,6 +483,25 @@
             {% endif %}
 
             {% if sale.status == 'completed' %}
+            {% comment %} The receipt itself is NOT changed when goods come back. It is the record
+            of what was sold that day, and that did happen — restating a printed invoice to fold in
+            a refund made days later is rewriting a document after the fact, which is the thing the
+            immutability rule exists to prevent. The return is its own event with its own reference.
+
+            But a fully-returned sale can still be reprinted, and handing a customer a receipt for
+            goods already back on the shelf is a real mistake to make. So: warn on SCREEN, print
+            the document unchanged. {% endcomment %}
+            {% comment %} Kept to a SINGLE line: this sits in a ~300px action column, and the
+            reference is already a link in the Summary panel above, so it isn't repeated here.
+            All this has to do is stop a bad reprint. {% endcomment %}
+            {% with ret=sale.return_summary %}
+            {% if ret %}
+            <div class="sd-note-box" style="margin: 0 0 0.6rem; align-items: center; font-size: .74rem; white-space: nowrap;">
+              <i class="bi bi-exclamation-triangle"></i>
+              <span>₱{{ ret.amount|floatformat:2|intcomma }} returned — receipt shows original sale.</span>
+            </div>
+            {% endif %}
+            {% endwith %}
             <a href="{% url 'sale-receipt' business_slug=current_business.slug sale_id=sale.id %}"
               target="_blank"
               hx-get="{% url 'sale-receipt-modal' business_slug=current_business.slug sale_id=sale.id %}"

@@ -111,6 +111,12 @@ def capacity_required(capacity_key):
         return wrapper
     return decorator
 
+FEATURE_LABELS = {
+    'has_dashboard':  'The Dashboard',
+    'has_analytics':  'Analytics',
+}
+
+
 def feature_required(feature_check):
     """
     Gate a view by a per-plan feature.
@@ -142,9 +148,12 @@ def feature_required(feature_check):
                 return redirect(target, business_slug=business.slug)
 
             if not check():
+                # The message used to say "Dashboard" no matter which feature was
+                # blocked — fine while there was one gate, misleading once there are two.
+                label = FEATURE_LABELS.get(feature_check, 'This feature')
                 messages.warning(
                     request,
-                    f"Dashboard requires a higher plan. Upgrade this business to unlock it."
+                    f"{label} requires a higher plan. Upgrade this business to unlock it."
                 )
                 return redirect(target, business_slug=business.slug)
 

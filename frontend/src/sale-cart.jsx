@@ -146,12 +146,26 @@ function SaleCart() {
   const [cart, setCart] = useState(null)      // null = still loading
   const [discount, setDiscount] = useState(0)
 
-  // load cart once, when the component first appears on screen
+  // Load on mount — AND again whenever the cart is mutated from outside this island.
+  //
+  // The topbar search's "+" button is plain htmx: it POSTs to add-to-sale and swaps the
+  // cart badge. That happens entirely outside React, so the island used to sit on the
+  // state it fetched at mount and show a stale cart (most visibly: the "No products yet"
+  // empty state, still there after you'd just added something). You had to refresh.
+  //
+  // main.html fires `cart:changed` on any htmx swap of the cart badge — i.e. on any cart
+  // mutation, whatever triggered it — so this re-reads the truth instead of trying to
+  // guess what changed.
   useEffect(() => {
-    fetch(URLS.state).then(r => r.json()).then(data => {
-      setCart(data)
-      setDiscount(parseFloat(data.discount_percent) || 0)
-    })
+    const load = () =>
+      fetch(URLS.state).then(r => r.json()).then(data => {
+        setCart(data)
+        setDiscount(parseFloat(data.discount_percent) || 0)
+      })
+
+    load()
+    document.addEventListener('cart:changed', load)
+    return () => document.removeEventListener('cart:changed', load)
   }, [])
 
   if (!cart) return <div style={{ padding:'2rem', color:'var(--muted)' }}>Loading cart…</div>

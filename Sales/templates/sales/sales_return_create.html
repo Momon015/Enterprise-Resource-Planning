@@ -158,31 +158,39 @@
           </div>
         </div>
 
+        {% comment %} REFUND METHOD — no longer a choice (2026-07-12).
+
+        It used to be a cash/credit radio, with 'credit' hidden because store credit is
+        paused. That left CASH as the only option, which meant returning goods on an
+        UNPAID sale handed the customer money they had never paid us.
+
+        Now the system decides: whatever the customer still owes is knocked off FIRST,
+        and only what's left over can come back as cash. So a refund that is impossible
+        can't be picked at all, instead of being picked and then rejected. This panel
+        just states what will happen. (Store credit — a wallet balance to spend later —
+        is a different thing and is still paused.) {% endcomment %}
         <div class="form-field" style="margin-top: 1rem;">
           <label class="form-label">
-            <i class="bi bi-wallet2"></i> Refund Method
+            <i class="bi bi-wallet2"></i> How this refund is applied
           </label>
-          <div class="payment-method-grid">
-            {% comment %} 'credit' skipped below — store credit PAUSED 2026-07-03 (don't issue credit nobody can redeem); unhide when customer accounts ship {% endcomment %}
-            {% for value, label in refund_method_choices %}
-              {% if value != 'credit' and value != 'store_credit' %}
-              <label class="payment-method-option">
-                <input type="radio" name="refund_method" value="{{ value }}"
-                       {% if forloop.first %}checked{% endif %}>
-                <div class="payment-method-card">
-                  {% if value == 'cash' %}
-                    <i class="bi bi-cash-stack"></i>
-                  {% elif value == 'credit' or value == 'store_credit' %}
-                    <i class="bi bi-credit-card-2-back"></i>
-                  {% else %}
-                    <i class="bi bi-wallet2"></i>
-                  {% endif %}
-                  <span>{{ label }}</span>
-                </div>
-              </label>
-              {% endif %}
-            {% endfor %}
+          {% if outstanding > 0 %}
+          <div class="sd-note-box" style="margin: 0;">
+            <i class="bi bi-info-circle"></i>
+            <span>
+              This customer still owes <strong>₱{{ outstanding|floatformat:2|intcomma }}</strong>.
+              The refund comes off what they owe first — no cash changes hands unless the
+              refund is larger than their balance.
+            </span>
           </div>
+          {% else %}
+          <div class="sd-note-box" style="margin: 0;">
+            <i class="bi bi-cash-stack"></i>
+            <span>
+              This sale is fully paid, so the refund is handed back as
+              <strong>cash</strong>.
+            </span>
+          </div>
+          {% endif %}
         </div>
 
         <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem;">

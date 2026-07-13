@@ -17,18 +17,25 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Sales.models import Sale, SaleItem, SaleEmployee, SalesPayment
+from Sales.models import Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn
 from Sales.forms import SaleForm, SaleFilterForm
 
 from Product.models import Product
 from Product.forms import ProductForm
 
-from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, PurchasePayment
+from Expense.models import (Purchase, PurchaseItem, Waste, WasteItem, Expense,
+                            PurchasePayment, PurchaseReturn)
 from Employee.models import Employee, Shift, ShiftEmployee
 from Employee.forms import EmployeeForm
 
 from core.models import StatusModel
 
+# THE accrual profit formula — one definition, shared with the Dashboard and Analytics.
+# Importing it (rather than re-typing `revenue - cost - ...` here) is what stops this page
+# from drifting out of step with them again.
+from core.utils.returns import _total, net_profit
+
+from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
@@ -81,21 +88,26 @@ def view_summary(request, business_slug):
     expenses  = all_expenses
     shifts    = all_shifts
 
-    grand_net_profit = 0
-    grand_material_total_cost = 0
-    grand_total_revenue = 0
-    grand_total_salary_cost = 0
-    grand_total_waste_cost = 0
-    grand_total_expense_cost = 0
-    
-    expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
-    wastes_by_date = wastes.values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
-    sales_by_date = sales.values('date').annotate(total_revenue=Sum('total_revenue')).order_by('-date')
-    shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('amount')).order_by('-date')
-    purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
-         
     form = SummaryFilterForm(request.GET or None)
-    
+
+    # ── The date filter, resolved ONCE ───────────────────────────────────────────
+    # This used to be re-applied inside six separate `if period ==` branches, once per
+    # queryset. Two bugs grew out of that duplication (both fixed 2026-07-13):
+    #
+    #   1. SALARY HAD TWO DEFINITIONS. The unfiltered path summed Shift.amount — which is
+    #      0 on every row — while the filtered path summed shift_employees__daily_rate.
+    #      So the DEFAULT view (no query params -> unbound form -> is_valid() False)
+    #      reported ₱0 payroll and overstated net profit. The Dashboard has always used
+    #      shift_employees__daily_rate; that is the one true definition.
+    #
+    #   2. THE FREEZE WAS NON-DETERMINISTIC. close_day() trusts the row it's handed, so
+    #      whichever request first read a past day decided its books forever — land on the
+    #      page unfiltered and salary froze at 0, land on it filtered and it froze at 400.
+    #
+    # One spec, applied to every queryset, kills that whole class of bug — and it means a
+    # new queryset (like the two return streams below) is filtered correctly for free.
+    date_filters = []   # (lookup suffix, value); '' suffix means the field itself
+
     period = request.GET.get('period', '')
     period = {'this_week': 'week', 'this_month': 'month'}.get(period, period)
     # Strip weekly filter for plans that don't include it
@@ -115,185 +127,136 @@ def view_summary(request, business_slug):
         select_month = form.cleaned_data.get('select_month', '')
 
         if start_date and end_date:
-            sales = sales.filter(date__range=(start_date, end_date))
-            purchases = purchases.filter(purchase_date__range=(start_date, end_date))
-            wastes = wastes.filter(date__range=(start_date, end_date))
-            expenses = expenses.filter(date__range=(start_date, end_date))
-            shifts = shifts.filter(date__range=(start_date, end_date))
-            
+            date_filters = [('range', (start_date, end_date))]
+
         if select_month:
             parsed_year, parsed_month = map(int, select_month.split('-'))
-            sales = sales.filter(date__month=parsed_month, date__year=parsed_year)
-            purchases = purchases.filter(purchase_date__month=parsed_month, purchase_date__year=parsed_year)
-            wastes = wastes.filter(date__month=parsed_month, date__year=parsed_year)
-            expenses = expenses.filter(date__month=parsed_month, date__year=parsed_year)
-            shifts = shifts.filter(date__month=parsed_month, date__year=parsed_year)
+            date_filters = [('month', parsed_month), ('year', parsed_year)]
 
-            
         if period == 'last_week':
             if iso_week == 1:
                 last_year = iso_year - 1
                 last_year_of_last_week = date(last_year, 12, 28).isocalendar()[1]
-                sales = sales.filter(date__week=last_year_of_last_week, date__year=last_year)
-                purchases = purchases.filter(purchase_date__week=last_year_of_last_week, purchase_date__year=last_year)
-                wastes = wastes.filter(date__week=last_year_of_last_week, date__year=last_year)
-                expenses = expenses.filter(date__week=last_year_of_last_week, date__year=last_year)
-                shifts = shifts.filter(date__week=last_year_of_last_week, date__year=last_year)
-                
+                date_filters = [('week', last_year_of_last_week), ('year', last_year)]
             else:
-                sales = sales.filter(date__week=iso_week-1, date__year=iso_year)
-                purchases = purchases.filter(purchase_date__week=iso_week-1, purchase_date__year=iso_year)
-                wastes = wastes.filter(date__week=iso_week-1, date__year=iso_year)
-                expenses = expenses.filter(date__week=iso_week-1, date__year=iso_year)
-                shifts = shifts.filter(date__week=iso_week-1, date__year=iso_year)
-                
+                date_filters = [('week', iso_week - 1), ('year', iso_year)]
+
         if period == 'week':
-            sales = sales.filter(date__week=iso_week, date__year=iso_year)
-            purchases = purchases.filter(purchase_date__week=iso_week, purchase_date__year=iso_year)
-            wastes = wastes.filter(date__week=iso_week, date__year=iso_year)
-            expenses = expenses.filter(date__week=iso_week, date__year=iso_year)
-            shifts = shifts.filter(date__week=iso_week, date__year=iso_year)
+            date_filters = [('week', iso_week), ('year', iso_year)]
 
         if period == 'today':
-            sales = sales.filter(date=today)
-            purchases = purchases.filter(purchase_date=today)
-            wastes = wastes.filter(date=today)
-            expenses = expenses.filter(date=today)
-            shifts = shifts.filter(date=today)
+            date_filters = [('', today)]
 
         if period == 'month':
-            sales = sales.filter(date__month=today.month, date__year=today.year)
-            purchases = purchases.filter(purchase_date__month=today.month, purchase_date__year=today.year)
-            wastes = wastes.filter(date__month=today.month, date__year=today.year)
-            expenses = expenses.filter(date__month=today.month, date__year=today.year)
-            shifts = shifts.filter(date__month=today.month, date__year=today.year)
+            date_filters = [('month', today.month), ('year', today.year)]
 
-        
-        sales_by_date = sales.values('date').annotate(total_revenue=Sum('total_revenue')).order_by('-date')
-        purchase_by_date = purchases.values('purchase_date').annotate(total_cost=Sum('total_cost')).order_by('-purchase_date')
-        wastes_by_date = wastes.values('date').annotate(total_waste_cost=Sum('total_cost')).order_by('-date')
-        expenses_by_date = expenses.values('date').annotate(total_expense_cost=Sum('total_amount')).order_by('-date')
-        shifts_by_date = shifts.values('date').annotate(total_salary_cost=Sum('shift_employees__daily_rate')).order_by('-date')
-        
         """
         I removed search filter for summary because
-        when you search something like the revenue 
-        other aggregated values became 0 it got  
+        when you search something like the revenue
+        other aggregated values became 0 it got
         excluded whensearch filter is active. To
-        make the filter accurate. I decided to 
+        make the filter accurate. I decided to
         remove it completely in this view summary.
         """
-        
-    summary = {}
-    for s in sales_by_date:
-        summary[s['date']] = {
-            'total_revenue': s['total_revenue'],
-            'total_salary_cost': 0,
-            'total_waste_cost': 0,
-            'total_cost': 0,
-            'total_expense_cost': 0,
-        }
 
-    for p in purchase_by_date:
-        if p['purchase_date'] in summary:
-            summary[p['purchase_date']]['total_cost'] = p['total_cost']
-        else:
-            summary[p['purchase_date']] = {
-                'total_revenue': 0,
-                'total_salary_cost': 0,
-                'total_waste_cost': 0,
-                'total_expense_cost': 0,
-                'total_cost': p['total_cost']
-            }
-            
-    for w in wastes_by_date:
-        if w['date'] in summary:
-            summary[w['date']]['total_waste_cost'] = w['total_waste_cost']
-            
-        else:
-            summary[w['date']] = {
-                'total_revenue': 0,
-                'total_salary_cost': 0,
-                'total_cost': 0,
-                'total_expense_cost': 0,
-                'total_waste_cost': w['total_waste_cost']
-                
-            }
-            
-    for e in expenses_by_date:
-        if e['date'] in summary:
-            summary[e['date']]['total_expense_cost'] = e['total_expense_cost']
-        else:
-            summary[e['date']] = {
-                'total_revenue': 0,
-                'total_salary_cost': 0,
-                'total_cost': 0,
-                'total_waste_cost': 0,
-                'total_expense_cost': e['total_expense_cost']
-            }
-            
-    for s in shifts_by_date:
-        if s['date'] in summary:
-            summary[s['date']]['total_salary_cost'] = s['total_salary_cost']
-        else:
-            summary[s['date']] = {
-                'total_salary_cost': s['total_salary_cost'],
-                'total_revenue': 0,
-                'total_cost': 0,
-                'total_waste_cost': 0,
-                'total_expense_cost': 0,
-                
-            }
-            
+    def in_period(qs, field):
+        """Apply the resolved window to any queryset, whatever its date column is called
+        (Purchase dates on `purchase_date`, everything else on `date`)."""
+        if not date_filters:
+            return qs
+        return qs.filter(**{
+            (f'{field}__{suffix}' if suffix else field): value
+            for suffix, value in date_filters
+        })
+
+    sales     = in_period(all_sales,     'date')
+    purchases = in_period(all_purchases, 'purchase_date')
+    wastes    = in_period(all_wastes,    'date')
+    expenses  = in_period(all_expenses,  'date')
+    shifts    = in_period(all_shifts,    'date')
+
+    # The two return streams, dated by the RETURN's own date — a July refund against a
+    # June sale belongs to July. Same window, same helper, so they can't drift out of
+    # step with the five above.
+    sales_returns_qs    = in_period(
+        SalesReturn.objects.filter(business=business), 'date')
+    purchase_returns_qs = in_period(
+        PurchaseReturn.objects.filter(business=business), 'date')
+
+    # ONE definition of each per-day figure. Salary is shift_employees__daily_rate, the
+    # same column the Dashboard and Expense Analytics use — Shift.amount is empty.
+    sales_by_date     = sales.values('date').annotate(v=Sum('total_revenue'))
+    purchase_by_date  = purchases.values('purchase_date').annotate(v=Sum('total_cost'))
+    wastes_by_date    = wastes.values('date').annotate(v=Sum('total_cost'))
+    expenses_by_date  = expenses.values('date').annotate(v=Sum('total_amount'))
+    shifts_by_date    = shifts.values('date').annotate(v=Sum('shift_employees__daily_rate'))
+    sales_ret_by_date = sales_returns_qs.values('date').annotate(v=Sum('refund_total'))
+    purch_ret_by_date = purchase_returns_qs.values('date').annotate(v=Sum('refund_total'))
+
+    # ── Fold the seven streams into one row per day ──────────────────────────────
+    # This was five near-identical if/else blocks, each of which had to list every OTHER
+    # field as 0 in its `else`. Adding a field meant editing all five — so adding the two
+    # return streams that way was a drift trap waiting to happen. A zero-filled default
+    # makes a missing day cost nothing to express, and a new stream is one line.
+    #
+    # ★ A day can now appear on the strength of a RETURN alone (a refund on a day with no
+    #   sales is still a real day in the books). The old shape would have dropped it.
+    STREAMS = (
+        (sales_by_date,     'date',          'total_revenue'),
+        (purchase_by_date,  'purchase_date', 'total_material_cost'),
+        (wastes_by_date,    'date',          'total_waste_cost'),
+        (expenses_by_date,  'date',          'total_expense_cost'),
+        (shifts_by_date,    'date',          'total_salary_cost'),
+        (sales_ret_by_date, 'date',          'sales_returns'),
+        (purch_ret_by_date, 'date',          'purchase_returns'),
+    )
+    FIELDS = tuple(field for _rows, _date_key, field in STREAMS)
+
+    summary = defaultdict(lambda: dict.fromkeys(FIELDS, Decimal('0')))
+    for rows, date_key, field in STREAMS:
+        for row in rows:
+            summary[row[date_key]][field] = row['v'] or Decimal('0')
 
     summary_list = []
-    if summary:
-        for date, value in summary.items():
-            total_revenue = value['total_revenue']
-            total_material_cost = value['total_cost']
-            total_salary_cost = value['total_salary_cost']
-            total_waste_cost = value['total_waste_cost']
-            total_expense_cost = value['total_expense_cost']
-            
-            net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
-            
-            grand_total_expense_cost += total_expense_cost
-            grand_total_waste_cost += total_waste_cost
-            grand_total_revenue += total_revenue
-            grand_total_salary_cost += total_salary_cost
-            grand_material_total_cost += total_material_cost
-            grand_net_profit += net_profit
-            
-            summary_list.append({
-                'date': date,
-                'total_salary_cost': total_salary_cost,
-                'total_material_cost': total_material_cost,
-                'total_revenue': total_revenue,
-                'total_waste_cost': total_waste_cost,
-                'total_expense_cost': total_expense_cost,
-                # All non-revenue costs, summed in Python (template |add truncates Decimals to int).
-                'total_cost': total_material_cost + total_salary_cost + total_waste_cost + total_expense_cost,
-                'net_profit': net_profit
-            })
+    for day, v in summary.items():
+        # Revenue and material cost are shown NET of returns, so each row's own arithmetic
+        # (revenue − costs = net profit) adds up on screen. The returns are NOT broken out
+        # per day — most days have none, and two mostly-empty columns would be noise. The
+        # window totals appear on the KPI cards above the table instead.
+        net_revenue  = v['total_revenue']      - v['sales_returns']
+        net_material = v['total_material_cost'] - v['purchase_returns']
+
+        day_net = net_profit(
+            v['total_revenue'], v['total_material_cost'], v['total_salary_cost'],
+            v['total_waste_cost'], v['total_expense_cost'],
+            v['sales_returns'], v['purchase_returns'],
+        )
+
+        summary_list.append({
+            'date': day,
+            'total_revenue':       net_revenue,
+            'total_material_cost': net_material,
+            'total_salary_cost':   v['total_salary_cost'],
+            'total_waste_cost':    v['total_waste_cost'],
+            'total_expense_cost':  v['total_expense_cost'],
+            # All non-revenue costs, summed in Python (template |add truncates Decimals to int).
+            'total_cost': (net_material + v['total_salary_cost']
+                           + v['total_waste_cost'] + v['total_expense_cost']),
+            'net_profit': day_net,
+        })
             
     from Sales.models import SalesPayment
     from Expense.models import PurchasePayment
 
-    grand_collected   = SalesPayment.objects.filter(sale__in=sales).aggregate(t=Sum('amount'))['t'] or 0
-    grand_paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or 0
-    grand_receivables = grand_total_revenue - grand_collected
-    grand_payables    = grand_material_total_cost - grand_paid
+    sorted_list = sorted(summary_list, key=lambda x: x['date'], reverse=True)
 
-    # Accrual Expense Cost card = payroll + other expenses + waste. Summed in Python so
-    # it's exact (template |add truncates Decimals to int) and reconciles with Net Profit.
-    grand_expense_cost = grand_total_salary_cost + grand_total_expense_cost + grand_total_waste_cost
-
-    
-    sorted_list=sorted(summary_list, key=lambda x: x['date'], reverse=True)
-    
     # ── Freeze past days: lazy day-rollover accrual close (BIR "pen, not pencil") ──
     # Any day strictly before today is complete (no record can backdate) → safe to
     # snapshot. get_or_create = first close wins; today stays live & editable.
+    #
+    # ★ The rows handed to close_day are now NET of returns and carry the one true salary
+    #   figure, so a frozen day is finally deterministic. It used to depend on which filter
+    #   the first reader happened to have applied.
     from activity.utils import close_day
     for row in sorted_list:
         if row['date'] < today:
@@ -314,29 +277,79 @@ def view_summary(request, business_slug):
             row['is_closed'] = False
             row['closed_at'] = None
 
+    # ── Grand totals = the SUM OF THE ROWS ON SCREEN ─────────────────────────────
+    # These used to be accumulated from the LIVE figures before the freeze ran, so once a
+    # day was closed the cards could quietly disagree with the rows underneath them. Now
+    # they add up exactly what the reader can see.
+    grand_total_revenue       = sum((r['total_revenue']       for r in sorted_list), Decimal('0'))
+    grand_material_total_cost = sum((r['total_material_cost'] for r in sorted_list), Decimal('0'))
+    grand_total_salary_cost   = sum((r['total_salary_cost']   for r in sorted_list), Decimal('0'))
+    grand_total_waste_cost    = sum((r['total_waste_cost']    for r in sorted_list), Decimal('0'))
+    grand_total_expense_cost  = sum((r['total_expense_cost']  for r in sorted_list), Decimal('0'))
+    grand_net_profit          = sum((r['net_profit']          for r in sorted_list), Decimal('0'))
+
+    # The window's refund totals. Shown as a "− ₱x returned" line on the Revenue and
+    # Expense cards rather than as two mostly-empty table columns.
+    grand_sales_returns    = _total(sales_returns_qs)
+    grand_purchase_returns = _total(purchase_returns_qs)
+
+    # Gross = what the net figures above were derived FROM. The cards show the working
+    # ("₱755.00 − ₱47.00 returned") so a number that shrank doesn't read as a lost sale.
+    grand_gross_revenue  = grand_total_revenue + grand_sales_returns
+    grand_gross_material = grand_material_total_cost + grand_purchase_returns
+
+    grand_collected   = SalesPayment.objects.filter(sale__in=sales).aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    grand_paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or Decimal('0')
+
+    # What's still owed. A CREDIT refund reduces the balance (the customer/supplier simply
+    # owes less); a CASH refund doesn't (that money already changed hands). So this nets
+    # off only the credit half — which is exactly what Sale.outstanding does per record.
+    grand_sales_credit    = sales_returns_qs.aggregate(t=Sum('refund_credit'))['t'] or Decimal('0')
+    grand_purchase_credit = purchase_returns_qs.aggregate(t=Sum('refund_credit'))['t'] or Decimal('0')
+    grand_receivables = grand_gross_revenue  - grand_collected - grand_sales_credit
+    grand_payables    = grand_gross_material - grand_paid      - grand_purchase_credit
+
+    # Accrual Expense Cost card = payroll + other expenses + waste. Summed in Python so
+    # it's exact (template |add truncates Decimals to int) and reconciles with Net Profit.
+    grand_expense_cost = grand_total_salary_cost + grand_total_expense_cost + grand_total_waste_cost
+
     pagination = Paginator(sorted_list, 6)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
     
     # so the user's filters above don't skew the "best month" result.
-    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_revenue'))}
+    # ★ salary here read Sum('amount') too — the same empty column that zeroed payroll in
+    #   the table. A month's "profit" was therefore computed with NO wages in it.
+    year = {'date__year': today.year}
+    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(**year).values('date__month').annotate(total=Sum('total_revenue'))}
     cost_by_month    = {p['purchase_date__month']: p['total'] for p in all_purchases.filter(purchase_date__year=today.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
-    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_cost'))}
-    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(date__year=today.year).values('date__month').annotate(total=Sum('total_amount'))}
-    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(date__year=today.year).values('date__month').annotate(total=Sum('amount'))}
+    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(**year).values('date__month').annotate(total=Sum('total_cost'))}
+    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(**year).values('date__month').annotate(total=Sum('total_amount'))}
+    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('shift_employees__daily_rate'))}
 
-    all_months = set(rev_by_month) | set(cost_by_month) | set(waste_by_month) | set(expense_by_month) | set(salary_by_month)
+    # Returns belong in "best month" too — a month that refunded half its takings was not
+    # a good month, and without these it would still look like one.
+    sret_by_month = {r['date__month']: r['total'] for r in SalesReturn.objects.filter(
+        business=business, **year).values('date__month').annotate(total=Sum('refund_total'))}
+    pret_by_month = {r['date__month']: r['total'] for r in PurchaseReturn.objects.filter(
+        business=business, **year).values('date__month').annotate(total=Sum('refund_total'))}
+
+    all_months = (set(rev_by_month) | set(cost_by_month) | set(waste_by_month)
+                  | set(expense_by_month) | set(salary_by_month)
+                  | set(sret_by_month) | set(pret_by_month))
 
     best_month_name = 'N/A'
     best_month_profit = 0   # months with negative profit won't beat 0 — kept N/A
     for m in all_months:
-        profit = (
-            (rev_by_month.get(m)     or 0)
-            - (cost_by_month.get(m)    or 0)
-            - (waste_by_month.get(m)   or 0)
-            - (expense_by_month.get(m) or 0)
-            - (salary_by_month.get(m)  or 0)
+        profit = net_profit(
+            rev_by_month.get(m)     or Decimal('0'),
+            cost_by_month.get(m)    or Decimal('0'),
+            salary_by_month.get(m)  or Decimal('0'),
+            waste_by_month.get(m)   or Decimal('0'),
+            expense_by_month.get(m) or Decimal('0'),
+            sret_by_month.get(m)    or Decimal('0'),
+            pret_by_month.get(m)    or Decimal('0'),
         )
         if profit > best_month_profit:
             best_month_profit = profit
@@ -365,28 +378,29 @@ def view_summary(request, business_slug):
     # (money refunded), so its payment must not count as cash collected/paid. (This is a
     # management cash view, not a BIR X/Z grand-total ledger.) all_sales/all_purchases are
     # the active, business-scoped bases; payment-date filters below still apply.
-    sales_pmts = SalesPayment.objects.filter(business=business, sale__in=all_sales)
-    purch_pmts = PurchasePayment.objects.filter(business=business, purchase__in=all_purchases)
+    # Payments carry their own date, so they use the SAME resolved window as everything
+    # else — this was a third hand-rolled copy of the filter branches.
+    sales_pmts = in_period(
+        SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date')
+    purch_pmts = in_period(
+        PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
 
-    # mirror the same filters onto payments (by their payment date)
-    if form.is_valid():
-        _sd = form.cleaned_data.get('start_date'); _ed = form.cleaned_data.get('end_date')
-        _sm = form.cleaned_data.get('select_month')
-        if _sd and _ed:
-            sales_pmts = sales_pmts.filter(date__range=(_sd, _ed)); purch_pmts = purch_pmts.filter(date__range=(_sd, _ed))
-        if _sm:
-            _pm = datetime.strptime(_sm, '%Y-%m')
-            sales_pmts = sales_pmts.filter(date__month=_pm.month, date__year=_pm.year)
-            purch_pmts = purch_pmts.filter(date__month=_pm.month, date__year=_pm.year)
-    if period == 'today':
-        sales_pmts = sales_pmts.filter(date=today); purch_pmts = purch_pmts.filter(date=today)
-    elif period == 'month':
-        sales_pmts = sales_pmts.filter(date__month=today.month, date__year=today.year)
-        purch_pmts = purch_pmts.filter(date__month=today.month, date__year=today.year)
-    elif period in ('week', 'last_week'):
-        _wk = iso_week if period == 'week' else iso_week - 1
-        sales_pmts = sales_pmts.filter(date__week=_wk, date__year=iso_year)
-        purch_pmts = purch_pmts.filter(date__week=_wk, date__year=iso_year)
+    # ── Cash refunds are CASH MOVEMENTS, and this lens was ignoring them ─────────────
+    # Fixed 2026-07-13 (user caught the discrepancy). A ₱47 cash refund to a customer is
+    # ₱47 that LEFT the drawer; a ₱180 cash refund from a supplier is ₱180 that CAME BACK.
+    # Neither was counted, so Net Cash was overstated and the two lenses refused to
+    # reconcile. Only the CASH half of a refund belongs here — a credit note moves no money,
+    # it just reduces what's owed (which is why it shows up in receivables/payables instead).
+    #
+    # They net off the side they came from, mirroring the accrual page: a customer refund
+    # reduces what we collected, a supplier refund reduces what we paid.
+    sales_refund_by_date = {r['date']: r['t'] for r in
+        sales_returns_qs.values('date').annotate(t=Sum('refund_cash'))}
+    purch_refund_by_date = {r['date']: r['t'] for r in
+        purchase_returns_qs.values('date').annotate(t=Sum('refund_cash'))}
+
+    cash_sales_refunds = sales_returns_qs.aggregate(t=Sum('refund_cash'))['t'] or Decimal('0')
+    cash_purch_refunds = purchase_returns_qs.aggregate(t=Sum('refund_cash'))['t'] or Decimal('0')
 
     # Cash lens = money that actually MOVED (by payment date). Store credit isn't
     # real cash, so it's excluded here (keeps this consistent with the method rows below).
@@ -414,8 +428,11 @@ def view_summary(request, business_slug):
     # Cash Flow cards reconcile with their breakdowns. These differ from grand_collected/
     # grand_paid, which are transaction-scoped (payments on THIS period's sales/purchases)
     # and stay the basis for the Accrual page's billed → collected → receivables chain.
-    cash_collected = sum((m['amount'] or 0) for m in collected_by_method)
-    cash_paid      = sum((m['amount'] or 0) for m in paid_by_method)
+    # Both NET of cash refunds — the money genuinely moved back.
+    cash_gross_collected = sum((m['amount'] or Decimal('0')) for m in collected_by_method)
+    cash_gross_paid      = sum((m['amount'] or Decimal('0')) for m in paid_by_method)
+    cash_collected = cash_gross_collected - cash_sales_refunds
+    cash_paid      = cash_gross_paid      - cash_purch_refunds
 
     # Store credit settled on this period's payments but excluded from cash_collected
     # (it isn't real cash). Shown as a footnote on the Money-in popover so the cash
@@ -440,16 +457,21 @@ def view_summary(request, business_slug):
     # Payroll is cash out too, so the cash lens counts it (by work date) alongside
     # supplier payments + expenses — mirrors the dashboard's cash Expense Cost =
     # payroll + expenses. Waste stays OUT (it's never a cash event).
-    salary_by_date = {s['date']: (s['total_salary_cost'] or 0) for s in shifts_by_date}
+    salary_by_date = {s['date']: (s['v'] or 0) for s in shifts_by_date}
 
     cash_summary_list = []
-    grand_spent = 0
+    grand_spent = Decimal('0')
 
-    for d in (set(collected_by_date) | set(paid_by_date) | set(expense_by_date) | set(salary_by_date)):
-        collected = collected_by_date.get(d, 0) or 0
-        paid      = paid_by_date.get(d, 0) or 0
-        expense   = expense_by_date.get(d, 0) or 0
-        salary    = salary_by_date.get(d, 0) or 0
+    # A refund-only day is still a day cash moved, so the return maps join the key set —
+    # otherwise a day whose only event was a ₱180 supplier refund would vanish.
+    all_cash_days = (set(collected_by_date) | set(paid_by_date) | set(expense_by_date)
+                     | set(salary_by_date) | set(sales_refund_by_date) | set(purch_refund_by_date))
+
+    for d in all_cash_days:
+        collected = (collected_by_date.get(d) or Decimal('0')) - (sales_refund_by_date.get(d) or Decimal('0'))
+        paid      = (paid_by_date.get(d) or Decimal('0'))      - (purch_refund_by_date.get(d) or Decimal('0'))
+        expense   = expense_by_date.get(d) or Decimal('0')
+        salary    = salary_by_date.get(d) or Decimal('0')
         spent     = paid + expense + salary
         cash_summary_list.append({
             'date': d,
@@ -504,6 +526,14 @@ def view_summary(request, business_slug):
         'grand_expense_cost': grand_expense_cost,
         'grand_net_profit': grand_net_profit,
         'current_year': current_year,
+
+        # Returns: shown as a "− ₱x returned" line on the Revenue / Expense cards, with
+        # the gross beside it so the net figure reads as derived rather than as a number
+        # that mysteriously shrank. Not broken out per day — most days have none.
+        'grand_sales_returns': grand_sales_returns,
+        'grand_purchase_returns': grand_purchase_returns,
+        'grand_gross_revenue': grand_gross_revenue,
+        'grand_gross_material': grand_gross_material,
         
         'best_month_name': best_month_name,
         'best_month_profit': best_month_profit,
@@ -519,6 +549,13 @@ def view_summary(request, business_slug):
         'cash_collected': cash_collected,
         'cash_paid': cash_paid,
         'cash_store_credit': cash_store_credit,
+
+        # Cash refunds — real money that moved back. Shown as "gross − returned" on the
+        # cash Revenue / Material cards, same working as the accrual page.
+        'cash_sales_refunds': cash_sales_refunds,
+        'cash_purch_refunds': cash_purch_refunds,
+        'cash_gross_collected': cash_gross_collected,
+        'cash_gross_paid': cash_gross_paid,
         'cash_salary': cash_salary,
         'cash_expense': cash_expense,
         'cash_opex': cash_opex,

@@ -9,6 +9,11 @@ import secrets
 
 # ── Plan Limits ──────────────────────────────────────────────────────────────
 
+# NOTE — two keys here sound alike and are NOT the same thing:
+#   'analytics'        = access to the Analytics PAGES (trends & charts). Pro only.
+#                        This is the one hard feature gate; see the analytics-gate decision.
+#   'analytics_access' = which SUMMARY granularities the Daily Summary filter offers
+#                        (daily / weekly / monthly). Reporting, not insight.
 PLAN_LIMITS = {
     'free': {
         'max_staff':            0,
@@ -25,6 +30,7 @@ PLAN_LIMITS = {
         'timecards':            False,
         'cash_reconciliation':  False,
         'dashboard':            False,
+        'analytics':            False,
         'analytics_access':        'none',
     },
     'standard': {
@@ -42,6 +48,7 @@ PLAN_LIMITS = {
         'timecards':            True,
         'cash_reconciliation':  True,
         'dashboard':            False,
+        'analytics':            False,
         'analytics_access':        'none',
     },
     'premium': {
@@ -59,6 +66,7 @@ PLAN_LIMITS = {
         'timecards':            True,
         'cash_reconciliation':  True,
         'dashboard':            False,
+        'analytics':            False,
         'analytics_access':        'monthly + daily',
     },
     'pro': {
@@ -76,6 +84,7 @@ PLAN_LIMITS = {
         'timecards':            True,
         'cash_reconciliation':  True,
         'dashboard':            True,
+        'analytics':            True,
         'analytics_access':        'daily + monthly + weekly',
     },
 }
@@ -395,7 +404,17 @@ class BusinessPlan(models.Model):
     def has_dashboard(self):
         """PRO-only feature."""
         return self.limits().get('dashboard')
-    
+
+    def has_analytics(self):
+        """Analytics pages (trends & charts) — PRO only.
+
+        The one hard feature gate. Reporting (Daily Summary totals) stays open to
+        every tier; only INSIGHT is paid for. Not to be confused with
+        has_daily_summary(), which reads the unrelated 'analytics_access' key.
+        """
+        return self.limits().get('analytics', False)
+
+
     def has_timecards(self):
         """Clock in/out + hours tracking — Standard+."""
         return self.limits().get('timecards', False)

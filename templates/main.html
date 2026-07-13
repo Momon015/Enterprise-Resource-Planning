@@ -28,7 +28,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=115" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=116" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -160,6 +160,25 @@ document.body.addEventListener('htmx:beforeSwap', function (evt) {
     window.location.href = url;             // full-page redirect instead
   }
 });
+</script>
+
+<script>
+  // ── Cart mutated → tell the React cart island to re-read its state ──────────────
+  // The React carts (view_sale / view_cart) fetch their state ONCE on mount. Every other
+  // way of adding to the cart — the topbar search "+", a preset bundle, a quick-add on the
+  // product list — is plain htmx that happens entirely outside React. So the island would
+  // sit on stale state: add an item from the search bar while standing on the cart page and
+  // nothing appeared until you refreshed (most obvious on an empty cart, where the "No
+  // products yet" panel just stayed put).
+  //
+  // Hook on the CART BADGE rather than on any particular button: every cart mutation swaps
+  // #cart-badge (see core/partials/_cart_response.html), so this catches all of them —
+  // including any add-to-cart route added later — without listing endpoints.
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    if (e.target && e.target.id === 'cart-badge') {
+      document.dispatchEvent(new CustomEvent('cart:changed'));
+    }
+  });
 </script>
 
 <script>

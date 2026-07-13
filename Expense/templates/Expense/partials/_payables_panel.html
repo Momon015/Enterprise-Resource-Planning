@@ -85,8 +85,11 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
           </td>
 
           <td class="sl-text-center">
+            {% comment %} The reference is a link out of the row, so it wears the same ↗ as every
+            other cross-record link (Returns card, sale/purchase detail). Without it the cell reads
+            as plain text and nobody knows it's clickable. {% endcomment %}
             <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=p.id %}"
-               class="link-accent cell-primary" title="View purchase details">{{ p.reference }}</a>
+               class="link-accent cell-primary" title="View purchase details">{{ p.reference }} <i class="bi bi-box-arrow-up-right"></i></a>
           </td>
 
           <td class="col-mobile-hidden">

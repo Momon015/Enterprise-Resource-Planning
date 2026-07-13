@@ -55,6 +55,7 @@ from user.models import User
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff, can_handle_payables
 from core.utils.cart import prune_stale_cart_lines
+from core.utils.returns import refund_method_for, split_refund
 
 from django.contrib.messages import get_messages
 
@@ -1333,6 +1334,11 @@ def purchase_return_create(request, business_slug, purchase_id):
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
     purchase_items = purchase.materials.select_related('material').all()
 
+    # Same guard as the sales side — the button is hidden, but the URL is still typeable.
+    if not purchase.has_returnable_items:
+        messages.info(request, f"{purchase.reference} has nothing left to return.")
+        return redirect('purchase-detail', business_slug=business_slug, purchase_id=purchase.id)
+
     if request.method == 'POST':
         reason = request.POST.get('reason', 'other')
         reason_note = request.POST.get('reason_note', '').strip()
@@ -1386,7 +1392,13 @@ def purchase_return_create(request, business_slug, purchase_id):
             return redirect('purchase-return-create',
                             business_slug=business_slug, purchase_id=purchase_id)
 
-        
+        # ★ The refund method is COMPUTED, not taken from the form (2026-07-12). Debt
+        # first, cash second: whatever we still owe is knocked off before any cash comes
+        # back, so the supplier can never "refund" money we never paid them. The posted
+        # refund_method is ignored on purpose — see core/utils/returns.split_refund.
+        refund_cash, refund_credit = split_refund(purchase.outstanding, total_refund)
+        refund_method = refund_method_for(refund_cash, refund_credit)
+
         with transaction.atomic():
             return_obj = PurchaseReturn.objects.create(
                 original_purchase=purchase,
@@ -1394,6 +1406,8 @@ def purchase_return_create(request, business_slug, purchase_id):
                 reason=reason,
                 reason_note=reason_note,
                 refund_total=total_refund,
+                refund_cash=refund_cash,
+                refund_credit=refund_credit,
                 refund_method=refund_method,
                 created_by=request.user,
             )
@@ -1451,7 +1465,9 @@ def purchase_return_create(request, business_slug, purchase_id):
         'purchase': purchase,
         'purchase_items': purchase_items,
         'reason_choices': PurchaseReturn.REASON_CHOICES,
-        'refund_method_choices': PurchaseReturn.REFUND_METHOD_CHOICES,
+        # The method is no longer picked — the form explains the split instead, and it
+        # needs the balance to do that.
+        'outstanding': purchase.outstanding,
         'section': 'purchase-return',
     }
     return render(request, 'Expense/purchase_return_create.html', context)

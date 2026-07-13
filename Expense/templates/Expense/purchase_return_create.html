@@ -92,6 +92,21 @@
                         </button>
                     </div>
                 </td>
+                {% comment %} Unit Refund — the header has always been here but the CELL was
+                missing, so the column rendered blank (the sales return form has it; this table
+                was copied and the cell was dropped). The view already read
+                `unit_refund_<id>` and fell back to the price paid, so refunds still worked —
+                they just silently defaulted, with no way to refund less than you paid.
+                Defaults to the unit price on the PO, which is the normal supplier case. {% endcomment %}
+                <td class="sl-text-center">
+                    <div class="input-with-prefix">
+                        <span class="input-prefix">₱</span>
+                        <input type="number" name="unit_refund_{{ pi.id }}"
+                            class="form-control form-control--polish"
+                            style="max-width: 110px;"
+                            step="0.01" min="0" value="{{ pi.price|floatformat:2 }}">
+                    </div>
+                </td>
               {% endif %}
             </tr>
             {% endfor %}
@@ -131,28 +146,33 @@
           </div>
         </div>
 
+        {% comment %} REFUND METHOD — no longer a choice (2026-07-12), mirror of the sales
+        return form. Nothing used to stop a CASH refund on an order that had never been
+        paid: an unpaid ₱430 PO could book an ₱85 "cash refund" from a supplier we had
+        given nothing to. Now what we still owe is knocked off FIRST, and only the
+        remainder can come back as cash — so the impossible option isn't offered. {% endcomment %}
         <div class="form-field" style="margin-top: 1rem;">
           <label class="form-label">
-            <i class="bi bi-wallet2"></i> Refund Method
+            <i class="bi bi-wallet2"></i> How this refund is applied
           </label>
-          <div class="payment-method-grid">
-            {% for value, label in refund_method_choices %}
-              <label class="payment-method-option">
-                <input type="radio" name="refund_method" value="{{ value }}"
-                       {% if forloop.first %}checked{% endif %}>
-                <div class="payment-method-card">
-                  {% if value == 'cash' %}
-                    <i class="bi bi-cash-stack"></i>
-                  {% elif value == 'credit' %}
-                    <i class="bi bi-credit-card-2-back"></i>
-                  {% else %}
-                    <i class="bi bi-wallet2"></i>
-                  {% endif %}
-                  <span>{{ label }}</span>
-                </div>
-              </label>
-            {% endfor %}
+          {% if outstanding > 0 %}
+          <div class="sd-note-box" style="margin: 0;">
+            <i class="bi bi-info-circle"></i>
+            <span>
+              You still owe this supplier <strong>₱{{ outstanding|floatformat:2|intcomma }}</strong>.
+              The refund is taken off your balance first — no cash changes hands unless the
+              refund is bigger than what you owe.
+            </span>
           </div>
+          {% else %}
+          <div class="sd-note-box" style="margin: 0;">
+            <i class="bi bi-cash-stack"></i>
+            <span>
+              This purchase is fully paid, so the supplier refunds it as
+              <strong>cash</strong>.
+            </span>
+          </div>
+          {% endif %}
         </div>
 
         <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem;">

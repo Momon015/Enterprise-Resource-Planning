@@ -138,6 +138,7 @@ INSTALLED_APPS = [
     'Inventory.apps.InventoryConfig',
     'Supplier.apps.SupplierConfig',
     'activity.apps.ActivityConfig',
+    'analytics.apps.AnalyticsConfig',
     'chatbot.apps.ChatbotConfig',
     'Employee.apps.EmployeeConfig',
     

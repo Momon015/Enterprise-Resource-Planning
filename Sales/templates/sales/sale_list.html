@@ -399,11 +399,26 @@ function clearRecvFilters() {
                   {% payment_method_badge sale.payment_method_code muted=sale.is_void %}
                 </td>
 
+                {% comment %} Status = the PAYMENT chip, plus a return chip BESIDE it when goods
+                came back. Two independent facts: a fully-refunded sale is still a sale that was
+                paid for, and it used to show a bare green "Paid" with nothing to say the customer
+                had handed everything back. Revenue stays at what the sale was — the refund is its
+                own record, dated the day it happened. {% endcomment %}
                 <td class="sl-text-center">
                     {% if sale.is_void %}
                         <span class="sl-badge sl-badge-light"><i class="bi bi-ban"></i> Voided</span>
                     {% else %}
                         {% settlement_badge sale %}
+                        {% with ret=sale.return_summary %}
+                        {% if ret %}
+                          {% comment %} Chip only — no link out. The list is for scanning; the way
+                          into the return record is on the sale's detail page. {% endcomment %}
+                          <span class="sl-badge sl-badge-warning"
+                                title="₱{{ ret.amount|floatformat:2|intcomma }} refunded">
+                            <i class="bi bi-arrow-return-left"></i> {{ ret.label }}
+                          </span>
+                        {% endif %}
+                        {% endwith %}
                     {% endif %}
                 </td>
 

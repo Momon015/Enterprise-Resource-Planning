@@ -95,6 +95,8 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="kpi-body">
         <div class="kpi-label">Revenue</div>
         <div class="kpi-value">₱{{ cash_collected|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Net of cash refunds paid back to customers (a credit note moves no money, so
+        only the CASH half lands here). The working is in the dropdown. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">Collected this period</div>
       </div>
       <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money in">
@@ -105,6 +107,11 @@ document.addEventListener("DOMContentLoaded", function () {
         {% for m in collected_by_method %}
         <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
         {% endfor %}
+        {% comment %} The method rows above are GROSS receipts; the refund line is what makes them
+        add up to the card's net figure. {% endcomment %}
+        {% if cash_sales_refunds > 0 %}
+        <div class="kpi-popover__row"><span>Refunded out</span><span class="num">− ₱{{ cash_sales_refunds|floatformat:2|intcomma }}</span></div>
+        {% endif %}
         <div class="kpi-popover__row kpi-popover__row--total"><span>Collected</span><span class="num">₱{{ cash_collected|floatformat:2|intcomma }}</span></div>
         {% if cash_store_credit %}
         <div class="kpi-popover__row kpi-popover__row--faint"><span>Store credit — not cash</span><span class="num">₱{{ cash_store_credit|floatformat:2|intcomma }}</span></div>
@@ -135,18 +142,23 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="kpi-card{% if cash_paid > 0 %} kpi-card--hue-danger{% endif %} has-popover">
       <div class="kpi-icon kpi-icon--{% if cash_paid > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">Material Cost</div>
+        <div class="kpi-label">Stock Purchases</div>
         <div class="kpi-value">₱{{ cash_paid|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Net of cash refunds the supplier gave back (credit notes move no money and
+        show up in Payables instead). The working is in the dropdown. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">Paid to suppliers</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money out — materials">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
-        <div class="kpi-popover__title">Money out — materials</div>
+        <div class="kpi-popover__title">Stock Purchases</div>
         {% for m in paid_by_method %}
         <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
         {% endfor %}
+        {% if cash_purch_refunds > 0 %}
+        <div class="kpi-popover__row"><span>Refunded back</span><span class="num">− ₱{{ cash_purch_refunds|floatformat:2|intcomma }}</span></div>
+        {% endif %}
         <div class="kpi-popover__row kpi-popover__row--total"><span>Paid</span><span class="num">₱{{ cash_paid|floatformat:2|intcomma }}</span></div>
       </div>
     </div>
@@ -238,7 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <tr>
             <th>Date</th>
             <th class="sl-text-end mobile-center">Revenue</th>
-            <th class="sl-text-end col-mobile-hidden">Product Cost</th>
+            <th class="sl-text-end col-mobile-hidden">Stock Purchases</th>
             <th class="sl-text-end col-mobile-hidden">Payroll Cost</th>
             <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
             <th class="sl-text-end col-mobile-only mobile-center">Total Cost</th> <!-- Mobile Only -->

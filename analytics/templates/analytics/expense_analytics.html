@@ -1,0 +1,588 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}Expense Analytics · paKITA{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* The shared Analytics chrome (.an-period / .an-chip / .an-chart / .an-rank / .an-link)
+     lives in style.css — it's the same bar and the same tables as Sales Analytics. Only
+     what is specific to THIS page is below. */
+
+  /* ══ The page accent ═════════════════════════════════════════════════════════════
+     ORANGE — the same hue the "Business expenses" slice wears in the donut. The only
+     thing it lights up is the #1 chip on the Top Categories table, and that table IS
+     the business-expense breakdown, so the chip and the slice it belongs to are
+     literally the same colour. Deliberately NOT red: red is spent on Waste and on the
+     money-out headline, and a page where everything is an alarm has no alarm left. */
+  .page-wrapper {
+    --an-accent:      var(--orange);
+    --an-accent-soft: var(--orange-light);
+  }
+
+  /* ── Donut legend ──────────────────────────────────────────────────────────────
+     A donut with no numbers on it is decoration. Every slice gets a row here carrying
+     its peso amount and its share, so the card can be READ, not just glanced at. */
+  .an-legend { list-style: none; margin: 0; padding: 0 1rem 0.9rem; }
+  .an-legend__row {
+    display: flex; align-items: center; gap: 0.55rem;
+    padding: 0.5rem 0; border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .an-legend__row:first-child { border-top: 0; }
+  .an-legend__dot {
+    width: 0.65rem; height: 0.65rem; border-radius: 3px; flex: 0 0 auto;
+  }
+  .an-legend__label { flex: 1 1 auto; color: var(--text); min-width: 0; }
+  .an-legend__share {
+    flex: 0 0 2.6rem; text-align: right; color: var(--muted); font-size: 0.78rem;
+  }
+  .an-legend__amt {
+    flex: 0 0 6.5rem; text-align: right; color: var(--text); font-weight: 600;
+  }
+  /* The biggest slice is the answer to "where is my money going?" — it carries the row. */
+  .an-legend__row--lead .an-legend__label { font-weight: 700; }
+
+  /* ── Share bar (waste-by-reason) ───────────────────────────────────────────────
+     The reasons are few and the peso amounts are small, so a bar reads the proportion
+     faster than the number does. */
+  .an-bar {
+    height: 4px; border-radius: 2px; background: var(--surface-alt);
+    overflow: hidden; margin-top: 0.3rem;
+  }
+  .an-bar > span { display: block; height: 100%; background: var(--danger); }
+
+  .an-reason { display: flex; flex-direction: column; gap: 0; }
+  .an-reason__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  .an-reason__name { color: var(--text); font-size: 0.85rem; }
+  .an-reason__n { color: var(--text-faint); font-size: 0.72rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Expense Analytics</h1>
+      <p class="page-subtitle">Where your money goes, and what you can cut</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-calendar3"></i>
+        <strong>{{ period.label }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERIOD BAR — the same chips as Sales Analytics, same resolver behind them. -->
+  <div class="an-period">
+    <div class="an-chips">
+      {% for key, label, icon in range_choices %}
+      <a class="an-chip {% if period.key == key %}an-chip--active{% endif %}"
+         href="?range={{ key }}">
+        <i class="bi {{ icon }}"></i> {{ label }}
+      </a>
+      {% endfor %}
+      {% if period.key == 'custom' %}
+      <span class="an-chip an-chip--active">
+        <i class="bi bi-calendar-range"></i> Custom
+      </span>
+      {% endif %}
+    </div>
+
+    <form method="get" class="an-custom" autocomplete="off">
+      <input type="date" name="start" value="{{ period.start|date:'Y-m-d' }}" aria-label="Start date">
+      <span class="an-custom__sep">to</span>
+      <input type="date" name="end" value="{{ period.end|date:'Y-m-d' }}" aria-label="End date">
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-funnel-fill"></i> Apply
+      </button>
+    </form>
+  </div>
+
+  {% comment %} HEADLINE KPIs.
+
+  ★ Every delta here carries .kpi-delta--inverse. On a COST card, up is the red
+  direction — without it the page would congratulate an owner in green for burning
+  more money. The class already exists in style.css for exactly this.
+
+  Four cards for four streams: Stock · Salary+Bills (the Dashboard already calls this
+  pair "operating expenses", so we borrow its vocabulary rather than invent a rival
+  one) · Waste. Total spend leads.
+  {% endcomment %}
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- TOTAL SPEND — everything that left the business -->
+    <div class="kpi-card kpi-card--hue-danger">
+      <div class="kpi-icon kpi-icon--danger">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Spend</div>
+        <div class="kpi-value">₱{{ spend.total|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.total.0 %}
+            <div class="kpi-delta kpi-delta--inverse kpi-delta--{{ delta.total.0 }}">
+              <i class="bi bi-arrow-{% if delta.total.0 == 'up' %}up{% elif delta.total.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.total.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% comment %} STOCK — usually the biggest number on the page, and the least alarming:
+    buying stock is buying something you still own. Violet, not red. {% endcomment %}
+    <div class="kpi-card kpi-card--hue-purple has-popover">
+      <div class="kpi-icon kpi-icon--purple">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Stock Purchases</div>
+        <div class="kpi-value">₱{{ spend.stock|floatformat:2|intcomma }}</div>
+        {% comment %} Net of supplier refunds — the working is in the dropdown. {% endcomment %}
+        {% if delta %}
+          {% if delta.stock.0 %}
+            <div class="kpi-delta kpi-delta--inverse kpi-delta--{{ delta.stock.0 }}">
+              <i class="bi bi-arrow-{% if delta.stock.0 == 'up' %}up{% elif delta.stock.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.stock.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% comment %} Billed → returned → paid → still owed. Mirror of the Revenue dropdown on
+      Sales Analytics, and like it, NO payment-method rows — that breakdown is the Daily
+      Summary's job. {% endcomment %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Stock Purchases</div>
+        <div class="kpi-popover__row"><span>Purchases (billed)</span><span class="num">₱{{ spend.gross_stock|floatformat:2|intcomma }}</span></div>
+        {% if spend.stock_returns > 0 %}
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ spend.stock_returns|floatformat:2|intcomma }}</span></div>
+        {% endif %}
+        <div class="kpi-popover__row"><span>Paid</span><span class="num">₱{{ settle.paid|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Payables (unpaid)</span><span class="num">₱{{ settle.payables|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'purchase-list' business_slug=current_business.slug %}">View purchases <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+
+    <!-- OPERATING COSTS — salary + bills; the split moved into the dropdown -->
+    <div class="kpi-card kpi-card--hue-orange has-popover">
+      <div class="kpi-icon kpi-icon--orange">
+        <i class="bi bi-receipt"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Operating Costs</div>
+        <div class="kpi-value">₱{{ spend.opex|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.opex.0 %}
+            <div class="kpi-delta kpi-delta--inverse kpi-delta--{{ delta.opex.0 }}">
+              <i class="bi bi-arrow-{% if delta.opex.0 == 'up' %}up{% elif delta.opex.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.opex.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% comment %} What "operating costs" is actually made of. No paid/unpaid rows here, unlike
+      the Stock card: an Expense is a single-shot outflow (no utang, no payment ledger — see the
+      model) and payroll is settled per shift, so there is nothing outstanding to report. {% endcomment %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Operating Costs">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Operating Costs</div>
+        <div class="kpi-popover__row"><span>Payroll</span><span class="num">₱{{ spend.salary|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Business Expenses</span><span class="num">₱{{ spend.bills|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Operating Costs</span><span class="num">₱{{ spend.opex|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'expense-list' business_slug=current_business.slug %}">View expenses <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+
+    {% comment %} WASTE — the one cost on this page an owner can simply decide to stop
+    paying, so it gets the alarm hue when there IS any and goes quiet when there isn't.
+    Not using the emerald full-card good-state here: that pattern is still marked WIP.
+    {% endcomment %}
+    <div class="kpi-card {% if spend.waste %}kpi-card--hue-danger{% endif %}">
+      <div class="kpi-icon {% if spend.waste %}kpi-icon--danger{% else %}kpi-icon--neutral{% endif %}">
+        <i class="bi bi-trash3"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Waste</div>
+        <div class="kpi-value">₱{{ spend.waste|floatformat:2|intcomma }}</div>
+        {% if not spend.waste %}
+          <div class="kpi-delta kpi-delta--muted">— Nothing written off</div>
+        {% elif delta %}
+          {% if delta.waste.0 %}
+            <div class="kpi-delta kpi-delta--inverse kpi-delta--{{ delta.waste.0 }}">
+              <i class="bi bi-arrow-{% if delta.waste.0 == 'up' %}up{% elif delta.waste.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.waste.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  {% if period.compare_note %}
+  <div class="an-compare-note">
+    <i class="bi bi-info-circle"></i> {{ period.compare_note }}
+  </div>
+  {% endif %}
+
+  {% if has_data %}
+
+  <!-- ROW 1 — the shape of the spending over time, and its composition right now -->
+  <div class="two-col-layout" style="margin-bottom: 0.85rem;">
+
+    <div class="left-panel">
+      {% comment %} STACKED, not a single total line: a flat total can hide waste quietly
+      taking the place of stock. Stacking shows the mix moving, which is the thing a total
+      cannot tell you. {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Spend Trend</span>
+            <span class="sl-badge sl-badge-light">{{ period.bucket_label }}</span>
+          </div>
+          <span class="card-header-sub">{{ period.label }}</span>
+        </div>
+        <div class="card-body an-chart an-chart--tall">
+          <canvas id="spendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-pie-chart"></i> Where Your Money Went
+            </span>
+          </div>
+          {% if biggest %}
+          <span class="sl-badge sl-badge-light">Mostly {{ biggest.label|lower }}</span>
+          {% endif %}
+        </div>
+        <div class="card-body an-chart an-chart--short">
+          <canvas id="donutChart"></canvas>
+        </div>
+
+        <ul class="an-legend">
+          {% for c in composition %}
+          <li class="an-legend__row {% if forloop.first %}an-legend__row--lead{% endif %}">
+            <span class="an-legend__dot" style="background: var({{ c.token }});"></span>
+            <span class="an-legend__label">{{ c.label }}</span>
+            <span class="an-legend__share an-num">{{ c.share|floatformat:0 }}%</span>
+            <span class="an-legend__amt an-num">₱{{ c.amount|floatformat:2|intcomma }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2 — the two breakdowns you can actually act on -->
+  <div class="two-col-layout">
+
+    <div class="left-panel">
+      {% comment %} TOP CATEGORIES — the bills, broken out. ExpenseItem.amount sums exactly
+      to Expense.total_amount, so this table adds up to the Bills figure in the KPI strip
+      with no correction needed. The % is of ALL bills in the window, not just the rows
+      shown, so the shares stay honest instead of always totalling 100.
+      {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-tags"></i> Top Expense Categories
+            </span>
+          </div>
+          <span class="card-header-sub">of ₱{{ spend.bills|floatformat:2|intcomma }} in business expenses</span>
+        </div>
+
+        {% if categories %}
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:2.5rem;"></th>
+                <th>Category</th>
+                <th class="sl-text-end">Entries</th>
+                <th class="sl-text-end">Share</th>
+                <th class="sl-text-end">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in categories %}
+              <tr>
+                <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+                <td>{{ c.label }}</td>
+                <td class="sl-text-end an-num">{{ c.n|intcomma }}</td>
+                <td class="sl-text-end an-num">{{ c.share|floatformat:0 }}%</td>
+                <td class="sl-text-end an-num an-figure--lead">₱{{ c.total|floatformat:2|intcomma }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon"><i class="bi bi-receipt"></i></div>
+          <h3 class="empty-title">No business expenses recorded</h3>
+          <p class="empty-text">
+            Nothing like rent, electricity or wifi was logged in this window.
+            <a href="{% url 'expense-list' business_slug=current_business.slug %}" class="link-accent">Record an expense</a>.
+          </p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="right-panel">
+      {% comment %} WASTE BY REASON — the reason is what says whether the loss is fixable:
+      spoilage is a buying/rotation problem, theft is a people problem, and 'Service Use'
+      isn't really a loss at all. A bare waste total can't tell those apart. {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-trash3"></i> Waste by Reason
+            </span>
+          </div>
+          {% if spend.waste %}
+          <span class="card-header-sub">₱{{ spend.waste|floatformat:2|intcomma }}</span>
+          {% endif %}
+        </div>
+
+        {% if waste_rows %}
+        <div class="card-body" style="padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.85rem;">
+          {% for r in waste_rows %}
+          <div class="an-reason">
+            <div class="an-reason__top">
+              <span class="an-reason__name">
+                {{ r.label }}
+                <span class="an-reason__n">· {{ r.n }} entr{{ r.n|pluralize:"y,ies" }}</span>
+              </span>
+              <span class="an-num an-figure--lead">₱{{ r.total|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="an-bar"><span style="width: {{ r.share|floatformat:0 }}%;"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon"><i class="bi bi-check-circle"></i></div>
+          <h3 class="empty-title">No waste</h3>
+          <p class="empty-text">Nothing was written off in this window.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+
+  <!-- Nothing went out in the window. Say so plainly rather than drawing a donut of
+       nothing, which reads as a broken page. -->
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-pie-chart"></i></div>
+      <h3 class="empty-title">No spending in this period</h3>
+      <p class="empty-text">
+        No purchases, business expenses, salary or waste were recorded in this window ({{ period.label }}).
+        Pick a wider range, or
+        <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="link-accent">check your purchase records</a>.
+      </p>
+    </div>
+  </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}
+{# Vendored, not CDN — a silently-failing chart library is a blank page. #}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  // Every colour on this page comes from a CSS token NAME chosen in the view (STREAMS),
+  // resolved here at paint time. So the donut slice, the stacked band and the legend dot
+  // for a given stream are guaranteed to be the same colour — none of them hardcodes it.
+  // Read off .page-wrapper, not the root, so page-local vars resolve too.
+  // Do NOT sniff classList.contains('dark') — this app marks the theme with [data-theme].
+  const pw = document.querySelector('.page-wrapper');
+  function cssvar(name, fallback) {
+    return getComputedStyle(pw).getPropertyValue(name).trim() || fallback || '#888';
+  }
+  function tokens() {
+    return {
+      grid: cssvar('--border', '#e5e7eb'),
+      text: cssvar('--muted', '#6b7280'),
+    };
+  }
+
+  const peso = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+  const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  let t = tokens();
+
+  // ── Spend trend — STACKED ────────────────────────────────────────────────
+  const series = {{ trend_datasets|safe }};
+
+  const spendChart = new Chart(document.getElementById('spendChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ trend_labels|safe }},
+      datasets: series.map(function (s) {
+        return {
+          label: s.label,
+          data: s.data,
+          backgroundColor: cssvar(s.token),
+          borderRadius: 2,
+          borderSkipped: false,
+        };
+      })
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { color: t.text, boxWidth: 10, boxHeight: 10,
+                                                usePointStyle: true, pointStyle: 'rectRounded' } },
+        tooltip: {
+          callbacks: {
+            label: c => c.dataset.label + ': ' + peso(c.parsed.y),
+            // The stack's height is the number the eye is actually reading, so put the
+            // total in the tooltip rather than making them add four rows up.
+            footer: function (items) {
+              const total = items.reduce((sum, i) => sum + i.parsed.y, 0);
+              return 'Total: ' + peso(total);
+            }
+          }
+        },
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 },
+             grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: t.text, callback: peso },
+             grid: { color: t.grid } }
+      }
+    }
+  });
+
+  // ── Where the money went — donut ─────────────────────────────────────────
+  // No built-in legend: the HTML legend under it carries the pesos and the shares, which
+  // is the part worth reading.
+  const donutTokens = {{ donut_tokens|safe }};
+
+  const donutChart = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ donut_labels|safe }},
+      datasets: [{
+        data: {{ donut_data|safe }},
+        backgroundColor: donutTokens.map(function (tok) { return cssvar(tok); }),
+        borderColor: cssvar('--surface', '#fff'),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.label + ': ' + pesoExact(c.parsed) } },
+      }
+    }
+  });
+
+  // ── Repaint on theme flip ────────────────────────────────────────────────
+  // The topbar toggle swaps [data-theme] in place, no reload. Both the axes AND the
+  // series colours have to be re-read: --violet and friends resolve to different hex in
+  // the dark theme, so a chart that only refreshed its greys would keep the light
+  // theme's slice colours.
+  new MutationObserver(function () {
+    t = tokens();
+
+    spendChart.data.datasets.forEach(function (ds, i) {
+      ds.backgroundColor = cssvar(series[i].token);
+    });
+    spendChart.options.scales.x.ticks.color = t.text;
+    spendChart.options.scales.y.ticks.color = t.text;
+    spendChart.options.scales.y.grid.color  = t.grid;
+    spendChart.options.plugins.legend.labels.color = t.text;
+    spendChart.update('none');
+
+    donutChart.data.datasets[0].backgroundColor = donutTokens.map(function (tok) { return cssvar(tok); });
+    donutChart.data.datasets[0].borderColor = cssvar('--surface', '#fff');
+    donutChart.update('none');
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+});
+</script>
+{% endif %}
+
+{% comment %} OUTSIDE the has_data guard — the KPI strip and its dropdowns render even on an
+empty period. Same delegated handler as the other KPI pages; see the note in
+sales_analytics.html about extracting it (all inline copies must go in the same pass, or two
+listeners would toggle the class twice and cancel each other out). {% endcomment %}
+<script>
+  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
+  document.addEventListener('click', (e) => {
+    const btn  = e.target.closest('[data-kpi-popover]');
+    const open = document.querySelector('.kpi-card.popover-open');
+    if (btn) {
+      e.stopPropagation();
+      const card = btn.closest('.kpi-card');
+      if (open && open !== card) open.classList.remove('popover-open');
+      card.classList.toggle('popover-open');
+      return;
+    }
+    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.kpi-card.popover-open');
+      if (open) open.classList.remove('popover-open');
+    }
+  });
+</script>
+{% endblock %}

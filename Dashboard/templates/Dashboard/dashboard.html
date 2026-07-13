@@ -136,6 +136,8 @@
         {% endif %}
         {% else %}
         <div class="kpi-value">₱{{ total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Revenue is NET of customer refunds. The gross → returned → net working lives
+        in the dropdown, not on the card face. {% endcomment %}
         {% if rev_dir %}
           <div class="kpi-delta kpi-delta--{{ rev_dir }}">
             <i class="bi bi-arrow-{% if rev_dir == 'up' %}up{% elif rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
@@ -147,12 +149,20 @@
         {% endif %}
       </div>
 
-      {% if collected_by_method or receivables or credit_used_today %}
+      {% comment %} `or sales_refunds` — otherwise a day whose only event was a refund would have
+      no dropdown at all, and the "− returned" line has nowhere else to live now. {% endcomment %}
+      {% if collected_by_method or receivables or credit_used_today or sales_refunds %}
       <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Collected today">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
         <div class="kpi-popover__title">Collected today</div>
+        {% if sales_refunds > 0 %}
+        {% comment %} GROSS then the deduction — the card's value is already net, and repeating the
+        net figure here with a "− returned" under it would read as subtracting twice. {% endcomment %}
+        <div class="kpi-popover__row"><span>Revenue (billed)</span><span class="num">₱{{ gross_revenue|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ sales_refunds|floatformat:2|intcomma }}</span></div>
+        {% endif %}
         {% for m in collected_by_method %}
         <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
         {% endfor %}
@@ -224,7 +234,9 @@
         <i class="bi bi-box-seam"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Material Cost</div>
+        {% comment %} "Stock purchases", not "Material Cost" — one name for this number across the
+        Dashboard, Daily Summary and Analytics, and it says what it actually is. {% endcomment %}
+        <div class="kpi-label">Stock Purchases</div>
         {% if basis == 'cash' %}
         <div class="kpi-value">₱{{ paid|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if paid_dir %}
@@ -237,6 +249,7 @@
         {% endif %}
         {% else %}
         <div class="kpi-value">₱{{ total_material_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Net of supplier refunds — the working is in the dropdown. {% endcomment %}
         {% if mat_dir %}
           <div class="kpi-delta kpi-delta--{{ mat_dir }} kpi-delta--inverse">
             <i class="bi bi-arrow-{% if mat_dir == 'up' %}up{% elif mat_dir == 'down' %}down{% else %}right{% endif %}"></i>
@@ -254,8 +267,11 @@
       </button>
       <div class="kpi-popover">
         <div class="kpi-popover__title">What's inside</div>
-        <div class="kpi-popover__row"><span>Purchases</span><span class="num">₱{{ total_material_cost|floatformat:2|intcomma }}</span></div>
-        <div class="kpi-popover__row"><span>Returns</span><span class="num">− ₱{{ returns_today|floatformat:2|intcomma }}</span></div>
+        {% comment %} Purchases must be the GROSS figure here. total_material_cost is now net of
+        returns (2026-07-12), so showing it and THEN a "− Returns" row below would subtract the
+        refund twice on screen. gross_material − purchase_refunds = the card's value. {% endcomment %}
+        <div class="kpi-popover__row"><span>Purchases</span><span class="num">₱{{ gross_material|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Returns</span><span class="num">− ₱{{ purchase_refunds|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row"><span>Paid</span><span class="num">₱{{ paid|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row kpi-popover__row--total"><span>Payables (unpaid)</span><span class="num">₱{{ payables|floatformat:2|intcomma }}</span></div>
         <a class="kpi-popover__link" href="{% url 'purchase-list' business_slug=current_business.slug %}">View purchases <i class="bi bi-arrow-right"></i></a>
@@ -346,7 +362,7 @@
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
-        <div class="kpi-popover__title">Critically low</div>
+        <div class="kpi-popover__title">Critically Low</div>
         {% for pr in critical_top %}
         <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">{{ pr.prepared_quantity }} left</span></div>
         {% endfor %}
@@ -377,7 +393,7 @@
     {% endcomment %}
 
     <!-- OUT OF STOCK -->
-    <div class="kpi-card{% if hue_outofstock %} kpi-card--hue-{{ hue_outofstock }}{% endif %} kpi-card--clickable"
+    <div class="kpi-card{% if hue_outofstock %} kpi-card--hue-{{ hue_outofstock }}{% endif %}{% if out_of_stock_top %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'product-list' business_slug=current_business.slug %}?stock=none" tabindex="0">
       <div class="kpi-icon kpi-icon--{% if hue_outofstock %}{{ hue_outofstock }}{% else %}neutral{% endif %}"><i class="bi bi-slash-circle"></i></div>
       <div class="kpi-body">
@@ -389,6 +405,21 @@
           <div class="kpi-delta kpi-delta--good"><i class="bi bi-check-circle"></i> All in stock</div>
         {% endif %}
       </div>
+
+      {% comment %} Same peek as Critically Low. No "N left" column here — every row is 0 by
+      definition, so the number would be the same on every line and carry nothing. {% endcomment %}
+      {% if out_of_stock_top %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Out of stock">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Out of Stock</div>
+        {% for pr in out_of_stock_top %}
+        <div class="kpi-popover__row"><span>{{ pr.name|truncatechars:24 }}</span><span class="num">Out</span></div>
+        {% endfor %}
+        <a class="kpi-popover__link" href="{% url 'product-list' business_slug=current_business.slug %}?stock=none">View products <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% endif %}
     </div>
 
   </div>
@@ -681,7 +712,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const compareChart = new Chart(document.getElementById('compareChart'), {
     type: 'bar',
     data: {
-      labels: ['Revenue', 'Material Cost', 'Waste Cost', 'Expense Cost', 'Net Profit'],
+      labels: ['Revenue', 'Stock Purchases', 'Waste Cost', 'Expense Cost', 'Net Profit'],
       datasets: [
         { 
           label: comparePayload.monthly.prevLabel, 
@@ -722,7 +753,7 @@ document.addEventListener("DOMContentLoaded", function () {
   
   
   const breakdownData = [revenue, materialCost, wasteCost, laborCost, expenseCost];
-  const breakdownLabels = ['Revenue', 'Material', 'Waste', 'Labor', 'Expense'];
+  const breakdownLabels = ['Revenue', 'Stock', 'Waste', 'Payroll', 'Expenses'];
   const breakdownColors = ['#22c55e', '#f97316', '#ef4444', '#6366f1', '#ec4899'];
   
   const hasData = breakdownData.some(v => v > 0);

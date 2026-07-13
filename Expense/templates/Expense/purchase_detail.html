@@ -194,6 +194,84 @@
         </div>
       </div>
 
+      {% comment %} RETURNS card — a sibling of Payments, and for the same reason: a purchase can
+      have SEVERAL returns, and they were being stacked as a column of bare reference links in the
+      Summary panel, which stopped reading as soon as there was more than one. A return is an event
+      with a date, a reason, an amount and a person behind it — the same shape as a payment — so it
+      gets the same table. The Summary panel keeps only the headline (chip + total refunded).
+
+      Only rendered when something actually came back; no empty state, because "no returns" is the
+      normal case and an empty card would be noise on every clean purchase. {% endcomment %}
+      {% with ret=purchase.return_summary %}
+      {% if ret %}
+      <div class="card" style="margin-top: 1rem;">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-arrow-return-left"></i> Returns
+            </span>
+            <span class="sl-badge sl-badge-light">
+              {{ ret.count }} return{{ ret.count|pluralize }}
+            </span>
+          </div>
+          <span class="card-header-sub">₱{{ ret.amount|floatformat:2|intcomma }} refunded</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Reason</th>
+                <th class="sl-text-center">Method</th>
+                <th class="sl-text-end">Refund</th>
+                {% if request.user.role == 'owner' %}<th class="sl-text-end">Recorded By</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in ret.returns %}
+              <tr>
+                <td class="cell-primary">
+                  {{ r.date|date:"M d, Y" }}
+                  <div class="cell-sub">{{ r.created_at|date:"h:i A" }}</div>
+                </td>
+                <td>
+                  <a class="link-accent" href="{% url 'purchase-return-detail' business_slug=current_business.slug return_id=r.id %}">
+                    {{ r.reference }} <i class="bi bi-box-arrow-up-right"></i>
+                  </a>
+                </td>
+                <td>
+                  <span class="cell-sub">{{ r.get_reason_display }}</span>
+                  {% if r.reason_note %}<div class="cell-sub">{{ r.reason_note }}</div>{% endif %}
+                </td>
+                {% comment %} The method is DERIVED from the cash/credit split, never chosen — a
+                supplier can't hand back cash we never paid them. See split_refund(). {% endcomment %}
+                <td class="sl-text-center">
+                  <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
+                </td>
+                <td class="sl-text-end sl-fw-semibold text-success">
+                  +₱{{ r.refund_total|floatformat:2|intcomma }}
+                </td>
+                {% if request.user.role == 'owner' %}
+                <td class="sl-text-end">
+                  {% if r.created_by %}
+                  <div class="cell-primary">{{ r.created_by.get_full_name|default:r.created_by.username }}</div>
+                  <div class="cell-sub">{% if r.created_by.role == 'owner' %}Owner{% elif r.created_by.role == 'developer' %}Developer{% else %}Staff{% endif %}</div>
+                  {% else %}
+                  <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+      {% endwith %}
+
     </div>
 
 
@@ -273,6 +351,28 @@
               <dd>{% settlement_badge purchase %}</dd>
             </div>
             {% endif %}
+
+            {% comment %} RETURNS — headline only. The per-return references, reasons and who
+            recorded them live in the Returns CARD below Payments: one purchase can have several,
+            and a stacked column of bare reference links stopped being readable at two.
+            The Total Cost above stays at what the order actually was — the refund is a separate
+            record dated the day the stock went back, not a rewrite of the purchase. {% endcomment %}
+            {% with ret=purchase.return_summary %}
+            {% if ret %}
+            <div>
+              <dt>Returns</dt>
+              <dd>
+                <span class="sl-badge sl-badge-warning">
+                  <i class="bi bi-arrow-return-left"></i> {{ ret.detail }}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Refunded</dt>
+              <dd class="text-success sl-fw-bold">+₱{{ ret.amount|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            {% endwith %}
             {% endif %}
           </dl>
 
@@ -334,10 +434,15 @@
           </a>
           {% endif %}
 
+          {% comment %} Was ungated entirely — it even offered "Return items" on a VOIDED
+          purchase. has_returnable_items covers both: nothing to return, or nothing to return
+          FROM. {% endcomment %}
+          {% if purchase.has_returnable_items %}
           <a href="{% url 'purchase-return-create' business_slug=current_business.slug purchase_id=purchase.id %}"
             class="btn btn-light btn-block">
             <i class="bi bi-arrow-return-left"></i> Return items
           </a>
+          {% endif %}
 
           {% if can_void %}
             <a href="{% url 'void-purchase' business_slug=current_business.slug purchase_id=purchase.id %}"

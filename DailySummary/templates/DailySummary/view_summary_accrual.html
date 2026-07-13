@@ -101,6 +101,9 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="kpi-body">
         <div class="kpi-label">Revenue</div>
         <div class="kpi-value">₱{{ grand_total_revenue|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Revenue is NET of customer refunds. The gross → returned → net working
+        lives in the dropdown, not on the card face — the card carries the number, the popover
+        carries the arithmetic. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">₱{{ grand_collected|floatformat:2|intcomma }} collected</div>
       </div>
       <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Revenue">
@@ -108,7 +111,12 @@ document.addEventListener("DOMContentLoaded", function () {
       </button>
       <div class="kpi-popover">
         <div class="kpi-popover__title">Revenue</div>
-        <div class="kpi-popover__row"><span>Revenue (billed)</span><span class="num">₱{{ grand_total_revenue|floatformat:2|intcomma }}</span></div>
+        {% comment %} GROSS — the card's value is already net of refunds; showing the net figure
+        and then a "− Returned" row under it would deduct them twice on screen. {% endcomment %}
+        <div class="kpi-popover__row"><span>Revenue (billed)</span><span class="num">₱{{ grand_gross_revenue|floatformat:2|intcomma }}</span></div>
+        {% if grand_sales_returns > 0 %}
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ grand_sales_returns|floatformat:2|intcomma }}</span></div>
+        {% endif %}
         {% for m in collected_by_method_acc %}
         <div class="kpi-popover__row kpi-popover__row--faint"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
         {% endfor %}
@@ -141,16 +149,22 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="kpi-card{% if grand_material_total_cost > 0 %} kpi-card--hue-danger{% endif %} has-popover">
       <div class="kpi-icon kpi-icon--{% if grand_material_total_cost > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">Material Cost</div>
+        <div class="kpi-label">Stock Purchases</div>
         <div class="kpi-value">₱{{ grand_material_total_cost|floatformat:2|intcomma|default:"0.00" }}</div>
+        {% comment %} Net of supplier refunds — the working is in the dropdown. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">₱{{ grand_paid|floatformat:2|intcomma }} paid</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Material cost">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
-        <div class="kpi-popover__title">Material cost</div>
-        <div class="kpi-popover__row"><span>Product cost (billed)</span><span class="num">₱{{ grand_material_total_cost|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__title">Stock Purchases</div>
+        {% comment %} GROSS here — the card's value is already net, so listing the net figure and
+        then a "− Returns" row beneath it would subtract the refund twice on screen. {% endcomment %}
+        <div class="kpi-popover__row"><span>Purchases (billed)</span><span class="num">₱{{ grand_gross_material|floatformat:2|intcomma }}</span></div>
+        {% if grand_purchase_returns > 0 %}
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ grand_purchase_returns|floatformat:2|intcomma }}</span></div>
+        {% endif %}
         {% for m in paid_by_method_acc %}
         <div class="kpi-popover__row kpi-popover__row--faint"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
         {% endfor %}
@@ -246,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <tr>
             <th>Date</th>
             <th class="sl-text-end mobile-center">Revenue</th>
-            <th class="sl-text-end col-mobile-hidden">Product Cost</th>
+            <th class="sl-text-end col-mobile-hidden">Stock Purchases</th>
             <th class="sl-text-end col-mobile-hidden">Payroll Cost</th>
             <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
             <th class="sl-text-end col-mobile-hidden">Waste &amp; Losses</th>

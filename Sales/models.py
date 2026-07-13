@@ -234,15 +234,19 @@ class Sale(TimeStampModel):
 
     @property
     def amount_refunded_cash(self):
-        """Cash refunds — money already left our pocket, doesn't reduce outstanding."""
-        return self.returns.filter(refund_method='cash').aggregate(
-            t=models.Sum('refund_total'))['t'] or Decimal('0')
+        """Cash handed back — money that left the drawer. Doesn't reduce outstanding
+        (it was already settled; that's the only way cash can be refunded at all).
+
+        Sums the refund_cash COLUMN, not rows whose method == 'cash'. A single return can
+        be part credit and part cash, and filtering by the method string would silently
+        count the whole of a mixed refund as one or the other.
+        """
+        return self.returns.aggregate(t=models.Sum('refund_cash'))['t'] or Decimal('0')
 
     @property
     def amount_refunded_credit(self):
-        """Store-credit refunds — reduces customer's outstanding (they don't owe that amount)."""
-        return self.returns.filter(refund_method='credit').aggregate(
-            t=models.Sum('refund_total'))['t'] or Decimal('0')
+        """Knocked off what the customer owes — no money moved."""
+        return self.returns.aggregate(t=models.Sum('refund_credit'))['t'] or Decimal('0')
 
     @property
     def net_revenue(self):
@@ -251,6 +255,60 @@ class Sale(TimeStampModel):
         if self.is_void or self.status != 'completed':
             return Decimal('0')
         return (self.total_revenue or Decimal('0')) - self.amount_refunded
+
+    @property
+    def has_returnable_items(self):
+        """False once every unit has already been returned.
+
+        Without this the Return form still opened on a fully-returned sale, showing a
+        table where every row said "Fully returned" and no input existed — and submitting
+        it just bounced with "Pick at least one item to return." Offer the action only
+        when there is something left to act on.
+        """
+        if self.is_void or self.status != 'completed':
+            return False
+        return any(i.returnable_quantity > 0 for i in self.sale_items.all())
+
+    @property
+    def return_summary(self):
+        """Return activity on this sale — None when nothing came back.
+
+        A return is NOT a void. The sale really happened, and its revenue stays in the
+        period it was rung up; the refund lands on the RETURN's own date instead (a
+        June 29 sale refunded on July 4 reduces JULY). So this never changes what the
+        sale was worth — it only says the goods came back later.
+
+        ★ The chip this feeds sits BESIDE the settlement badge, never replacing it.
+        "Paid" and "Returned" are INDEPENDENT facts: the customer really did hand over
+        the money, and the goods really did come back. Collapsing them into one chip
+        throws half the story away — which is exactly why a fully-refunded sale used to
+        read as a clean "Paid" row with nothing to show for it.
+        """
+        if self.is_void or self.status != 'completed':
+            return None
+
+        returns = list(self.returns.all())
+        if not returns:
+            return None
+
+        refunded = sum((r.refund_total or Decimal('0')) for r in returns)
+        total    = self.total_revenue or Decimal('0')
+        full     = total > 0 and refunded >= total
+
+        return {
+            'full':    full,
+            # "Partly returned", not "Partial" — the settlement badge already says
+            # "Partial" for a part-paid sale, and two chips reading "Partial" side by
+            # side would be unreadable.
+            'label':   'Returned' if full else 'Partly returned',
+            'detail':  'Fully returned' if full else 'Partly returned',
+            'amount':  refunded,
+            'count':   len(returns),
+            # Exactly one return -> the chip can link straight at it. Several -> there's
+            # no single row to point to, so the caller lists them on the detail page.
+            'only':    returns[0] if len(returns) == 1 else None,
+            'returns': returns,
+        }
 
     @property
     def outstanding(self):
@@ -382,9 +440,14 @@ class SalesReturnSequence(AbstractDocumentSequence):
     pass
 
 class SalesReturn(TimeStampModel):
+    # ★ refund_method is now DERIVED, not chosen (2026-07-12). The refund is split by
+    # core.utils.returns.split_refund — debt first, cash second — so a refund that is
+    # impossible (cash back on a sale nobody paid for) can't be represented at all.
+    # This field is the display summary; refund_cash / refund_credit carry the money.
     REFUND_METHOD_CHOICES = [
         ('cash',   'Cash refund'),
-        ('credit', 'Store credit'),
+        ('credit', 'Deducted from balance'),
+        ('mixed',  'Balance + cash'),
     ]
 
     REASON_CHOICES = [
@@ -407,9 +470,18 @@ class SalesReturn(TimeStampModel):
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='customer_changed_mind')
     reason_note = models.CharField(max_length=255, blank=True)
     refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    # The actual split — refund_total = refund_cash + refund_credit, always.
+    #   refund_credit = knocked off what the customer still owes (no money moves)
+    #   refund_cash   = money physically handed back
+    # A cash figure can only be non-zero once the balance is settled. See split_refund().
+    refund_cash   = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_credit = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    # Derived from the split above — for badges only. Never trust it for money.
     refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
     reference = models.CharField(max_length=255, blank=True)  # # auto-generated SRR-0000000001
-    
+
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL,
         related_name='sales_returns', null=True, blank=True)
     

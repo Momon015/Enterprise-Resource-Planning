@@ -54,6 +54,7 @@ urlpatterns = [
         path('supplier/', include('Supplier.urls')),
         path('subscription/', include('subscription.urls')),
         path('activity/', include('activity.urls')),
+        path('analytics/', include('analytics.urls')),
         path('employee/', include('Employee.urls')),
         path('', include('chatbot.urls')),
     ])),

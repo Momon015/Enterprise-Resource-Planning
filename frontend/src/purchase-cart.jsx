@@ -172,11 +172,21 @@ function PurchaseCart() {
   const [page, setPage] = useState(1)
   const [discount, setDiscount] = useState(0)   // whole-order % (percent mode)
 
+  // Load on mount — AND again whenever the cart is mutated from outside this island.
+  // The topbar search's "+" adds a material via plain htmx, entirely outside React, so
+  // without this the island keeps showing the state it fetched at mount (most visibly the
+  // empty state, still sitting there after you'd added something) until a manual refresh.
+  // main.html fires `cart:changed` on any htmx swap of the cart badge. Mirror of sale-cart.
   useEffect(() => {
-    fetch(URLS.state).then(r => r.json()).then(data => {
-      setCart(data)
-      setDiscount(parseFloat(data.purchase_discount_percent) || 0)
-    })
+    const load = () =>
+      fetch(URLS.state).then(r => r.json()).then(data => {
+        setCart(data)
+        setDiscount(parseFloat(data.purchase_discount_percent) || 0)
+      })
+
+    load()
+    document.addEventListener('cart:changed', load)
+    return () => document.removeEventListener('cart:changed', load)
   }, [])
 
   if (!cart) return <div style={{ padding:'2rem', color:'var(--muted)' }}>Loading cart…</div>

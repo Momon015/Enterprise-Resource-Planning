@@ -69,28 +69,18 @@ COMPUTE_LOCK_TTL = 30   # max seconds the compute should take
 WAIT_TICK = 0.2         # poll interval
 WAIT_MAX_TICKS = 5      # 5 × 0.2s = 1s max wait before giving up
 
-def _pct_delta(today_val, yesterday_val):
-    """Return ('up'|'down'|'flat', delta_string) or (None, None) if no comparison.
+# Moved to core.utils.metrics 2026-07-12 so Analytics (period vs previous period)
+# and the Dashboard (today vs yesterday) share ONE delta function. Kept under the old
+# private name — every call site below still reads _pct_delta.
+from core.utils.metrics import pct_delta as _pct_delta
 
-    Direction is driven by the raw change (today - yesterday), NOT the sign of the
-    percentage. Net Cash / Net Profit can be negative, and dividing by a negative
-    base flips the percentage's sign — so a genuine improvement (e.g. -900 -> +1246)
-    would wrongly show a down arrow. When yesterday is negative a percentage is also
-    meaningless ("238% better than -900"?), so we show the peso swing instead.
-    """
-    today_val = float(today_val or 0)
-    yest_val  = float(yesterday_val or 0)
-    if yest_val == 0:
-        return (None, None)  # template hides the delta row
-    change = today_val - yest_val
-    if abs(change) < 0.005:
-        return ('flat', '0.0%')
-    direction = 'up' if change > 0 else 'down'
-    if yest_val < 0:
-        # Base is negative — a percentage would mislead; show the peso change.
-        return (direction, f"₱{abs(change):,.0f}")
-    pct = abs(change / yest_val) * 100
-    return (direction, f"{pct:.1f}%")
+# Returns (2026-07-12). The profit formula lives in ONE place now — see the module docstring
+# for why both return types had to be netted off at the same time.
+from core.utils.returns import (
+    net_profit as net_profit_formula,
+    purchase_returns_total,
+    sales_returns_total,
+)
 
 
 def _compute_dashboard_metrics(business, today):
@@ -102,12 +92,28 @@ def _compute_dashboard_metrics(business, today):
     expenses_today   = Expense.objects.filter(business=business, date=today)
     shifts_today     = Shift.objects.filter(business=business, date=today)
 
-    total_revenue       = sales_today.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
+    # ★ RETURNS (2026-07-12). Both figures below are NET of refunds:
+    #   Revenue      = sales      - customer refunds  (SalesReturn)
+    #   Material cost= purchases  - supplier refunds  (PurchaseReturn)
+    # They are dated by the RETURN's own date, so a refund today reduces TODAY — it never
+    # reaches back and rewrites a sealed day. See core/utils/returns.py for why both sides
+    # had to change at once (fixing only the cost side overstates profit).
+    gross_revenue       = sales_today.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
+    gross_material      = purchases_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    sales_refunds       = sales_returns_total(business, today, today)
+    purchase_refunds    = purchase_returns_total(business, today, today)
+
+    total_revenue       = gross_revenue  - sales_refunds
+    total_material_cost = gross_material - purchase_refunds
     total_expense_cost  = expenses_today.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
     total_salary_cost   = shifts_today.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
-    total_material_cost = purchases_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     total_waste_cost    = wastes_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
-    net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
+
+    net_profit = net_profit_formula(
+        revenue=gross_revenue, purchases=gross_material,
+        salary=total_salary_cost, waste=total_waste_cost, bills=total_expense_cost,
+        sales_returns=sales_refunds, purchase_returns=purchase_refunds,
+    )
 
     # Yesterday's totals (for KPI deltas)
     yesterday = today - timedelta(days=1)
@@ -117,13 +123,22 @@ def _compute_dashboard_metrics(business, today):
     y_expenses  = Expense.objects.filter(business=business, date=yesterday)
     y_shifts    = Shift.objects.filter(business=business, date=yesterday)
 
-    y_revenue  = y_sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
-    y_material = y_purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    y_gross_revenue  = y_sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal(0)
+    y_gross_material = y_purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
+    y_sales_refunds    = sales_returns_total(business, yesterday, yesterday)
+    y_purchase_refunds = purchase_returns_total(business, yesterday, yesterday)
+
+    y_revenue  = y_gross_revenue  - y_sales_refunds
+    y_material = y_gross_material - y_purchase_refunds
     y_waste    = y_wastes.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     y_expense  = y_expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
     y_salary   = y_shifts.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
     y_opex     = y_salary + y_expense
-    y_net      = y_revenue - y_material - y_waste - y_expense - y_salary
+    y_net      = net_profit_formula(
+        revenue=y_gross_revenue, purchases=y_gross_material,
+        salary=y_salary, waste=y_waste, bills=y_expense,
+        sales_returns=y_sales_refunds, purchase_returns=y_purchase_refunds,
+    )
 
     # Combined operating expenses (labor/salary + overhead)
     total_opex = total_salary_cost + total_expense_cost
@@ -145,38 +160,55 @@ def _compute_dashboard_metrics(business, today):
     def _bucket(qs, field, date_filter):
         return float(qs.filter(business=business, **date_filter).aggregate(t=Sum(field))['t'] or 0)
 
-    tw_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__gte': this_week_start})
-    tw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_week_start})
-    tw_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_week_start})
-    tw_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_week_start})
-    tw_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__gte': this_week_start})
-    tw_net     = tw_revenue - tw_cost - tw_waste - tw_expense - tw_salary
+    def _window(start, end):
+        """One period's five accrual figures, both returns already netted off.
 
-    lw_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_week_start, last_week_end)})
-    lw_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_week_start, last_week_end)})
-    lw_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_week_start, last_week_end)})
-    lw_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_week_start, last_week_end)})
-    lw_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__range': (last_week_start, last_week_end)})
-    lw_net     = lw_revenue - lw_cost - lw_waste - lw_expense - lw_salary
+        Every comparison bucket below (this week / last week / this month / last month)
+        goes through here, so the returns fix cannot be applied to three of them and
+        forgotten on the fourth.
+        """
+        gross_rev  = _bucket(Sale.objects.active(),     'total_revenue', {'date__range': (start, end)})
+        gross_cost = _bucket(Purchase.objects.active(), 'total_cost',    {'purchase_date__range': (start, end)})
+        waste      = _bucket(Waste.objects,   'total_cost',   {'date__range': (start, end)})
+        expense    = _bucket(Expense.objects, 'total_amount', {'date__range': (start, end)})
+        salary     = _bucket(Shift.objects,   'shift_employees__daily_rate', {'date__range': (start, end)})
+
+        s_ret = float(sales_returns_total(business, start, end))
+        p_ret = float(purchase_returns_total(business, start, end))
+
+        return {
+            'revenue': gross_rev  - s_ret,
+            'cost':    gross_cost - p_ret,
+            'waste':   waste,
+            'expense': expense,
+            'salary':  salary,
+            'net': net_profit_formula(
+                revenue=gross_rev, purchases=gross_cost,
+                salary=salary, waste=waste, bills=expense,
+                sales_returns=s_ret, purchase_returns=p_ret,
+            ),
+        }
+
+    tw = _window(this_week_start, today)
+    tw_revenue, tw_cost, tw_waste, tw_expense, tw_salary, tw_net = (
+        tw['revenue'], tw['cost'], tw['waste'], tw['expense'], tw['salary'], tw['net'])
+
+    lw = _window(last_week_start, last_week_end)
+    lw_revenue, lw_cost, lw_waste, lw_expense, lw_salary, lw_net = (
+        lw['revenue'], lw['cost'], lw['waste'], lw['expense'], lw['salary'], lw['net'])
 
     # Monthly comparison
     this_month_start = today.replace(day=1)
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
-    tm_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__gte': this_month_start})
-    tm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__gte': this_month_start})
-    tm_waste   = _bucket(Waste.objects, 'total_cost', {'date__gte': this_month_start})
-    tm_expense = _bucket(Expense.objects, 'total_amount', {'date__gte': this_month_start})
-    tm_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__gte': this_month_start})
-    tm_net     = tm_revenue - tm_cost - tm_waste - tm_expense - tm_salary
+    tm = _window(this_month_start, today)
+    tm_revenue, tm_cost, tm_waste, tm_expense, tm_salary, tm_net = (
+        tm['revenue'], tm['cost'], tm['waste'], tm['expense'], tm['salary'], tm['net'])
 
-    lm_revenue = _bucket(Sale.objects.active(), 'total_revenue', {'date__range': (last_month_start, last_month_end)})
-    lm_cost    = _bucket(Purchase.objects.active(), 'total_cost', {'purchase_date__range': (last_month_start, last_month_end)})
-    lm_waste   = _bucket(Waste.objects, 'total_cost', {'date__range': (last_month_start, last_month_end)})
-    lm_expense = _bucket(Expense.objects, 'total_amount', {'date__range': (last_month_start, last_month_end)})
-    lm_salary  = _bucket(Shift.objects, 'shift_employees__daily_rate', {'date__range': (last_month_start, last_month_end)})
-    lm_net     = lm_revenue - lm_cost - lm_waste - lm_expense - lm_salary
+    lm = _window(last_month_start, last_month_end)
+    lm_revenue, lm_cost, lm_waste, lm_expense, lm_salary, lm_net = (
+        lm['revenue'], lm['cost'], lm['waste'], lm['expense'], lm['salary'], lm['net'])
 
     # 30-day trend
     thirty_days_ago = today - timedelta(days=29)
@@ -189,6 +221,17 @@ def _compute_dashboard_metrics(business, today):
     trend_data   = [revenue_map.get(label, 0) for label in trend_labels]
 
     return {
+        # total_revenue / total_material_cost below are NET of refunds. The cards show the
+        # working underneath ("₱755.00 − ₱47.00 returned") rather than a bare "− ₱47",
+        # because a bare minus under an ALREADY-NET figure invites the reader to subtract
+        # it a second time. Showing the gross makes the net obviously derived — and a
+        # revenue figure that silently dropped from ₱755 to ₱708 otherwise reads as a lost
+        # sale rather than a refund.
+        'gross_revenue': gross_revenue,
+        'gross_material': gross_material,
+        'sales_refunds': sales_refunds,
+        'purchase_refunds': purchase_refunds,
+
         'total_revenue': total_revenue,
         'total_material_cost': total_material_cost,
         'total_salary_cost': total_salary_cost,
@@ -536,19 +579,22 @@ def dashboard(request, business_slug):
     # ── Stock bands — DISJOINT (Product/models.py): out | critical | low ──────────
     # `low_only` is now LOW ONLY: it no longer swallows the criticals. That keeps this card
     # equal to the Products page's Low Stock card and the bell's "Running Low" row.
-    # ★ The dashboard has no Critical card yet, so `critical_count` is surfaced here for
-    #   one to be added — until then the criticals show up only in Needs Attention below.
+    out_of_stock_qs   = Product.goods.filter(business=business, prepared_quantity=0)
     stock_alert_qs    = Product.goods.filter(business=business, prepared_quantity__lte=F('low_stock_threshold'))
     stock_alert_count = stock_alert_qs.count()
-    out_of_stock      = Product.goods.filter(business=business, prepared_quantity=0).count()
+    out_of_stock      = out_of_stock_qs.count()
 
     _banded        = with_stock_bands(Product.goods.filter(business=business))
     low_only       = _banded.filter(LOW_BAND_Q).count()        # low, EXCLUDING critical
     critical_count = _banded.filter(CRITICAL_BAND_Q).count()   # 1 .. 20% of threshold
 
+    # Popover peeks — 3 rows max, the card's big number stays the UNCAPPED count.
+    # Critical/low sort by what's closest to running out; out-of-stock are all at 0, so there
+    # is nothing to rank them by — alphabetical is the only honest order.
     low_stock_qs   = stock_alert_qs.filter(prepared_quantity__gt=0)   # low + critical (list)
     low_stock_top  = list(low_stock_qs.order_by('prepared_quantity')[:3])
     critical_top   = list(_banded.filter(CRITICAL_BAND_Q).order_by('prepared_quantity')[:3])
+    out_of_stock_top = list(out_of_stock_qs.order_by('name')[:3])
 
     # ── Out of Stock — red when anything's out, emerald when the shelf is clear ──
     hue_outofstock = 'danger' if out_of_stock > 0 else 'success'
@@ -639,6 +685,7 @@ def dashboard(request, business_slug):
         'payouts_today': payouts_today, 'returns_today': returns_today,
         'stock_alert_count': stock_alert_count,
         'out_of_stock': out_of_stock, 'low_only': low_only, 'low_stock_top': low_stock_top,
+        'out_of_stock_top': out_of_stock_top,
         'critical_count': critical_count, 'critical_top': critical_top,
         'attention': attention,
         

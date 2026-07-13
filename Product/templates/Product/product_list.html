@@ -113,34 +113,31 @@
       </div>
     </div>
 
-    <!-- CRITICALLY LOW (click = filter) — green + check when the count is 0: nothing
-         critical is GOOD NEWS, so the card must not sit there looking like an alarm -->
-    <div class="kpi-card {% if kpis.current.critical_stock %}kpi-card--hue-warning{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
+    <!-- CRITICALLY LOW (click = filter) — hue FIXED warning, same rule as Out of Stock below:
+         a list card is a FILTER, so its colour names the band it selects and never moves. -->
+    <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
          data-href="?stock=critical" tabindex="0">
-      <div class="kpi-icon kpi-icon--{% if kpis.current.critical_stock %}warning{% else %}success{% endif %}">
-        <i class="bi {% if kpis.current.critical_stock %}bi-exclamation-octagon{% else %}bi-check2-circle{% endif %}"></i>
+      <div class="kpi-icon kpi-icon--warning">
+        <i class="bi bi-exclamation-octagon"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Critically Low</div>
         <div class="kpi-value">{{ kpis.current.critical_stock|default:"0" }}</div>
-        {% if not kpis.current.critical_stock %}
-        <div class="kpi-delta kpi-delta--good">No products are critically low</div>
-        {% endif %}
       </div>
     </div>
 
-    <!-- OUT OF STOCK (click = filter) — same: 0 is good news, not a red warning -->
-    <div class="kpi-card {% if kpis.current.out_of_stock %}kpi-card--hue-danger{% else %}kpi-card--hue-success{% endif %} kpi-card--clickable"
+    <!-- OUT OF STOCK (click = filter) — hue is FIXED danger, not state-driven. Here the card
+         is a FILTER, so its colour names the band it selects; it stays the same colour whether
+         the count is 0 or 40, the way a filter chip does. The green "all clear" treatment is
+         DASHBOARD-ONLY, where a card really is reporting status. -->
+    <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
          data-href="?stock=none" tabindex="0">
-      <div class="kpi-icon kpi-icon--{% if kpis.current.out_of_stock %}danger{% else %}success{% endif %}">
-        <i class="bi {% if kpis.current.out_of_stock %}bi-slash-circle{% else %}bi-check2-circle{% endif %}"></i>
+      <div class="kpi-icon kpi-icon--danger">
+        <i class="bi bi-slash-circle"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Out of Stock</div>
         <div class="kpi-value">{{ kpis.current.out_of_stock|default:"0" }}</div>
-        {% if not kpis.current.out_of_stock %}
-        <div class="kpi-delta kpi-delta--good">No products are out of stock</div>
-        {% endif %}
       </div>
     </div>
 

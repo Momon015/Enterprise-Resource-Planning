@@ -51,6 +51,7 @@ from decimal import Decimal, InvalidOperation
 
 from core.utils.owner import get_owner, permission_required, get_queryset_for_user, get_business_for_user, filter_to_own_if_staff, can_handle_receivables
 from core.utils.cart import prune_stale_cart_lines
+from core.utils.returns import refund_method_for, split_refund
 
 from user.models import User
 from django.contrib.messages import get_messages
@@ -1345,14 +1346,25 @@ def sales_return_create(request, business_slug, sale_id):
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     sale_items = sale.sale_items.select_related('product').all()
 
+    # Hiding the button on sale_detail isn't enough — the URL is still typeable, and the
+    # form used to render with every row saying "Fully returned" and no input anywhere.
+    if not sale.has_returnable_items:
+        messages.info(request, f"{sale.reference} has nothing left to return.")
+        return redirect('sale-detail', business_slug=business_slug, sale_id=sale.id)
+
     if request.method == 'POST':
         reason = request.POST.get('reason', 'other')
         reason_note = request.POST.get('reason_note', '').strip()
-        refund_method = request.POST.get('refund_method', 'cash')
-        if refund_method in ('credit', 'store_credit'):
-            # store credit paused — UI hides it; guard hand-crafted POSTs
-            messages.error(request, "Store credit is currently unavailable — choose another refund method.")
-            return redirect('sales-return-create', business_slug=business_slug, sale_id=sale_id)
+
+        # The posted refund_method is IGNORED (2026-07-12) — the split is computed below.
+        #
+        # The old store-credit guard used to live here, rejecting 'credit' outright. That
+        # left CASH as the only possible method, which meant returning goods on an UNPAID
+        # (utang) sale handed the customer money they had never paid us. The two things
+        # were being conflated: STORE CREDIT (a wallet balance to spend later — still
+        # paused, still not built) is not the same as DEDUCTING A REFUND FROM WHAT THIS
+        # CUSTOMER ALREADY OWES, which is just arithmetic on an existing debt and has to
+        # work. split_refund() does the latter and never touches the former.
 
         items_to_return = []
         total_refund = Decimal('0')
@@ -1404,8 +1416,13 @@ def sales_return_create(request, business_slug, sale_id):
                 f"Refund ₱{total_refund:.2f} exceeds remaining refundable ₱{max_refund:.2f}.")
             return redirect('sales-return-create',
                             business_slug=business_slug, sale_id=sale_id)
-        
-        
+
+        # ★ Debt first, cash second. What the customer still owes is knocked off before a
+        # single peso is handed back, so an utang sale can never pay out cash for goods
+        # that were never paid for. See core/utils/returns.split_refund.
+        refund_cash, refund_credit = split_refund(sale.outstanding, total_refund)
+        refund_method = refund_method_for(refund_cash, refund_credit)
+
         with transaction.atomic():
             return_obj = SalesReturn.objects.create(
                 original_sale=sale,
@@ -1413,6 +1430,8 @@ def sales_return_create(request, business_slug, sale_id):
                 reason=reason,
                 reason_note=reason_note,
                 refund_total=total_refund,
+                refund_cash=refund_cash,
+                refund_credit=refund_credit,
                 refund_method=refund_method,
                 created_by=request.user,
             )
@@ -1521,7 +1540,9 @@ def sales_return_create(request, business_slug, sale_id):
         'sale': sale,
         'sale_items': sale_items,
         'reason_choices': SalesReturn.REASON_CHOICES,
-        'refund_method_choices': SalesReturn.REFUND_METHOD_CHOICES,
+        # The method is no longer picked — the form explains the split instead, and it
+        # needs the balance to do that.
+        'outstanding': sale.outstanding,
         'section': 'sale-return',
     }
     return render(request, 'Sales/sales_return_create.html', context)
