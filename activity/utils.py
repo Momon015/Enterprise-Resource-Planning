@@ -74,9 +74,18 @@ def attention_items(business):
         low=Count('pk', filter=LOW_BAND_Q),
     )
 
+    # ICONS MIRROR THE DASHBOARD STOCK CARDS — a row here and the KPI card it lands on must
+    # wear the same face, or the bell looks like it's reporting something else. The ladder is
+    # a severity ladder, not decoration:
+    #   out      → bi-slash-circle       (nothing left)
+    #   critical → bi-exclamation-octagon (stop sign — the sharpest shape we use)
+    #   low      → bi-exclamation-triangle (a nudge; the SILVER hue keeps it quiet)
+    # bi-basket used to be on all three. It's the PRODUCTS icon (navbar, product list), so it
+    # said "this is about products" — which the row's own text already says — while saying
+    # nothing about how bad it is. Basket now means goods, not alarm.
     out_of_stock = stock['out']
     if out_of_stock:
-        row('bi-basket', 'danger', out_of_stock, 'Product', 'Out of Stock',
+        row('bi-slash-circle', 'danger', out_of_stock, 'Product', 'Out of Stock',
             'Restock to avoid missed sales',
             f"{out_of_stock} product{'' if out_of_stock == 1 else 's'} {be(out_of_stock)} "
             f"out of stock — restock to avoid missed sales",
@@ -86,7 +95,7 @@ def attention_items(business):
     if critical:
         # amber — the only warm step between red (out) and silver (low). Tried orange
         # and yellow here first; both are <10 degrees from amber and read identically at 32px.
-        row('bi-basket', 'warning', critical, 'Product', 'Critically Low',
+        row('bi-exclamation-octagon', 'warning', critical, 'Product', 'Critically Low',
             'Almost gone — restock now',
             f"{critical} product{'' if critical == 1 else 's'} {be(critical)} "
             f"critically low — restock now",
@@ -96,7 +105,7 @@ def attention_items(business):
     if low_only:
         # SILVER, not warm — "running low" is a nudge, not an alarm. Colouring it warm
         # implies an urgency it doesn't have and steals the eye from the rows above.
-        row('bi-basket', 'neutral', low_only, 'Product', 'Running Low',
+        row('bi-exclamation-triangle', 'neutral', low_only, 'Product', 'Running Low',
             'Reorder soon',
             f"{low_only} product{'' if low_only == 1 else 's'} {be(low_only)} running low on stock",
             product_url + '?stock=low')
@@ -189,14 +198,21 @@ def log_audit(business, actor, action, *, target=None, target_ref='',
 
 def close_day(business, day, metrics):
     """Lazily freeze ONE past business-day's accrual books (idempotent + race-safe).
-    `metrics` = the 6 figures already computed live for that day (a summary_list row).
+    `metrics` = the figures already computed live for that day (a summary_list row).
     Uses get_or_create so the FIRST close wins forever (pen, not pencil) — a later
-    read never overwrites it. Returns (DailyClose, created)."""
+    read never overwrites it. Returns (DailyClose, created).
+
+    ★ total_cogs joined the snapshot 2026-07-13, when profit moved to a cost-of-goods-SOLD
+      basis. Freezing it matters more than it looks: cost_price is a per-sale snapshot, but
+      the RELIEF from a later return is read back through it, so a day's cost of sales must
+      be pinned at close or a refund booked next month could quietly restate a sealed day.
+    """
     from .models import DailyClose
     return DailyClose.objects.get_or_create(
         business=business, date=day,
         defaults={
             'total_revenue':       metrics.get('total_revenue', 0) or 0,
+            'total_cogs':          metrics.get('total_cogs', 0) or 0,
             'total_material_cost': metrics.get('total_material_cost', 0) or 0,
             'total_salary_cost':   metrics.get('total_salary_cost', 0) or 0,
             'total_waste_cost':    metrics.get('total_waste_cost', 0) or 0,

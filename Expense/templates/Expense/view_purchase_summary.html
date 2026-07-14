@@ -151,12 +151,12 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
         {% if purchase.discount_percent %}
         <div class="total-row">
-          <span class="total-label"><i class="bi bi-tags"></i> Discount ({{ purchase.discount_percent|floatformat:0 }}%)</span>
+          <span class="total-label"><i class="bi bi-tag"></i> Discount ({{ purchase.discount_percent|floatformat:0 }}%)</span>
           <span class="total-value" style="color:var(--success);">−₱{{ purchase.discount_amount|floatformat:2|intcomma }}</span>
         </div>
         {% else %}
         <div class="total-row">
-          <span class="total-label"><i class="bi bi-tags"></i> Discount</span>
+          <span class="total-label"><i class="bi bi-tag"></i> Discount</span>
           <span class="total-value" style="color:var(--success);">−₱{{ total_discount|floatformat:2|intcomma }}</span>
         </div>
         {% endif %}

@@ -1,0 +1,750 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}Profit Analytics · paKITA{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* The shared Analytics chrome (.an-period / .an-chip / .an-chart / .an-rank / .an-num /
+     .an-figure--lead) lives in style.css — same bar, same tables as the other two pages.
+     Only what is specific to THIS page is below. */
+
+  /* ══ The page accent ═════════════════════════════════════════════════════════════
+     EMERALD — this is the only Analytics page whose headline is money you KEPT, so it
+     wears the same green the app uses for money-in everywhere else. Sales Analytics is
+     blue (activity), Expense Analytics is orange (money out), this one is green. The
+     three are told apart at a glance by their accent alone. */
+  .page-wrapper {
+    --an-accent:      var(--success);
+    --an-accent-soft: var(--success-light);
+  }
+
+  /* ── Cost lines list ───────────────────────────────────────────────────────────
+     The four costs, each with the share of total cost it represents. A bar reads the
+     proportion faster than the peso figure does — the point is which one is eating the
+     margin, not what it cost to the centavo. */
+  .an-cost { display: flex; flex-direction: column; gap: 0; }
+  .an-cost__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  .an-cost__name { color: var(--text); font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+  .an-cost__name i { color: var(--muted); font-size: 0.8rem; }
+  .an-cost__bar {
+    height: 4px; border-radius: 2px; background: var(--surface-alt);
+    overflow: hidden; margin-top: 0.35rem;
+  }
+  .an-cost__bar > span { display: block; height: 100%; }
+
+  /* ── Margin figure on the KPI card ─────────────────────────────────────────────
+     The % is the number that travels between shops ("we run at 30%"), so it gets to be
+     the headline and the pesos ride underneath it. */
+  .an-pct-note { color: var(--muted); font-size: 0.78rem; font-weight: 500; }
+
+  /* ── Profit-by-product table ───────────────────────────────────────────────────
+     A margin can be negative (sold below cost, or returned after the fact). It must NOT
+     read like the rest of the column — that's the row the owner needs to see. */
+  .an-neg { color: var(--danger); font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- FLASH MESSAGES -->
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+{% if messages %}
+  {% for message in messages %}
+    <div class="toast-message toast-{{ message.tags }}">
+      {% if message.tags == "error" %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+      {% elif message.tags == "success" %}<i class="bi bi-check-circle-fill me-2"></i>
+      {% elif message.tags == "info" %}<i class="bi bi-info-circle-fill me-2"></i>
+      {% elif message.tags == "warning" %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {% endif %}
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Profit Analytics</h1>
+      <p class="page-subtitle">Know what you earned after every cost</p>
+    </div>
+    <div class="page-header-right">
+      <div class="header-stat accent">
+        <i class="bi bi-calendar3"></i>
+        <strong>{{ period.label }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERIOD BAR — the same chips and the same resolver as the other two Analytics pages. -->
+  <div class="an-period">
+    <div class="an-chips">
+      {% for key, label, icon in range_choices %}
+      <a class="an-chip {% if period.key == key %}an-chip--active{% endif %}"
+         href="?range={{ key }}">
+        <i class="bi {{ icon }}"></i> {{ label }}
+      </a>
+      {% endfor %}
+      {% if period.key == 'custom' %}
+      <span class="an-chip an-chip--active">
+        <i class="bi bi-calendar-range"></i> Custom
+      </span>
+      {% endif %}
+    </div>
+
+    <form method="get" class="an-custom" autocomplete="off">
+      <input type="date" name="start" value="{{ period.start|date:'Y-m-d' }}" aria-label="Start date">
+      <span class="an-custom__sep">to</span>
+      <input type="date" name="end" value="{{ period.end|date:'Y-m-d' }}" aria-label="End date">
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-funnel-fill"></i> Apply
+      </button>
+    </form>
+  </div>
+
+  {% comment %} HEADLINE KPIs.
+
+  ★ Only ONE card here carries .kpi-delta--inverse: Total Costs. On every other card
+  (profit, margin, revenue) up really is the good direction, so the plain classes are
+  correct. Expense Analytics is the mirror image — there EVERY card is inverse.
+
+  ★ Net Profit is the only card whose HUE moves with the value: green when you kept
+  money, red when you lost it. A loss must not be printed in the same calm grey as a
+  profit. The other three are fixed hues — they name what they are, not how it went.
+  {% endcomment %}
+  <div class="kpi-row kpi-row--4col">
+
+    <!-- NET PROFIT — the whole reason the page exists -->
+    <div class="kpi-card kpi-card--featured has-popover{% if pnl.net > 0 %} kpi-card--hue-success{% elif pnl.net < 0 %} kpi-card--hue-danger{% endif %}">
+      <div class="kpi-icon kpi-icon--{% if pnl.net > 0 %}success{% elif pnl.net < 0 %}danger{% else %}neutral{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Net Profit
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The money your business kept after paying for the products you sold, payroll, business expenses, and waste. This is your actual profit for the period."></i>
+        </div>
+        <div class="kpi-value {% if pnl.net < 0 %}text-danger{% endif %}">₱{{ pnl.net|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.net.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.net.0 }}">
+              <i class="bi bi-arrow-{% if delta.net.0 == 'up' %}up{% elif delta.net.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.net.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% elif pnl.net_pct is not None %}
+          <div class="kpi-delta kpi-delta--muted">{{ pnl.net_pct|floatformat:1 }}% of sales kept</div>
+        {% endif %}
+      </div>
+
+      {% comment %} The full profit-and-loss, top to bottom. This is the ONE place in the app
+      that shows the whole arithmetic in order, so it deliberately repeats what the waterfall
+      draws — a reader who wants the numbers shouldn't have to hover a chart to get them.
+      {% endcomment %}
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Profit and loss">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Profit and Loss</div>
+        <div class="kpi-popover__row"><span>Revenue</span><span class="num">₱{{ pnl.revenue|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Cost of goods sold</span><span class="num">− ₱{{ pnl.cogs|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Gross margin</span><span class="num">₱{{ pnl.margin|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Payroll</span><span class="num">− ₱{{ pnl.salary|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Business expenses</span><span class="num">− ₱{{ pnl.bills|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Waste</span><span class="num">− ₱{{ pnl.waste|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Net profit</span><span class="num">₱{{ pnl.net|floatformat:2|intcomma }}</span></div>
+      </div>
+    </div>
+
+    {% comment %} GROSS MARGIN — what's left after paying for the goods, before the shop's
+    running costs. The number that says whether the TRADE works, independent of how big
+    the rent is. The % leads because it's the figure that's comparable month to month. {% endcomment %}
+    <div class="kpi-card kpi-card--hue-purple has-popover">
+      <div class="kpi-icon kpi-icon--purple">
+        <i class="bi bi-percent"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Gross Margin
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="How much of your sales you keep after paying for the products you sold, before payroll, business expenses, and waste. For example, if an item sells for ₱50 and costs ₱30, your gross margin is 40%."></i>
+        </div>
+        <div class="kpi-value">
+          {% if pnl.margin_pct is not None %}{{ pnl.margin_pct|floatformat:1 }}%{% else %}—{% endif %}
+        </div>
+        <div class="kpi-delta kpi-delta--muted an-pct-note">₱{{ pnl.margin|floatformat:2|intcomma }} after cost of goods</div>
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Gross margin">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Gross Margin</div>
+        <div class="kpi-popover__row"><span>Revenue</span><span class="num">₱{{ pnl.revenue|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row"><span>Cost of goods sold</span><span class="num">− ₱{{ pnl.cogs|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Gross margin</span><span class="num">₱{{ pnl.margin|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Kept per ₱1 of sales</span><span class="num">{% if pnl.margin_pct is not None %}₱{{ pnl.margin_pct|floatformat:2 }}0{% else %}—{% endif %}</span></div>
+      </div>
+    </div>
+
+    {% comment %} REVENUE — the same net-of-refunds figure Sales Analytics headlines, so the
+    two pages can be read side by side without the reader wondering which is which. {% endcomment %}
+    <div class="kpi-card has-popover">
+      <div class="kpi-icon kpi-icon--info">
+        <i class="bi bi-cash-coin"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Revenue</div>
+        <div class="kpi-value">₱{{ pnl.revenue|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.revenue.0 %}
+            <div class="kpi-delta kpi-delta--{{ delta.revenue.0 }}">
+              <i class="bi bi-arrow-{% if delta.revenue.0 == 'up' %}up{% elif delta.revenue.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.revenue.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Revenue">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Revenue</div>
+        {% comment %} GROSS leads: the card's value is already net, so a bare "− returned" row
+        under it would invite the reader to subtract the refund a second time. {% endcomment %}
+        <div class="kpi-popover__row"><span>Sales (billed)</span><span class="num">₱{{ pnl.gross|floatformat:2|intcomma }}</span></div>
+        {% if pnl.refunds > 0 %}
+        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ pnl.refunds|floatformat:2|intcomma }}</span></div>
+        {% endif %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Revenue</span><span class="num">₱{{ pnl.revenue|floatformat:2|intcomma }}</span></div>
+        <a class="kpi-popover__link" href="{% url 'sales-analytics' business_slug=current_business.slug %}">Sales Analytics <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+
+    {% comment %} TOTAL COSTS — the only card on this page where UP is bad, hence the one
+    .kpi-delta--inverse. ★ This is NOT Expense Analytics' "Total Spend": that one counts the
+    stock you BOUGHT, this one the stock you SOLD. They differ by whatever moved on or off
+    the shelf, and both are true. The dropdown says so out loud so nobody files a bug. {% endcomment %}
+    <div class="kpi-card{% if pnl.costs > 0 %} kpi-card--hue-danger{% endif %} has-popover">
+      <div class="kpi-icon kpi-icon--{% if pnl.costs > 0 %}danger{% else %}neutral{% endif %}">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Costs
+          {% comment %} ★ The tooltip that stops the "why don't these two pages match?" bug
+          report. Says the difference out loud, in the owner's words, on the card itself.
+          {% endcomment %}
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="Everything it cost to generate your sales, including the products you sold, payroll, business expenses, and waste. Inventory is counted only when it's sold, not when you buy it."></i>
+        </div>
+        <div class="kpi-value">₱{{ pnl.costs|floatformat:2|intcomma }}</div>
+        {% if delta %}
+          {% if delta.costs.0 %}
+            <div class="kpi-delta kpi-delta--inverse kpi-delta--{{ delta.costs.0 }}">
+              <i class="bi bi-arrow-{% if delta.costs.0 == 'up' %}up{% elif delta.costs.0 == 'down' %}down{% else %}right{% endif %}"></i>
+              {{ delta.costs.1 }} <span class="kpi-delta-note">vs previous period</span>
+            </div>
+          {% else %}
+            <div class="kpi-delta kpi-delta--muted">— Nothing to compare against</div>
+          {% endif %}
+        {% endif %}
+      </div>
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Total costs">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+      <div class="kpi-popover">
+        <div class="kpi-popover__title">Total Costs</div>
+        {% for c in cost_lines %}
+        <div class="kpi-popover__row"><span>{{ c.label }}</span><span class="num">₱{{ c.amount|floatformat:2|intcomma }}</span></div>
+        {% endfor %}
+        <div class="kpi-popover__row kpi-popover__row--total"><span>Total costs</span><span class="num">₱{{ pnl.costs|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--faint">
+          <span>Counts stock <em>sold</em>, not stock bought</span><span class="num"></span>
+        </div>
+        <a class="kpi-popover__link" href="{% url 'expense-analytics' business_slug=current_business.slug %}">Expense Analytics <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+
+  </div>
+
+  {% if period.compare_note %}
+  <div class="an-compare-note">
+    <i class="bi bi-info-circle"></i> {{ period.compare_note }}
+  </div>
+  {% endif %}
+
+  {% if has_data %}
+
+  <!-- ROW 1 — how profit moved, and what ate it -->
+  <div class="two-col-layout" style="margin-bottom: 0.85rem;">
+
+    <div class="left-panel">
+      {% comment %} PROFIT TREND. Bars, not a line: profit crosses zero, and a bar that drops
+      below the axis reads as a losing day instantly where a dipping line just looks low.
+      Each bar is coloured by its SIGN, so a bad day is visible before you read any number.
+      {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Profit Trend</span>
+            <span class="sl-badge sl-badge-light">{{ period.bucket_label }}</span>
+          </div>
+          <span class="card-header-sub">{{ period.label }}</span>
+        </div>
+        <div class="card-body an-chart an-chart--tall">
+          <canvas id="profitChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      {% comment %} THE WATERFALL. Revenue on the left, net profit on the right, and between
+      them the four costs each hanging from where the last one stopped. It answers "where did
+      it all go?" in one glance — a pie of costs cannot, because a pie has no starting point
+      and no end. {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-bar-chart-steps"></i> Where the Margin Went
+            </span>
+          </div>
+          <span class="card-header-sub">Revenue → net profit</span>
+        </div>
+        <div class="card-body an-chart an-chart--tall">
+          <canvas id="waterfallChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2 — is the margin holding, and which cost is eating it -->
+  <div class="two-col-layout" style="margin-bottom: 0.85rem;">
+
+    <div class="left-panel">
+      {% comment %} MARGIN % TREND — the "busy but broke" detector. Rising revenue on a falling
+      margin means you're working harder for less, and it is invisible on every other chart in
+      the app. A bucket with no sales draws a GAP, not a zero: 0% would claim you sold at cost.
+      {% endcomment %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">Margin Trend</span>
+            <span class="sl-badge sl-badge-light">{{ period.bucket_label }}</span>
+          </div>
+          {% if pnl.margin_pct is not None %}
+          <span class="card-header-sub">{{ pnl.margin_pct|floatformat:1 }}% this period</span>
+          {% endif %}
+        </div>
+        <div class="card-body an-chart an-chart--short">
+          <canvas id="marginChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left-group">
+            <span class="card-header-title">
+              <i class="bi bi-list-ul"></i> What It Cost You
+            </span>
+          </div>
+          <span class="card-header-sub">₱{{ pnl.costs|floatformat:2|intcomma }} total</span>
+        </div>
+        <div class="card-body" style="padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.85rem;">
+          {% for c in cost_lines %}
+          <div class="an-cost">
+            <div class="an-cost__top">
+              <span class="an-cost__name">
+                <i class="bi {{ c.icon }}"></i> {{ c.label }}
+                {% comment %} Only the COGS line needs explaining — payroll, business expenses
+                and waste are words an owner already owns. {% endcomment %}
+                {% if c.key == 'cogs' %}
+                <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="The amount you originally paid for the products you sold. Inventory becomes a cost only when it's sold."></i>
+                {% endif %}
+              </span>
+              <span class="an-num an-figure--lead">₱{{ c.amount|floatformat:2|intcomma }}</span>
+            </div>
+            {% comment %} Share can't go below 0 in the bar even when a cost line does (a window
+            whose returns outweigh its sales gives negative COGS). The FIGURE above still shows
+            the true −₱; only the bar is floored, because a bar cannot have negative length.
+            {% endcomment %}
+            <div class="an-cost__bar">
+              <span style="width: {% if c.share > 0 %}{{ c.share|floatformat:0 }}{% else %}0{% endif %}%; background: var({{ c.token }});"></span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3 — the money-makers -->
+  {% comment %} PROFIT BY PRODUCT — the point of the whole page, and the one thing no other
+  screen can tell you. Ranked by MARGIN, not revenue: the cheap fast-mover that fills the
+  till often earns less than a slow premium item, and Sales Analytics (which ranks by
+  revenue) will happily hide that from you.
+
+  Only possible because SaleItem.cost_price is snapshotted at the moment of sale.
+  {% endcomment %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">
+          <i class="bi bi-trophy"></i> Profit by Product
+        </span>
+        <span class="sl-badge sl-badge-light">Top {{ by_product|length }}</span>
+      </div>
+      <span class="card-header-sub">Ranked by money kept, not money taken</span>
+    </div>
+
+    {% if by_product %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:2.5rem;"></th>
+            <th>Product</th>
+            <th class="sl-text-end">Units</th>
+            <th class="sl-text-end">Revenue</th>
+            <th class="sl-text-end">Cost</th>
+            <th class="sl-text-end">Margin %</th>
+            <th class="sl-text-end">Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in by_product %}
+          <tr>
+            <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+            <td>
+              {% if p.slug %}
+              <a class="an-link" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.product_id product_slug=p.slug %}">{{ p.name }}</a>
+              {% else %}
+              {{ p.name|default:"—" }}
+              {% endif %}
+            </td>
+            <td class="sl-text-end an-num">{{ p.units|intcomma }}</td>
+            <td class="sl-text-end an-num">₱{{ p.revenue|floatformat:2|intcomma }}</td>
+            <td class="sl-text-end an-num">₱{{ p.cost|floatformat:2|intcomma }}</td>
+            <td class="sl-text-end an-num">
+              {% if p.margin_pct is not None %}
+                <span {% if p.margin_pct < 0 %}class="an-neg"{% endif %}>{{ p.margin_pct|floatformat:1 }}%</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="sl-text-end an-num an-figure--lead">
+              <span {% if p.margin < 0 %}class="an-neg"{% endif %}>₱{{ p.margin|floatformat:2|intcomma }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-basket"></i></div>
+      <h3 class="empty-title">No products sold</h3>
+      <p class="empty-text">
+        Nothing was sold in this window, so there's no margin to rank.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% else %}
+
+  <!-- Nothing traded AND nothing spent. Say so plainly rather than drawing an empty
+       waterfall, which reads as a broken page. -->
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-graph-up-arrow"></i></div>
+      <h3 class="empty-title">Nothing to report for this period</h3>
+      <p class="empty-text">
+        No sales and no costs were recorded in this window ({{ period.label }}).
+        Pick a wider range, or
+        <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="link-accent">check your sales records</a>.
+      </p>
+    </div>
+  </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}
+{# Vendored, not CDN — a silently-failing chart library is a blank page. #}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  // Every colour comes from a CSS token NAME chosen in the view (COST_LINES), resolved
+  // here at paint time — so a waterfall bar and the cost-line bar beneath it are the same
+  // colour by construction, neither hardcodes it. Read off .page-wrapper, not the root, so
+  // the page-local --an-accent resolves too.
+  // Do NOT sniff classList.contains('dark') — this app marks the theme with [data-theme].
+  const pw = document.querySelector('.page-wrapper');
+  function cssvar(name, fallback) {
+    return getComputedStyle(pw).getPropertyValue(name).trim() || fallback || '#888';
+  }
+  function tokens() {
+    return {
+      grid: cssvar('--border', '#e5e7eb'),
+      text: cssvar('--muted', '#6b7280'),
+      good: cssvar('--success', '#10b981'),
+      bad:  cssvar('--danger',  '#ef4444'),
+    };
+  }
+
+  // Money the owner READS — tooltips, and anything else a person deliberately asked for.
+  // (The KPI cards, ▼ dropdowns and tables are rendered server-side by Django and are exact
+  // already; nothing in this file can reach them.)
+  const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ★ AXIS TICKS ONLY — never money the owner actually reads.
+  // A gridline is a RULER MARK, not a figure: nobody reads "₱14,000" off an axis to learn a
+  // number, they read it to know roughly where they are. Abbreviating keeps the labels short
+  // so Chart.js stops dropping them, and a shop doing millions doesn't get a wall of digits.
+  // The KPI cards, the tables and the TOOLTIPS stay exact to the centavo — that is where the
+  // money is actually read. Handles negatives, because net profit can go below zero.
+  function pesoAxis(v) {
+    const n = Math.abs(v);
+    const sign = v < 0 ? '−' : '';
+    const trim = x => (x % 1 === 0 ? x.toFixed(0) : x.toFixed(1));
+    if (n >= 1e6) return sign + '₱' + trim(n / 1e6) + 'M';
+    if (n >= 1e3) return sign + '₱' + trim(n / 1e3) + 'k';
+    return sign + '₱' + Math.round(n);
+  }
+
+  let t = tokens();
+
+  // ── Profit trend ─────────────────────────────────────────────────────────
+  const netData     = {{ trend_net|safe }};
+  const revenueData = {{ trend_revenue|safe }};
+  const cogsData    = {{ trend_cogs|safe }};
+
+  // Colour by SIGN — a losing bucket is red before you read a single digit.
+  const barColour = () => netData.map(v => (v < 0 ? t.bad : t.good));
+
+  const profitChart = new Chart(document.getElementById('profitChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ trend_labels|safe }},
+      datasets: [{
+        label: 'Net profit',
+        data: netData,
+        backgroundColor: barColour(),
+        borderRadius: 2,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: c => 'Net profit: ' + pesoExact(c.parsed.y),
+            // The bar only shows the RESULT. The two numbers that produced it are the
+            // interesting part, so they ride along in the tooltip rather than needing a
+            // second chart.
+            afterBody: function (items) {
+              const i = items[0].dataIndex;
+              return [
+                'Revenue: ' + pesoExact(revenueData[i]),
+                'Cost of goods: ' + pesoExact(cogsData[i]),
+              ];
+            }
+          }
+        },
+      },
+      scales: {
+        x: { ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 },
+             grid: { display: false } },
+        // NOT beginAtZero — a loss must be allowed to draw below the axis. Forcing the
+        // floor to zero would silently flatten every losing bucket to nothing.
+        y: { ticks: { color: t.text, callback: pesoAxis }, grid: { color: t.grid } }
+      }
+    }
+  });
+
+  // ── Where the margin went — waterfall ────────────────────────────────────
+  // Floating bars: each datum is [from, to]. The cost bars hang between Revenue and Net
+  // Profit, each starting where the last one stopped, so the staircase reads as the margin
+  // being eaten line by line.
+  const wfTokens  = {{ wf_tokens|safe }};
+  const wfAmounts = {{ wf_amounts|safe }};
+  const wfFull    = {{ wf_full|safe }};
+  const wfLanding = {{ wf_landing|safe }};
+
+  // CONNECTOR LINES. Without these the costs read as five unrelated floating rectangles —
+  // which is exactly how it looked before. The line runs from the right edge of each bar to
+  // the left edge of the next, at the running total between them, so the eye can follow the
+  // money down the staircase. Drawn UNDER the bars (beforeDatasetsDraw) so it never crosses
+  // a bar face.
+  const wfConnectors = {
+    id: 'wfConnectors',
+    beforeDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      const y = chart.scales.y;
+      const ctx = chart.ctx;
+      if (!meta || !meta.data.length) return;
+
+      // ★ Muted TEXT colour, not --border. Drawn in --border first and it was invisible —
+      // which left five floating rectangles with nothing joining them, and a floating bar
+      // that doesn't visibly hand off to the next one is just confusing (user: "isn't it
+      // supposed to be on the bottom?"). The connector IS the explanation; it has to be seen.
+      ctx.save();
+      ctx.strokeStyle = t.text;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+
+      for (let i = 0; i < meta.data.length - 1; i++) {
+        const landing = wfLanding[i];
+        if (landing === null || landing === undefined) continue;
+        const a = meta.data[i], b = meta.data[i + 1];
+        const py = y.getPixelForValue(landing);
+        ctx.beginPath();
+        ctx.moveTo(a.x + a.width / 2, py);
+        ctx.lineTo(b.x - b.width / 2, py);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  };
+
+  {% comment %} Per-bar value labels were tried and REVERTED (user's call, 2026-07-14): six
+  peso figures printed on a half-width card crowded the bars they were meant to explain. The
+  connectors carry the staircase, and the tooltip carries the exact amount — that's enough.
+  {% endcomment %}
+  const waterfallChart = new Chart(document.getElementById('waterfallChart'), {
+    type: 'bar',
+    plugins: [wfConnectors],
+    data: {
+      labels: {{ wf_labels|safe }},
+      datasets: [{
+        data: {{ wf_data|safe }},
+        backgroundColor: wfTokens.map(function (tok) { return cssvar(tok); }),
+        borderRadius: 2,
+        borderSkipped: false,
+        // A tiny cost (Waste at ₱28.74 against a ₱16k axis) rounds to a hairline you can
+        // neither see nor hover. Give every bar a floor of 3px so it stays a real object.
+        minBarLength: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 8 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // The axis labels are WRAPPED (two lines), so Chart.js would title the tooltip
+            // "Cost of,Goods Sold". Put the real name back.
+            title: c => wfFull[c[0].dataIndex],
+            // Read the AMOUNT off wfAmounts, not off the bar: c.parsed.y is where the bar
+            // ends (a running total), which is not the number anyone is asking for.
+            label: function (c) {
+              const amt = wfAmounts[c.dataIndex];
+              const isCost = c.dataIndex > 0 && c.dataIndex < wfAmounts.length - 1;
+              return (isCost ? '− ' : '') + pesoExact(Math.abs(amt));
+            },
+            // The running total after this step — the number the connector line points at.
+            afterLabel: function (c) {
+              const landing = wfLanding[c.dataIndex];
+              if (landing === null || landing === undefined) return '';
+              if (c.dataIndex === 0) return '';
+              return 'Left: ' + pesoExact(landing);
+            }
+          }
+        },
+      },
+      scales: {
+        // maxRotation 0 — the labels are already WRAPPED to two lines, so letting Chart.js
+        // also rotate them (its default when they don't fit) gives you diagonal two-line
+        // labels, which is worse than either fix alone.
+        x: { ticks: { color: t.text, autoSkip: false, maxRotation: 0, font: { size: 10 } },
+             grid: { display: false } },
+        y: { ticks: { color: t.text, callback: pesoAxis }, grid: { color: t.grid } }
+      }
+    }
+  });
+
+  // ── Margin % trend ───────────────────────────────────────────────────────
+  // spanGaps stays FALSE: a bucket with no sales is null, and the line must BREAK there.
+  // Joining across it would draw a margin for a period that never traded.
+  const marginChart = new Chart(document.getElementById('marginChart'), {
+    type: 'line',
+    data: {
+      labels: {{ trend_labels|safe }},
+      datasets: [{
+        label: 'Gross margin',
+        data: {{ trend_margin|safe }},
+        borderColor: cssvar('--success'),
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        tension: 0.3,
+        spanGaps: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => 'Margin: ' + c.parsed.y + '%' } },
+      },
+      scales: {
+        x: { ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 },
+             grid: { display: false } },
+        y: { ticks: { color: t.text, callback: v => v + '%' }, grid: { color: t.grid } }
+      }
+    }
+  });
+
+  // ── Repaint on theme flip ────────────────────────────────────────────────
+  // The topbar toggle swaps [data-theme] in place, no reload. Axes AND series colours have
+  // to be re-read: --success and friends resolve to different hex in dark mode.
+  new MutationObserver(function () {
+    t = tokens();
+
+    [profitChart, waterfallChart, marginChart].forEach(function (ch) {
+      ch.options.scales.x.ticks.color = t.text;
+      ch.options.scales.y.ticks.color = t.text;
+      ch.options.scales.y.grid.color  = t.grid;
+    });
+
+    profitChart.data.datasets[0].backgroundColor = barColour();
+    waterfallChart.data.datasets[0].backgroundColor =
+      wfTokens.map(function (tok) { return cssvar(tok); });
+    marginChart.data.datasets[0].borderColor = cssvar('--success');
+
+    profitChart.update('none');
+    waterfallChart.update('none');
+    marginChart.update('none');
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+});
+</script>
+{% endif %}
+
+{% comment %} The KPI ▼ popovers run off the ONE global handler in static/js/kpi-cards.js
+(loaded from main.html) — which also means they keep working outside the has_data guard,
+where the KPI strip still renders on an empty period. Never add a page-level copy. {% endcomment %}
+{% endblock %}

@@ -153,7 +153,7 @@
       {% endif %}
     {% endif %}
 
-    {% if request.user.role == 'owner' %}
+    {% if request.user.role == 'owner' and current_business.plan.has_analytics %}
     <!-- ANALYTICS — trends & charts (coming soon; future Premium/Pro gate) -->
     <div class="sidebar-group" data-group="analytics">
       <button type="button" class="sidebar-group__header" aria-expanded="true" aria-controls="group-analytics">
@@ -163,13 +163,18 @@
       <div class="sidebar-group__items" id="group-analytics">
         <ul>
           <li>
+            {% comment %} LIVE 2026-07-13 — third Analytics page, and the one the other two
+            lead to: a full profit-and-loss on COST OF GOODS SOLD. Same visible-but-locked
+            treatment as its siblings; non-Pro lands on pricing. {% endcomment %}
             <a class="sidebar-nav__link {% if section == 'profit-analytics' %}is-active{% endif %}"
-              href="#"
+              href="{% if current_business.plan.has_analytics %}{% url 'profit-analytics' business_slug=current_business.slug %}{% else %}{% url 'subscription-pricing' business_slug=current_business.slug %}{% endif %}"
               {% if request.user.role == 'staff' %}data-locked="Profit-Analytics"{% endif %}>
               <i class="bi bi-graph-up-arrow"></i>
               <span>Profit Analytics</span>
               {% if request.user.role == 'staff' %}
                 <span class="lock-badge" title="Owner access only"><i class="bi bi-lock-fill"></i></span>
+              {% elif not current_business.plan.has_analytics %}
+                <span class="lock-badge" title="Pro plan"><i class="bi bi-lock-fill"></i></span>
               {% endif %}
             </a>
             {% comment %} LIVE 2026-07-12 — first Analytics page. Unlike Dashboard (which
@@ -366,7 +371,7 @@
           <li>
             <a class="sidebar-nav__link {% if section == 'category' %}is-active{% endif %}"
                href="{% url 'category-list' business_slug=current_business.slug %}">
-              <i class="bi bi-tags"></i>
+              <i class="bi bi-grid-3x3-gap-fill"></i>
               <span>Categories</span>
             </a>
           </li>

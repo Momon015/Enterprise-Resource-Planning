@@ -289,7 +289,7 @@
               {% for cat in top_categories %}
                 <a href="{% url 'material-list' business_slug=current_business.slug %}?category={{ cat.id }}"
                   class="quick-range-btn {% if request.GET.category == cat.id|stringformat:'s' %}active{% endif %}">
-                  <i class="bi bi-tag"></i> {{ cat.name }}
+                  <i class="bi bi-grid-3x3-gap-fill"></i> {{ cat.name }}
                 </a>
               {% endfor %}
               <a href="{% url 'material-list' business_slug=current_business.slug %}"
@@ -317,7 +317,7 @@
                 </a>
                 {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
                 <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-tags-fill"></i> Categories
+                  <i class="bi bi-grid-3x3-gap-fill"></i> Categories
                 </a>
                 {% endif %}
                 {% if archived_count > 0 %}

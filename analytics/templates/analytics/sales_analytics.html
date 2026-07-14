@@ -51,7 +51,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1 class="page-title">Sales Analytics</h1>
-      <p class="page-subtitle">What sells, when it sells, and what isn't moving</p>
+      <p class="page-subtitle">Find your best-selling products and sales trends</p>
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
@@ -163,8 +163,8 @@
     </div>
 
     {% comment %} AVERAGE SALE — what a typical customer spends. Rises when you upsell, falls
-    when you discount. bi-cash-stack, NOT bi-basket: basket is the Products icon everywhere
-    else in the app, and this card is about money per sale, not a basket of goods. {% endcomment %}
+    when you discount. bi-cash-stack, NOT bi-basket: this card is about money per sale, not a
+    basket of goods. (Units Sold below IS a basket of goods, so it gets the basket.) {% endcomment %}
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--neutral">
         <i class="bi bi-cash-stack"></i>
@@ -185,10 +185,13 @@
       </div>
     </div>
 
-    <!-- UNITS SOLD -->
+    {% comment %} UNITS SOLD — goods that left the shop. bi-basket, NOT bi-box-seam: box-seam is
+    Stock Purchases on the Expense Analytics strip (and its violet donut slice), i.e. goods coming
+    IN. Wearing the same icon here would twin the two opposite facts. Hue stays neutral — a count
+    is not money in or out, and silver is what keeps the eye on Revenue. {% endcomment %}
     <div class="kpi-card">
       <div class="kpi-icon kpi-icon--neutral">
-        <i class="bi bi-box-seam"></i>
+        <i class="bi bi-basket"></i>
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Units Sold</div>
@@ -441,7 +444,23 @@ document.addEventListener("DOMContentLoaded", function () {
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
   }
 
-  const peso = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+  // Money the owner READS — tooltips, and anything else a person deliberately asked for.
+  // (The KPI cards, ▼ dropdowns and tables are rendered server-side by Django and are exact
+  // already; nothing in this file can reach them.)
+  const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ★ AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
+  // labels crowding (and a shop doing millions getting a wall of digits). Money the owner
+  // actually reads — cards, tables, tooltips — stays exact. Same helper on all 3 Analytics
+  // pages; if you change it, change it in all three or the axes stop matching each other.
+  function pesoAxis(v) {
+    const n = Math.abs(v);
+    const sign = v < 0 ? '−' : '';
+    const trim = x => (x % 1 === 0 ? x.toFixed(0) : x.toFixed(1));
+    if (n >= 1e6) return sign + '₱' + trim(n / 1e6) + 'M';
+    if (n >= 1e3) return sign + '₱' + trim(n / 1e3) + 'k';
+    return sign + '₱' + Math.round(n);
+  }
 
   let t = tokens();
   const charts = [];
@@ -469,11 +488,11 @@ document.addEventListener("DOMContentLoaded", function () {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+        tooltip: { callbacks: { label: c => pesoExact(c.parsed.y) } },
       },
       scales: {
         x: { ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: t.text, callback: peso }, grid: { color: t.grid } }
+        y: { beginAtZero: true, ticks: { color: t.text, callback: pesoAxis }, grid: { color: t.grid } }
       }
     }
   }));
@@ -496,14 +515,14 @@ document.addEventListener("DOMContentLoaded", function () {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+        tooltip: { callbacks: { label: c => pesoExact(c.parsed.y) } },
       },
       scales: {
         // Every 3rd label — 24 of them will not fit in a 420px panel.
         x: { ticks: { color: t.text, maxRotation: 0, autoSkip: false,
                       callback: function (v, i) { return i % 3 === 0 ? this.getLabelForValue(v) : ''; } },
              grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: t.text, callback: peso, maxTicksLimit: 4 }, grid: { color: t.grid } }
+        y: { beginAtZero: true, ticks: { color: t.text, callback: pesoAxis, maxTicksLimit: 4 }, grid: { color: t.grid } }
       }
     }
   }));
@@ -526,11 +545,11 @@ document.addEventListener("DOMContentLoaded", function () {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => peso(c.parsed.y) } },
+        tooltip: { callbacks: { label: c => pesoExact(c.parsed.y) } },
       },
       scales: {
         x: { ticks: { color: t.text }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: t.text, callback: peso, maxTicksLimit: 4 }, grid: { color: t.grid } }
+        y: { beginAtZero: true, ticks: { color: t.text, callback: pesoAxis, maxTicksLimit: 4 }, grid: { color: t.grid } }
       }
     }
   }));
@@ -563,35 +582,12 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 {% endif %}
 
-{% comment %} OUTSIDE the has_data guard on purpose — the KPI strip (and its dropdowns) render
-even on an empty period, so the toggle has to exist there too.
+{% comment %} The KPI ▼ popovers and the clickable Sales Count card are driven by the ONE global
+handler in static/js/kpi-cards.js (loaded from main.html). Do NOT add a page-level copy —
+two delegated listeners cancel each other out and silently kill every dropdown in the app.
 
-Same delegated handler as the Dashboard / Daily Summary pages. It is copy-pasted rather than
-shared because those pages bury it inside a <script> block that also holds page-specific code,
-so there's no clean single copy to lift out yet. Worth extracting into one global file — but
-whoever does it must remove ALL the inline copies in the same pass: two delegated listeners
-would each toggle the class and cancel each other out, silently killing every popover. {% endcomment %}
-<script>
-  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-  });
-</script>
+Note it also has to work OUTSIDE the has_data guard: the KPI strip renders even on an empty
+period, so the dropdowns must still open on a range with no sales. Being global, it does. {% endcomment %}
 {% endblock %}
 
 {# ═══════════════════════════════════════════════════════════════════

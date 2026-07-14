@@ -5975,6 +5975,21 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   letter-spacing: 0;
 }
 
+/* Plain-language help on a label. "Cost of Goods Sold" is an accountant's phrase and means
+   nothing to a shop owner until somebody says it in words — so any label carrying an idea
+   the owner didn't choose gets one of these. bi-info-circle + a Bootstrap tooltip, which
+   main.html already initialises site-wide on [data-bs-toggle="tooltip"].
+   Faint at rest so it never competes with the number; only shows up when looked for. */
+.label-help {
+  margin-left: 0.3rem;
+  color: var(--text-faint);
+  font-size: 0.82em;
+  cursor: help;
+  vertical-align: baseline;
+}
+.label-help:hover,
+.label-help:focus { color: var(--muted); }
+
 .kpi-value {
   font-size: 1.35rem;
   font-weight: 700;

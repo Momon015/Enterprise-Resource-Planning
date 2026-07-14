@@ -77,10 +77,16 @@ from core.utils.metrics import pct_delta as _pct_delta
 # Returns (2026-07-12). The profit formula lives in ONE place now — see the module docstring
 # for why both return types had to be netted off at the same time.
 from core.utils.returns import (
-    net_profit as net_profit_formula,
     purchase_returns_total,
     sales_returns_total,
 )
+
+# ★ PROFIT IS NOW COGS-BASED (2026-07-13) — see core/utils/profit.py. Net profit subtracts
+# the cost of the goods actually SOLD, not the stock BOUGHT in the window. A big delivery no
+# longer fakes a loss on the day it lands. `total_material_cost` is still computed and still
+# shown (it's real money out, and the Cash Flow lens needs it) — it just isn't what profit
+# subtracts any more.
+from core.utils.profit import cogs_in, gross_margin, net_profit as net_profit_formula
 
 
 def _compute_dashboard_metrics(business, today):
@@ -109,11 +115,16 @@ def _compute_dashboard_metrics(business, today):
     total_salary_cost   = shifts_today.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
     total_waste_cost    = wastes_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
 
+    # Cost of the goods that actually left the shelf today, already relieved of anything a
+    # customer brought back. This — not total_material_cost — is what profit subtracts.
+    total_cogs = cogs_in(business, today, today)
+
     net_profit = net_profit_formula(
-        revenue=gross_revenue, purchases=gross_material,
+        revenue=gross_revenue, cogs=total_cogs,
         salary=total_salary_cost, waste=total_waste_cost, bills=total_expense_cost,
-        sales_returns=sales_refunds, purchase_returns=purchase_refunds,
+        sales_returns=sales_refunds,
     )
+    margin = gross_margin(gross_revenue, total_cogs, sales_refunds)
 
     # Yesterday's totals (for KPI deltas)
     yesterday = today - timedelta(days=1)
@@ -134,10 +145,11 @@ def _compute_dashboard_metrics(business, today):
     y_expense  = y_expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
     y_salary   = y_shifts.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
     y_opex     = y_salary + y_expense
+    y_cogs     = cogs_in(business, yesterday, yesterday)
     y_net      = net_profit_formula(
-        revenue=y_gross_revenue, purchases=y_gross_material,
+        revenue=y_gross_revenue, cogs=y_cogs,
         salary=y_salary, waste=y_waste, bills=y_expense,
-        sales_returns=y_sales_refunds, purchase_returns=y_purchase_refunds,
+        sales_returns=y_sales_refunds,
     )
 
     # Combined operating expenses (labor/salary + overhead)
@@ -161,11 +173,15 @@ def _compute_dashboard_metrics(business, today):
         return float(qs.filter(business=business, **date_filter).aggregate(t=Sum(field))['t'] or 0)
 
     def _window(start, end):
-        """One period's five accrual figures, both returns already netted off.
+        """One period's accrual figures, returns already netted off.
 
         Every comparison bucket below (this week / last week / this month / last month)
-        goes through here, so the returns fix cannot be applied to three of them and
-        forgotten on the fourth.
+        goes through here, so a change to the profit formula cannot be applied to three of
+        them and forgotten on the fourth.
+
+        ★ Everything here is a FLOAT (that's what _bucket returns), so cogs_in's Decimal is
+        cast on the way in. Mixing the two raises TypeError, and it would only blow up on a
+        window that actually had sales — i.e. never in an empty test, always in production.
         """
         gross_rev  = _bucket(Sale.objects.active(),     'total_revenue', {'date__range': (start, end)})
         gross_cost = _bucket(Purchase.objects.active(), 'total_cost',    {'purchase_date__range': (start, end)})
@@ -175,17 +191,21 @@ def _compute_dashboard_metrics(business, today):
 
         s_ret = float(sales_returns_total(business, start, end))
         p_ret = float(purchase_returns_total(business, start, end))
+        cogs  = float(cogs_in(business, start, end))
 
         return {
             'revenue': gross_rev  - s_ret,
+            # 'cost' stays STOCK PURCHASED (money out to suppliers) — the weekly/monthly
+            # comparison cards report spending, not cost of sales. Profit below uses cogs.
             'cost':    gross_cost - p_ret,
+            'cogs':    cogs,
             'waste':   waste,
             'expense': expense,
             'salary':  salary,
             'net': net_profit_formula(
-                revenue=gross_rev, purchases=gross_cost,
+                revenue=gross_rev, cogs=cogs,
                 salary=salary, waste=waste, bills=expense,
-                sales_returns=s_ret, purchase_returns=p_ret,
+                sales_returns=s_ret,
             ),
         }
 
@@ -237,6 +257,12 @@ def _compute_dashboard_metrics(business, today):
         'total_salary_cost': total_salary_cost,
         'total_waste_cost': total_waste_cost,
         'total_expense_cost': total_expense_cost,
+
+        # ★ COGS is what net_profit subtracts; total_material_cost is what you PAID
+        # suppliers. They are different questions and both are shown — the first on the
+        # profit card's breakdown, the second on the Cash Flow lens and Expense Analytics.
+        'total_cogs': total_cogs,
+        'gross_margin': margin,
         'net_profit': net_profit,
         
         # yesterday
@@ -508,6 +534,24 @@ def dashboard(request, business_slug):
     hue_material  = 'danger'  if _mat > 0 else ''
     hue_netprofit = 'success' if _np > 0 else ('danger' if _np < 0 else '')
 
+    # ▼ on the Expense Cost card only when there's something inside it — the rule every
+    # OTHER card on this strip already follows (Revenue gates on having payments/receivables,
+    # Cash Drawer on a session existing, Critically Low on there being critical rows). Expense
+    # Cost was the one card carrying its chevron unconditionally, so on a quiet day it offered
+    # a dropdown that opened to four zeros.
+    #
+    # ★ Gated on _exp, which is ALREADY the lens-correct figure the card prints (cash = payroll
+    #   + expenses; accrual also folds in waste). Deliberately NOT reusing `hue_expense` even
+    #   though it's true under the same condition today — that's a COLOUR rule, and tying the
+    #   dropdown's existence to it would break the day someone changes how the card is tinted.
+    has_expense_breakdown = _exp > 0
+
+    # Same fix for Stock Purchases. Its ▼ was gated on the LENS only (`basis != 'cash'`), never
+    # on the value — so in Accrual mode a day with no deliveries still offered a dropdown that
+    # opened to ₱0.00 four times over. The cash lens has no dropdown here at all (by design:
+    # gross/returns/payables are accrual concepts), so both conditions have to hold.
+    has_material_breakdown = basis != 'cash' and _mat > 0
+
 
     # Collected-by-method (cash-lens Revenue popover)
     method_names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
@@ -691,6 +735,8 @@ def dashboard(request, business_slug):
         
         'hue_revenue': hue_revenue,
         'hue_expense': hue_expense,
+        'has_expense_breakdown': has_expense_breakdown,
+        'has_material_breakdown': has_material_breakdown,
         'hue_material': hue_material,
         'hue_netprofit': hue_netprofit,
         'hue_lowstock': hue_lowstock,

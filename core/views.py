@@ -137,7 +137,7 @@ def category_create(request, business_slug):
             'cat_subtitle': 'Create a category to organize your items.',
             'cat_action': reverse('category-create', kwargs={'business_slug': business.slug}),
             'cat_label': 'Save Category',
-            'cat_icon': 'bi-tag-fill',
+            'cat_icon': 'bi-grid-3x3-gap-fill',
         })
         
     context = {'form': form}
@@ -214,7 +214,7 @@ def category_delete(request, business_slug, category_id, slug):
                 'business_slug': business.slug, 'category_id': category.id, 'slug': category.slug}),
             'cm_label': 'Delete Category',
             'cm_tone': 'danger',
-            'cm_icon': 'bi-tag-fill',
+            'cm_icon': 'bi-grid-3x3-gap-fill',
             'cm_btn_icon': 'bi-trash',
         })
 

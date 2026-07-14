@@ -153,13 +153,13 @@ function togglePaymentFields() {
             {% if enable_purchase_discount %}
               {% if order_discount_percent %}
               <div class="total-row">
-                <span class="total-label"><i class="bi bi-tags"></i> Discount ({{ order_discount_percent|floatformat:0 }}%)</span>
+                <span class="total-label"><i class="bi bi-tag"></i> Discount ({{ order_discount_percent|floatformat:0 }}%)</span>
                 <span class="total-value" style="color:var(--success);">−₱{{ order_discount_amount|floatformat:2|intcomma }}</span>
               </div>
               {% endif %}
             {% elif total_discount %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-tags"></i> Discount</span>
+              <span class="total-label"><i class="bi bi-tag"></i> Discount</span>
               <span class="total-value" style="color:var(--success);">−₱{{ total_discount|floatformat:2|intcomma }}</span>
             </div>
             {% endif %}

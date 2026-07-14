@@ -100,17 +100,18 @@ def refund_method_for(cash, credit):
     return 'credit' if credit > ZERO else 'cash'
 
 
-def net_profit(revenue, purchases, salary, waste, bills,
-               sales_returns=ZERO, purchase_returns=ZERO):
-    """THE accrual profit formula. One definition, every page.
-
-        (revenue - sales returns) - (purchases - purchase returns) - salary - waste - bills
-
-    Note that either net figure can legitimately go NEGATIVE inside a narrow window — a
-    ₱500 refund in a week you bought nothing gives net purchases of -₱500, which is
-    correct (the supplier handed money back) and must NOT be clamped to zero. Clamping
-    would leak the refund out of the books entirely.
-    """
-    net_revenue   = revenue   - sales_returns
-    net_purchases = purchases - purchase_returns
-    return net_revenue - net_purchases - salary - waste - bills
+# ══════════════════════════════════════════════════════════════════════════════
+# net_profit() USED TO LIVE HERE. It has MOVED to core/utils/profit.py (2026-07-13),
+# and its meaning changed with it: profit now subtracts the cost of the goods actually
+# SOLD (COGS), not the stock BOUGHT in the window.
+#
+#     from core.utils.profit import cogs_in, net_profit
+#
+# ★ Do not re-add a purchases-based profit here "for compatibility". Two profit formulas
+#   in one codebase is precisely the disease this module was written to cure — see the
+#   docstring above on why both return types had to be fixed in a single function.
+#
+# ★ purchase_returns_total() above is STILL USED, but no longer by the profit formula:
+#   sending stock back to a supplier is an inventory/cash movement, not a trading result.
+#   It feeds CASH FLOW and Expense Analytics. sales_returns_total() still feeds profit.
+# ══════════════════════════════════════════════════════════════════════════════

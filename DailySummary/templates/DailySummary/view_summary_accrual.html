@@ -69,7 +69,10 @@ document.addEventListener("DOMContentLoaded", function () {
         <i class="bi bi-graph-up-arrow"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-label">Net Profit
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The money your business kept after paying for the products you sold, payroll, business expenses, and waste. This is your actual profit for the period."></i>
+        </div>
         <div class="kpi-value {% if grand_net_profit < 0 %}text-danger{% endif %}">₱{{ grand_net_profit|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if grand_total_revenue > 0 %}
         <div class="kpi-delta kpi-delta--muted"><i class="bi bi-percent"></i> {{ profit_margin|floatformat:1 }}% margin</div>
@@ -145,30 +148,36 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
     </div>
 
-    <!-- MATERIAL COST (product cost incurred this period — red when there's spending) -->
-    <div class="kpi-card{% if grand_material_total_cost > 0 %} kpi-card--hue-danger{% endif %} has-popover">
-      <div class="kpi-icon kpi-icon--{% if grand_material_total_cost > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
+    {% comment %} COST OF GOODS SOLD — ★ 2026-07-13, replacing the Stock Purchases card here.
+    This page is the PROFIT-AND-LOSS view, so the cost that belongs beside the revenue is the
+    cost of the goods that EARNED it, not the stock that happened to be delivered this period.
+    (What we paid suppliers is money-out, and it still lives on the Cash Flow lens and Expense
+    Analytics — plus in the dropdown below, so nothing is lost.) The table column underneath
+    changed with it: revenue − costs = net profit has to add up on screen. {% endcomment %}
+    <div class="kpi-card{% if grand_total_cogs > 0 %} kpi-card--hue-danger{% endif %} has-popover">
+      <div class="kpi-icon kpi-icon--{% if grand_total_cogs > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-tags"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">Stock Purchases</div>
-        <div class="kpi-value">₱{{ grand_material_total_cost|floatformat:2|intcomma|default:"0.00" }}</div>
-        {% comment %} Net of supplier refunds — the working is in the dropdown. {% endcomment %}
-        <div class="kpi-delta kpi-delta--muted">₱{{ grand_paid|floatformat:2|intcomma }} paid</div>
+        <div class="kpi-label">Cost of Goods Sold
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The amount you originally paid for the products you sold. Inventory becomes a cost only when it's sold."></i>
+        </div>
+        <div class="kpi-value">₱{{ grand_total_cogs|floatformat:2|intcomma|default:"0.00" }}</div>
+        <div class="kpi-delta kpi-delta--muted">What the goods you sold cost you</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Cost of Goods Sold">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
-        <div class="kpi-popover__title">Stock Purchases</div>
-        {% comment %} GROSS here — the card's value is already net, so listing the net figure and
-        then a "− Returns" row beneath it would subtract the refund twice on screen. {% endcomment %}
-        <div class="kpi-popover__row"><span>Purchases (billed)</span><span class="num">₱{{ grand_gross_material|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__title">Cost of Goods Sold</div>
+        <div class="kpi-popover__row"><span>Cost of goods sold</span><span class="num">₱{{ grand_total_cogs|floatformat:2|intcomma }}</span></div>
+        {% comment %} The money side, kept here rather than deleted: it is what actually left
+        for suppliers, and the payables figure is what the accrual↔cash reconciliation needs.
+        Faint, because on a P&L page it is context, not the headline. {% endcomment %}
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Stock bought (billed)</span><span class="num">₱{{ grand_gross_material|floatformat:2|intcomma }}</span></div>
         {% if grand_purchase_returns > 0 %}
-        <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ grand_purchase_returns|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Returned to supplier</span><span class="num">− ₱{{ grand_purchase_returns|floatformat:2|intcomma }}</span></div>
         {% endif %}
-        {% for m in paid_by_method_acc %}
-        <div class="kpi-popover__row kpi-popover__row--faint"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
-        {% endfor %}
-        <div class="kpi-popover__row"><span>Paid</span><span class="num">₱{{ grand_paid|floatformat:2|intcomma }}</span></div>
+        <div class="kpi-popover__row kpi-popover__row--faint"><span>Paid</span><span class="num">₱{{ grand_paid|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row kpi-popover__row--total"><span>Payables (unpaid)</span><span class="num">₱{{ grand_payables|floatformat:2|intcomma }}</span></div>
       </div>
     </div>
@@ -260,7 +269,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <tr>
             <th>Date</th>
             <th class="sl-text-end mobile-center">Revenue</th>
-            <th class="sl-text-end col-mobile-hidden">Stock Purchases</th>
+            <th class="sl-text-end col-mobile-hidden">Cost of Goods Sold
+              <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+                 title="The amount you originally paid for the products you sold. Inventory becomes a cost only when it's sold."></i>
+            </th>
             <th class="sl-text-end col-mobile-hidden">Payroll Cost</th>
             <th class="sl-text-end col-mobile-hidden">Business Expenses</th>
             <th class="sl-text-end col-mobile-hidden">Waste &amp; Losses</th>
@@ -283,7 +295,7 @@ document.addEventListener("DOMContentLoaded", function () {
               </div>
             </td>
             <td class="sl-text-end mobile-center"><span class="sl-fw-semibold" style="color:var(--success);">₱{{ summary.total_revenue|floatformat:2|intcomma }}</span></td>
-            <td class="sl-text-end col-mobile-hidden">{% if summary.total_material_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_material_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
+            <td class="sl-text-end col-mobile-hidden">{% if summary.total_cogs %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_cogs|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
             <td class="sl-text-end col-mobile-hidden">{% if summary.total_salary_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_salary_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
             <td class="sl-text-end col-mobile-hidden">{% if summary.total_expense_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_expense_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
             <td class="sl-text-end col-mobile-hidden">{% if summary.total_waste_cost %}<span class="sl-fw-semibold" style="color:var(--danger);">₱{{ summary.total_waste_cost|floatformat:2|intcomma }}</span>{% else %}<span class="cell-sub">₱0.00</span>{% endif %}</td>
@@ -336,26 +348,6 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 </div>
 
-<script>
-  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-  });
-</script>
+{# KPI ▼ popovers: ONE global handler in static/js/kpi-cards.js. No page-level copy. #}
 
 {% endblock %}

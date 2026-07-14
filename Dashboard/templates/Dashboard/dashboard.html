@@ -179,7 +179,11 @@
 
     <!-- EXPENSE COST (payroll + other expenses; + waste in the accrual lens —
          waste is never a cash event, so the Cash Flow lens excludes it) -->
-    <div class="kpi-card{% if hue_expense %} kpi-card--hue-{{ hue_expense }}{% endif %} has-popover kpi-card--clickable"
+    {% comment %} ▼ only when there IS a breakdown — same rule as every other card on this
+    strip. It used to render unconditionally, so on a quiet day the chevron invited you into
+    a dropdown that opened to four zeros. `has_expense_breakdown` is computed off the
+    lens-correct value the card prints (see Dashboard/views.py). {% endcomment %}
+    <div class="kpi-card{% if hue_expense %} kpi-card--hue-{{ hue_expense }}{% endif %}{% if has_expense_breakdown %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'expense-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--{% if hue_expense %}{{ hue_expense }}{% else %}neutral{% endif %}">
 
@@ -210,6 +214,7 @@
         {% endif %}
       </div>
 
+      {% if has_expense_breakdown %}
       <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="What's inside">
         <i class="bi bi-chevron-down"></i>
       </button>
@@ -225,18 +230,31 @@
         {% endif %}
         <a class="kpi-popover__link" href="{% url 'expense-list' business_slug=current_business.slug %}">View expenses <i class="bi bi-arrow-right"></i></a>
       </div>
+      {% endif %}
     </div>
 
     <!-- MATERIAL COST (accrual) / PAID (cash) -->
-    <div class="kpi-card{% if hue_material %} kpi-card--hue-{{ hue_material }}{% endif %}{% if basis != 'cash' %} has-popover{% endif %} kpi-card--clickable"
+    <div class="kpi-card{% if hue_material %} kpi-card--hue-{{ hue_material }}{% endif %}{% if has_material_breakdown %} has-popover{% endif %} kpi-card--clickable"
          data-href="{% url 'purchase-list' business_slug=current_business.slug %}" tabindex="0">
       <div class="kpi-icon kpi-icon--{% if hue_material %}{{ hue_material }}{% else %}neutral{% endif %}">
         <i class="bi bi-box-seam"></i>
       </div>
       <div class="kpi-body">
         {% comment %} "Stock purchases", not "Material Cost" — one name for this number across the
-        Dashboard, Daily Summary and Analytics, and it says what it actually is. {% endcomment %}
-        <div class="kpi-label">Stock Purchases</div>
+        Dashboard, Daily Summary and Analytics, and it says what it actually is.
+
+        ★ The tooltip is BASIS-AWARE because the VALUE is: in Cash mode this card shows what you
+        actually PAID suppliers, in Accrual mode what you BOUGHT (paid or not). One static tooltip
+        would be a lie in one of the two modes. {% endcomment %}
+        <div class="kpi-label">Stock Purchases
+          {% if basis == 'cash' %}
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The money you actually paid suppliers today. Orders you haven't paid for yet show under Payables."></i>
+          {% else %}
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The inventory you bought today, whether you've sold it or not. Buying inventory isn't a loss—you're turning cash into stock your business still owns."></i>
+          {% endif %}
+        </div>
         {% if basis == 'cash' %}
         <div class="kpi-value">₱{{ paid|floatformat:2|intcomma|default:"0.00" }}</div>
         {% if paid_dir %}
@@ -261,7 +279,7 @@
         {% endif %}
       </div>
 
-      {% if basis != 'cash' %}
+      {% if has_material_breakdown %}
       <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="What's inside">
         <i class="bi bi-chevron-down"></i>
       </button>
@@ -535,39 +553,10 @@
 </div>
 
 
-<script>
-  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-
-    // card-body navigation (the ▼ and the popover never navigate)
-    const card = e.target.closest('.kpi-card--clickable[data-href]');
-    if (card && !e.target.closest('.kpi-peek') && !e.target.closest('.kpi-popover')) {
-      window.location.href = card.dataset.href;
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const card = e.target.closest && e.target.closest('.kpi-card--clickable[data-href]');
-      if (card) window.location.href = card.dataset.href;
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-  });
-</script>
+{# KPI ▼ popovers + card-body navigation: ONE global handler in static/js/kpi-cards.js
+   (loaded from main.html). Both are driven by the markup — [data-kpi-popover] and
+   .kpi-card--clickable[data-href] — so this page needs no script of its own. Never
+   re-add a page-level copy: it would double-toggle and kill every dropdown. #}
 
 {% endblock content %}
 

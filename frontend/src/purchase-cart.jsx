@@ -314,7 +314,7 @@ function PurchaseCart() {
                               background:'var(--accent-light)', border:'1px solid var(--accent)',
                               borderRadius:'10px', padding:'.6rem .85rem', marginBottom:'.85rem' }}>
                   <span style={{ fontWeight:600, color:'var(--accent)', fontSize:'.85rem' }}>
-                    <i className="bi bi-tags"></i> Discount
+                    <i className="bi bi-tag"></i> Discount
                   </span>
                   <span style={{ display:'flex', alignItems:'center', gap:'.3rem' }}>
                     <input type="number" step="0.01" min="0" max="100" value={discount}
@@ -338,13 +338,13 @@ function PurchaseCart() {
 
               {mode === 'percent' && pct > 0 && (
                 <div className="total-row">
-                  <span className="total-label"><i className="bi bi-tags"></i> Discount</span>
+                  <span className="total-label"><i className="bi bi-tag"></i> Discount</span>
                   <span className="total-value text-success-soft">−₱{peso(discAmt)}</span>
                 </div>
               )}
               {mode === 'flat' && totalDiscount > 0 && (
                 <div className="total-row">
-                  <span className="total-label"><i className="bi bi-tags"></i> Discount</span>
+                  <span className="total-label"><i className="bi bi-tag"></i> Discount</span>
                   <span className="total-value text-success-soft">₱{peso(totalDiscount)}</span>
                 </div>
               )}

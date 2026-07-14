@@ -17,6 +17,12 @@ from core.utils.metrics import pct_delta
 from core.utils.owner import get_business_for_user, permission_required
 from subscription.decorators import feature_required
 
+# THE profit formula — the same one the Dashboard and the Daily Summary call. Profit
+# Analytics deliberately does NOT define its own: three pages computing profit three ways is
+# the bug this codebase spent a week removing.
+from core.utils.profit import (COGS_LINE, RETURNED_COGS_LINE, cogs_of, gross_margin,
+                               margin_pct, net_profit, returned_cogs_of)
+
 from .periods import RANGE_CHOICES, fmt_day, resolve_period
 
 # Wide enough that a peso column can't overflow mid-aggregate.
@@ -376,11 +382,17 @@ def sales_analytics(request, business_slug):
 # KPI strip, the donut and the stacked trend — so a stream cannot appear in one and go
 # missing from another.
 #
-# ★ This is exactly the set the Dashboard subtracts from revenue to get net profit
-#   (see Dashboard/views.py: revenue - material - salary - waste - expense). The two
-#   MUST agree: if a fifth outflow is ever added, add it here and to the dashboard's
-#   net_profit in the same commit, or this page and the dashboard start reporting
-#   different totals for the same window.
+# ★★ THIS IS *SPEND*, NOT *COST* — and since 2026-07-13 the two are different questions.
+#   'stock' here is the stock you BOUGHT. Profit subtracts the stock you SOLD (COGS).
+#   So Total Spend on this page does NOT equal Total Costs on Profit Analytics, and it is
+#   NOT supposed to. The gap between them is whatever moved on or off the shelf.
+#
+#   This page answers "where did my money go". Profit Analytics answers "did I trade
+#   profitably". Both are true at once. DO NOT "reconcile" them by swapping this to COGS —
+#   an owner needs to see a ₱10,000 delivery in the month they paid for it.
+#
+#   (It used to be a hard rule that this set had to equal the Dashboard's profit formula.
+#   That rule died with the purchase-basis profit. See core/utils/profit.py.)
 #
 # key -> (label, date field, money field, CSS colour token, icon)
 STREAMS = [
@@ -636,3 +648,361 @@ def expense_analytics(request, business_slug):
         'has_data': now['total'] > 0,
     }
     return render(request, 'analytics/expense_analytics.html', context)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PROFIT ANALYTICS — what you actually kept
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# ★ This page is a PROFIT-AND-LOSS, and it runs on COST OF GOODS SOLD — the cost of the
+#   goods that actually left the shelf — NOT on the stock bought in the window. See
+#   core/utils/profit.py for the full argument. Two consequences worth holding on to:
+#
+#     1. It will NOT tie out to Expense Analytics' "Total Spend", and that is correct.
+#        Spend answers "where did my money go"; this answers "did I trade profitably".
+#        The two differ by whatever stock moved on or off the shelf. Don't "fix" it.
+#     2. Purchase returns never appear here. Sending stock back to a supplier is an
+#        inventory movement, not a trading result.
+#
+#   It DOES tie out, exactly, to the Dashboard's Net Profit and the Daily Summary's
+#   accrual total for the same window — all three call the same net_profit().
+#
+# The four cost lines, in the order they eat the margin. Declared once and used by the KPI
+# strip, the waterfall and the stacked-cost reading, so a line cannot appear in one and go
+# missing from another.
+#
+# key -> (label, CSS colour token, icon)
+COST_LINES = [
+    ('cogs',   'Cost of Goods Sold', '--violet', 'bi-tags'),
+    ('salary', 'Payroll',            '--info',   'bi-people'),
+    ('bills',  'Business Expenses',  '--orange', 'bi-receipt'),
+    ('waste',  'Waste',              '--danger', 'bi-trash3'),
+]
+
+
+def _earliest_activity(business):
+    """First day the books recorded ANYTHING — where 'All time' starts here.
+
+    Not just the first sale: a month that only paid rent is still a real (losing) month,
+    and starting at the first sale would hide it.
+    """
+    firsts = [
+        Sale.objects.active().filter(business=business).aggregate(d=Min('date'))['d'],
+        _earliest_spend(business),
+    ]
+    firsts = [d for d in firsts if d]
+    return min(firsts) if firsts else None
+
+
+def _pnl(business, start, end):
+    """The whole profit-and-loss for a window, as Decimals.
+
+    ONE function, so the KPI cards, the waterfall and the deltas can never tell different
+    stories about the same period.
+    """
+    sales   = _sales_in(business, start, end)
+    returns = _returns_in(business, start, end)
+
+    gross    = sales.aggregate(t=Sum('total_revenue'))['t'] or Decimal('0')
+    refunds  = returns.aggregate(t=Sum('refund_total'))['t'] or Decimal('0')
+    revenue  = gross - refunds
+
+    # Net of the cost of anything customers brought back — resellable AND damaged. The
+    # damaged ones are re-charged as Waste below, so relieving both here is what stops a
+    # damaged return being counted twice. (core/utils/profit.py, CONSEQUENCE 2.)
+    cogs = cogs_of(sales) - returned_cogs_of(returns)
+
+    qs     = _stream_querysets(business, start, end)
+    salary = qs['salary'].aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal('0')
+    bills  = qs['bills'].aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    waste  = qs['waste'].aggregate(t=Sum('total_cost'))['t'] or Decimal('0')
+
+    margin = gross_margin(gross, cogs, refunds)
+    net    = net_profit(gross, cogs, salary, waste, bills, refunds)
+
+    return {
+        'gross':   gross,
+        'refunds': refunds,
+        'revenue': revenue,
+
+        'cogs':   cogs,
+        'salary': salary,
+        'bills':  bills,
+        'waste':  waste,
+        # Every cost the P&L subtracts. NOT the same as Expense Analytics' "Total Spend"
+        # (that one counts stock BOUGHT); see the block comment above.
+        'costs':  cogs + salary + bills + waste,
+
+        'margin':     margin,
+        'margin_pct': margin_pct(gross, cogs, refunds),
+        'net':        net,
+        # Net margin — what's left of each peso of sales AFTER everything, not just goods.
+        'net_pct':    float(net / revenue * 100) if revenue else None,
+    }
+
+
+def _profit_trend(business, period):
+    """Net profit per bucket, plus the margin % that produced it.
+
+    Built from the same five streams the KPI strip sums, so the bars add up to the headline
+    rather than merely resembling it.
+    """
+    keys, labels = _axis(period)
+
+    sales   = _sales_in(business, period.start, period.end)
+    returns = _returns_in(business, period.start, period.end)
+    qs      = _stream_querysets(business, period.start, period.end)
+
+    sold     = _series(sales,   'date', 'total_revenue', period, keys)
+    refunded = _series(returns, 'date', 'refund_total',  period, keys)
+
+    # COGS has no date of its own — a line item is dated by its parent sale. Same for the
+    # relief, which is dated by its return. _series handles the joined path fine.
+    cogs_sold = _series(
+        SaleItem.objects.filter(sale__in=sales), 'sale__date', COGS_LINE, period, keys)
+    cogs_back = _series(
+        SalesReturnItem.objects.filter(
+            sales_return__in=returns, original_sale_item__isnull=False),
+        'sales_return__date', RETURNED_COGS_LINE, period, keys)
+
+    salary = _series(qs['salary'], 'date', 'shift_employees__daily_rate', period, keys)
+    bills  = _series(qs['bills'],  'date', 'total_amount', period, keys)
+    waste  = _series(qs['waste'],  'date', 'total_cost',   period, keys)
+
+    revenue = [round(s - r, 2) for s, r in zip(sold, refunded)]
+    cogs    = [round(c - b, 2) for c, b in zip(cogs_sold, cogs_back)]
+    net     = [round(rv - cg - sa - bi - wa, 2)
+               for rv, cg, sa, bi, wa in zip(revenue, cogs, salary, bills, waste)]
+
+    # Margin % per bucket. None (not 0) on a bucket with no sales — a flat 0% would read as
+    # "we sold at cost that day" instead of "we didn't trade". Chart.js skips nulls, which
+    # is exactly the gap we want to see.
+    margin = [
+        round((rv - cg) / rv * 100, 1) if rv else None
+        for rv, cg in zip(revenue, cogs)
+    ]
+
+    return labels, revenue, cogs, net, margin
+
+
+WRAP_AT = 12   # chars — "Net Profit" (10) stays on one line, "Business Expenses" (17) wraps
+
+
+def _wrap(label):
+    """Split a long label into two lines, for the waterfall's x-axis.
+
+    Chart.js renders an ARRAY tick label as stacked lines. Six full-width labels
+    ("Cost of Goods Sold", "Business Expenses"…) collide into an unreadable smear on a
+    half-width card, and rotating them costs more vertical room than wrapping does.
+
+    Only the LONG ones wrap — breaking "Net Profit" across two lines to match its neighbours
+    would be tidiness for its own sake, and it reads worse.
+    """
+    words = label.split()
+    if len(label) <= WRAP_AT or len(words) < 2:
+        return [label]
+    half = (len(words) + 1) // 2
+    return [' '.join(words[:half]), ' '.join(words[half:])]
+
+
+def _waterfall(pnl):
+    """Revenue → −COGS → −payroll → −expenses → −waste → net profit.
+
+    Rendered as a floating bar chart: each step's bar hangs from where the last one ended,
+    so the eye follows the money down. `base` is where the bar starts, `value` its signed
+    height — Chart.js draws [base, base+value] as a floating bar.
+
+    The two BOOKEND bars (Revenue, Net Profit) stand on the axis; the cost bars float.
+
+    `landing` = the running total AFTER this step. It's what the connector lines are drawn
+    at: without them the costs read as six unrelated floating rectangles rather than one
+    staircase, which is the entire point of a waterfall.
+    """
+    steps = [{
+        'label': 'Revenue',
+        'short': _wrap('Revenue'),
+        'base':  0.0,
+        'value': float(pnl['revenue']),
+        'landing': float(pnl['revenue']),
+        'token': '--success',
+        'kind':  'total',
+    }]
+
+    running = pnl['revenue']
+    for key, label, token, _icon in COST_LINES:
+        amount = pnl[key]
+        running -= amount
+        steps.append({
+            'label': label,
+            'short': _wrap(label),
+            # Bar hangs from the running total DOWN by `amount`.
+            'base':  float(running),
+            'value': float(amount),
+            'landing': float(running),
+            'token': token,
+            'kind':  'cost',
+        })
+
+    steps.append({
+        'label': 'Net Profit',
+        'short': _wrap('Net Profit'),
+        'base':  0.0,
+        'value': float(pnl['net']),
+        # No `landing` — nothing follows it, so it draws no connector.
+        'landing': None,
+        'token': '--success' if pnl['net'] >= 0 else '--danger',
+        'kind':  'total',
+    })
+    return steps
+
+
+def _profit_by_product(sales, returns):
+    """Which products actually MAKE the money — revenue, cost, margin ₱ and margin %.
+
+    ★ The point of the whole page. Revenue rank and PROFIT rank are usually different
+    lists: the cheap fast-mover that fills the till can earn less than a slow premium item,
+    and no other screen in the app can tell you that.
+
+    Only possible because SaleItem.cost_price is a SNAPSHOT taken at the moment of sale —
+    a later cost change never rewrites what an old sale earned.
+
+    Netted per product, exactly like _top_products: a product returned this window is
+    relieved of BOTH its revenue and its cost, so its margin stays honest instead of
+    collapsing to a pure loss. Grouped by product_id, so renaming a product doesn't split
+    it into two rows.
+    """
+    rows = {
+        r['product_id']: {
+            'product_id':    r['product_id'],
+            'name':          r['product__name'],
+            'slug':          r['product__slug'],
+            'units':         r['units'],
+            'revenue':       r['revenue'] or Decimal('0'),
+            'cost':          r['cost'] or Decimal('0'),
+        }
+        for r in SaleItem.objects
+        .filter(sale__in=sales)
+        .values('product_id', 'product__name', 'product__slug')
+        .annotate(units=Sum('quantity'), revenue=Sum(NET_LINE), cost=Sum(COGS_LINE))
+    }
+
+    refunded = (
+        SalesReturnItem.objects
+        .filter(sales_return__in=returns, original_sale_item__isnull=False)
+        .values('original_sale_item__product_id',
+                'original_sale_item__product__name',
+                'original_sale_item__product__slug')
+        .annotate(units=Sum('quantity'), refund=Sum(REFUND_LINE),
+                  cost_back=Sum(RETURNED_COGS_LINE))
+    )
+
+    for r in refunded:
+        pid = r['original_sale_item__product_id']
+        row = rows.get(pid)
+        if row is None:
+            row = rows[pid] = {
+                'product_id': pid,
+                'name':       r['original_sale_item__product__name'],
+                'slug':       r['original_sale_item__product__slug'],
+                'units':   0,
+                'revenue': Decimal('0'),
+                'cost':    Decimal('0'),
+            }
+        row['units']   -= r['units']
+        row['revenue'] -= (r['refund'] or Decimal('0'))
+        row['cost']    -= (r['cost_back'] or Decimal('0'))
+
+    out = []
+    for row in rows.values():
+        row['margin'] = row['revenue'] - row['cost']
+        # None, not 0, when a product earned nothing this window — "0%" would claim we sold
+        # it at cost. The template prints an em dash.
+        row['margin_pct'] = (
+            float(row['margin'] / row['revenue'] * 100) if row['revenue'] else None
+        )
+        out.append(row)
+
+    # Ranked by MARGIN (the money you kept), not revenue — that's the question this table
+    # exists to answer. The Sales page already ranks by revenue.
+    return sorted(out, key=lambda r: r['margin'], reverse=True)[:TOP_N]
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')          # owner-only — analytics is not a staff surface
+@feature_required('has_analytics')          # Pro-only — the same hard gate as the other two
+def profit_analytics(request, business_slug):
+    business = get_business_for_user(request.user, business_slug)
+
+    period = resolve_period(request, earliest=_earliest_activity(business))
+
+    now = _pnl(business, period.start, period.end)
+
+    # All time has nothing before it → no deltas, and the previous-window queries never run.
+    #
+    # ★ NO .kpi-delta--inverse anywhere on this page, unlike Expense Analytics. Here every
+    #   headline is a GOOD-when-up figure (profit, margin, revenue) except Total Costs —
+    #   which is the one card that carries the inverse class.
+    delta = None
+    if period.compares:
+        then = _pnl(business, period.prev_start, period.prev_end)
+        delta = {
+            'net':     pct_delta(now['net'],     then['net']),
+            'margin':  pct_delta(now['margin'],  then['margin']),
+            'revenue': pct_delta(now['revenue'], then['revenue']),
+            'costs':   pct_delta(now['costs'],   then['costs']),
+        }
+
+    trend_labels, trend_revenue, trend_cogs, trend_net, trend_margin = _profit_trend(
+        business, period)
+
+    sales   = _sales_in(business, period.start, period.end)
+    returns = _returns_in(business, period.start, period.end)
+
+    steps = _waterfall(now)
+
+    context = {
+        'section': 'profit-analytics',
+        'business': business,
+        'period': period,
+        'range_choices': RANGE_CHOICES,
+
+        'pnl': now,
+        'delta': delta,
+        'cost_lines': [
+            {'key': k, 'label': l, 'token': t, 'icon': i, 'amount': now[k],
+             'share': float(now[k] / now['costs'] * 100) if now['costs'] else 0.0}
+            for k, l, t, i in COST_LINES
+        ],
+
+        'trend_labels':  json.dumps(trend_labels),
+        'trend_net':     json.dumps(trend_net),
+        'trend_revenue': json.dumps(trend_revenue),
+        'trend_cogs':    json.dumps(trend_cogs),
+        'trend_margin':  json.dumps(trend_margin),
+
+        # Two label sets: the AXIS gets wrapped two-line labels (six full-width names collide
+        # into a smear on a half-width card), the TOOLTIP gets the real name back.
+        'wf_labels': json.dumps([s['short'] for s in steps]),
+        'wf_full':   json.dumps([s['label'] for s in steps]),
+        # Running total after each step — where the connector line between bar i and bar i+1
+        # is drawn. Last one is null: nothing follows Net Profit.
+        'wf_landing': json.dumps([s['landing'] for s in steps]),
+        # Chart.js floating bars: each datum is [from, to]. `base` is where the step LANDS
+        # (the running total after it), so every bar spans base → base+amount. Revenue and
+        # Net Profit sit on the axis (base 0); the cost bars hang between them, each one
+        # starting where the last stopped. That's what makes the staircase read as the
+        # margin being eaten line by line rather than four unrelated columns.
+        'wf_data':   json.dumps([[s['base'], s['base'] + s['value']] for s in steps]),
+        'wf_tokens': json.dumps([s['token'] for s in steps]),
+        # The signed height of each bar — what the tooltip should say. Reading it back off
+        # the [from, to] pair would print the running total, not the amount.
+        'wf_amounts': json.dumps([s['value'] for s in steps]),
+        'steps': steps,
+
+        'by_product': _profit_by_product(sales, returns),
+
+        # A period with no sales AND no costs is genuinely empty. A period with costs but no
+        # sales is NOT — it's a loss, and it must render.
+        'has_data': bool(now['revenue'] or now['costs']),
+    }
+    return render(request, 'analytics/profit_analytics.html', context)

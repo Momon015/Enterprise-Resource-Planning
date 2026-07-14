@@ -17,7 +17,8 @@ from django.urls import reverse
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
-from Sales.models import Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn
+from Sales.models import (Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn,
+                          SalesReturnItem)
 from Sales.forms import SaleForm, SaleFilterForm
 
 from Product.models import Product
@@ -33,7 +34,11 @@ from core.models import StatusModel
 # THE accrual profit formula — one definition, shared with the Dashboard and Analytics.
 # Importing it (rather than re-typing `revenue - cost - ...` here) is what stops this page
 # from drifting out of step with them again.
-from core.utils.returns import _total, net_profit
+#
+# ★ 2026-07-13: profit now subtracts COST OF GOODS SOLD, not stock purchased. The accrual
+# table's cost column changed with it — see the per-day fold below.
+from core.utils.returns import _total, sales_returns_total
+from core.utils.profit import COGS_LINE, RETURNED_COGS_LINE, cogs_in, net_profit
 
 from collections import defaultdict
 from decimal import Decimal
@@ -193,6 +198,16 @@ def view_summary(request, business_slug):
     sales_ret_by_date = sales_returns_qs.values('date').annotate(v=Sum('refund_total'))
     purch_ret_by_date = purchase_returns_qs.values('date').annotate(v=Sum('refund_total'))
 
+    # ★ COST OF GOODS SOLD (2026-07-13) — what profit actually subtracts now. Grouped by the
+    # parent SALE's date (a line item has no date of its own), and relieved by the cost of
+    # anything customers brought back that day. See core/utils/profit.py.
+    cogs_by_date      = (SaleItem.objects.filter(sale__in=sales)
+                         .values('sale__date').annotate(v=Sum(COGS_LINE)))
+    ret_cogs_by_date  = (SalesReturnItem.objects
+                         .filter(sales_return__in=sales_returns_qs,
+                                 original_sale_item__isnull=False)
+                         .values('sales_return__date').annotate(v=Sum(RETURNED_COGS_LINE)))
+
     # ── Fold the seven streams into one row per day ──────────────────────────────
     # This was five near-identical if/else blocks, each of which had to list every OTHER
     # field as 0 in its `else`. Adding a field meant editing all five — so adding the two
@@ -202,13 +217,15 @@ def view_summary(request, business_slug):
     # ★ A day can now appear on the strength of a RETURN alone (a refund on a day with no
     #   sales is still a real day in the books). The old shape would have dropped it.
     STREAMS = (
-        (sales_by_date,     'date',          'total_revenue'),
-        (purchase_by_date,  'purchase_date', 'total_material_cost'),
-        (wastes_by_date,    'date',          'total_waste_cost'),
-        (expenses_by_date,  'date',          'total_expense_cost'),
-        (shifts_by_date,    'date',          'total_salary_cost'),
-        (sales_ret_by_date, 'date',          'sales_returns'),
-        (purch_ret_by_date, 'date',          'purchase_returns'),
+        (sales_by_date,     'date',                'total_revenue'),
+        (purchase_by_date,  'purchase_date',       'total_material_cost'),
+        (wastes_by_date,    'date',                'total_waste_cost'),
+        (expenses_by_date,  'date',                'total_expense_cost'),
+        (shifts_by_date,    'date',                'total_salary_cost'),
+        (sales_ret_by_date, 'date',                'sales_returns'),
+        (purch_ret_by_date, 'date',                'purchase_returns'),
+        (cogs_by_date,      'sale__date',          'total_cogs'),
+        (ret_cogs_by_date,  'sales_return__date',  'returned_cogs'),
     )
     FIELDS = tuple(field for _rows, _date_key, field in STREAMS)
 
@@ -219,28 +236,37 @@ def view_summary(request, business_slug):
 
     summary_list = []
     for day, v in summary.items():
-        # Revenue and material cost are shown NET of returns, so each row's own arithmetic
+        # Every figure is shown NET of returns, so each row's own arithmetic
         # (revenue − costs = net profit) adds up on screen. The returns are NOT broken out
         # per day — most days have none, and two mostly-empty columns would be noise. The
         # window totals appear on the KPI cards above the table instead.
-        net_revenue  = v['total_revenue']      - v['sales_returns']
+        net_revenue  = v['total_revenue']       - v['sales_returns']
         net_material = v['total_material_cost'] - v['purchase_returns']
+        net_cogs     = v['total_cogs']          - v['returned_cogs']
 
+        # ★ COGS, not material cost. This is the ACCRUAL table — it answers "did we trade
+        # profitably", so the cost of the goods that left the shelf is what belongs beside
+        # the revenue that they earned. What we PAID suppliers that day is a cash question
+        # and lives on the Cash Flow page (and Expense Analytics). Mixing them is what made
+        # a delivery day look like a disaster.
         day_net = net_profit(
-            v['total_revenue'], v['total_material_cost'], v['total_salary_cost'],
+            v['total_revenue'], net_cogs, v['total_salary_cost'],
             v['total_waste_cost'], v['total_expense_cost'],
-            v['sales_returns'], v['purchase_returns'],
+            v['sales_returns'],
         )
 
         summary_list.append({
             'date': day,
             'total_revenue':       net_revenue,
+            'total_cogs':          net_cogs,
+            # Still carried (the freeze stores it, and the Cash Flow lens wants it) — it is
+            # simply no longer a column on the accrual table, nor part of `total_cost`.
             'total_material_cost': net_material,
             'total_salary_cost':   v['total_salary_cost'],
             'total_waste_cost':    v['total_waste_cost'],
             'total_expense_cost':  v['total_expense_cost'],
             # All non-revenue costs, summed in Python (template |add truncates Decimals to int).
-            'total_cost': (net_material + v['total_salary_cost']
+            'total_cost': (net_cogs + v['total_salary_cost']
                            + v['total_waste_cost'] + v['total_expense_cost']),
             'net_profit': day_net,
         })
@@ -264,12 +290,13 @@ def view_summary(request, business_slug):
             # Serve the FROZEN figures, never the live recompute (pen, not pencil) —
             # a later void/edit must not rewrite a closed day.
             row['total_revenue']       = snap.total_revenue
+            row['total_cogs']          = snap.total_cogs
             row['total_material_cost'] = snap.total_material_cost
             row['total_salary_cost']   = snap.total_salary_cost
             row['total_waste_cost']    = snap.total_waste_cost
             row['total_expense_cost']  = snap.total_expense_cost
             row['net_profit']          = snap.net_profit
-            row['total_cost'] = (snap.total_material_cost + snap.total_salary_cost
+            row['total_cost'] = (snap.total_cogs + snap.total_salary_cost
                                  + snap.total_waste_cost + snap.total_expense_cost)
             row['is_closed'] = True
             row['closed_at'] = snap.closed_at
@@ -282,6 +309,7 @@ def view_summary(request, business_slug):
     # day was closed the cards could quietly disagree with the rows underneath them. Now
     # they add up exactly what the reader can see.
     grand_total_revenue       = sum((r['total_revenue']       for r in sorted_list), Decimal('0'))
+    grand_total_cogs          = sum((r['total_cogs']          for r in sorted_list), Decimal('0'))
     grand_material_total_cost = sum((r['total_material_cost'] for r in sorted_list), Decimal('0'))
     grand_total_salary_cost   = sum((r['total_salary_cost']   for r in sorted_list), Decimal('0'))
     grand_total_waste_cost    = sum((r['total_waste_cost']    for r in sorted_list), Decimal('0'))
@@ -322,34 +350,44 @@ def view_summary(request, business_slug):
     # ★ salary here read Sum('amount') too — the same empty column that zeroed payroll in
     #   the table. A month's "profit" was therefore computed with NO wages in it.
     year = {'date__year': today.year}
-    rev_by_month     = {s['date__month']:          s['total'] for s in all_sales.filter(**year).values('date__month').annotate(total=Sum('total_revenue'))}
-    cost_by_month    = {p['purchase_date__month']: p['total'] for p in all_purchases.filter(purchase_date__year=today.year).values('purchase_date__month').annotate(total=Sum('total_cost'))}
+    year_sales = all_sales.filter(**year)
+    rev_by_month     = {s['date__month']:          s['total'] for s in year_sales.values('date__month').annotate(total=Sum('total_revenue'))}
     waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(**year).values('date__month').annotate(total=Sum('total_cost'))}
     expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(**year).values('date__month').annotate(total=Sum('total_amount'))}
     salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('shift_employees__daily_rate'))}
 
-    # Returns belong in "best month" too — a month that refunded half its takings was not
-    # a good month, and without these it would still look like one.
+    # ★ COGS by month, not purchases — "best month" has to use the SAME formula as every row
+    # in the table above it, or the badge could crown a month the table says lost money.
+    cogs_by_month = {c['sale__date__month']: c['total'] for c in SaleItem.objects.filter(
+        sale__in=year_sales).values('sale__date__month').annotate(total=Sum(COGS_LINE))}
+    ret_cogs_by_month = {c['sales_return__date__month']: c['total'] for c in
+        SalesReturnItem.objects.filter(
+            sales_return__business=business, sales_return__date__year=today.year,
+            original_sale_item__isnull=False,
+        ).values('sales_return__date__month').annotate(total=Sum(RETURNED_COGS_LINE))}
+
+    # Sales returns belong in "best month" too — a month that refunded half its takings was
+    # not a good month, and without these it would still look like one. (Purchase returns no
+    # longer enter profit at all — they're inventory movement. See core/utils/profit.py.)
     sret_by_month = {r['date__month']: r['total'] for r in SalesReturn.objects.filter(
         business=business, **year).values('date__month').annotate(total=Sum('refund_total'))}
-    pret_by_month = {r['date__month']: r['total'] for r in PurchaseReturn.objects.filter(
-        business=business, **year).values('date__month').annotate(total=Sum('refund_total'))}
 
-    all_months = (set(rev_by_month) | set(cost_by_month) | set(waste_by_month)
+    all_months = (set(rev_by_month) | set(cogs_by_month) | set(waste_by_month)
                   | set(expense_by_month) | set(salary_by_month)
-                  | set(sret_by_month) | set(pret_by_month))
+                  | set(sret_by_month))
 
     best_month_name = 'N/A'
     best_month_profit = 0   # months with negative profit won't beat 0 — kept N/A
     for m in all_months:
+        month_cogs = ((cogs_by_month.get(m) or Decimal('0'))
+                      - (ret_cogs_by_month.get(m) or Decimal('0')))
         profit = net_profit(
             rev_by_month.get(m)     or Decimal('0'),
-            cost_by_month.get(m)    or Decimal('0'),
+            month_cogs,
             salary_by_month.get(m)  or Decimal('0'),
             waste_by_month.get(m)   or Decimal('0'),
             expense_by_month.get(m) or Decimal('0'),
             sret_by_month.get(m)    or Decimal('0'),
-            pret_by_month.get(m)    or Decimal('0'),
         )
         if profit > best_month_profit:
             best_month_profit = profit
@@ -519,6 +557,10 @@ def view_summary(request, business_slug):
         'querystring': querystring,
         'section': 'summary',
         'grand_material_total_cost': grand_material_total_cost,
+        # What the goods SOLD cost us — the accrual table's cost column and what net profit
+        # subtracts. Distinct from grand_material_total_cost (what we PAID suppliers), which
+        # the Cash Flow lens still uses.
+        'grand_total_cogs': grand_total_cogs,
         'grand_total_revenue': grand_total_revenue,
         'grand_total_waste_cost': grand_total_waste_cost,
         'grand_total_salary_cost': grand_total_salary_cost,
@@ -584,17 +626,21 @@ def view_summary(request, business_slug):
 @permission_required('read_only') # dev
 def view_summary_detail(request, business_slug, date):
     business = get_business_for_user(request.user, business_slug)
-    net_profit = 0
 
     # Show voided sales/purchases in the day breakdown (lined-out, like Sales Records)
     # rather than hiding them — the owner sees the void happened instead of a row silently
     # vanishing. The money TOTALS below still EXCLUDE voided (a void = cancelled / cash
     # returned; this is a management view, not a BIR X/Z ledger): display lists carry all,
-    # the sums use .filter(is_void=False).
+    # the sums use .active().
     sales = Sale.objects.filter(business=business, date=date).prefetch_related('sale_items', 'payments').order_by('-date', '-id')
     sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product').order_by('product__is_service', 'id')
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
-    total_revenue = sales.filter(is_void=False).aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
+
+    # ★ .active(), not .filter(is_void=False) — active() also drops UNCONFIRMED DRAFTS. The
+    # old filter let a draft's revenue into the total while COGS (which uses active()) left
+    # its cost out, so a parked GCash sale would have inflated this day's profit.
+    posted = Sale.objects.active().filter(business=business, date=date)
+    total_revenue = posted.aggregate(revenue=Sum('total_revenue'))['revenue'] or 0
 
     purchases = Purchase.objects.filter(business=business, purchase_date=date).prefetch_related('materials', 'payments').order_by('-purchase_date', '-id')
     purchase_items = PurchaseItem.objects.filter(purchase__in=purchases)
@@ -611,7 +657,16 @@ def view_summary_detail(request, business_slug, date):
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
     total_salary_cost = shift_employees.aggregate(salary_cost=Sum(F('daily_rate')))['salary_cost'] or 0
 
-    net_profit = total_revenue - total_material_cost - total_salary_cost - total_waste_cost - total_expense_cost
+    # ★ This day's profit used the SAME shape as the old table formula AND silently ignored
+    # returns entirely — so a day with a refund on it disagreed with both the Dashboard and
+    # the summary table it was opened from. Now it goes through the one shared function, on
+    # cost of goods SOLD.
+    day_cogs      = cogs_in(business, date, date)
+    day_refunds   = sales_returns_total(business, date, date)
+    day_net_profit = net_profit(
+        total_revenue, day_cogs, total_salary_cost,
+        total_waste_cost, total_expense_cost, day_refunds,
+    )
 
     basis = request.GET.get('basis', 'cash')
     # Cash TOTALS exclude voided (a void = cancelled / cash returned; matches view_summary
@@ -743,7 +798,9 @@ def view_summary_detail(request, business_slug, date):
         'shift_employees': shift_employees,
         'wastes': wastes,
         'waste_items': waste_items,
-        'net_profit': net_profit,
+        'net_profit': day_net_profit,
+        'total_cogs': day_cogs,
+        'sales_returns': day_refunds,
         'total_salary_cost': total_salary_cost,
         'total_material_cost': total_material_cost,
         'total_waste_cost': total_waste_cost,

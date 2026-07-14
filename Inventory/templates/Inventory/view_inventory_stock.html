@@ -436,41 +436,8 @@
   </div>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  // KPI cards navigate to their stock filter (same pattern as Products/dashboard)
-  // KPI cards: body click = filter, ▼ = value popover. Same behaviour as the dashboard.
-  // The ▼ and the popover must NEVER navigate, or opening the breakdown would bounce
-  // you to the filtered list instead.
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-
-    const card = e.target.closest('.kpi-card--clickable[data-href]');
-    if (card && !e.target.closest('.kpi-peek') && !e.target.closest('.kpi-popover')) {
-      window.location = card.dataset.href;
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-    if (e.key === 'Enter') {
-      const card = e.target.closest && e.target.closest('.kpi-card--clickable[data-href]');
-      if (card && !e.target.closest('.kpi-peek')) window.location = card.dataset.href;
-    }
-  });
-});
-</script>
+{# KPI cards — body click = stock filter, ▼ = value popover. Both come from the ONE global
+   handler in static/js/kpi-cards.js (loaded from main.html); this page just renders
+   [data-kpi-popover] and .kpi-card--clickable[data-href]. No page-level copy, ever. #}
 
 {% endblock content %}

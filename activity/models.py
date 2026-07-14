@@ -269,6 +269,12 @@ class DailyClose(models.Model):
     date     = models.DateField(db_index=True)
 
     total_revenue       = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # ★ COST OF GOODS SOLD (2026-07-13) — what net_profit subtracts. Frozen alongside the
+    # rest so a closed day can be re-read exactly as it was booked, even if a product's
+    # cost is edited later. `total_material_cost` (what we PAID suppliers that day) is KEPT
+    # — it's still real, the Cash Flow lens uses it — it just no longer drives profit.
+    total_cogs          = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_material_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_salary_cost   = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_waste_cost    = models.DecimalField(max_digits=12, decimal_places=2, default=0)

@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <!-- Category -->
               <div class="form-field">
                 <label class="form-label" for="{{ form.category.id_for_label }}">
-                  <i class="bi bi-tags"></i> {{ form.category.label }}
+                  <i class="bi bi-grid-3x3-gap-fill"></i> {{ form.category.label }}
                   {% if form.category.field.required %}<span class="form-required">*</span>{% endif %}
                 </label>
                 <select name="{{ form.category.html_name }}"

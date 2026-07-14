@@ -687,11 +687,9 @@
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 
-  // KPI cards navigate to their stock filter (same pattern as the dashboard)
-  document.querySelectorAll('.kpi-card--clickable[data-href]').forEach(card => {
-    card.addEventListener('click', () => { window.location = card.dataset.href; });
-    card.addEventListener('keydown', e => { if (e.key === 'Enter') window.location = card.dataset.href; });
-  });
+  // KPI cards navigate to their stock filter via the ONE global handler in
+  // static/js/kpi-cards.js — it reads .kpi-card--clickable[data-href] straight off the
+  // markup, so there is nothing to wire up here.
 
   const filterDetails = document.querySelector("details");
   if (filterDetails) {

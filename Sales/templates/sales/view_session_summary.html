@@ -213,7 +213,7 @@ function toggleSalesPaymentFields() {
             </div>
             {% if discount_percent %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-tags"></i>Discount ({{ discount_percent|floatformat:0 }}%)</span>
+              <span class="total-label"><i class="bi bi-tag"></i>Discount ({{ discount_percent|floatformat:0 }}%)</span>
               <span class="total-value" style="color:var(--success);">−₱{{ discount_amount|floatformat:2|intcomma }}</span>
             </div>
             {% endif %}

@@ -84,7 +84,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1 class="page-title">Expense Analytics</h1>
-      <p class="page-subtitle">Where your money goes, and what you can cut</p>
+      <p class="page-subtitle">See where every peso is spent</p>
     </div>
     <div class="page-header-right">
       <div class="header-stat accent">
@@ -138,7 +138,13 @@
         <i class="bi bi-wallet2"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Total Spend</div>
+        <div class="kpi-label">Total Spend
+          {% comment %} ★ Mirror of the Total Costs tooltip on Profit Analytics. Both cards
+          name the difference, so whichever page the owner is standing on, the answer to
+          "why don't these match?" is right there. {% endcomment %}
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="Everything your business spent or lost during this period, including inventory, payroll, business expenses, and waste. Inventory is counted when you buy it, even if it's still on your shelves."></i>
+        </div>
         <div class="kpi-value">₱{{ spend.total|floatformat:2|intcomma }}</div>
         {% if delta %}
           {% if delta.total.0 %}
@@ -160,7 +166,10 @@
         <i class="bi bi-box-seam"></i>
       </div>
       <div class="kpi-body">
-        <div class="kpi-label">Stock Purchases</div>
+        <div class="kpi-label">Stock Purchases
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The inventory you bought during this period, whether you've sold it or not. Buying inventory isn't a loss—you're turning cash into stock your business still owns."></i>
+        </div>
         <div class="kpi-value">₱{{ spend.stock|floatformat:2|intcomma }}</div>
         {% comment %} Net of supplier refunds — the working is in the dropdown. {% endcomment %}
         {% if delta %}
@@ -326,7 +335,7 @@
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">
-              <i class="bi bi-tags"></i> Top Expense Categories
+              <i class="bi bi-grid-3x3-gap-fill"></i> Top Expense Categories
             </span>
           </div>
           <span class="card-header-sub">of ₱{{ spend.bills|floatformat:2|intcomma }} in business expenses</span>
@@ -457,8 +466,23 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
-  const peso = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+  // Money the owner READS — tooltips, and anything else a person deliberately asked for.
+  // (The KPI cards, ▼ dropdowns and tables are rendered server-side by Django and are exact
+  // already; nothing in this file can reach them.)
   const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ★ AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
+  // labels crowding (and a shop doing millions getting a wall of digits). Money the owner
+  // actually reads — cards, tables, tooltips — stays exact. Same helper on all 3 Analytics
+  // pages; if you change it, change it in all three or the axes stop matching each other.
+  function pesoAxis(v) {
+    const n = Math.abs(v);
+    const sign = v < 0 ? '−' : '';
+    const trim = x => (x % 1 === 0 ? x.toFixed(0) : x.toFixed(1));
+    if (n >= 1e6) return sign + '₱' + trim(n / 1e6) + 'M';
+    if (n >= 1e3) return sign + '₱' + trim(n / 1e3) + 'k';
+    return sign + '₱' + Math.round(n);
+  }
 
   let t = tokens();
 
@@ -488,12 +512,14 @@ document.addEventListener("DOMContentLoaded", function () {
                                                 usePointStyle: true, pointStyle: 'rectRounded' } },
         tooltip: {
           callbacks: {
-            label: c => c.dataset.label + ': ' + peso(c.parsed.y),
+            // Exact here, not the abbreviated axis format — a tooltip is a figure the owner
+            // is deliberately asking for, so "₱2.8k" would be a worse answer than "₱2,801.10".
+            label: c => c.dataset.label + ': ' + pesoExact(c.parsed.y),
             // The stack's height is the number the eye is actually reading, so put the
             // total in the tooltip rather than making them add four rows up.
             footer: function (items) {
               const total = items.reduce((sum, i) => sum + i.parsed.y, 0);
-              return 'Total: ' + peso(total);
+              return 'Total: ' + pesoExact(total);
             }
           }
         },
@@ -501,7 +527,7 @@ document.addEventListener("DOMContentLoaded", function () {
       scales: {
         x: { stacked: true, ticks: { color: t.text, maxTicksLimit: 12, maxRotation: 0 },
              grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { color: t.text, callback: peso },
+        y: { stacked: true, beginAtZero: true, ticks: { color: t.text, callback: pesoAxis },
              grid: { color: t.grid } }
       }
     }
@@ -560,29 +586,7 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 {% endif %}
 
-{% comment %} OUTSIDE the has_data guard — the KPI strip and its dropdowns render even on an
-empty period. Same delegated handler as the other KPI pages; see the note in
-sales_analytics.html about extracting it (all inline copies must go in the same pass, or two
-listeners would toggle the class twice and cancel each other out). {% endcomment %}
-<script>
-  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-  });
-</script>
+{% comment %} The KPI ▼ popovers run off the ONE global handler in static/js/kpi-cards.js
+(loaded from main.html) — which also means they keep working outside the has_data guard,
+where the KPI strip still renders on an empty period. Never add a page-level copy. {% endcomment %}
 {% endblock %}

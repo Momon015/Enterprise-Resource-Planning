@@ -142,7 +142,14 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="kpi-card{% if cash_paid > 0 %} kpi-card--hue-danger{% endif %} has-popover">
       <div class="kpi-icon kpi-icon--{% if cash_paid > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">Stock Purchases</div>
+        {% comment %} ★ This card shows cash_paid — money that actually left for suppliers — NOT
+        what was bought. So it can't wear the same tooltip as the Stock Purchases card on Expense
+        Analytics (which is what you bought, paid or not). Buy ₱1,000 on utang and pay ₱400: that
+        card says ₱1,000, this one says ₱400. Both right, different questions. {% endcomment %}
+        <div class="kpi-label">Stock Purchases
+          <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
+             title="The money you actually paid suppliers during this period. Orders you haven't paid for it yet show under Payables."></i>
+        </div>
         <div class="kpi-value">₱{{ cash_paid|floatformat:2|intcomma|default:"0.00" }}</div>
         {% comment %} Net of cash refunds the supplier gave back (credit notes move no money and
         show up in Payables instead). The working is in the dropdown. {% endcomment %}
@@ -317,26 +324,6 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 </div>
 
-<script>
-  // KPI breakdown popovers — ▼ toggles, outside click / Esc closes
-  document.addEventListener('click', (e) => {
-    const btn  = e.target.closest('[data-kpi-popover]');
-    const open = document.querySelector('.kpi-card.popover-open');
-    if (btn) {
-      e.stopPropagation();
-      const card = btn.closest('.kpi-card');
-      if (open && open !== card) open.classList.remove('popover-open');
-      card.classList.toggle('popover-open');
-      return;
-    }
-    if (open && !e.target.closest('.kpi-popover')) open.classList.remove('popover-open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const open = document.querySelector('.kpi-card.popover-open');
-      if (open) open.classList.remove('popover-open');
-    }
-  });
-</script>
+{# KPI ▼ popovers: ONE global handler in static/js/kpi-cards.js. No page-level copy. #}
 
 {% endblock %}
