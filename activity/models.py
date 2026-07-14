@@ -15,7 +15,7 @@ class ActivityEvent(models.Model):
         ('product.updated',    'Product updated'),
         ('product.archived',   'Product archived'),
         ('product.restored',   'Product restored'),
-        ('product.margin_low', 'Margin critically low'),
+        ('product.margin_low', 'Profit margin dropped'),
         ('material.created',   'Material created'),
         ('material.updated',   'Material updated'),
         ('material.archived',  'Material archived'),
@@ -95,9 +95,16 @@ class ActivityEvent(models.Model):
 
     @property
     def tone(self):
+        # margin_low fires at TWO severities (below target vs near-zero profit), so its
+        # tone follows the event's own metadata rather than the verb. Below target is a
+        # warning; barely-above-cost is a danger. Old rows have no 'status' key — they
+        # predate the split and were all critical-only, hence the 'critical' default.
+        if self.verb == 'product.margin_low':
+            return 'danger' if self.metadata.get('status', 'critical') == 'critical' else 'warning'
+
         if self.verb in ('stock.out', 'stock.critical', 'plan.expired',
                          'sale.refunded', 'purchase.refunded',
-                         'waste.recorded', 'product.margin_low'):
+                         'waste.recorded'):
             return 'danger'
 
         if self.verb in ('stock.low','trial.ending', 'plan.expiring', 'plan.canceled',

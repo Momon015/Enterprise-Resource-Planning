@@ -10,92 +10,106 @@
   <div class="page-header col-mobile-hidden">
     <div class="page-header-left">
       <h1 class="page-title">All Activity</h1>
-      <p class="page-subtitle">Audit log of changes across your business.</p>
+      <p class="page-subtitle">Everything that happened in your business, newest first</p>
     </div>
   </div>
 
-  <!-- CATEGORY FILTER -->
-  <div class="card" style="margin-bottom: 1rem;">
-    <div class="card-body" style="padding: 0.75rem 1rem;">
-      <div class="activity-filter-tabs">
-      {% with imp=active_important unr=active_unread %}
+  {% comment %} CATEGORY FILTER — a bare pill row, NOT wrapped in a .card. These are
+  navigation, not a form; the card chrome cost ~80px above the first event and said
+  nothing. {% endcomment %}
+  <div class="activity-filter-tabs">
+    {% with imp=active_important unr=active_unread %}
 
-      <a href="?{% if imp %}important=1{% endif %}{% if unr %}{% if imp %}&{% endif %}unread=1{% endif %}"
-         class="activity-tab {% if not active_category %}is-active{% endif %}">
-        <i class="bi bi-grid"></i> All
-      </a>
-      <a href="?category=product{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'product' %}is-active{% endif %}">
-        <i class="bi bi-box-seam"></i> Products
-      </a>
-      <a href="?category=material{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'material' %}is-active{% endif %}">
-        <i class="bi bi-boxes"></i> Materials
-      </a>
-      <a href="?category=supplier{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'supplier' %}is-active{% endif %}">
-        <i class="bi bi-truck"></i> Suppliers
-      </a>
-      <a href="?category=sale{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'sale' %}is-active{% endif %}">
-        <i class="bi bi-cash-coin"></i> Sales
-      </a>
-      <a href="?category=purchase{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'purchase' %}is-active{% endif %}">
-        <i class="bi bi-cart3"></i> Purchases
-      </a>
-      <a href="?category=stock{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'stock' %}is-active{% endif %}">
-        <i class="bi bi-stack"></i> Stock
-      </a>
-      <a href="?category=waste{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
-         class="activity-tab {% if active_category == 'waste' %}is-active{% endif %}">
-        <i class="bi bi-trash3"></i> Waste
-      </a>
+    <a href="?{% if imp %}important=1{% endif %}{% if unr %}{% if imp %}&{% endif %}unread=1{% endif %}"
+       class="activity-tab {% if not active_category %}is-active{% endif %}">
+      <i class="bi bi-grid"></i> All
+    </a>
+    <a href="?category=product{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'product' %}is-active{% endif %}">
+      <i class="bi bi-box-seam"></i> Products
+    </a>
+    <a href="?category=material{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'material' %}is-active{% endif %}">
+      <i class="bi bi-boxes"></i> Materials
+    </a>
+    <a href="?category=supplier{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'supplier' %}is-active{% endif %}">
+      <i class="bi bi-truck"></i> Suppliers
+    </a>
+    <a href="?category=sale{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'sale' %}is-active{% endif %}">
+      <i class="bi bi-cash-coin"></i> Sales
+    </a>
+    <a href="?category=purchase{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'purchase' %}is-active{% endif %}">
+      <i class="bi bi-cart3"></i> Purchases
+    </a>
+    <a href="?category=stock{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'stock' %}is-active{% endif %}">
+      <i class="bi bi-stack"></i> Stock
+    </a>
+    <a href="?category=waste{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}"
+       class="activity-tab {% if active_category == 'waste' %}is-active{% endif %}">
+      <i class="bi bi-trash3"></i> Waste
+    </a>
 
-      {% endwith %}
-     </div>
-   </div>
-</div>
+    {% endwith %}
+  </div>
 
 
   <!-- EVENTS CARD -->
   <div class="card">
     <div class="card-header">
-        <div class="card-header-left-group">
-            <span class="card-header-title">
-            <i class="bi bi-clock-history"></i> Activity Log
-            </span>
-            <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} event{{ page_obj.paginator.count|pluralize }}</span>
-        </div>
+      <div class="card-header-left-group">
+        <span class="card-header-title">
+          <i class="bi bi-clock-history"></i> Activity Log
+        </span>
+        <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} event{{ page_obj.paginator.count|pluralize }}</span>
 
-        <div class="activity-header-right">
-            <span class="card-header-sub" style="margin: 0;">
-              {% if active_category %}{{ active_category|capfirst }}{% else %}All categories{% endif %}
-              {% if active_important %} · Important{% endif %}
-              {% if active_unread %} · Unread{% endif %}
-              · Most recent first
+        {% comment %} LABELED filter trigger — shows the current state on its face, so
+        the "All categories / Important / Most recent first" sub-sentence that used to
+        sit here is redundant and has been dropped. {% endcomment %}
+        <details class="activity-filter-pop">
+          <summary class="activity-filter-trigger activity-filter-trigger--labeled" title="Filter events">
+            <i class="bi bi-sliders"></i>
+            <span class="filter-trigger-label">
+              {% if active_important %}Important only
+              {% elif active_unread %}Unread only
+              {% else %}All events
+              {% endif %}
             </span>
-            <details class="activity-filter-pop">
-            <summary class="activity-filter-trigger" title="Filter">
-                <i class="bi bi-sliders"></i>
-            </summary>
-            <div class="activity-filter-menu">
+          </summary>
+          <div class="activity-filter-menu">
             <a href="?{% if active_category %}category={{ active_category }}{% endif %}"
-                class="{% if not active_important and not active_unread %}is-active{% endif %}">
-                All events
+               class="{% if not active_important and not active_unread %}is-active{% endif %}">
+              <i class="bi bi-grid"></i> All events
             </a>
             <a href="?important=1{% if active_category %}&category={{ active_category }}{% endif %}"
-                class="{% if active_important %}is-active{% endif %}">
-                Important only
+               class="filter-tone-danger {% if active_important %}is-active{% endif %}">
+              <i class="bi bi-exclamation-circle"></i> Important only
             </a>
             <a href="?unread=1{% if active_category %}&category={{ active_category }}{% endif %}"
-                class="{% if active_unread %}is-active{% endif %}">
-                Unread only
+               class="{% if active_unread %}is-active{% endif %}">
+              <i class="bi bi-dot"></i> Unread only
             </a>
-            </div>
-            </details>
-        </div>
+          </div>
+        </details>
+      </div>
+
+      {% comment %} MARK ALL READ — plain POST. Without this the only way to clear N
+      unread alerts was to open N pages one at a time (activity-click marks read).
+      {% endcomment %}
+      {% if unread_count %}
+      <form method="post" action="{% url 'mark-all-read' business_slug=current_business.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="activity-mark-read" title="Clear every unread alert">
+          <i class="bi bi-check2-all"></i>
+          <span>Mark all read</span>
+          <span class="activity-mark-read__count">{{ unread_count }}</span>
+        </button>
+      </form>
+      {% endif %}
     </div>
 
 
@@ -119,25 +133,63 @@
             {% for event in day.list %}
               {% with url=event.computed_url|default:'' %}
                 <li class="activity-full-row activity-full-row--{{ event.tone|default:'info' }} {% if event.is_important and not event.is_read %}is-unread{% endif %}">
+
+                  {% comment %} The padding lives on the LINK, not the row, so the whole
+                  row is clickable. Rows with no target render the same box as a div.
+                  {% endcomment %}
                   {% if url %}
-                  <a href="{{ event.computed_url }}" class="activity-full-link">
+                  <a href="{{ url }}" class="activity-full-link">
+                  {% else %}
+                  <div class="activity-full-link activity-full-link--static">
                   {% endif %}
+
+                    {% comment %} Same icon chip the bell and the dashboard panel already
+                    use — this page was the only surface rendering events without one.
+                    {% endcomment %}
+                    <span class="activity-full-icon activity-icon--{{ event.tone|default:'info' }}">
+                      <i class="bi {{ event.icon_class }}"></i>
+                    </span>
+
                     <div class="activity-full-body">
                       <div class="activity-full-title">
-                        {{ event.get_verb_display }}
-                        {% if event.is_important %}<span class="activity-important-flag">!</span>{% endif %}
-                    </div>
-                    <div class="activity-full-desc">{{ event.description }}</div>
+                        <span>{{ event.get_verb_display }}</span>
+                        {% if event.metadata.reference %}
+                          <span class="activity-full-ref">{{ event.metadata.reference }}</span>
+                        {% endif %}
+                        {% if event.is_important %}
+                          <span class="activity-important-flag" title="Needs your attention">!</span>
+                        {% endif %}
+                      </div>
+
+                      <div class="activity-full-desc">{{ event.description }}</div>
+
                       <div class="activity-full-meta">
                         <i class="bi bi-clock"></i> {{ event.created_at|date:"g:i A" }}
                         {% if request.user.role == 'owner' and event.actor %}
-                        · <i class="bi bi-person"></i> {{ event.actor.username|capfirst }}
+                        <span class="activity-full-sep">·</span>
+                        <i class="bi bi-person"></i> {{ event.actor.username|capfirst }}
                         {% endif %}
                       </div>
                     </div>
-                {% if url %}
-                </a>
-                {% endif %}
+
+                    {% comment %} The amount was already in metadata and already shown on
+                    the dashboard's compact panel — the full page just threw it away.
+                    {% endcomment %}
+                    {% if event.metadata.total %}
+                      <span class="activity-full-amount">₱{{ event.metadata.total|floatformat:2|intcomma }}</span>
+                    {% elif event.metadata.amount %}
+                      <span class="activity-full-amount">₱{{ event.metadata.amount|floatformat:2|intcomma }}</span>
+                    {% endif %}
+
+                    {% if url %}
+                      <i class="bi bi-chevron-right activity-full-go"></i>
+                    {% endif %}
+
+                  {% if url %}
+                  </a>
+                  {% else %}
+                  </div>
+                  {% endif %}
                 </li>
                 {% endwith %}
               {% endfor %}
@@ -163,10 +215,14 @@
               {% endif %}
             </li>
 
-            {% for p in page_obj.paginator.page_range %}
-            <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-              <a class="page-link" href="?page={{ p }}{% if cat %}&category={{ cat }}{% endif %}{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}">{{ p }}</a>
-            </li>
+            {% for p in page_range %}
+              {% if p == ellipsis %}
+              <li class="page-item disabled"><span class="page-link">{{ ellipsis }}</span></li>
+              {% else %}
+              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}{% if cat %}&category={{ cat }}{% endif %}{% if imp %}&important=1{% endif %}{% if unr %}&unread=1{% endif %}">{{ p }}</a>
+              </li>
+              {% endif %}
             {% endfor %}
 
             <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">

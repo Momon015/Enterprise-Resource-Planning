@@ -1,6 +1,7 @@
 {% extends "main.html" %}
 {% load humanize %}
 {% load payment_tags %}
+{% load pagination_tags %}
 {% block extra_css %}
 <style>
   .drafts-link{
@@ -290,7 +291,7 @@ function clearRecvFilters() {
             <a href="{% url 'sale-draft-list' business_slug=current_business.slug %}"
               class="drafts-link {% if pending_count %}drafts-link--active{% endif %}"
               title="Sales awaiting payment confirmation">
-              <i class="bi bi-hourglass-split"></i> Drafts
+              <i class="bi bi-hourglass-split"></i> Pending
               {% if pending_count %}<span class="drafts-link__count">{{ pending_count }}</span>{% endif %}
             </a>
             <span class="drafts-sep" aria-hidden="true"></span>
@@ -449,40 +450,7 @@ function clearRecvFilters() {
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj.paginator.num_pages > 1 %}
-        <div class="pagination-wrapper">
-          <nav>
-            <ul class="pagination">
-              {% with q=request.GET.search cat=request.GET.category user_param=request.GET.user period=request.GET.period sm=request.GET.select_month sd=request.GET.start_date ed=request.GET.end_date pay=request.GET.payment %}
-                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                  {% if page_obj.has_previous %}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">
-                      <i class="bi bi-chevron-left"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                  {% endif %}
-                </li>
-                {% for p in page_obj.paginator.page_range %}
-                <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                  <a class="page-link" href="?page={{ p }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">{{ p }}</a>
-                </li>
-                {% endfor %}
-                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                  {% if page_obj.has_next %}
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}{% if user_param %}&user={{ user_param }}{% endif %}{% if period %}&period={{ period }}{% endif %}{% if sm %}&select_month={{ sm }}{% endif %}{% if sd %}&start_date={{ sd }}{% endif %}{% if ed %}&end_date={{ ed }}{% endif %}{% if pay %}&payment={{ pay }}{% endif %}">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  {% else %}
-                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                  {% endif %}
-                </li>
-                {% endwith %}
-
-            </ul>
-          </nav>
-        </div>
-        {% endif %}
+        {% pagination page_obj %}
 
       </div>
 

@@ -10,13 +10,18 @@ def notification_badge(request):
     if not business_slug:
         return {}
 
+    # Resolve the owner via the SHARED helper. This used to be hand-rolled as
+    # `if role == 'owner' … else user.owner`, which silently broke the DEVELOPER
+    # role: a developer owns their business directly but has no `.owner`, so the
+    # lookup raised DoesNotExist and the whole bell rendered empty — no badge, no
+    # events, no error. get_owner() maps both 'owner' and 'developer' to self.
     from user.models import BusinessProfile
+    from core.utils.owner import get_owner
     try:
-        if request.user.role == 'owner':
-            business = BusinessProfile.objects.get(user=request.user, slug=business_slug)
-        else:
-            business = BusinessProfile.objects.get(user=request.user.owner, slug=business_slug)
-    except BusinessProfile.DoesNotExist:
+        business = BusinessProfile.objects.get(
+            user=get_owner(request.user), slug=business_slug
+        )
+    except (BusinessProfile.DoesNotExist, AttributeError):
         return {}
 
     # PRODUCT stock events are dropped from the bell — the pinned block above already
@@ -30,8 +35,14 @@ def notification_badge(request):
     from Product.models import Product
     from django.contrib.contenttypes.models import ContentType
 
+    # Never bell you about your OWN action. Voids and returns are `important` only
+    # when a non-owner did them (see activity.utils.needs_owner_review) — but staff
+    # share this bell, so without this the staff member who voided the sale gets a
+    # notification telling them they voided the sale. The owner still sees it.
     unread = ActivityEvent.objects.filter(
         business=business, is_important=True, is_read=False
+    ).exclude(
+        actor=request.user,
     ).exclude(
         verb__startswith='stock.',
         target_type=ContentType.objects.get_for_model(Product),

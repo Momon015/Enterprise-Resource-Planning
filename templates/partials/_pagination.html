@@ -1,0 +1,46 @@
+{% comment %}
+Rendered by {% pagination page_obj %} (core/templatetags/pagination_tags.py).
+Markup is byte-for-byte the old hand-written block — .pagination-wrapper / .pagination /
+.page-item / .page-link — so every existing CSS rule keeps applying. The ONLY changes are
+that the page numbers are elided (1 … 4 5 6 … 12) and the links carry the whole query
+string instead of a hand-listed subset of filters.
+{% endcomment %}
+{% if show %}
+<div class="pagination-wrapper">
+  <nav>
+    <ul class="pagination">
+
+      <li class="page-item {% if not has_previous %}disabled{% endif %}">
+        {% if has_previous %}
+          <a class="page-link" href="{{ previous_url }}" aria-label="Previous page">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        {% else %}
+          <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+        {% endif %}
+      </li>
+
+      {% for p in pages %}
+        {% if p.ellipsis %}
+          <li class="page-item disabled"><span class="page-link">{{ p.label }}</span></li>
+        {% else %}
+          <li class="page-item {% if p.active %}active{% endif %}">
+            <a class="page-link" href="{{ p.url }}">{{ p.label }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      <li class="page-item {% if not has_next %}disabled{% endif %}">
+        {% if has_next %}
+          <a class="page-link" href="{{ next_url }}" aria-label="Next page">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% else %}
+          <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+        {% endif %}
+      </li>
+
+    </ul>
+  </nav>
+</div>
+{% endif %}

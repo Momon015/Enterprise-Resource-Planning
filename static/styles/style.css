@@ -1790,6 +1790,11 @@ details.filter-card summary:hover {
 .pagination {
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* The window widened to 3 pages each side (core/templatetags/pagination_tags.py),
+     so a deep page can show ~13 boxes. Without wrap this overflowed sideways on a
+     phone instead of stacking. */
+  flex-wrap: wrap;
   gap: 0.3rem;
   list-style: none;
   margin: 0;
@@ -6213,11 +6218,13 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   background: var(--surface-alt);
 }
 
-/* Activity filter tabs — horizontal pill row */
+/* Activity filter tabs — horizontal pill row.
+   Bare, NOT inside a .card: these are navigation, not a form. */
 .activity-filter-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  margin-bottom: 1rem;
 }
 .activity-tab {
   display: inline-flex;
@@ -6245,14 +6252,20 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   color: #fff;
 }
 
-/* Activity full list — rows in the audit log */
+/* ══════════════════════════════════════════
+   ACTIVITY FULL LIST — the Activity Center rows
+   Row = [tone stripe] [icon chip] [body] [amount] [›]
+   The tone stripe is the SEMANTIC channel (danger/warning/success/info);
+   unread is a STATE channel and must not repaint it — see .is-unread below.
+══════════════════════════════════════════ */
 .activity-full-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .activity-full-row {
-  padding: 1rem 1.25rem;
+  /* NO padding here — it lives on .activity-full-link so the WHOLE row is the
+     click target. With padding on the row, clicking its edges did nothing. */
   border-bottom: 1px solid var(--surface-hover);
   border-left: 3px solid transparent;
   transition: background 0.15s;
@@ -6263,8 +6276,51 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 .activity-full-row--danger  { border-left-color: var(--danger); }
 .activity-full-row--warning { border-left-color: var(--warning); }
 .activity-full-row--info    { border-left-color: var(--info); }
-.activity-full-row.is-unread { background: var(--info-light); }
-.activity-full-row.is-unread:hover { background: var(--info-light); }
+
+/* UNREAD — a bolder title + a dot, NOT a background wash. The old rule painted
+   the row --info-light, which made an unread *danger* event render blue: the
+   state channel was overwriting the tone channel. */
+.activity-full-row.is-unread .activity-full-title { font-weight: 700; }
+.activity-full-row.is-unread .activity-full-title > span:first-child::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--info);
+}
+
+/* ROW LAYOUT — the link is the flex container */
+.activity-full-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+.activity-full-link:hover { text-decoration: none; color: inherit; }
+.activity-full-link--static { cursor: default; }
+
+/* ICON CHIP — scoped class on purpose. `.activity-icon` is declared TWICE in this
+   file (34px, then 36px — the second wins), so reusing it would have added a third
+   voice to that argument. The .activity-icon--{tone} COLOUR modifiers are stable
+   and shared, so those are reused. */
+.activity-full-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  margin-top: 0.1rem;
+}
+
+.activity-full-body { flex: 1; min-width: 0; }
 
 .activity-full-title {
   font-size: 0.9rem;
@@ -6274,6 +6330,17 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.activity-full-ref {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface-hover);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.01em;
 }
 .activity-full-desc {
   font-size: 0.825rem;
@@ -6286,7 +6353,70 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   color: var(--text-faint);
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
+}
+.activity-full-sep { opacity: 0.5; margin: 0 0.15rem; }
+
+/* AMOUNT — already in metadata, already shown on the dashboard panel; the full
+   page was the only surface dropping it. Tabular so the column lines up. */
+.activity-full-amount {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-top: 0.1rem;
+}
+
+/* GO CHEVRON — only on rows that actually navigate, so the ones that don't stop
+   masquerading as links. */
+.activity-full-go {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.activity-full-row:hover .activity-full-go {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* MARK ALL READ — the card-header's right-hand action */
+.activity-mark-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.activity-mark-read:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+  border-color: var(--muted);
+}
+.activity-mark-read__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 999px;
 }
 
 .activity-important-flag {
@@ -6387,15 +6517,9 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   white-space: nowrap;
 }
 
-.activity-full-link {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-.activity-full-link:hover {
-  text-decoration: none;
-  color: inherit;
-}
+/* .activity-full-link lived here as `display: block` — it now sits with the rest of
+   the Activity Center rules above, as a flex row. Declared later than the new rule,
+   this copy silently overrode it. */
 
 .activity-link {
   display: flex;

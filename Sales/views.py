@@ -59,7 +59,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit
+from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit, needs_owner_review
 
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
@@ -1173,6 +1173,7 @@ def void_sale(request, business_slug, sale_id):
             target=sale,
             description=reason or 'Voided',
             metadata={'reference': sale.reference, 'total': f"{sale.total_revenue or 0:.2f}"},
+            important=needs_owner_review(business, request.user),
         )
         
         log_audit(
@@ -1523,6 +1524,7 @@ def sales_return_create(request, business_slug, sale_id):
                           'total': f"{total_refund:.2f}",
                           'reason': reason,
                           'refund_method': refund_method},
+                important=needs_owner_review(business, request.user),
             )
             log_audit(
                 business, request.user, 'return',

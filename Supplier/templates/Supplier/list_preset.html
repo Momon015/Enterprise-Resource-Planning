@@ -1,4 +1,5 @@
 {% extends "main.html" %}
+{% load pagination_tags %}
 {% block content %}
 
 <!-- FLASH MESSAGES -->
@@ -208,39 +209,7 @@
         </div>
 
         <!-- PAGINATION -->
-        {% if page_obj.paginator.num_pages > 1 %}
-        <div class="pagination-wrapper">
-          <nav>
-            <ul class="pagination">
-              <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                {% if page_obj.has_previous %}
-                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                {% endif %}
-              </li>
-
-              {% for p in page_obj.paginator.page_range %}
-              <li class="page-item {% if p == page_obj.number %}active{% endif %}">
-                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
-              </li>
-              {% endfor %}
-
-              <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                {% if page_obj.has_next %}
-                  <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                {% else %}
-                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                {% endif %}
-              </li>
-            </ul>
-          </nav>
-        </div>
-        {% endif %}
+        {% pagination page_obj %}
 
       </div>
     </div>

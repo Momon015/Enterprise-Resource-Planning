@@ -131,6 +131,83 @@ def scope_events_for_user(qs, user):
         )
     return qs
 
+def needs_owner_review(business, actor):
+    """
+    True when someone OTHER than the owner performed a reversal (void / return).
+
+    Voids and returns are the small-shop error-and-theft vector, so the owner
+    should be told when staff undo money. But belling the OWNER for a void the
+    owner just did themselves is noise — they were the one clicking the button.
+    So the same action is `important` or not depending on WHO did it.
+
+    Pass the result as log_activity(..., important=needs_owner_review(...)).
+    """
+    return bool(actor) and actor != business.user
+
+
+def log_margin_drop(business, actor, product, status_before):
+    """
+    Fire `product.margin_low` when receiving stock pushes a product's margin BELOW
+    its target — the silent one.
+
+    WHY ONLY HERE (the purchase blend, Expense/views.py): a supplier raises their
+    price, the weighted-average cost_price creeps up, and the margin erodes with
+    nobody looking at the product page. The other way a margin moves is the owner
+    editing the price — and the product form already shows a live green/amber/red
+    badge and a suggested price, so alerting them about the thing they are staring
+    at would be noise.
+
+    ★ CROSSING, not state. Fires only when the status gets WORSE
+    (good→warning, good→critical, warning→critical). A product that is already
+    below target and stays there is silent, so restocking a chronically thin item
+    doesn't re-alert every single time. Fix the price and it can fire again later.
+
+    `status_before` must be read BEFORE cost_price is reassigned.
+    """
+    RANK = {'good': 0, 'warning': 1, 'critical': 2}
+
+    status_after = product.margin_status
+    if status_after not in ('warning', 'critical'):
+        return None                                  # healthy, or no selling price yet
+    if RANK.get(status_after, 0) <= RANK.get(status_before, 0):
+        return None                                  # already this bad (or worse) — no crossing
+
+    margin = product.current_margin
+    target = product.effective_target_margin
+    suggested = product.suggested_price
+
+    if status_after == 'critical':
+        description = (
+            f"Only {margin}% profit left on {product.name} — it now costs "
+            f"₱{product.cost_price:.2f} and sells for ₱{product.selling_price:.2f}. "
+            f"You are close to selling at no profit."
+        )
+    else:
+        description = (
+            f"{product.name} is down to {margin}% profit, below your {target}% target. "
+            f"It now costs ₱{product.cost_price:.2f}."
+        )
+    if suggested:
+        description += f" Sell at ₱{suggested:.2f} to hit your target."
+
+    return log_activity(
+        business, actor, 'product.margin_low',
+        target=product,
+        description=description[:255],
+        metadata={
+            'status': status_after,
+            'margin': float(margin),
+            'target': target,
+            'cost': f"{product.cost_price:.2f}",
+            'price': f"{product.selling_price:.2f}",
+            'suggested_price': f"{suggested:.2f}" if suggested else None,
+        },
+        # Both tiers bell. A crossing is rare by construction (it can't repeat while
+        # the product stays low), and the whole point is that the owner re-prices NOW.
+        important=True,
+    )
+
+
 def log_activity(business, actor, verb, target=None, description='',
                  metadata=None, important=False):
     """

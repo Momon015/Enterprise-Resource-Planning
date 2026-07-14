@@ -62,7 +62,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit
+from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit, needs_owner_review, log_margin_drop
 # logging
 import logging
 
@@ -849,12 +849,22 @@ def confirm_purchase_summary(request, business_slug):
                 if not created:
                     previous_qty = product.prepared_quantity
                     previous_price = product.cost_price
+
+                    # Read the margin BEFORE the blend — this is the whole basis for
+                    # "did this delivery push it below target?" (see log_margin_drop).
+                    margin_status_before = product.margin_status
+
                     total_quantity = previous_qty + quantity
-                    
+
                     product.prepared_quantity = total_quantity
                     product.cost_price = ((previous_price * previous_qty) + line_total_cost) / total_quantity
                     product.save()
-                    
+
+                    # A supplier price rise erodes the margin silently — nobody is on the
+                    # product page when it happens. Fires only on a CROSSING (good→low).
+                    log_margin_drop(business, request.user, product, margin_status_before)
+
+
             # ── Apply discount (flat per-item already in subtotal; % applied here) ──
             if percent_mode:
                 order_discount_amount = subtotal * order_discount_percent / Decimal('100')
@@ -1286,6 +1296,7 @@ def void_purchase(request, business_slug, purchase_id):
             target=purchase,
             description=reason or 'Voided',
             metadata={'reference': purchase.reference, 'total': f"{purchase.total_cost or 0:.2f}"},
+            important=needs_owner_review(business, request.user),
         )
         log_audit(
             business, request.user, 'void',
@@ -1446,7 +1457,8 @@ def purchase_return_create(request, business_slug, purchase_id):
                     'total': f"{total_refund:.2f}",
                     'reason': reason,
                     'refund_method': refund_method,
-                }
+                },
+                important=needs_owner_review(business, request.user),
             )
             log_audit(
                 business, request.user, 'return',
