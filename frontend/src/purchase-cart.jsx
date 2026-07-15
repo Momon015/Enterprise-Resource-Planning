@@ -254,9 +254,9 @@ function PurchaseCart() {
 
       {clearing && (
         <ConfirmModal
-          title="Clear Items?"
+          title="Clear Items"
           note="This empties the cart so you can start over. Nothing has been saved yet."
-          tone="danger" icon="bi-trash" btnIcon="bi-trash-fill" label="Clear cart"
+          tone="danger" icon="bi-trash" btnIcon="bi-trash-fill" label="Yes, clear"
           onConfirm={doClear} onCancel={() => setClearing(false)} />
       )}
 

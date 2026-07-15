@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         'sale-cart': resolve(__dirname, 'src/sale-cart.jsx'),
         'purchase-cart': resolve(__dirname, 'src/purchase-cart.jsx'),
+        'purchase-search': resolve(__dirname, 'src/purchase-search.jsx'),
         'product-list': resolve(__dirname, 'src/product-list.jsx'),
       },
       output: {
