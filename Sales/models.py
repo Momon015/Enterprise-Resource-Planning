@@ -8,7 +8,7 @@ from django.db.models import Sum, Avg
 
 from Employee.models import Employee
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from django.utils import timezone
 
@@ -374,7 +374,33 @@ class SaleItem(models.Model):
     @property
     def total_sold_per_item(self):
         return self.price_at_sale * self.quantity
-    
+
+    @property
+    def effective_unit_price(self):
+        """What the customer ACTUALLY paid for ONE of these.
+
+        `price_at_sale` is the STICKER price. The whole-order discount is stored only on
+        the Sale (`discount_percent`) and is never written down onto the line, so a 20%
+        order discount means every item is 20% off — spread proportionally, exactly the
+        rule Sale.vat_summary() already applies to its VAT buckets.
+
+        ★ Anything that pays money BACK must price the line through here, never through
+          `price_at_sale`, or it refunds more than was ever collected. That was a real
+          bug: the return form prefilled the sticker price, so a partial return of a
+          discounted sale silently over-refunded, and a FULL return totalled more than
+          the sale and got rejected by the refund ceiling.
+
+        Rounds DOWN to centavos on purpose: it keeps the sum of the lines at or under
+        `total_revenue`, so a full return can always be processed and can never trip the
+        `max_refund` guard on a rounding remainder.
+        """
+        price = self.price_at_sale or Decimal('0')
+        pct = (self.sale.discount_percent or Decimal('0')) if self.sale_id else Decimal('0')
+        if pct <= 0:
+            return price
+        keep = (Decimal('100') - pct) / Decimal('100')
+        return (price * keep).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
     @property
     def net_sale_value(self):
         return (self.total_sold_per_item) - self.unsold_product_cost

@@ -38,6 +38,22 @@ from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_T
 
 # Create your views here.
 
+def _redirect_after_form(request, url_name, **kwargs):
+    """Redirect that survives an htmx modal submit.
+
+    The product create/update forms live in an htmx modal AND on a full page,
+    served by the same view. A plain redirect works for the full page, but when
+    the form is submitted from the modal (hx-post → #confirmBody) htmx would
+    transparently follow the 302 and swap the destination PAGE into the modal.
+    So for htmx we send HX-Redirect, which tells htmx to do a real browser
+    navigation instead (messages then show on the destination as normal).
+    """
+    if request.headers.get('HX-Request'):
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = reverse(url_name, kwargs=kwargs)
+        return resp
+    return redirect(url_name, **kwargs)
+
 @login_required(login_url='login')
 def product_list(request, business_slug):
     sale = request.session.get('sale', {})
@@ -226,11 +242,11 @@ def product_create(request, business_slug):
             if existing:
                 if existing.is_active:
                     messages.warning(request, f"{existing.name} already exists.")
-                    return redirect('product-create', business_slug=business.slug)
+                    return _redirect_after_form(request, 'product-create', business_slug=business.slug)
                 else:
                     # Archived twin exists — offer restore instead of creating duplicate
                     messages.info(request,f"{existing.name} exists in your archive.")
-                    return redirect('product-create', business_slug=business.slug)
+                    return _redirect_after_form(request, 'product-create', business_slug=business.slug)
 
             product.user = business.user
             product.name = product.name.title()
@@ -246,7 +262,7 @@ def product_create(request, business_slug):
                 target=product, description=f"{product.name} added")
 
             messages.success(request, f"{product.name} has been created.")
-            return redirect('product-list', business_slug=business.slug)
+            return _redirect_after_form(request, 'product-list', business_slug=business.slug)
             
             # elif business.business_type in ('cafe', 'restaurant'):
             #     messages.info(request, "🚀 Cafe & Restaurant features launching soon! For now, this business is in view-only mode.")
@@ -257,7 +273,11 @@ def product_create(request, business_slug):
             #     return redirect('product-list', business_slug=business.slug)
     else:
         form = ProductForm(business=business, user=request.user)
-        
+
+    # htmx → render just the modal partial (opened from the product list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_product_form_modal.html', {'form': form, 'section': 'product'})
+
     context = {'form': form, 'section': 'product'}
     return render(request, 'Product/product_create.html', context)
 
@@ -340,6 +360,28 @@ def product_detail(request, business_slug, product_slug, product_id):
             .order_by('-purchase__purchase_date', '-purchase__id')[:6])
 
 
+    # Total sales = the actual money these units brought in, read straight from the
+    # sale records — each line's price is FROZEN at sale time (price_at_sale) and the
+    # order discount is applied (effective_unit_price, the same figure refunds use).
+    # NOT units × the current selling price: that re-prices all of history at today's
+    # tag, so an all-time total would move every time the price is edited.
+    # Netted against refunds so it stays consistent with units_sold_all (already net).
+    sold_items = (SaleItem.objects
+        .filter(product=product, sale__is_void=False)
+        .select_related('sale'))
+    gross_sales_value = sum(
+        (si.effective_unit_price * si.quantity for si in sold_items), Decimal('0'))
+
+    refunded_items = (SalesReturnItem.objects
+        .filter(original_sale_item__product=product,
+                original_sale_item__sale__is_void=False)
+        .select_related('original_sale_item', 'original_sale_item__sale'))
+    refunded_value = sum(
+        (ri.original_sale_item.effective_unit_price * ri.quantity
+         for ri in refunded_items), Decimal('0'))
+
+    total_sales_value = gross_sales_value - refunded_value
+
     context = {
         'product': product,
         'total_stock_cost': total_stock_cost,
@@ -347,6 +389,7 @@ def product_detail(request, business_slug, product_slug, product_id):
         'section': 'product',
         'units_sold_30d': units_sold_30d,
         'units_sold_all': units_sold_all,
+        'total_sales_value': total_sales_value,
         'last_sold': last_sold,
         'restocked_30d': restocked_30d,
         'last_restock': last_restock,
@@ -382,23 +425,28 @@ def product_update(request, business_slug, product_slug, product_id):
             if existing:
                 if existing.is_active:
                     messages.warning(request, f"{existing.name} already exists.")
-                    return redirect('product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
+                    return _redirect_after_form(request, 'product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
                 else:
                     # Archived twin exists — offer restore instead of creating duplicate
                     messages.info(request,f"{existing.name} exists in your archive.")
-                    return redirect('product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
-            
+                    return _redirect_after_form(request, 'product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
+
             product.save()
-            
+
             log_activity(business, request.user, 'product.updated',
                 target=product, description=f"{product.name} updated")
 
             messages.success(request, f"{product.name} has been updated.")
-            return redirect('product-list', business_slug=business.slug)
+            return _redirect_after_form(request, 'product-list', business_slug=business.slug)
     else:
         form = ProductForm(instance=product, business=business, user=request.user)
-        
+
     context = {'form': form, 'product': product, 'section': 'product'}
+
+    # htmx → render just the modal partial (opened from the detail page / list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_product_update_modal.html', context)
+
     return render(request, 'Product/product_update.html', context)
 
 

@@ -29,6 +29,33 @@
         {% if refund_due > 0 %} You paid the year upfront, so the {{ months_used }} month(s) used are re-priced at the standard rate and we refund the rest: <strong>₱{{ refund_due|floatformat:2|intcomma }}</strong>, within 30 days.{% else %} No refund is due — and you can re-subscribe anytime.{% endif %}
       </p>
 
+      {# The discounted rate on the other businesses only exists because THIS one is the
+         main plan. Cancelling it puts them back on the regular price — say so in pesos,
+         before they click, or it lands as a surprise on the next bill. #}
+      {% if reprice %}
+      <div class="cm-note cm-note--danger" style="margin-top:.75rem;">
+        <div style="display:flex; gap:.5rem; align-items:flex-start;">
+          <i class="bi bi-exclamation-triangle-fill" style="margin-top:.15rem;"></i>
+          <div style="flex:1;">
+            <strong>This is your main plan — your other {% if reprice|length > 1 %}businesses go{% else %}business goes{% endif %} back to the regular price.</strong>
+            <table class="data-table" style="margin:.6rem 0 .4rem;">
+              {% for bp, old_price, new_price in reprice %}
+              <tr>
+                <td>{{ bp.business.business_name }} <span class="cm-sub">({{ bp.get_plan_display }})</span></td>
+                <td class="sl-text-end" style="white-space:nowrap;">
+                  <span style="text-decoration:line-through; opacity:.6;">₱{{ old_price|floatformat:0|intcomma }}</span>
+                  <i class="bi bi-arrow-right" style="margin:0 .25rem; opacity:.6;"></i>
+                  <strong>₱{{ new_price|floatformat:0|intcomma }}</strong><span class="cm-sub">/mo</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </table>
+            <span class="cm-sub">Takes effect on {{ cycle_end|date:"M d, Y" }}, when this plan ends.</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <form method="post" action="{% url 'subscription-cancel-confirm' business_slug=business.slug %}">
         {% csrf_token %}
         <input type="hidden" name="target_business_id" value="{{ target_biz.id }}">

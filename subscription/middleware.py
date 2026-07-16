@@ -45,7 +45,9 @@ class SubscriptionExpiryMiddleware:
         if request.user.is_authenticated and request.user.role == 'owner':
             from activity.utils import log_activity
             # Per-business: auto-downgrade expired plans, and warn ones expiring soon.
-            for biz in request.user.business_profiles.all():
+            # select_related('plan') — this runs on every request, and `plan` is a reverse
+            # OneToOne, so without it each business costs its own query.
+            for biz in request.user.business_profiles.select_related('plan'):
                 bp = getattr(biz, 'plan', None)
                 if not bp:
                     continue

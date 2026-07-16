@@ -1,5 +1,6 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load static %}
 
 {% block content %}
 
@@ -73,28 +74,16 @@ document.addEventListener("DOMContentLoaded", () =>
 
   <div class="pd-card card">
     <div class="pd-toolbar">
-      <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}" class="pd-icon-btn" title="Edit"><i class="bi bi-pencil"></i></a>
-      
-      <div class="pd-menu" id="pdMenu">
-        <button type="button" class="pd-icon-btn" aria-label="More actions"><i class="bi bi-three-dots"></i></button>
-        <div class="pd-menu__dropdown">
-          {% if request.user.role == 'owner' %}
-          <button type="button" class="pd-menu__item pd-menu__item--danger"
-                  hx-get="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
-                  hx-target="#confirmBody" hx-swap="innerHTML">
-            <i class="bi bi-archive"></i> Archive
-          </button>
-          {% endif %}
-
-          <button type="button" class="pd-menu__item pd-menu__item--success"
-                  hx-post="{% url 'add-to-sale' product_id=product.id business_slug=current_business.slug %}"
-                  hx-target="#cart-badge" hx-swap="outerHTML">
-            <i class="bi bi-plus"></i> Add to Sale
-          </button>
-        </div>
-      </div>
-      
-      <a href="{% url 'product-list' business_slug=current_business.slug %}" class="pd-icon-btn" title="Close"><i class="bi bi-x-lg"></i></a>
+      <button type="button" class="pd-btn"
+              hx-get="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+              hx-target="#confirmBody" hx-swap="innerHTML"><i class="bi bi-pencil"></i> Edit</button>
+      {% if request.user.role == 'owner' %}
+      <button type="button" class="pd-btn pd-btn--danger"
+              hx-get="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+              hx-target="#confirmBody" hx-swap="innerHTML">
+        <i class="bi bi-archive"></i> Archive
+      </button>
+      {% endif %}
     </div>
 
     <div class="pd-grid">
@@ -104,10 +93,10 @@ document.addEventListener("DOMContentLoaded", () =>
         {% if product.image %}
           <img src="{{ product.image.url }}" alt="{{ product.name }}">
         {% else %}
-          <div class="pd-media__empty">
-            <i class="bi bi-basket"></i><span>No image yet</span>
-            <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}">Add one</a>
-          </div>
+          <a class="pd-media__empty" title="Add a photo"
+             href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}">
+            <img src="{% static 'images/no-image.svg' %}" alt="No image yet">
+          </a>
         {% endif %}
       </div>
 
@@ -116,8 +105,13 @@ document.addEventListener("DOMContentLoaded", () =>
 
         <div class="pd-identity">
           <h2 class="pd-name">{{ product.name }}</h2>
-          <div class="pd-meta">{{ product.category.name|default:"No category" }} · SKU {{ product.sku }}{% if product.barcode %} · {{ product.barcode }}{% endif %}</div>
-          <div class="pd-meta pd-meta--by"><i class="bi-person-fill"></i> {{ product.created_by.username|capfirst|default:"—" }}</div>
+          <div class="pd-meta">{{ product.material.supplier.name|default:"No supplier" }} · SKU {{ product.sku }}</div>
+          <div class="pd-chips">
+            <span class="pd-chip">{{ product.category.name|default:"No category" }}</span>
+            {% if product.unit %}<span class="pd-chip">{{ product.unit }}</span>{% endif %}
+            {% if product.barcode %}<span class="pd-chip pd-chip--code">{{ product.barcode }}</span>{% endif %}
+            <span class="pd-chip pd-chip--muted"><i class="bi bi-person-fill"></i> {{ product.created_by.username|capfirst|default:"—" }}</span>
+          </div>
         </div>
 
         <!-- featured stock band (color-coded) -->
@@ -136,7 +130,30 @@ document.addEventListener("DOMContentLoaded", () =>
             <div class="pd-stat-box__value">{{ product.low_stock_threshold }} units</div>
             <div class="pd-stat-box__sub">You'll be alerted at this level.</div>
           </div>
+          <div class="pd-stat-box pd-stat-box--sales">
+            <div class="pd-stat-box__label">TOTAL SALES</div>
+            <div class="pd-stat-box__value">₱{{ total_sales_value|floatformat:2|intcomma }}</div>
+            <div class="pd-stat-box__sub"><i class="bi bi-graph-up-arrow"></i> sold all-time</div>
+          </div>
         </div>
+      </div><!-- /pd-content -->
+    </div><!-- /pd-grid : compact hero ends here -->
+
+    <!-- full-width row below the hero (margin bar + detail tiles) -->
+    <div class="pd-lower">
+        {% if product.margin_status %}
+        <!-- gross margin bar — current vs target (the margin% idea) -->
+        <div class="pd-margin pd-margin--{{ product.margin_status }}">
+          <div class="pd-margin__head">
+            <span class="pd-margin__label"><i class="bi bi-bar-chart-line"></i> Gross Margin</span>
+            <span class="pd-margin__meta">Target {{ product.effective_target_margin }}% · <strong>{{ product.current_margin|floatformat:0 }}%</strong></span>
+          </div>
+          <div class="pd-margin__track">
+            <div class="pd-margin__fill" style="width: {{ product.current_margin|floatformat:0 }}%;"></div>
+            <div class="pd-margin__target" style="left: {{ product.effective_target_margin }}%;" title="Target {{ product.effective_target_margin }}%"></div>
+          </div>
+        </div>
+        {% endif %}
 
         <!-- 3 simple tiles (no stock/alert — already shown above) -->
         <div class="pd-tiles">
@@ -181,8 +198,7 @@ document.addEventListener("DOMContentLoaded", () =>
           </div>
 
         </div>
-      </div>
-    </div>
+    </div><!-- /pd-lower -->
 
   </div>
 
@@ -229,14 +245,5 @@ document.addEventListener("DOMContentLoaded", () =>
 
 </div>
 
-
-<script>
-(function () {
-  const menu = document.getElementById('pdMenu');
-  if (!menu) return;
-  menu.querySelector('.pd-icon-btn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
-  document.addEventListener('click', () => menu.classList.remove('open'));
-})();
-</script>
 
 {% endblock content %}

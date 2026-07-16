@@ -297,9 +297,11 @@
           <div class="activity-header-right">
             {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant'%}
             <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
-            <a href="{% url 'product-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    hx-get="{% url 'product-create' business_slug=current_business.slug %}"
+                    hx-target="#confirmBody" hx-swap="innerHTML">
               <i class="bi bi-plus-circle"></i> Create product
-            </a>
+            </button>
             {% endif %}
 
             <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
@@ -400,7 +402,7 @@
                   {% if product.image %}
                     <img src="{{ product.image.url }}" alt="" class="list-thumb">
                   {% else %}
-                    <span class="list-thumb-placeholder"><i class="bi bi-image"></i></span>
+                    <span class="list-thumb-placeholder list-avatar">{{ product.name|slice:":2"|upper }}</span>
                   {% endif %}
                   <div class="name-text">
                     <strong>{{ product.name|capfirst }}</strong>
@@ -415,9 +417,9 @@
                 </td>
 
                 <td>
-                  <div class="cell-primary">{{ product.sku|capfirst }}</div>
+                  <span class="sku-pill">{{ product.sku|upper }}</span>
                   {% if product.barcode %}
-                  <span class="cell-sub">{{ product.barcode|default:"-" }}</span>
+                  <div class="cell-sub sku-barcode">{{ product.barcode }}</div>
                   {% endif %}
                 </td>
 
@@ -484,10 +486,11 @@
                       <i class="bi bi-eye"></i>
                     </a>
 
-                    <a href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
-                       class="action-btn action-btn--edit" title="Edit product">
+                    <button type="button" class="action-btn action-btn--edit" title="Edit product"
+                            hx-get="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                            hx-target="#confirmBody" hx-swap="innerHTML">
                       <i class="bi bi-pencil"></i>
-                    </a>
+                    </button>
                     {% if request.user.role == 'owner' %}
                         <a href="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
                           hx-get="{% url 'product-archive' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"

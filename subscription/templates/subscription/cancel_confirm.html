@@ -55,6 +55,29 @@
         </ul>
       </div>
 
+      {# Same warning the modal shows — the other businesses only get their lower price
+         because THIS one is the main plan. Cancelling it puts them back on the regular
+         price, so it has to be said out loud, in pesos, before they confirm. #}
+      {% if reprice %}
+      <div class="alert alert-danger">
+        <strong><i class="bi bi-exclamation-triangle-fill"></i>
+          This is your main plan — your other {% if reprice|length > 1 %}businesses go{% else %}business goes{% endif %} back to the regular price.</strong>
+        <table class="data-table" style="margin:.75rem 0 .5rem;">
+          {% for bp, old_price, new_price in reprice %}
+          <tr>
+            <td>{{ bp.business.business_name }} <span class="text-muted">({{ bp.get_plan_display }})</span></td>
+            <td class="sl-text-end" style="white-space:nowrap;">
+              <span style="text-decoration:line-through; opacity:.6;">₱{{ old_price|floatformat:0 }}</span>
+              →
+              <strong>₱{{ new_price|floatformat:0 }}</strong>/mo
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        <span class="text-muted">Takes effect on {{ cycle_end|date:"M d, Y" }}, when this plan ends.</span>
+      </div>
+      {% endif %}
+
       <form method="POST" action="{% url 'subscription-cancel-confirm' business_slug=business.slug %}">
         {% csrf_token %}
         <input type="hidden" name="target_business_id" value="{{ target_biz.id }}">

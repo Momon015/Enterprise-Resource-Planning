@@ -17,10 +17,32 @@
 
 <div class="divider"></div>
 
+{% comment %} The item lines above print at STICKER price, but TOTAL is the NET
+(total_revenue = subtotal - discount). Without these two rows the slip does not add up:
+₱10 + ₱50 of items, TOTAL ₱54, and nothing on paper explains the missing ₱6. {% endcomment %}
 <table class="totals">
+    {% if sale.discount_percent %}
+    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
+    <tr><td>Discount ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
+    {% endif %}
+    {% comment %} Payment lines only appear when they SAY something. A settled counter sale
+    printed "TOTAL 47.00 / Paid 47.00" — the same number twice. The system owns the debt
+    ledger (receivables); this slip only reports what happened AT THE COUNTER. {% endcomment %}
+    {% if sale.is_fully_paid %}
+    {# Settled: the total says it all. Method instead of a redundant Paid line. #}
     <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
-    {% if sale.amount_paid %}<tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>{% endif %}
-    {% if not sale.is_fully_paid %}<tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>{% endif %}
+    {% if sale.payment_method_code %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
+
+    {% elif sale.amount_paid %}
+    {# Partial: "Paid" is the customer's ONLY proof of the money they just handed over. #}
+    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>
+
+    {% else %}
+    {# Pure utang: no money moved, so no payment lines. One line states amount AND status. #}
+    <tr class="bold"><td>UNPAID</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    {% endif %}
     <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
 </table>
 

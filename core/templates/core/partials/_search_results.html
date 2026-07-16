@@ -17,7 +17,7 @@
   <!-- LEFT: jump entities -->
   <div class="search-col search-col--left">
     {% if materials %}
-    <div class="search-group"><div class="search-group__label">Materials</div>
+    <div class="search-group"><div class="search-group__label">Materials <span class="search-group__count">• {{ materials|length }}</span></div>
       {% for m in materials %}
       <div class="search-prod">
         <span class="search-prod__img"><i class="bi bi-box-seam"></i></span>
@@ -33,40 +33,15 @@
     </div>{% endif %}
 
     {% if suppliers %}
-    <div class="search-group"><div class="search-group__label">Suppliers</div>
+    <div class="search-group"><div class="search-group__label">Suppliers <span class="search-group__count">• {{ suppliers|length }}</span></div>
       {% for s in suppliers %}
       <a class="search-row" href="{% url 'supplier-list' business_slug=current_business.slug %}?search={{ s.name|urlencode }}">
         <span class="search-row__ic">{% if s.image %}<img src="{{ s.image.url }}">{% else %}<i class="bi bi-building"></i>{% endif %}</span><span>{{ s.name }}</span></a>
       {% endfor %}
     </div>{% endif %}
 
-    {% if product_presets %}
-    <div class="search-group"><div class="search-group__label">Presets</div>
-      {% for pp in product_presets %}
-      <div class="search-preset">
-        <a class="search-row" href="{% url 'product-preset-detail' business_slug=current_business.slug preset_id=pp.id preset_slug=pp.slug %}">
-          <span class="search-row__ic"><i class="bi bi-bookmark-fill"></i></span>
-          <span class="search-preset__body">
-            <span class="search-preset__name">{{ pp.name }}</span>
-            <span class="search-preset__items">{% for it in pp.product_preset_items.all|slice:":3" %}{{ it.product.name }}{% if not forloop.last %} · {% endif %}{% endfor %}{% with n=pp.product_preset_items.all|length %}{% if n > 3 %} +{{ n|add:"-3" }} more{% endif %}{% endwith %}</span>
-          </span>
-        </a>
-        <button hx-post="{% url 'product-preset-add-to-sale' business_slug=current_business.slug preset_id=pp.id preset_slug=pp.slug %}"
-                hx-target="#cart-badge" hx-swap="outerHTML" class="search-add" title="Add bundle">+</button>
-      </div>
-      {% endfor %}
-    </div>{% endif %}
-
-    {% if material_presets %}
-    <div class="search-group"><div class="search-group__label">Material presets</div>
-      {% for mp in material_presets %}
-      <a class="search-row" href="{% url 'material-preset-detail' business_slug=current_business.slug id=mp.id slug=mp.slug %}">
-        <span class="search-row__ic"><i class="bi bi-bookmark"></i></span><span>{{ mp.name }}</span></a>
-      {% endfor %}
-    </div>{% endif %}
-
     {% if staff %}
-    <div class="search-group"><div class="search-group__label">Staff</div>
+    <div class="search-group"><div class="search-group__label">Staff <span class="search-group__count">• {{ staff|length }}</span></div>
       {% for e in staff %}
       <a class="search-row" href="{% url 'employee-detail' business_slug=current_business.slug employee_id=e.id slug=e.slug %}">
         <span class="search-row__ic"><i class="bi bi-person"></i></span><span>{{ e.name }}</span></a>
@@ -74,7 +49,7 @@
     </div>{% endif %}
 
     {% if sales or purchases %}
-    <div class="search-group"><div class="search-group__label">References</div>
+    <div class="search-group"><div class="search-group__label">References <span class="search-group__count">• {% with sc=sales|length pc=purchases|length %}{{ sc|add:pc }}{% endwith %}</span></div>
       {% for s in sales %}
       <a class="search-row" href="{% url 'sale-detail' business_slug=current_business.slug sale_id=s.id %}">
         <span class="search-row__ic"><i class="bi bi-cash-coin"></i></span><span>{{ s.reference }}</span></a>
@@ -90,7 +65,7 @@
   {% if has_right %}
   <!-- RIGHT: products + services with quick-add -->
   <div class="search-col search-col--right">
-    {% if products %}<div class="search-group__label">Products</div>{% endif %}
+    {% if products %}<div class="search-group__label">Products <span class="search-group__count">• {{ products|length }}</span></div>{% endif %}
     {% for p in products %}
     <div class="search-prod">
       <span class="search-prod__img">{% if p.image %}<img src="{{ p.image.url }}">{% else %}<i class="bi bi-image"></i>{% endif %}</span>
@@ -104,7 +79,7 @@
     </div>
     {% endfor %}
 
-    {% if services %}<div class="search-group__label" style="margin-top:.6rem;">Services</div>{% endif %}
+    {% if services %}<div class="search-group__label" style="margin-top:.6rem;">Services <span class="search-group__count">• {{ services|length }}</span></div>{% endif %}
     {% for sv in services %}
     <div class="search-prod">
       <span class="search-prod__img"><i class="bi bi-ticket-perforated"></i></span>
@@ -131,8 +106,6 @@
 {% elif services %}{% url 'service-list' business_slug=current_business.slug as va %}
 {% elif materials %}{% url 'material-list' business_slug=current_business.slug as va %}
 {% elif suppliers %}{% url 'supplier-list' business_slug=current_business.slug as va %}
-{% elif product_presets %}{% url 'product-preset-list' business_slug=current_business.slug as va %}
-{% elif material_presets %}{% url 'material-preset-list' business_slug=current_business.slug as va %}
 {% elif staff %}{% url 'employee-list' business_slug=current_business.slug as va %}
 {% elif sales %}{% url 'sale-list' business_slug=current_business.slug as va %}
 {% elif purchases %}{% url 'purchase-list' business_slug=current_business.slug as va %}

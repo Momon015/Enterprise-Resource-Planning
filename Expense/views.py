@@ -26,7 +26,7 @@ from Expense.forms import (PurchaseForm, PurchaseItemForm, PurchaseFilterForm,
     MiscExpenseForm, PurchaseReturnFilterForm)
 
 from Employee.models import Shift, ShiftEmployee, Employee
-from Employee.utils import void_window_open
+from Employee.utils import void_allowed
 
 from Supplier.models import Material
 from Supplier.forms import MaterialForm
@@ -70,12 +70,24 @@ import logging
 
 logger = logging.getLogger('Expense')
 
-def can_void_purchase(purchase):
+def can_void_purchase(purchase, user):
+    """Whether `user` may void this purchase. NEVER decorate — see can_void_sale.
+
+    Mirrors the sale gate (Employee.utils.void_allowed carries the rule + why). Voiding
+    a purchase moves cash the opposite way — expected_cash goes UP, exposing theft rather
+    than hiding it — so this is mistake-correction rather than an anti-skim seal, gated
+    the same way for one consistent rule.
+    """
     return (
         not purchase.is_void
         and not purchase.returns.exists()
-        and purchase.purchase_date == timezone.localdate()
-        and void_window_open(purchase.business)
+        and void_allowed(
+            purchase.business, user,
+            on_date=purchase.purchase_date,
+            rung_at=purchase.created_at,
+            payments=purchase.payments,
+            created_by_id=purchase.created_by_id,
+        )
     )
 
 def _normalize_cart_discount_mode(request, business):
@@ -464,7 +476,7 @@ def purchase_detail(request, business_slug, purchase_id):
         'section': 'purchase',
         'subtotal': subtotal,
         'total_discount': total_discount,
-        'can_void': can_void_purchase(purchase),
+        'can_void': can_void_purchase(purchase, request.user),
     }
     return render(request, 'Expense/purchase_detail.html', context)
 
@@ -1219,7 +1231,7 @@ def view_purchase_summary(request, business_slug, purchase_id):
         'subtotal': subtotal, 
         'total_cost': purchase.total_cost, 
         'total_discount': total_discount, 
-        'can_void': can_void_purchase(purchase),
+        'can_void': can_void_purchase(purchase, request.user),
         'purchase': purchase,
         }
     
@@ -1232,7 +1244,7 @@ def void_purchase(request, business_slug, purchase_id):
     purchase = get_object_or_404(Purchase, business=business, id=purchase_id)
     is_hx = request.headers.get('HX-Request')
 
-    if not can_void_purchase(purchase):
+    if not can_void_purchase(purchase, request.user):
         messages.error(request, "This purchase can no longer be voided — use Purchase Returns instead.")
         if is_hx:
             resp = HttpResponse(status=204)
@@ -1375,11 +1387,14 @@ def purchase_return_create(request, business_slug, purchase_id):
                 return redirect('purchase-return-create',
                                 business_slug=business_slug, purchase_id=purchase_id)
 
-            unit_refund_str = request.POST.get(f'unit_refund_{pi.id}', str(pi.price))
+            # ★ Price the refund off what we PAID (unit price less whatever discount the
+            # PO carried), never off pi.price — see PurchaseItem.effective_unit_price.
+            paid_per_unit = pi.effective_unit_price
+            unit_refund_str = request.POST.get(f'unit_refund_{pi.id}', str(paid_per_unit))
             try:
                 unit_refund = Decimal(unit_refund_str)
             except (ValueError, ArithmeticError):
-                unit_refund = pi.price
+                unit_refund = paid_per_unit
 
             items_to_return.append({
                 'purchase_item': pi,

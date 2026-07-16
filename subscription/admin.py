@@ -14,7 +14,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_display = (
         'user', 'bundle', 'billing_cycle',
         'is_founder', 'is_lifetime',
-        'monthly_total_display', 'started_at',
+        'monthly_total_display', 'current_period_end', 'due_flag', 'started_at',
     )
     list_filter = ('bundle', 'billing_cycle', 'is_founder', 'is_lifetime')
     search_fields = ('user__username', 'user__email')
@@ -26,6 +26,15 @@ class SubscriptionAdmin(admin.ModelAdmin):
         ('Status flags', {
             'fields': ('is_founder', 'is_lifetime', 'trial_used'),
         }),
+        ('Billing period', {
+            'fields': ('current_period_start', 'current_period_end'),
+            'description': (
+                "The owner's billing term. Bundle pricing is owner-level (highest tier pays "
+                "the base rate, the rest pay surcharges), so businesses cannot be billed on "
+                "separate dates. Paid BusinessPlan.expires_at is a copy of the period end — "
+                "use the 'Renew' action rather than editing expiry per business."
+            ),
+        }),
         ('Pricing (computed)', {
             'fields': ('monthly_total_display', 'yearly_total_display'),
         }),
@@ -33,7 +42,28 @@ class SubscriptionAdmin(admin.ModelAdmin):
             'fields': ('started_at',),
         }),
     )
-    actions = ['grant_lifetime']
+    actions = ['grant_lifetime', 'renew_billing_period']
+
+    @admin.display(description='Due?', boolean=True)
+    def due_flag(self, obj):
+        return obj.period_is_due
+
+    @admin.action(description='Renew billing period (advance one cycle)')
+    def renew_billing_period(self, request, queryset):
+        """Payment is still collected manually, so renewal is a deliberate click.
+
+        Until the nightly biller exists this is the ONLY thing standing between a paying
+        customer and SubscriptionExpiryMiddleware downgrading them at period end.
+        """
+        renewed = 0
+        for sub in queryset:
+            if not sub.paid_plans():
+                continue
+            sub.renew()
+            renewed += 1
+        self.message_user(
+            request, f'{renewed} billing period(s) advanced one cycle.', messages.SUCCESS,
+        )
 
     @admin.display(description='Monthly ₱', ordering='id')
     def monthly_total_display(self, obj):
@@ -57,15 +87,18 @@ class SubscriptionAdmin(admin.ModelAdmin):
 @admin.register(BusinessPlan)
 class BusinessPlanAdmin(admin.ModelAdmin):
     list_display = (
-        'business', 'owner_username', 'plan',
-        'is_active', 'started_at', 'expires_at',
+        'business', 'owner_username', 'plan', 'is_trial',
+        'is_active', 'started_at', 'plan_started_at', 'expires_at',
     )
-    list_filter = ('plan', 'is_active')
+    list_filter = ('plan', 'is_active', 'is_trial')
     search_fields = (
         'business__business_name',
         'business__user__username',
     )
-    readonly_fields = ('started_at',)
+    # started_at = the business's birthday (row creation). plan_started_at = when the
+    # current billing term began, and it's what refunds are computed from — the two are
+    # NOT interchangeable, so neither is hand-editable.
+    readonly_fields = ('started_at', 'plan_started_at')
     actions = ['force_downgrade_to_free']
 
     @admin.display(description='Owner', ordering='business__user__username')

@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.db.models import Sum, Avg, Value
 
 from django.db.models.functions import Coalesce
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from user.models import User, BusinessProfile
 
@@ -298,7 +298,37 @@ class PurchaseItem(TimeStampModel):
     @property
     def total_item_discount(self):
         return self.total_price_per_item - self.discount
-    
+
+    @property
+    def effective_unit_price(self):
+        """What we ACTUALLY paid the supplier for ONE of these.
+
+        A purchase carries two discounts and they are mutually EXCLUSIVE — in whole-order
+        % mode the per-item flats are forced to 0 (Expense/views.py), so exactly one of
+        the two terms below is ever non-zero and this needs no branching:
+
+            line = price × qty − discount          (flat mode; discount is 0 in % mode)
+            line = line × (100 − percent) / 100    (percent is 0 in flat mode)
+
+        ★ Price every REFUND through here, never through `price`, or the return claims
+          back more than the PO was ever worth — and a FULL return totals more than
+          `total_cost` and gets rejected by the refund ceiling. Twin of
+          Sales.SaleItem.effective_unit_price; same reasoning, mirrored side.
+
+        Rounds DOWN to centavos so the lines always sum to at or under `total_cost`.
+        """
+        qty = self.quantity or 0
+        if qty <= 0:
+            return Decimal('0')
+
+        line = (self.price or Decimal('0')) * qty - (self.discount or Decimal('0'))
+        pct = (self.purchase.discount_percent or Decimal('0')) if self.purchase_id else Decimal('0')
+        if pct > 0:
+            line = line * (Decimal('100') - pct) / Decimal('100')
+
+        unit = max(line, Decimal('0')) / qty
+        return unit.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
     @property
     def total_returned_quantity(self):
         return self.return_items.aggregate(

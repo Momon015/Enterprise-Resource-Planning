@@ -140,7 +140,7 @@
                       {% if supplier.image %}
                         <img src="{{ supplier.image.url }}" alt="" class="list-thumb">
                       {% else %}
-                        <span class="list-thumb-placeholder"><i class="bi bi-shop"></i></span>
+                        <span class="list-thumb-placeholder list-avatar">{{ supplier.name|slice:":2"|upper }}</span>
                       {% endif %}
                       <div class="name-text">
                         <strong>{{ supplier.name }}</strong>

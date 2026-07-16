@@ -94,13 +94,21 @@
                         </div>
                     </td>
                     <td class="sl-text-center">
+                    {# Prefilled with what the customer PAID, not the sticker price — the #}
+                    {# whole-order discount comes off every item. See effective_unit_price. #}
                     <div class="input-with-prefix">
                         <span class="input-prefix">₱</span>
                         <input type="number" name="unit_refund_{{ si.id }}"
                             class="form-control form-control--polish"
                             style="max-width: 110px;"
-                            step="0.01" value="{{ si.price_at_sale|floatformat:2 }}">
+                            step="0.01" min="0" max="{{ si.effective_unit_price|floatformat:2 }}"
+                            value="{{ si.effective_unit_price|floatformat:2 }}">
                     </div>
+                    {% if sale.discount_percent %}
+                    <div class="cell-sub">
+                        ₱{{ si.price_at_sale|floatformat:2 }} less {{ sale.discount_percent|floatformat:0 }}% off
+                    </div>
+                    {% endif %}
                     </td>
                     <td class="sl-text-center">
                     <div class="condition-toggle">

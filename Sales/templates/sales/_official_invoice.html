@@ -28,10 +28,28 @@
 
 <div class="divider"></div>
 
+{% comment %} Discount MUST be its own named line on an invoice. Items print at sticker
+price while TOTAL is the net, and the VAT block below is already discount-aware
+(vat_summary applies it to every bucket) — so without these rows the item lines sum to
+GROSS while the VAT lines sum to NET, and the invoice contradicts itself. {% endcomment %}
 <table class="totals">
+    {% if sale.discount_percent %}
+    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
+    <tr><td>Discount ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
+    {% endif %}
+    {% comment %} ★ TOTAL is MANDATORY and is never replaced — BIR requires a stated total
+    amount due, so unlike the plain slip (which collapses to a single "UNPAID" line) this
+    document always prints TOTAL and adds UNPAID as a STAMP. Paid/Balance are supplementary:
+    under EOPT the Invoice documents the SALE; collection is a separate event. {% endcomment %}
     <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
-    {% if sale.amount_paid %}<tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>{% endif %}
-    {% if not sale.is_fully_paid %}<tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>{% endif %}
+    {% if sale.is_fully_paid %}
+    {% if sale.payment_method_code %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
+    {% elif sale.amount_paid %}
+    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>
+    {% else %}
+    <tr class="bold"><td colspan="2" class="center">*** UNPAID ***</td></tr>
+    {% endif %}
     <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
     {% if business.is_vat_registered %}
     <tr><td colspan="2"><div class="divider"></div></td></tr>

@@ -35,7 +35,7 @@
       data-api-base="{% url 'cart-state' business_slug=current_business.slug %}"
       data-confirm-url="{% url 'view-session-summary' business_slug=current_business.slug %}"
       data-product-list-url="{% url 'product-list' business_slug=current_business.slug %}"
-      data-no-image="{% static 'images/no-image.png' %}"
+      data-no-image="{% static 'images/no-image.svg' %}"
       data-discount-enabled="{{ current_business.enable_sale_discount|yesno:'1,' }}"
       data-preset-list-url="{% url 'product-preset-list' business_slug=current_business.slug %}"></div></div>
   <script type="module" src="{% static 'react/sale-cart.js' %}"></script>

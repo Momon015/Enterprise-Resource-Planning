@@ -1,0 +1,375 @@
+        <div class="mf-fields-grid">
+
+          {# Name + Category #}
+          <div class="mf-field-group">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}
+              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            <div class="mf-help">Include variants in the name (e.g. "Coke 1L", "Coke 500ml") for easier tracking.</div>
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="mf-field-group">
+            <label for="{{ form.category.id_for_label }}" class="mf-form-label">
+              {{ form.category.label }}
+              {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.category }}
+            {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <!-- VAT -->
+          {% if current_business.is_vat_registered %}
+          <div class="mf-form-group">
+            <label for="{{ form.vat_class.id_for_label }}" class="mf-form-label">VAT Class</label>
+            {{ form.vat_class }}
+            <div class="mf-help">Most items are VATable — mark VAT-Exempt for maintenance medicines and basic goods.</div>
+            {% if form.vat_class.errors %}<div class="mf-error">{{ form.vat_class.errors|striptags }}</div>{% endif %}
+          </div>
+          {% else %}
+          {{ form.vat_class.as_hidden }}
+          {% endif %}
+
+          {# Product Image #}
+          {% comment %} <div class="form-group">
+              <label for="{{ form.sku.id_for_label }}">SKU</label>
+              {{ form.sku }}
+              <small class="form-text text-muted">Leave blank to auto-generate.</small>
+              {% if form.sku.errors %}<div class="text-danger">{{ form.sku.errors }}</div>{% endif %}
+            </div> {% endcomment %}
+
+          <div class="form-group">
+            <label class="mf-form-label">Product Image</label>
+
+            <div class="file-input-wrapper">
+              {# Hidden native input + styled label as button #}
+              <label for="{{ form.image.id_for_label }}" class="file-input-button">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <span id="image-label-{{ form.image.id_for_label }}">
+                  {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
+                </span>
+              </label>
+              {{ form.image }}
+
+              <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
+                {% if form.instance.image %}
+                  Image uploaded
+                {% else %}
+                  No file chosen
+                {% endif %}
+              </span>
+
+              <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically. Tip: a PNG with a transparent background looks best — no white box around the photo.</small>
+              {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          {# Barcode #}
+          <div class="form-group">
+            <label for="{{ form.barcode.id_for_label }}">Barcode (optional)</label>
+            {{ form.barcode }}
+            <small class="form-text text-muted">For scanner-based checkout. Skip if you don't use one.</small>
+            {% if form.barcode.errors %}<div class="text-danger">{{ form.barcode.errors }}</div>{% endif %}
+          </div>
+
+          {# Description — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.description.id_for_label }}" class="mf-form-label">
+              {{ form.description.label }}
+              {% if form.description.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.description }}
+            <div class="mf-help">Internal notes only — not shown on receipts or to customers.</div>
+            {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Pricing & Inventory — full width label #}
+          <div style="grid-column: 1 / -1;" class="sd-section-label">
+            <i class="bi bi-cash-coin sl-me-1"></i> Pricing & Inventory
+          </div>
+
+          {# Cost Price / Cost #}
+          <div class="mf-field-group">
+            <label for="{{ form.cost_price.id_for_label }}" class="mf-form-label">{{ form.cost_price.label }}</label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              {{ form.cost_price }}
+            </div>
+            {% if form.instance.material %}
+            <div class="mf-help">Cost comes from the linked material — <strong>{{ form.instance.material.name }}</strong>.</div>
+            {% else %}
+            <div class="mf-help">Your buying cost per unit — used to compute margin.</div>
+            {% endif %}
+            {% if form.cost_price.errors %}<div class="mf-error">{{ form.cost_price.errors|striptags }}</div>{% endif %}
+          </div>
+
+
+          {# Selling Price #}
+          <div class="mf-field-group">
+            <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+              {{ form.selling_price.label }}
+              {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', -1, false)">−</button>
+                {{ form.selling_price }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', 1, false)">+</button>
+              </div>
+            </div>
+            <div class="mf-help">Must be set manually before adding to a sale.</div>
+            {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Live margin bar + target margin spinner (owner) #}
+          {% if request.user.role == 'owner' %}
+          <div style="grid-column: 1 / -1;" class="pd-margin" id="lm-wrap">
+            <div class="pd-margin__head">
+              <span class="pd-margin__label"><i class="bi bi-bar-chart-line"></i> Live Gross Margin</span>
+              <span class="pd-margin__meta"><span class="pd-margin__badge" id="lm-badge"><span id="lm-current">0</span>%</span></span>
+            </div>
+            <div class="pd-margin__track">
+              <div class="pd-margin__fill" id="lm-fill" style="width:0%;"></div>
+              <div class="pd-margin__target" id="lm-mark" style="left:30%;"></div>
+            </div>
+            <div class="pd-margin__note" id="lm-note"></div>
+          </div>
+
+          <div class="mf-field-group">
+            <label for="{{ form.target_margin.id_for_label }}" class="mf-form-label">Target margin %</label>
+            <div class="mf-margin-field">
+              {{ form.target_margin }}
+              <span class="mf-margin-pct">%</span>
+              <span class="mf-spin">
+                <button type="button" class="mf-spin__btn" data-margin-step="1" aria-label="Increase target margin"><i class="bi bi-chevron-up"></i></button>
+                <button type="button" class="mf-spin__btn" data-margin-step="-1" aria-label="Decrease target margin"><i class="bi bi-chevron-down"></i></button>
+              </span>
+            </div>
+            <div class="mf-help">Click ▲ to price up from your cost. Blank = category default (30%). Minimum 10%.</div>
+            {% if form.target_margin.errors %}<div class="mf-error">{{ form.target_margin.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endif %}
+
+
+          {# Prepared Quantity — editable for catalog-only products, read-only when material-linked #}
+          <div class="mf-field-group">
+            <label for="{{ form.prepared_quantity.id_for_label }}" class="mf-form-label">
+              {{ form.prepared_quantity.label }}
+              {% if form.prepared_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+
+            {% if not form.instance.material %}
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1, true)">−</button>
+                {{ form.prepared_quantity }}
+                <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1, true)">+</button>
+              </div>
+              <div class="mf-help">Starting stock on hand. Updates from purchases & sales automatically after.</div>
+            {% else %}
+              <div class="readonly-chip">
+                <i class="bi bi-link-45deg"></i>
+                <span class="sl-badge sl-badge-light">{{ form.instance.prepared_quantity }} units</span>
+                <span>Managed via material stock</span>
+              </div>
+              <div class="mf-help">
+                Linked to material
+                <a href="{% url 'material-detail' business_slug=current_business.slug id=form.instance.material.id slug=form.instance.material.slug %}">{{ form.instance.material.name }}</a>.
+                Manage stock from <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">Inventory</a> to keep them in sync.
+              </div>
+              <input type="hidden" name="{{ form.prepared_quantity.name }}" value="{{ form.instance.prepared_quantity }}">
+            {% endif %}
+
+            {% if form.prepared_quantity.errors %}<div class="mf-error">{{ form.prepared_quantity.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Stock Alerts — full width label #}
+          <div style="grid-column: 1 / -1;" class="sd-section-label">
+            <i class="bi bi-bell sl-me-1"></i> Stock Alerts
+          </div>
+
+          {# Low Stock Threshold #}
+          <div class="mf-field-group">
+            <label for="{{ form.low_stock_threshold.id_for_label }}" class="mf-form-label">
+              {{ form.low_stock_threshold.label }}
+            </label>
+            <div class="mf-stepper">
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.low_stock_threshold.id_for_label }}', -1, true)">−</button>
+              {{ form.low_stock_threshold }}
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.low_stock_threshold.id_for_label }}', 1, true)">+</button>
+            </div>
+            <div class="mf-help">Shows "Low stock" badge when on-hand drops to or below this level.</div>
+            {% if form.low_stock_threshold.errors %}<div class="mf-error">{{ form.low_stock_threshold.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# High Stock Threshold #}
+          <div class="mf-field-group">
+            <label for="{{ form.high_stock_threshold.id_for_label }}" class="mf-form-label">
+              {{ form.high_stock_threshold.label }}
+            </label>
+            <div class="mf-stepper">
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.high_stock_threshold.id_for_label }}', -1, true)">−</button>
+              {{ form.high_stock_threshold }}
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.high_stock_threshold.id_for_label }}', 1, true)">+</button>
+            </div>
+            <div class="mf-help">Considered "In stock" at or above this level.</div>
+            {% if form.high_stock_threshold.errors %}<div class="mf-error">{{ form.high_stock_threshold.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Stock-zone preview — updates live from the thresholds above #}
+          <div style="grid-column: 1 / -1;" class="mf-zones">
+            <div class="mf-zone mf-zone--out">
+              <div class="mf-zone__label">Out of Stock</div>
+              <div class="mf-zone__val">0 units</div>
+            </div>
+            <div class="mf-zone mf-zone--low">
+              <div class="mf-zone__label">Low Stock Zone</div>
+              <div class="mf-zone__val" id="zone-low">1–25</div>
+            </div>
+            <div class="mf-zone mf-zone--in">
+              <div class="mf-zone__label">In Stock Zone</div>
+              <div class="mf-zone__val" id="zone-in">50+</div>
+            </div>
+          </div>
+
+          {% comment %} RETAIL PHASE — default_quantity auto managed
+          <div class="mf-field-group">
+            <label for="{{ form.default_quantity.id_for_label }}" class="mf-form-label">
+              {{ form.default_quantity.label }}
+              {% if form.default_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            <div class="mf-stepper">
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', -1, true)">−</button>
+              {{ form.default_quantity }}
+              <button class="qty-btn" type="button" onclick="changeValue('{{ form.default_quantity.id_for_label }}', 1, true)">+</button>
+            </div>
+            <div class="mf-help">Used when restoring stock to default.</div>
+            {% if form.default_quantity.errors %}<div class="mf-error">{{ form.default_quantity.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endcomment %}
+
+        </div>
+
+
+<script>
+function changeValue(fieldId, delta, isInteger = false) {
+  const input = document.getElementById(fieldId);
+  let value = parseFloat(input.value) || 0;
+  value += delta;
+  if (value < 0) value = 0;
+  if (isInteger) {
+    input.value = Math.round(value);
+  } else {
+    input.value = value.toFixed(2);
+  }
+  // let the live margin / stock-zone listeners react to +/- clicks too
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// ── Live gross margin + target→price linkage + stock-zone preview (owner) ──
+(function () {
+  const $ = id => document.getElementById(id);
+  const cost   = $('{{ form.cost_price.id_for_label }}');
+  const price  = $('{{ form.selling_price.id_for_label }}');
+  const target = $('{{ form.target_margin.id_for_label }}');
+  const low    = $('{{ form.low_stock_threshold.id_for_label }}');
+  const high   = $('{{ form.high_stock_threshold.id_for_label }}');
+
+  const wrap = $('lm-wrap'), fill = $('lm-fill'), mark = $('lm-mark');
+  const curEl = $('lm-current'), tgtEl = $('lm-target'), note = $('lm-note'), badge = $('lm-badge');
+  const zLow = $('zone-low'), zIn = $('zone-in');
+  const num = el => parseFloat(el && el.value) || 0;
+
+  function renderMargin() {
+    if (!wrap) return;
+    const c = num(cost), p = num(price);
+    const m = p > 0 ? (p - c) / p * 100 : 0;
+    const t = num(target) || 30;
+    fill.style.width = Math.max(0, Math.min(m, 100)) + '%';
+    mark.style.left  = Math.max(0, Math.min(t, 100)) + '%';
+    const shown = Math.round(m);
+    curEl.textContent = shown;
+    if (tgtEl) tgtEl.textContent = Math.round(t);
+    wrap.classList.remove('pd-margin--warning', 'pd-margin--critical');
+    // Colour from the DISPLAYED %, never the raw one. The price is rounded to
+    // centavos, so the recomputed margin lands a hair either side of target
+    // (46.98 vs 47) — comparing raw m to t made the number say 47 while the
+    // colour said orange, flipping every step. red < ⅓ target · orange < target · green ≥.
+    let status = 'green';
+    if (shown < t / 3)   status = 'red';
+    else if (shown < t)  status = 'orange';
+    if (status === 'red')    wrap.classList.add('pd-margin--critical');
+    if (status === 'orange') wrap.classList.add('pd-margin--warning');
+    if (badge) badge.className = 'pd-margin__badge pd-margin__badge--' + status;
+    // Note follows the SAME status as the badge, so the two can never disagree.
+    note.textContent = status !== 'green'
+      ? 'Below ' + Math.round(t) + '% target — raise the price.'
+      : '✓ ' + (shown > t ? 'Above' : 'Meets') + ' the ' + Math.round(t) + '% target.';
+  }
+
+  // Target margin DRIVES the selling price: price = cost ÷ (1 − margin)
+  function applyTargetToPrice() {
+    const c = num(cost), t = num(target);
+    // round the price UP to the centavo so the achieved margin is always ≥ target
+    // (2-decimal pricing can't land exactly on target for small costs, and rounding
+    // DOWN would show "below target" the instant you priced up — see the colour flicker).
+    if (c > 0 && t > 0 && t < 100) price.value = (Math.ceil(c / (1 - t / 100) * 100) / 100).toFixed(2);
+    renderMargin();
+  }
+
+  function renderZones() {
+    if (!zLow) return;
+    zLow.textContent = '1–' + (parseInt(low && low.value, 10) || 0);
+    zIn.textContent  = (parseInt(high && high.value, 10) || 0) + '+';
+  }
+
+  document.querySelectorAll('.mf-spin__btn[data-margin-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!target) return;
+      let t = num(target) + parseInt(btn.dataset.marginStep, 10);
+      t = Math.max(0, Math.min(t, 99));
+      target.value = t;
+      applyTargetToPrice();
+    });
+  });
+
+  if (cost)   cost.addEventListener('input', renderMargin);
+  if (price)  price.addEventListener('input', renderMargin);
+  if (target) target.addEventListener('input', applyTargetToPrice);
+  if (low)    low.addEventListener('input', renderZones);
+  if (high)   high.addEventListener('input', renderZones);
+
+  renderMargin();
+  renderZones();
+})();
+
+// override stepNumber min to 0 for prepared_quantity
+function stepNumber(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseInt(input.value || 0, 10);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 0) value = 0;
+  input.value = value;
+}
+
+(function() {
+  const fileInput = document.getElementById('{{ form.image.id_for_label }}');
+  if (!fileInput) return;
+
+  const label = document.getElementById('image-label-{{ form.image.id_for_label }}');
+  const filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
+
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) {
+      filename.textContent = 'No file chosen';
+      return;
+    }
+    label.textContent = 'Change image';
+    filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+  });
+})();
+</script>

@@ -224,6 +224,14 @@
                     <td class="sl-text-end sl-fw-semibold">₱{{ item.net_sale_value|floatformat:2|intcomma }}</td>
                   </tr>
                   {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
+                  {% comment %} Lines print at STICKER price but the header total is the NET,
+                  so a discounted sale's drill-down doesn't add up without this row. {% endcomment %}
+                  {% if sale.discount_percent %}
+                  <tr>
+                    <td colspan="2" class="sl-text-end">Discount ({{ sale.discount_percent|floatformat:0 }}%)</td>
+                    <td class="sl-text-end sl-fw-semibold sl-text-success">−₱{{ sale.discount_amount|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% endif %}
                 </tbody>
               </table>
 
@@ -302,6 +310,15 @@
                     <td class="sl-text-end sl-fw-semibold">₱{{ item.total_item_discount|floatformat:2|intcomma }}</td>
                   </tr>
                   {% empty %}<tr class="sl-empty-row"><td colspan="3">No items.</td></tr>{% endfor %}
+                  {% comment %} In whole-order % mode the per-item flats are 0, so the lines
+                  above print GROSS while the header shows the NET total_cost. Same row as the
+                  sales drill-down above — without it a discounted PO doesn't add up. {% endcomment %}
+                  {% if purchase.discount_percent %}
+                  <tr>
+                    <td colspan="2" class="sl-text-end">Discount ({{ purchase.discount_percent|floatformat:0 }}%)</td>
+                    <td class="sl-text-end sl-fw-semibold sl-text-success">−₱{{ purchase.discount_amount|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% endif %}
                 </tbody>
               </table>
 

@@ -303,7 +303,7 @@
                       {% if linked_product.image %}
                         <img src="{{ linked_product.image.url }}" alt="" class="list-thumb">
                       {% else %}
-                        <span class="list-thumb-placeholder"><i class="bi bi-image"></i></span>
+                        <span class="list-thumb-placeholder list-avatar">{{ stock.material.name|slice:":2"|upper }}</span>
                       {% endif %}
                     {% endwith %}
                     <div class="name-text">

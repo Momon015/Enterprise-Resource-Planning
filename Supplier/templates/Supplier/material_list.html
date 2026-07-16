@@ -161,7 +161,7 @@
               <tr class="{% if material.is_locked %}is-locked{% endif %}">
                 <td>
                   <div class="list-name-cell">
-
+                  <span class="list-thumb-placeholder list-avatar">{{ material.name|slice:":2"|upper }}</span>
                   <div class="name-text">
                     <strong>{{ material.name }}</strong>
                     <small class="text-muted">{{ material.supplier.name|default:"No supplier" }}</small>

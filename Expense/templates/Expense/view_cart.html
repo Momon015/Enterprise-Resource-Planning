@@ -25,9 +25,17 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1 class="page-title">Purchase Record</h1>
-      <p class="page-subtitle">Items bought from the market — track cost for your inventory</p>
+      <p class="page-subtitle">Search materials to add — products are shown for reference only</p>
     </div>
   </div>
+
+  <!-- React Purchase Search island — feeds the cart below (fires cart:changed on add) -->
+  <div id="purchase-search-root"
+       class="mb-3 mb-lg-4"
+       data-search-url="{% url 'pcart-search' business_slug=current_business.slug %}"
+       data-add-url="{% url 'pcart-add' business_slug=current_business.slug %}"
+       data-no-image="{% static 'images/no-image.svg' %}"></div>
+  <script type="module" src="{% static 'react/purchase-search.js' %}"></script>
 
   <!-- React Purchase Cart island -->
   <div id="purchase-cart-root"
@@ -35,7 +43,7 @@
        data-api-base="{% url 'pcart-state' business_slug=current_business.slug %}"
        data-confirm-url="{% url 'view-cart-summary' business_slug=current_business.slug %}"
        data-material-list-url="{% url 'material-list' business_slug=current_business.slug %}"
-       data-no-image="{% static 'images/no-image.png' %}"
+       data-no-image="{% static 'images/no-image.svg' %}"
        data-preset-url="{% url 'material-save-items' business_slug=current_business.slug %}"
        data-preset-list-url="{% url 'material-preset-list' business_slug=current_business.slug %}"></div>
   <script type="module" src="{% static 'react/purchase-cart.js' %}"></script>

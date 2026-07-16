@@ -252,6 +252,16 @@ class Subscription(models.Model):
     trial_used    = models.BooleanField(default=False)
     started_at    = models.DateTimeField(auto_now_add=True)
 
+    # ── The billing period lives HERE, on the owner — not on BusinessPlan ────────
+    # Bundle pricing is owner-level: the highest-tier business pays the BASE rate and the
+    # rest pay SURCHARGES, so a business's price depends on its siblings and cannot be
+    # billed in isolation. A nightly job that charged each business on its own expires_at
+    # would mis-charge every bundle. One owner, one period, one invoice, one sum.
+    #
+    # NULL/NULL = no paid term running (an all-Free owner).
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end   = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         tag = ' [Founder]' if self.is_founder else ''
         lt  = ' [Lifetime]' if self.is_lifetime else ''
@@ -303,17 +313,130 @@ class Subscription(models.Model):
                 bp.save()
         return sub
 
+    # ── Billing period ───────────────────────────────────────────────────────
+
+    PERIOD_DAYS = {'monthly': 30, 'yearly': 365}
+
+    @property
+    def has_active_period(self):
+        return self.current_period_end is not None
+
+    @property
+    def period_is_due(self):
+        """The term has run out — the biller should charge (or downgrade) this owner."""
+        return self.has_active_period and timezone.now() > self.current_period_end
+
+    def open_period(self, *, start=None, days=None):
+        """Start the owner's billing term and push its end date onto every paid business.
+
+        BusinessPlan.expires_at becomes a DENORMALISED COPY of current_period_end. It is
+        kept only so the per-request access checks (is_plan_active / is_expired) stay
+        query-free — they run on every request, once per business. This method is the one
+        place allowed to write it; never set expires_at on a paid plan by hand or the two
+        will drift.
+
+        Trials are NOT billing: they keep their own 14-day expires_at and are left alone.
+        """
+        start = start or timezone.now()
+        days = days or self.PERIOD_DAYS.get(self.billing_cycle, 30)
+        self.current_period_start = start
+        self.current_period_end = start + timedelta(days=days)
+        self.save(update_fields=['current_period_start', 'current_period_end'])
+        self.sync_paid_expiry()
+        return self.current_period_end
+
+    def renew(self, *, days=None):
+        """Advance the term by one cycle. The biller calls this on a successful charge.
+
+        A yearly renewal is a NEW upfront payment, so the refund clock on every paid
+        business restarts too — otherwise a customer in year two would be refunded as if
+        they had been paying since year one.
+        """
+        if not self.has_active_period:
+            return self.open_period(days=days)
+        start = self.current_period_end
+        end = self.open_period(start=start, days=days)
+        BusinessPlan.objects.filter(
+            business__user=self.user, business__is_active=True, is_trial=False,
+        ).exclude(plan='free').update(plan_started_at=start)
+        return end
+
+    def close_period(self):
+        """No paid businesses left — stop the clock so the biller skips this owner."""
+        self.current_period_start = None
+        self.current_period_end = None
+        self.save(update_fields=['current_period_start', 'current_period_end'])
+
+    def sync_paid_expiry(self):
+        # business__is_active=True — BusinessPlan.objects is NOT archive-filtered (only the
+        # BusinessProfile reverse manager is), so without this we'd touch archived rows.
+        BusinessPlan.objects.filter(
+            business__user=self.user, business__is_active=True, is_trial=False,
+        ).exclude(plan='free').update(expires_at=self.current_period_end)
+
     # ── Pricing (sums per-business plans) ────────────────────────────────────
 
-    def _paid_plans_sorted(self):
-        """Plan keys for non-free businesses, highest tier first."""
-        plans = []
-        for biz in self.user.business_profiles.all():
-            bp = getattr(biz, 'plan', None)
-            if bp and bp.plan in ('standard', 'premium', 'pro'):
-                plans.append(bp.plan)
-        plans.sort(key=lambda p: PLAN_RANK[p], reverse=True)
-        return plans
+    def plan_components(self):
+        """[(BusinessPlan, monthly_price)] for every paid business — base-payer first.
+
+        ★ THE single answer to "what does this business cost this owner". Billing AND
+          refunds must both read it.
+
+        Bundle pricing means the highest tier pays the BASE rate and every other business
+        pays a SURCHARGE, so a business's price depends on its siblings — it cannot be
+        priced alone. The refund path used to re-derive the price straight from
+        REGULAR_BASE and never consulted the surcharge, so cancelling a 2nd business
+        refunded it at base rate (₱300) when it had only ever been billed a surcharge
+        (₱150) — handing back more than was ever collected.
+
+        Ties on tier are broken by pk so the base-payer is stable between calls; without
+        it, which business is "first" could flip and prices would flicker.
+        """
+        return self._components_for(self.paid_plans())
+
+    def paid_plans(self):
+        """Every non-free BusinessPlan this owner has (archived businesses excluded)."""
+        return [
+            bp for biz in self.user.business_profiles.select_related('plan')
+            if (bp := getattr(biz, 'plan', None)) and bp.plan in ('standard', 'premium', 'pro')
+        ]
+
+    def _components_for(self, plans):
+        """Price an arbitrary SET of plans. Kept separate from plan_components() so the
+        same rules can be run against a hypothetical bundle — see reprice_preview()."""
+        ordered = sorted(plans, key=lambda bp: (-PLAN_RANK[bp.plan], bp.pk))
+        return [
+            (bp, self._component_monthly(bp.plan, is_first=(i == 0)))
+            for i, bp in enumerate(ordered)
+        ]
+
+    def component_monthly_for(self, business_plan):
+        """This one business's share of the owner's monthly bill (base OR surcharge)."""
+        for bp, monthly in self.plan_components():
+            if bp.pk == business_plan.pk:
+                return monthly
+        return Decimal('0')
+
+    def reprice_preview(self, cancelling):
+        """What the SURVIVORS would pay if `cancelling` went away.
+
+        Cancelling the base-tier business promotes the next-highest survivor from a
+        surcharge to the base rate — so the bill for a business the owner is KEEPING can
+        go UP. That is honest to the pricing model (a surcharge only exists as an add-on
+        to a base plan) but it is a nasty surprise, so the confirm modal and the
+        cancellation email both warn in pesos before anything is committed.
+
+        Returns [(BusinessPlan, old_monthly, new_monthly)] — only the ones that MOVE.
+        """
+        paid = self.paid_plans()
+        before = {bp.pk: m for bp, m in self._components_for(paid)}
+        survivors = [bp for bp in paid if bp.pk != cancelling.pk]
+        after = {bp.pk: m for bp, m in self._components_for(survivors)}
+
+        return [
+            (bp, _peso(before[bp.pk]), _peso(after[bp.pk]))
+            for bp in survivors if before[bp.pk] != after[bp.pk]
+        ]
 
     def _component_monthly(self, plan, is_first):
         """Base price if this is the highest-tier business, else its surcharge."""
@@ -323,23 +446,26 @@ class Subscription(models.Model):
             return base
         return _extra_business_surcharge(plan, base, self.is_founder)
 
+    def _yearly_component(self, plan, monthly):
+        """One component's discounted per-month rate, floored to whole peso."""
+        discount = Decimal('0') if self.is_founder else REGULAR_YEARLY_DISCOUNT.get(plan, Decimal('0'))
+        return _floor_peso(monthly * (Decimal('1') - discount))
+
     def get_monthly_price(self):
         if self.is_lifetime:
             return Decimal('0')
-        total = Decimal('0')
-        for i, plan in enumerate(self._paid_plans_sorted()):
-            total += self._component_monthly(plan, is_first=(i == 0))
+        total = sum((m for _, m in self.plan_components()), Decimal('0'))
         return _peso(total)
 
     def get_yearly_price(self):
         """Effective discounted per-month total × 12. Each component rounded down."""
         if self.is_lifetime:
             return Decimal('0')
-        monthly_total = Decimal('0')
-        for i, plan in enumerate(self._paid_plans_sorted()):
-            component = self._component_monthly(plan, is_first=(i == 0))
-            discount = Decimal('0') if self.is_founder else REGULAR_YEARLY_DISCOUNT.get(plan, Decimal('0'))
-            monthly_total += _floor_peso(component * (Decimal('1') - discount))
+        monthly_total = sum(
+            (self._yearly_component(bp.plan, monthly)
+             for bp, monthly in self.plan_components()),
+            Decimal('0'),
+        )
         return _peso(monthly_total * 12)
 
 
@@ -371,7 +497,20 @@ class BusinessPlan(models.Model):
     )
     plan          = models.CharField(max_length=20, choices=PLAN_CHOICES, default='free')
     is_active     = models.BooleanField(default=True)
-    started_at    = models.DateTimeField(auto_now_add=True)
+
+    # ── The two timestamps are NOT interchangeable ───────────────────────────
+    # started_at      = when this ROW was born. A BusinessPlan is created (on Free)
+    #                   the moment the BUSINESS is created — see user/signals.py — so
+    #                   this is the business's birthday, nothing more.
+    # plan_started_at = when the CURRENT billing term began. Set on upgrade, on trial
+    #                   start, and (once billing is automated) on renewal.
+    #
+    # Refund maths must read plan_started_at. Reading started_at re-prices every month
+    # since the business signed up rather than since the customer actually paid, which
+    # silently under-refunds anyone who ran on Free before upgrading.
+    started_at      = models.DateTimeField(auto_now_add=True)
+    plan_started_at = models.DateTimeField(null=True, blank=True)
+
     expires_at    = models.DateTimeField(null=True, blank=True)
     is_trial = models.BooleanField(default=False, db_index=True)
     pending_cancellation = models.BooleanField(default=False)
@@ -383,23 +522,25 @@ class BusinessPlan(models.Model):
     def _owner_sub(self):
         return getattr(self.business.user, 'subscription', None)
 
+    # Both of these run on EVERY request via SubscriptionExpiryMiddleware, once per
+    # business. _owner_sub() is a DB hit, so it is consulted last — only when the local
+    # fields can't already settle the answer. The lifetime check can only ever flip a
+    # False to a True, so short-circuiting the True cases ahead of it is equivalent.
     def is_plan_active(self):
-        sub = self._owner_sub()
-        if sub and sub.is_lifetime:
-            return True
         if self.plan == 'free':
             return True
-        if not self.expires_at:
-            return self.is_active
-        return self.is_active and timezone.now() <= self.expires_at
+        if self.is_active and (not self.expires_at or timezone.now() <= self.expires_at):
+            return True
+        sub = self._owner_sub()
+        return bool(sub and sub.is_lifetime)
 
     def is_expired(self):
-        sub = self._owner_sub()
-        if sub and sub.is_lifetime:
-            return False
         if self.plan == 'free' or not self.expires_at:
             return False
-        return timezone.now() > self.expires_at
+        if timezone.now() <= self.expires_at:
+            return False
+        sub = self._owner_sub()
+        return not (sub and sub.is_lifetime)
 
     def has_dashboard(self):
         """PRO-only feature."""
@@ -607,16 +748,29 @@ class BusinessPlan(models.Model):
             self.plan = plan
             self.is_active = True
             self.is_trial = False   # paid, not trial
-            self.expires_at = (
-                timezone.now() + timedelta(days=days) if days else None
-            )
+            # A new tier is a new term: the refund clock restarts here, not at signup.
+            self.plan_started_at = timezone.now()
             self.save()
 
-            if billing_cycle:
-                sub = self._owner_sub()
-                if sub and sub.billing_cycle != billing_cycle:
+            sub = self._owner_sub()
+            if sub:
+                if billing_cycle and sub.billing_cycle != billing_cycle:
                     sub.billing_cycle = billing_cycle
                     sub.save(update_fields=['billing_cycle'])
+
+                # Join the owner's billing term — opening one if this is their first paid
+                # business. Either way expires_at comes from the period, so it is NEVER
+                # left NULL on a paid plan. That NULL was the bug that made a paying
+                # customer unable to cancel (request_cancellation rejected it as "no
+                # active billing cycle").
+                if sub.has_active_period:
+                    sub.sync_paid_expiry()
+                else:
+                    sub.open_period(days=days)
+                self.refresh_from_db(fields=['expires_at'])
+            elif days:
+                self.expires_at = timezone.now() + timedelta(days=days)
+                self.save(update_fields=['expires_at'])
 
             biz = self.business
             for model in _lockable_models():
@@ -629,7 +783,17 @@ class BusinessPlan(models.Model):
             self.plan = 'free'
             self.is_trial = False
             self.expires_at = None
-            self.save(update_fields=['plan', 'is_trial', 'expires_at'])
+            self.plan_started_at = None   # no term is running on Free
+            self.save(update_fields=['plan', 'is_trial', 'expires_at', 'plan_started_at'])
+
+            # Losing a business re-prices the survivors (a surcharge-payer can be promoted
+            # to the base rate), and if that was the last paid one the owner's term ends.
+            sub = self._owner_sub()
+            if sub:
+                if sub.paid_plans():
+                    sub.sync_paid_expiry()
+                elif sub.has_active_period:
+                    sub.close_period()
 
             free = PLAN_LIMITS['free']
             for model in _lockable_models():
@@ -657,6 +821,7 @@ class BusinessPlan(models.Model):
             self.plan = plan
             self.is_active = True
             self.is_trial = True
+            self.plan_started_at = timezone.now()
             self.expires_at = timezone.now() + timedelta(days=days)
             self.save()
             sub.trial_used = True
@@ -688,28 +853,36 @@ class BusinessPlan(models.Model):
                 is_locked=True, locked_at=timezone.now(),
             )
             
+    # Both rates price off the owner's BUNDLE COMPONENT for this business — the base rate
+    # only if it's the highest-tier business, the surcharge otherwise. They used to read
+    # base_table[self.plan] directly, which refunded every extra business at base rate
+    # even though it was billed a surcharge. Always go through Subscription; it is the one
+    # place that knows what this business actually costs.
     def _yearly_monthly_rate(self):
+        """What the owner actually pays per month for THIS business on a yearly cycle."""
         sub = self._owner_sub()
         if sub is None or self.plan not in ('standard', 'premium', 'pro'):
             return Decimal('0')
-        base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
-        monthly = base_table[self.plan]
-        discount = Decimal('0') if sub.is_founder else REGULAR_YEARLY_DISCOUNT.get(self.plan, Decimal('0'))
-        return _floor_peso(monthly * (Decimal('1') - discount))
-
+        return sub._yearly_component(self.plan, sub.component_monthly_for(self))
 
     def _standard_monthly_rate(self):
-        """Standard (non-discounted) per-month rate for this plan tier."""
+        """Undiscounted per-month rate for THIS business (its bundle component)."""
         sub = self._owner_sub()
         if sub is None or self.plan not in ('standard', 'premium', 'pro'):
             return Decimal('0')
-        base_table = FOUNDER_BASE if sub.is_founder else REGULAR_BASE
-        return _peso(base_table[self.plan])
+        return _peso(sub.component_monthly_for(self))
 
     def months_used_on_plan(self):
-        if not self.started_at:
+        """Months consumed in the CURRENT billing term — the refund clock.
+
+        Anchors on plan_started_at, NOT started_at. Falls back to started_at only for
+        legacy rows written before plan_started_at existed (see migration 0005), where
+        the two happen to coincide.
+        """
+        anchor = self.plan_started_at or self.started_at
+        if not anchor:
             return 0
-        delta = timezone.now() - self.started_at
+        delta = timezone.now() - anchor
         months = (delta.days + 29) // 30   # round up partial months
         return max(1, months)
 
@@ -733,7 +906,14 @@ class BusinessPlan(models.Model):
             raise ValueError("No subscription found.")
         if self.plan == 'free':
             raise ValueError("Free plans don't need to be cancelled.")
-        if not self.expires_at:
+
+        # A paid plan's term end is the OWNER's period end (expires_at is just a cached
+        # copy of it); a trial's is its own 14-day expires_at. Falling back to the period
+        # means a paid plan can always be cancelled even if the cached copy is missing —
+        # it used to hard-fail on a NULL expires_at, locking paying customers out of the
+        # cancel flow entirely.
+        term_end = self.expires_at or (None if self.is_trial else sub.current_period_end)
+        if not term_end:
             raise ValueError("This business has no active billing cycle to cancel.")
 
         months = self.months_used_on_plan()
@@ -756,7 +936,7 @@ class BusinessPlan(models.Model):
                 refund_amount=refund,
                 plan_at_cancel=self.plan,
                 months_used=months,
-                cycle_end_at=self.expires_at,
+                cycle_end_at=term_end,
                 due_at=due,
                 status=status,
             )

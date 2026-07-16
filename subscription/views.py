@@ -465,7 +465,12 @@ def cancel_business_confirm(request, business_slug):
 
     refund_due = target_bp.compute_refund_due() if sub.billing_cycle == 'yearly' else Decimal('0')
     months_used = target_bp.months_used_on_plan()
-    cycle_end = target_bp.expires_at
+    cycle_end = target_bp.expires_at or sub.current_period_end
+
+    # Cancelling the base-tier business promotes a survivor from surcharge to base rate,
+    # so a business the owner is KEEPING can get more expensive. Never spring that on
+    # them: it goes in the confirm modal AND in the confirmation email.
+    reprice = sub.reprice_preview(target_bp)
 
     if request.method == 'POST' and request.POST.get('confirm') == 'yes':
         try:
@@ -474,7 +479,7 @@ def cancel_business_confirm(request, business_slug):
             messages.error(request, str(e))
             return redirect('subscription-settings', business_slug=business.slug)
 
-        _send_cancellation_emails(request.user, target_biz, invoice)
+        _send_cancellation_emails(request.user, target_biz, invoice, reprice)
         messages.success(
             request,
             f"Cancellation confirmed. {target_biz.business_name} ends on {cycle_end.strftime('%b %d, %Y')}."
@@ -493,7 +498,7 @@ def cancel_business_confirm(request, business_slug):
     context = {
         'business': business, 'target_biz': target_biz, 'target_bp': target_bp,
         'refund_due': refund_due, 'months_used': months_used,
-        'cycle_end': cycle_end, 'sub': sub,
+        'cycle_end': cycle_end, 'sub': sub, 'reprice': reprice,
     }
     if request.headers.get('HX-Request'):
         return render(request, 'core/partials/_cancel_modal.html', context)
@@ -536,7 +541,7 @@ def resume_business_plan(request, business_slug):
     return redirect('subscription-settings', business_slug=business.slug)
 
 
-def _send_cancellation_emails(owner, target_biz, invoice):
+def _send_cancellation_emails(owner, target_biz, invoice, reprice=None):
     support_email = getattr(settings, 'SUPPORT_EMAIL', settings.EMAIL_HOST_USER)
     cycle_end_str = invoice.cycle_end_at.strftime('%b %d, %Y')
     due_str = invoice.due_at.strftime('%b %d, %Y')
@@ -550,18 +555,36 @@ def _send_cancellation_emails(owner, target_biz, invoice):
     else:
         refund_line = "No refund is due for this cancellation.\n\n"
 
+    # The owner already saw this in the confirm modal. Repeat it here so the price change
+    # is in writing, in their inbox, dated — before the bill arrives rather than after.
+    reprice_line = ''
+    if reprice:
+        plural = 'businesses go' if len(reprice) > 1 else 'business goes'
+        rows = '\n'.join(
+            f"  • {bp.business.business_name} ({bp.get_plan_display()}): "
+            f"₱{old_price:,.0f}/mo → ₱{new_price:,.0f}/mo"
+            for bp, old_price, new_price in reprice
+        )
+        reprice_line = (
+            f"HEADS UP — this was your main plan, so your other {plural} back to the "
+            f"regular price on {cycle_end_str}:\n\n{rows}\n\n"
+            f"The lower rate was a discount for running them alongside your main plan. "
+            f"Keep '{target_biz.business_name}' and nothing changes.\n\n"
+        )
+
     owner_body = (
         f"Hi {owner.username},\n\n"
         f"Your cancellation for '{target_biz.business_name}' is confirmed.\n\n"
         f"• Plan ends on: {cycle_end_str} (your data stays accessible until then)\n"
         f"• Months used: {invoice.months_used}\n\n"
         f"{refund_line}"
-        f"Thanks for giving Swift ERP a try. You're always welcome back.\n\n"
-        f"— Swift ERP"
+        f"{reprice_line}"
+        f"Thanks for giving paKITA a try. You're always welcome back.\n\n"
+        f"— paKITA"
     )
     try:
         EmailMultiAlternatives(
-            subject=f"[Swift ERP] Cancellation confirmed — {target_biz.business_name}",
+            subject=f"[paKITA] Cancellation confirmed — {target_biz.business_name}",
             body=owner_body,
             from_email=settings.EMAIL_HOST_USER,
             to=[owner.email] if owner.email else [],
@@ -583,13 +606,17 @@ def _send_cancellation_emails(owner, target_biz, invoice):
         f"Months used: {invoice.months_used}\n"
         f"Refund due: ₱{invoice.refund_amount} (status: {invoice.get_status_display()})\n"
         f"Invoice ID: {invoice.id}\n"
+        + (f"\nBundle reprice — survivors move to the base rate:\n" + '\n'.join(
+               f"  {bp.business.business_name}: ₱{old_price:,.0f} → ₱{new_price:,.0f}/mo"
+               for bp, old_price, new_price in reprice
+           ) + "\n" if reprice else "")
         + (f"\n⚠ REFUND PENDING — issue ₱{invoice.refund_amount} to the owner, "
            f"then mark invoice {invoice.id} as refunded.\n"
            if invoice.status == 'pending' else "")
     )
     try:
         EmailMultiAlternatives(
-            subject=f"[Swift ERP Admin] Cancellation — {target_biz.business_name}",
+            subject=f"[paKITA Admin] Cancellation — {target_biz.business_name}",
             body=support_body,
             from_email=settings.EMAIL_HOST_USER,
             to=[support_email],

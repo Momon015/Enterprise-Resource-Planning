@@ -236,10 +236,8 @@ def global_search(request, business_slug):
     services = Product.services.filter(business=business, name__icontains=q)[:6]
     materials = Material.objects.filter(business=business, name__icontains=q)[:5]
     suppliers = Supplier.objects.filter(business=business, name__icontains=q)[:5]
-    product_presets = (ProductPreset.objects
-                       .filter(business=business, name__icontains=q)
-                       .prefetch_related('product_preset_items__product'))[:5]
-    material_presets = MaterialPreset.objects.filter(business=business, name__icontains=q)[:5]
+    # Presets are intentionally excluded from the global search — the quick-search
+    # jumps to / adds individual items; bundles belong on the preset pages.
 
     # staff — OWNER ONLY
     staff = (Employee.objects.filter(business=business)
@@ -260,28 +258,25 @@ def global_search(request, business_slug):
     if scope == 'sale':
         materials = Material.objects.none()
         suppliers = Supplier.objects.none()
-        material_presets = MaterialPreset.objects.none()
         staff = Employee.objects.none()
         sales = Sale.objects.none()
         purchases = Purchase.objects.none()
     elif scope == 'purchase':
         products = Product.goods.none()
         services = Product.services.none()
-        product_presets = ProductPreset.objects.none()
         suppliers = Supplier.objects.none()
         staff = Employee.objects.none()
         sales = Sale.objects.none()
         purchases = Purchase.objects.none()
 
-    
-    left_items  = [materials, suppliers, product_presets, material_presets, staff, sales, purchases]
+
+    left_items  = [materials, suppliers, staff, sales, purchases]
     right_items = [products, services]
 
     context = {
         'q': q, 'current_business': business,
         'products': products, 'services': services,
         'materials': materials, 'suppliers': suppliers,
-        'product_presets': product_presets, 'material_presets': material_presets,
         'staff': staff, 'sales': sales, 'purchases': purchases,
         'has_results': any(left_items + right_items),
         'has_left':  any(left_items),

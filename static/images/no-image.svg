@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="No image">
+  <!-- Neutral slate that reads on both light and dark surfaces -->
+  <defs>
+    <style>
+      .frame { fill: none; stroke: #9aa3b2; stroke-width: 6; opacity: .55; }
+      .fill  { fill: #9aa3b2; opacity: .35; }
+      .cap   { fill: #9aa3b2; opacity: .75; font: 700 20px 'Segoe UI', system-ui, sans-serif; letter-spacing: 3px; }
+    </style>
+  </defs>
+  <!-- rounded photo frame -->
+  <rect class="frame" x="46" y="52" width="148" height="118" rx="14"/>
+  <!-- sun -->
+  <circle class="fill" cx="88" cy="90" r="12"/>
+  <!-- mountains -->
+  <path class="fill" d="M52 164 L104 112 L138 150 L160 128 L188 164 Z"/>
+  <!-- caption -->
+  <text class="cap" x="120" y="204" text-anchor="middle">NO IMAGE</text>
+</svg>

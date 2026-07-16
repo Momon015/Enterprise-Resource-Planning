@@ -7,6 +7,8 @@ from django.urls import path
 urlpatterns = [
     # JSON purchase-cart API (React purchase-cart island)
     path('api/cart/',        api.cart_state,    name='pcart-state'),
+    path('api/cart/search/', api.cart_search,   name='pcart-search'),
+    path('api/cart/add/',    api.cart_add,      name='pcart-add'),
     path('api/cart/qty/',    api.cart_set_qty,  name='pcart-set-qty'),
     path('api/cart/line/',   api.cart_set_line, name='pcart-set-line'),
     path('api/cart/remove/', api.cart_remove,   name='pcart-remove'),

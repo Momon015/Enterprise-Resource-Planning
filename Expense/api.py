@@ -1,12 +1,14 @@
 
 from decimal import Decimal
 
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 
 from Supplier.models import Material
+from Product.models import Product
 from core.utils.owner import get_business_for_user
 from .views import _normalize_cart_discount_mode
 
@@ -71,6 +73,90 @@ def _serialize_cart(request, business):
 def cart_state(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     return JsonResponse(_serialize_cart(request, business))
+
+
+@login_required(login_url='login')
+def cart_search(request, business_slug):
+    """Typeahead for the purchase-search island.
+
+    Materials are the purchasable rows (they get the "+"); products are returned
+    for REFERENCE only — a purchase is materials-from-suppliers, so the island
+    shows the sell-side product but never lets you add it. Empty q lists the first
+    page of each so the dropdown has something on focus, mirroring the mock.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    q = (request.GET.get('q') or '').strip()
+
+    materials = Material.objects.filter(business=business)
+    if q:
+        materials = materials.filter(Q(name__icontains=q) | Q(supplier__name__icontains=q))
+    materials = materials.select_related('supplier').prefetch_related('products')[:12]
+
+    mats = []
+    for m in materials:
+        linked = m.products.first()
+        mats.append({
+            'id': m.id,
+            'name': m.name,
+            'supplier': m.supplier.name if m.supplier else 'No supplier',
+            'price': f'{m.price:.2f}',      # unit COST
+            'stock': m.quantity,
+            'image': linked.image.url if linked and linked.image else '',
+        })
+
+    products = Product.objects.filter(business=business, is_active=True)
+    if q:
+        products = products.filter(name__icontains=q)
+    prods = [{
+        'id': p.id,
+        'name': p.name,
+        'price': f'{p.selling_price:.2f}',  # sell price (reference)
+        'image': p.image.url if p.image else '',
+    } for p in products[:12]]
+
+    return JsonResponse({'materials': mats, 'products': prods})
+
+
+@login_required(login_url='login')
+@require_POST
+def cart_add(request, business_slug):
+    """Add ONE material to the purchase cart from the search island.
+
+    Mirrors views.add_to_cart's session shape exactly (so the rest of the checkout
+    flow reads the same keys) and returns the serialized cart. The island dispatches
+    `cart:changed` on success so the sibling purchase-cart island re-reads its state.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    cart = request.session.get('cart', {})
+    material = get_object_or_404(Material, business=business, id=request.POST.get('material_id'))
+    key = str(material.id)
+
+    warning = None
+    if material.quantity < 1:
+        warning = f'{material.name} — out of stock.'
+    elif key in cart:
+        if cart[key]['quantity'] < material.quantity:
+            cart[key]['quantity'] += 1
+        else:
+            warning = f'{material.name} — only {material.quantity} available.'
+    else:
+        cart[key] = {
+            'supplier': material.supplier.name if material.supplier else 'No supplier',
+            'id': material.id,
+            'slug': material.slug,
+            'name': material.name,
+            'price': float(material.price),
+            'quantity': 1,
+            'discount': str(0),
+        }
+
+    request.session['cart'] = cart
+    request.session.modified = True
+    payload = _serialize_cart(request, business)
+    payload['added'] = material.name
+    if warning:
+        payload['warning'] = warning
+    return JsonResponse(payload)
 
 
 @login_required(login_url='login')

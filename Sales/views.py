@@ -27,7 +27,7 @@ from Product.forms import ProductForm
 from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
 from Employee.models import Employee, Shift, ShiftEmployee
 from Employee.forms import EmployeeForm
-from Employee.utils import void_window_open
+from Employee.utils import void_allowed, must_clock_in_to_sell
 
 from Inventory.models import Stock
 from Expense.models import Waste, WasteItem
@@ -161,15 +161,24 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
     sale_obj.save(update_fields=['is_locked'])
 
 
-def can_void_sale(sale):
-    """Same-day, not already void, no returns, and the void window is open.
-    Drafts (pending/canceled) were never posted, so there's nothing to void."""
+def can_void_sale(sale, user):
+    """Whether `user` may void this sale. NEVER decorate — see the note below.
+
+    Not already void, no returns (those force the return flow), and the void window is
+    open for this user (Employee.utils.void_allowed carries the rule + why). Drafts
+    (pending/canceled) were never posted, so there's nothing to void.
+    """
     return (
         sale.status == 'completed'
         and not sale.is_void
         and not sale.returns.exists()
-        and sale.date == timezone.localdate()
-        and void_window_open(sale.business)
+        and void_allowed(
+            sale.business, user,
+            on_date=sale.date,
+            rung_at=sale.created_at,
+            payments=sale.payments,
+            created_by_id=sale.created_by_id,
+        )
     )
 
 @login_required(login_url='login')
@@ -496,7 +505,7 @@ def sale_detail(request, sale_id, business_slug):
         'sale_employees': sale_employees, 
         'total_salary_cost': total_salary_cost,
         'payments': payments,
-        'can_void': can_void_sale(sale),
+        'can_void': can_void_sale(sale, request.user),
         'section': 'sale',
     }
     return render(request, 'Sales/sale_detail.html', context)
@@ -757,6 +766,16 @@ def view_session_summary(request, business_slug):
 @permission_required('update') # dev
 def confirm_view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+
+    # Staff must be on shift for the cash to land in a drawer that someone counts.
+    # The cart is left untouched: they clock in and come straight back to it, so this
+    # costs a tap rather than the sale (see must_clock_in_to_sell for the why).
+    if must_clock_in_to_sell(business, request.user):
+        messages.warning(
+            request,
+            "Time in first so this sale goes into your drawer. Your cart is saved."
+        )
+        return redirect('shift-dashboard', business_slug=business.slug)
 
     sale = prune_stale_cart_lines(request, business, 'sale', Product)
     line_count = request.session.get('line_count', 0)
@@ -1069,7 +1088,7 @@ def view_sale_summary(request, sale_id, business_slug):
         'total_cost_price': total_cost_price, 
         'total_revenue': total_revenue, 
         'total_salary_cost': total_salary_cost, 
-        'can_void': can_void_sale(sale),
+        'can_void': can_void_sale(sale, request.user),
         'section': 'sale'
         }
 
@@ -1121,7 +1140,7 @@ def void_sale(request, business_slug, sale_id):
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     is_hx = request.headers.get('HX-Request')
 
-    if not can_void_sale(sale):
+    if not can_void_sale(sale, request.user):
         messages.error(request, "This sale can no longer be voided — use Sales Returns instead.")
         if is_hx:
             resp = HttpResponse(status=204)
@@ -1387,11 +1406,14 @@ def sales_return_create(request, business_slug, sale_id):
                                 business_slug=business_slug, sale_id=sale_id)
 
 
-            unit_refund_str = request.POST.get(f'unit_refund_{si.id}', str(si.price_at_sale))
+            # ★ Price the refund off what the customer PAID (sticker less the whole-order
+            # discount), never off price_at_sale — see SaleItem.effective_unit_price.
+            paid_per_unit = si.effective_unit_price
+            unit_refund_str = request.POST.get(f'unit_refund_{si.id}', str(paid_per_unit))
             try:
                 unit_refund = Decimal(unit_refund_str)
             except (ValueError, ArithmeticError):
-                unit_refund = si.price_at_sale
+                unit_refund = paid_per_unit
 
             resellable = request.POST.get(f'resellable_{si.id}', 'true') == 'true'
 
