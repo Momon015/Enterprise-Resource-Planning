@@ -192,7 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="form-field">
           <label class="form-label"><i class="bi bi-calendar3"></i> Month</label>
           <input type="month" name="select_month" class="form-control form-control--polish"
-                value="{{ request.GET.select_month|default:current_year }}">
+                value="{{ request.GET.select_month|default:'' }}">
         </div>
 
         <div class="form-field">

@@ -29,7 +29,20 @@
     </div>
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} #pay-results — the live region for this page, declared HERE rather than inside
+       _payables_panel.html because its correct extent is host-specific (see that partial's
+       header). It wraps the WHOLE two-column layout, not just the panel: the month/date form
+       on the left and the TOTAL OWED summary on the right are both rendered from the same
+       pay_ params as the table, so swapping only the table would leave the summary showing
+       the previous period's total beside the new rows. Let the server re-render all three and
+       they cannot disagree. (On purchase-list the same id wraps only the include — there the
+       purchase table beside it must be left alone.) {% endcomment %}
+  <div class="two-col-layout" id="pay-results"
+       hx-boost="true"
+       hx-target="#pay-results"
+       hx-select="#pay-results"
+       hx-swap="outerHTML"
+       hx-push-url="true">
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
@@ -49,7 +62,20 @@
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+           {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+               This form now sits inside the boosted #pay-results region. Vendored htmx 2.0.3
+               boosts a form like this:
+                   o = getAttribute(form, "action");
+                   if (verb === "get" && o.includes("?")) { ... }
+               With no action attribute o is null, so o.includes() throws a TypeError — inside
+               htmx's DOM-processing pass, which aborts. Every element after this form (the
+               whole payables panel and its pagination) then never gets wired up and falls back
+               to native navigation: a full page reload on every filter. Silently — the only
+               trace is one console error.
+               htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+               boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'purchase-payables' business_slug=current_business.slug %}"
+                class="filter-form filter-form--inline" autocomplete="off">
 
             <!-- preserve the panel's own quick-range/status selection -->
             {% if pay_period %}<input type="hidden" name="pay_period" value="{{ pay_period }}">{% endif %}
@@ -60,7 +86,7 @@
                 <i class="bi bi-calendar3"></i> Month
               </label>
               <input type="month" name="pay_select_month" class="form-control form-control--polish"
-                value="{{ request.GET.pay_select_month|default:current_year }}">
+                value="{{ request.GET.pay_select_month|default:'' }}">
             </div>
 
             <div class="form-field">

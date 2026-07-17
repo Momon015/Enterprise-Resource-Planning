@@ -196,7 +196,10 @@ def clear_sale(request, business_slug):
             'cart_items':     0,
             'total':          Decimal('0'),
             'cart_url':       'view-sale',
-            'icon':           'bi bi-cart3',
+            'icon':           'bi-cart3',
+            'badge_id':       'sale-cart-badge',
+            'badge_mod':      'topbar-cart--sale',
+            'cart_title':     'Sale cart',
             'label':          'Sales Record',
             'clear_sessions': 'clear-sale',
             'name':           'Products',
@@ -573,7 +576,10 @@ def add_to_sales(request, product_id, business_slug):
 
         resp = render(request, 'core/partials/_cart_response.html', {
             'label': 'Sales Record',
-            'icon': 'bi bi-cart3',
+            'icon': 'bi-cart3',
+            'badge_id': 'sale-cart-badge',
+            'badge_mod': 'topbar-cart--sale',
+            'cart_title': 'Sale cart',
             'total': total,
             'messages': get_messages(request),
             'cart_items': len(sale),

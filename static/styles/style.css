@@ -7045,6 +7045,82 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
   box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
 }
 
+/* MONTH FIELD PLACEHOLDER — "Select a month" instead of the browser's dashes.
+   <input type="month"> ignores the placeholder attribute, so when it's empty Chrome
+   paints its own "--------- ----" mask. That reads as a broken or disabled field
+   rather than an empty one, and it says nothing about what goes in it. Hide the mask
+   and lay our own label in its place.
+   The .is-empty class comes from JS (see filter-drawer.js) because CSS cannot tell:
+   an optional month input is :valid when empty, :placeholder-shown never matches a
+   date field, and [value=""] reads the ATTRIBUTE, which stops tracking the field the
+   moment the user picks a month.
+   Covers all 12 month filters (sales/purchase/returns/waste/expense/summary/shifts)
+   off this one rule — they all share the .form-field > label + input shape.
+
+   The label stays up while the field is FOCUSED and while its dropdown is open — clicking
+   the field opens the picker (filter-drawer.js behavior 6), so focus does not mean "is
+   typing" here and the dashes would just be noise under an open menu.
+   ★ opacity, NOT color:transparent. Focused, Chrome paints a blue SELECTION HIGHLIGHT
+   behind the active segment. color:transparent kills the dashes' glyphs but NOT that
+   highlight, so it landed as a blue block on top of our label and the field read as
+   struck-through text. opacity composites the whole segment away, highlight included.
+   ★ .is-typing (from filter-drawer.js) hands the real segments back the moment someone
+   actually types, so keyboard entry is never blind. Not merged into :not(:focus): that
+   would take the label away on every click too, which is the bug this replaces. */
+.form-field:has(> input[type="month"].is-empty:not(.is-typing)) { position: relative; }
+.form-field:has(> input[type="month"].is-empty:not(.is-typing))::after {
+  content: "Select a month";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  /* Mirrors .form-control--polish's box exactly — same font-size and the same
+     padding + 1px border — so the label lands on the input's own text position.
+     Bottom-anchored because the input is the field's last child. */
+  padding: calc(0.45rem + 1px) calc(0.65rem + 1px);
+  font-size: 0.85rem;
+  color: var(--text-faint);
+  pointer-events: none;  /* the field + its calendar button stay clickable */
+}
+input[type="month"].is-empty:not(.is-typing)::-webkit-datetime-edit { opacity: 0; }
+
+/* 2026-07-17: input[type="date"] { text-transform: uppercase } lived here and WORKED
+   (Chrome's dd/mm/yyyy mask rendered as DD/MM/YYYY — text-transform is inherited, so it
+   reaches the UA shadow DOM). Reverted on the user's call: the caps read as shouting.
+   Keep the note, not the rule: the technique is the only way to touch that mask's rendering,
+   since its TEXT is browser-generated and unreplaceable. */
+
+/* NO BLUE BLOCK ON THE ACTIVE SEGMENT.
+   Focus a date/month field and Chrome paints the OS selection colour behind whichever
+   segment the caret is in — a hard blue block mid-field. It's there to say "type here",
+   which made sense when clicking a date field meant typing into it. It doesn't any more:
+   clicking opens the picker (filter-drawer.js behavior 6), so the highlight is announcing
+   an interaction almost nobody uses, in a colour that belongs to no palette of ours.
+   Kill the block, keep the glyphs (color:inherit — without it they'd inherit the UA's
+   `highlighttext` white and vanish against the field).
+
+   ★★ DO NOT ADD :focus TO THESE SELECTORS. ★★ It looks like the obvious thing — the UA rule
+   we're beating is itself `input::-webkit-datetime-edit-day-field:focus { background-color:
+   light-dark(highlight,#99C8FF); color: light-dark(highlighttext,#000) }` — but a
+   pseudo-CLASS after a pseudo-ELEMENT is only legal in Blink's own UA sheet, not in an
+   author sheet. The author parser rejects the selector, and ONE bad selector in a comma list
+   drops the WHOLE rule. That's exactly what happened on the first attempt: the rule looked
+   right, changed nothing, and left no error anywhere (user-reported: "still highlighting").
+   ★ It works WITHOUT :focus because the cascade sorts by ORIGIN before specificity: any
+   normal author rule beats any normal UA rule, even a less specific one. The UA rule carries
+   no !important, so this wins whenever the segment is focused — which is the only time it
+   paints. Setting these on the unfocused segments too is a no-op (transparent + inherited
+   colour is what they already are).
+   ★ Non-WebKit browsers drop the whole list (unknown pseudo = invalid), which is correct —
+   Firefox never paints this. */
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="month"]::-webkit-datetime-edit-month-field,
+input[type="month"]::-webkit-datetime-edit-year-field {
+  background-color: transparent;
+  color: inherit;
+}
+
 /* Quantity stepper — +/− buttons flanking a number input */
 .qty-stepper {
   display: inline-flex;
@@ -7579,7 +7655,16 @@ button.topbar-account__item {
 }
 
 .topbar-cart { position: relative; }
-.topbar--hide-cart .topbar-cart { display: none; }
+/* An empty cart has nothing to offer — the button would just lead to a page saying so.
+   Both cart slots are always in the DOM (they are the quick-add's hx-target and htmx will
+   not post to a target that isn't there), so hiding is how "no cart yet" is expressed. */
+.topbar-cart.is-empty { display: none; }
+/* On a cart page, drop that cart's own button — you are already looking at it. Only its
+   own: a sale cart open on screen says nothing about a purchase cart still holding items.
+   These live on the .topbar wrapper rather than the button because an add swaps the button
+   out; a class on the thing being replaced would be replaced along with it. */
+.topbar--hide-sale-cart .topbar-cart--sale,
+.topbar--hide-purchase-cart .topbar-cart--purchase { display: none; }
 .topbar-cart__badge {
   position: absolute;
   top: -4px; right: -4px;
@@ -7591,6 +7676,16 @@ button.topbar-account__item {
   font-size: 0.62rem; font-weight: 700;
   line-height: 16px; text-align: center;
 }
+/* Two carts can hold items at once and BOTH are cart icons — a basket for the purchase side
+   was tried and rejected, rightly: this app calls that side "cart" everywhere (view-cart,
+   clear-cart, session['cart']). So the count carries the difference instead: green = money
+   coming in (a sale), red = money going out (a purchase) — the same in/out language the
+   dashboard KPI cards use directly below this bar. Purchase keeps the base --danger above.
+   ★ --accent, NOT --emerald, and this is deliberate: --emerald is an INK token (KPI numbers,
+   delta arrows, tinted icon chips — always `color:`, never a solid fill) and white on it is
+   2.5:1, illegible at 0.62rem. --accent is the app's solid green FILL and clears 6.5:1.
+   Do not "fix" this to --emerald for semantic tidiness; it fails the eye. */
+.topbar-cart--sale .topbar-cart__badge { background: var(--accent); }
 
 
 
@@ -8006,6 +8101,29 @@ button.topbar-account__item {
 .cm-btn.cm-btn--success:hover { background: var(--success); border-color: var(--success); color:#fff; filter: brightness(.93); }
 .cm-btn.cm-btn--danger:hover  { background: var(--danger);  border-color: var(--danger);  color:#fff; filter: brightness(.93); }
 .cm-btn.cm-btn--warning:hover { background: var(--warning); border-color: var(--warning); color:#fff; filter: brightness(.93); }
+
+.cm-btn:disabled { filter: brightness(.93); cursor: default; }
+
+/* A modal that posts over htmx can show a "busy" beat in place of its form: htmx stamps
+   .htmx-request on whatever hx-indicator points at, for exactly the life of the request.
+   Used by the contact modal, whose view sends its mail synchronously and so sits for a
+   few seconds between the form and the sent panel. */
+/* Sending beat. Padding is on TOP of .cm-card .card-body's own 1.5rem, not instead of it
+   (beat 3 replaces its body padding inline; this one nests inside it) — so keep this
+   number small or the panel balloons. Sized to its own content: matching beat 3's height
+   exactly was tried and looked worse, because beat 3 is taller only by its Done button
+   and reserving that space leaves a visible hole. */
+.cm-beat--sending { display: none; text-align: center; padding: 1rem 0; }
+.cm-beat--sending .cm-thumb { margin: 0 auto .85rem; }
+.cm-beat--sending .cm-sub { margin: .4rem 0 0; }
+.quickview__panel.htmx-request .cm-beat--form { display: none; }
+.quickview__panel.htmx-request .cm-beat--sending { display: block; }
+/* Hide the ✕ while the send is in flight. It cannot cancel anything — the POST is already
+   away and the mail goes out regardless — so leaving it would offer an escape that closes
+   the modal and reads as "canceled" while the message still sends. The indicator sits on
+   the panel rather than the card precisely so it can reach this button, which is the
+   card's sibling. NOTE: the backdrop and Escape can still close mid-send; see main.html. */
+.quickview__panel.htmx-request .quickview__close { display: none; }
 
 /* void modal extras */
 .cm-field-label { display:block; font-size:.8rem; font-weight:600; margin:.25rem 0 .35rem; color:var(--text); }
@@ -8690,8 +8808,15 @@ label:has(+ select[name$="_year"]) {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 2rem; color: var(--muted); font-size: 0.85rem;
 }
-.ps-spin { display: inline-block; animation: ps-spin 0.8s linear infinite; }
-@keyframes ps-spin { to { transform: rotate(360deg); } }
+/* One rotate utility for every spinner in the app — new markup should use .spin.
+   .ps-spin is kept as an ALIAS, not a second definition: its only caller lives inside the
+   purchase-search React island, and renaming it there would need an npm run build to take
+   effect — a missed build shows up as a spinner that silently stops spinning. Fold it in
+   next time that bundle is rebuilt for another reason. */
+.spin, .ps-spin { display: inline-block; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Motion off: the "Sending"/"Searching" label beside it still says what's happening. */
+@media (prefers-reduced-motion: reduce) { .spin, .ps-spin { animation: none; } }
 .ps-empty { text-align: center; padding: 2.5rem 1rem; }
 .ps-empty-icon {
   width: 44px; height: 44px; margin: 0 auto 0.6rem;

@@ -28,7 +28,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=140" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=155" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -73,9 +73,21 @@
 
     <!-- htmx (vendored locally — no CDN dependency) -->
     <script src="{% static 'js/htmx.min.js' %}"></script>
+    {% comment %} Don't yank the page to the top after a boosted swap.
+      htmx defaults scrollIntoViewOnBoost to true, which stamps show:"top" on every boosted
+      request so it imitates a real navigation. On our live list regions that is exactly
+      wrong: you scroll to the pagination at the BOTTOM of the sales table, click page 4, and
+      htmx throws you back to the page header — which is the one thing the no-reload work was
+      meant to stop. It reads as a reload even though nothing reloaded.
+      Off = the scroll position stays put and only the rows change under your cursor.
+      Set globally, not per-region: every list page gets the same treatment as it's converted,
+      and nowhere in this app do we want a boost to move the viewport. {% endcomment %}
+    <script>
+      htmx.config.scrollIntoViewOnBoost = false;
+    </script>
 
     <!-- Shared filter-drawer + toast behavior -->
-    <script src="{% static 'js/filter-drawer.js' %}"></script>
+    <script src="{% static 'js/filter-drawer.js' %}?v=6"></script>
 
     <!-- KPI cards: ▼ breakdown popovers + card-body navigation.
          THE ONLY COPY — see the header of kpi-cards.js. Never re-add a
@@ -177,11 +189,15 @@ document.body.addEventListener('htmx:beforeSwap', function (evt) {
   // nothing appeared until you refreshed (most obvious on an empty cart, where the "No
   // products yet" panel just stayed put).
   //
-  // Hook on the CART BADGE rather than on any particular button: every cart mutation swaps
-  // #cart-badge (see core/partials/_cart_response.html), so this catches all of them —
+  // Hook on the CART BADGES rather than on any particular button: every cart mutation swaps
+  // one of them (see core/partials/_cart_response.html), so this catches all of them —
   // including any add-to-cart route added later — without listing endpoints.
+  //
+  // Two ids, not one: the sale and purchase carts are separate sessions with separate
+  // buttons, so a single shared badge could not be the target of both.
+  const CART_BADGES = ['sale-cart-badge', 'purchase-cart-badge'];
   document.body.addEventListener('htmx:afterSwap', (e) => {
-    if (e.target && e.target.id === 'cart-badge') {
+    if (e.target && CART_BADGES.includes(e.target.id)) {
       document.dispatchEvent(new CustomEvent('cart:changed'));
     }
   });

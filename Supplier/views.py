@@ -448,6 +448,10 @@ def adding_preset_to_cart(request, preset_id, business_slug):
     if request.headers.get('HX-Request') == 'true':
         return render(request, 'core/partials/_preset_response.html', {
             'cart_url': 'view-cart',
+            'icon': 'bi-cart3',
+            'badge_id': 'purchase-cart-badge',
+            'badge_mod': 'topbar-cart--purchase',
+            'cart_title': 'Purchase cart',
             'label': 'Purchase Record',
             'cart_count': sum(item['quantity'] for item in cart.values()),
             'cart_items': len(cart),

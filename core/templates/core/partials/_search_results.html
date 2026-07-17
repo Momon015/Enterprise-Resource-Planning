@@ -25,8 +25,10 @@
           <span class="search-prod__name">{{ m.name }}</span>
           <span class="search-prod__meta">₱{{ m.price|floatformat:2|intcomma }} · cost</span>
         </a>
+        <!-- A material belongs to the purchase cart no matter which page you searched from,
+             so it swaps the PURCHASE badge — the sale badge is a different button. -->
         <button hx-post="{% url 'add-to-cart' business_slug=current_business.slug id=m.id %}"
-                hx-target="#cart-badge" hx-swap="outerHTML"
+                hx-target="#purchase-cart-badge" hx-swap="outerHTML"
                 class="search-add" title="Add to purchase">+</button>
       </div>
       {% endfor %}
@@ -74,7 +76,7 @@
         <span class="search-prod__meta">₱{{ p.selling_price|floatformat:2|intcomma }} · {{ p.prepared_quantity }} in stock</span>
       </a>
       <button hx-post="{% url 'add-to-sale' business_slug=current_business.slug product_id=p.id %}"
-              hx-target="#cart-badge" hx-swap="outerHTML"
+              hx-target="#sale-cart-badge" hx-swap="outerHTML"
               class="search-add" {% if p.prepared_quantity < 1 %}disabled{% endif %} title="Add to sale">+</button>
     </div>
     {% endfor %}
@@ -93,7 +95,7 @@
               hx-target="#confirmBody" hx-swap="innerHTML">+</button>
       {% else %}
       <button hx-post="{% url 'add-to-sale' business_slug=current_business.slug product_id=sv.id %}"
-              hx-target="#cart-badge" hx-swap="outerHTML" class="search-add" title="Add to sale">+</button>
+              hx-target="#sale-cart-badge" hx-swap="outerHTML" class="search-add" title="Add to sale">+</button>
       {% endif %}
     </div>
     {% endfor %}

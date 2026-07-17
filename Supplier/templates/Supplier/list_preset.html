@@ -163,7 +163,7 @@
                   <div class="table-actions">
                     <!-- ADD -->
                     <button hx-post="{% url 'material-add-preset-to-cart' preset_id=preset.id business_slug=current_business.slug %}?{{request.GET.urlencode}}"
-                            hx-target="#preset-badge"
+                            hx-target="#purchase-cart-badge"
                             hx-swap="outerHTML"
                             class="action-btn action-btn--add" title="Add to purchase">
                       <i class="bi bi-plus-lg"></i>

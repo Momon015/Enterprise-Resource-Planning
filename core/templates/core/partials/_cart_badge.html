@@ -1,12 +1,4 @@
-<a id="cart-badge"
-   href="{% url cart_url business_slug=current_business.slug %}"
-   class="topbar-icon-btn topbar-cart{% if not cart_count %} is-empty{% endif %}" title="Cart" aria-label="Cart">
-  <i class="bi {{ icon }}"></i>
-  {% if cart_count %}
-    <span class="topbar-cart__badge">{{ cart_count }}</span>
-  {% endif %}
-</a>
-
+{% include 'core/partials/_cart_badge_link.html' %}
 
 
 {% if messages %}

@@ -5,17 +5,30 @@
 Embedded Receivables panel for sale_list. Data comes from the sale_list view under
 recv_-prefixed context (recv_page_obj, recv_total_outstanding, recv_period,
 recv_status) so its filters never clash with the sales table on the same page
-(one page = one request.GET). Filter controls call applyRecvFilter() (defined in
-sale_list.html) which flips a recv_ param while preserving every other param —
-including the sales table's own filters. Pagination uses the built-in
-{% templatetag openblock %} querystring {% templatetag closeblock %} tag, which
-keeps the sales table's page/filters intact while turning recv_page.
+(one page = one request.GET).
+
+★ Its OWN live region (#recv-results), separate from the sales table's #sale-results.
+Two regions on one page is the whole point: filtering receivables must not reset the
+sales table's page, and vice versa. Each swaps only itself; the shared URL carries both
+sets of params, and every link here is built with the built-in
+{% templatetag openblock %} querystring {% templatetag closeblock %} tag, which flips one
+recv_ param while preserving everything else — including the sales table's page/filters.
+
+This replaced applyRecvFilter()/clearRecvFilters(), two hand-rolled JS helpers that
+rebuilt the query string and then did window.location.href = ... (a full page reload).
+{% templatetag openblock %} querystring {% templatetag closeblock %} does the same job
+server-side, so the controls are plain links and htmx boosts them for free — no JS left.
 
 The standalone Receivables page (sales-receivables) stays as the "View all" target
 with the full month/custom-date-range filters.
 {% endcomment %}
 
-<div class="card table-card">
+<div class="card table-card" id="recv-results"
+     hx-boost="true"
+     hx-target="#recv-results"
+     hx-select="#recv-results"
+     hx-swap="outerHTML"
+     hx-push-url="true">
   <div class="card-header">
     <div class="card-header-left-group">
       <span class="card-header-title">Receivables</span>
@@ -23,27 +36,32 @@ with the full month/custom-date-range filters.
         {{ recv_page_obj.paginator.count }} record{{ recv_page_obj.paginator.count|pluralize }}
       </span>
 
-      <!-- QUICK RANGES — recv_-scoped; preserve the sales table's params -->
-      <button type="button" onclick="applyRecvFilter('recv_period','today')"
+      {% comment %} QUICK RANGES — recv_-scoped. Links, not buttons: hx-boost only picks up
+           <a> and <form>, and a link is what these always were semantically (they go
+           somewhere). recv_page=None resets to page 1 — filtering to a smaller set while
+           parked on page 4 would otherwise land on an empty page. {% endcomment %}
+      <a href="{% querystring recv_period='today' recv_page=None %}"
         class="quick-range-btn {% if recv_period == 'today' %}active{% endif %}">
         <i class="bi bi-calendar-day"></i> Today
-      </button>
-      <button type="button" onclick="applyRecvFilter('recv_period','last_week')"
+      </a>
+      <a href="{% querystring recv_period='last_week' recv_page=None %}"
         class="quick-range-btn {% if recv_period == 'last_week' %}active{% endif %}">
         <i class="bi bi-clock-history"></i> Last week
-      </button>
-      <button type="button" onclick="applyRecvFilter('recv_period','week')"
+      </a>
+      <a href="{% querystring recv_period='week' recv_page=None %}"
         class="quick-range-btn {% if recv_period == 'week' %}active{% endif %}">
         <i class="bi bi-calendar-week"></i> This week
-      </button>
-      <button type="button" onclick="applyRecvFilter('recv_period','month')"
+      </a>
+      <a href="{% querystring recv_period='month' recv_page=None %}"
         class="quick-range-btn {% if recv_period == 'month' %}active{% endif %}">
         <i class="bi bi-calendar-month"></i> This month
-      </button>
-      <button type="button" onclick="applyRecvFilter('recv_period','')"
+      </a>
+      {% comment %} "All" clears the date window only — a chosen Status survives, matching
+           what the old applyRecvFilter('recv_period','') did. {% endcomment %}
+      <a href="{% querystring recv_period=None recv_page=None %}"
         class="quick-range-btn {% if not recv_period %}active{% endif %}">
         <i class="bi bi-grid"></i> All
-      </button>
+      </a>
     </div>
 
     <div class="user-filter-bar">
@@ -51,9 +69,17 @@ with the full month/custom-date-range filters.
       <label for="recvStatusFilter" class="user-filter-label">
         <i class="bi bi-flag"></i> Status
       </label>
-      <select id="recvStatusFilter"
-              class="user-filter-select {% if recv_status %}is-filtered{% endif %}"
-              onchange="applyRecvFilter('recv_status', this.value)">
+      {% comment %} A <select> is neither <a> nor <form>, so hx-boost can't see it — it gets
+           its own hx-get. It needs ONLY the URL and the trigger: hx-target/hx-select/
+           hx-swap/hx-push-url are inherited from #recv-results above.
+           The URL is this page minus recv_status (and minus recv_page, to reset to page 1);
+           htmx then appends this element's own name=value, which puts recv_status back with
+           the newly chosen value. Everything else on the URL — including the sales table's
+           page and filters — rides along untouched. {% endcomment %}
+      <select id="recvStatusFilter" name="recv_status"
+              hx-get="{% querystring recv_status=None recv_page=None %}"
+              hx-trigger="change"
+              class="user-filter-select {% if recv_status %}is-filtered{% endif %}">
         <option value="" {% if not recv_status %}selected{% endif %}>All</option>
         <option value="utang" {% if recv_status == 'utang' %}selected{% endif %}>Debt (unpaid)</option>
         <option value="partial" {% if recv_status == 'partial' %}selected{% endif %}>Partial</option>
@@ -75,7 +101,11 @@ with the full month/custom-date-range filters.
           <th class="sl-text-center">Action</th>
         </tr>
       </thead>
-      <tbody>
+      {% comment %} hx-boost="false": the reference links go to a sale detail page, which has
+           no #recv-results to select out of the response. Boosted, they would silently do
+           nothing. (The Add payment button carries its own hx-get to the modal — boost
+           never touches an element that already has an hx-* verb, so it is unaffected.) {% endcomment %}
+      <tbody hx-boost="false">
         {% for s in recv_page_obj %}
         <tr>
           <td class="cell-primary">
@@ -129,7 +159,11 @@ with the full month/custom-date-range filters.
       <h3 class="empty-title">No debts in this range</h3>
       <p class="empty-text">
         {{ recv_any_count }} unpaid sale{{ recv_any_count|pluralize }} outside this filter.
-        <a href="#" onclick="clearRecvFilters(); return false;" class="link-accent">Show all</a>
+        {% comment %} Clears every recv_ filter at once, keeping the sales table's params. A
+             real href now instead of href="#" + clearRecvFilters(): boost swaps it, and it
+             still works as an ordinary link if JS is off. {% endcomment %}
+        <a href="{% querystring recv_period=None recv_status=None recv_page=None %}"
+           class="link-accent">Show all</a>
       </p>
     </div>
     {% else %}

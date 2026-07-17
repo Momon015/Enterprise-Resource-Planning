@@ -38,55 +38,39 @@
 {% endif %}
 </div>
 
+{% comment %}
+Mutually-exclusive date filters clear each other. DELEGATED, not bound per element:
+#sale-results is replaced wholesale on every filter/paginate, so anything bound directly to
+these inputs would be thrown away with the first swap and the rule would quietly stop
+applying. (Same lesson as the notification bell's 30s poll.)
+
+applyQueryFilter / applyRecvFilter / clearRecvFilters used to live in this block. All three
+built a query string by hand and then did window.location.href = ... — the full page reload
+this work removed. Both tables now swap their own region over htmx, and their links are built
+server-side by the built-in {% querystring %} tag, so there is no query-string JS left to
+keep in sync.
+{% endcomment %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+document.addEventListener("change", function (e) {
+  const form = document.getElementById("filterForm");
+  if (!form || !form.contains(e.target)) return;
 
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+  const month  = form.querySelector('input[name="select_month"]');
+  const start  = form.querySelector('input[name="start_date"]');
+  const end    = form.querySelector('input[name="end_date"]');
+  const period = form.querySelector('input[name="period"]');
+
+  if (e.target === month) {
+    if (start) start.value = "";
+    if (end) end.value = "";
+  } else if (e.target === start || e.target === end) {
+    if (month) month.value = "";
+  } else {
+    return;                       // a payment/user select — leave the date window alone
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
+  // Typing a date window overrides an active quick range ("This week"), so drop it.
+  if (period) period.remove();
 });
-
-// Set/clear one query param while preserving every other active filter
-// (period, date range, user, …). Empty value removes the param. Resets page.
-function applyQueryFilter(key, value) {
-  const params = new URLSearchParams(window.location.search);
-  if (value) { params.set(key, value); } else { params.delete(key); }
-  params.delete("page");
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
-
-// Twin of applyQueryFilter for the embedded Receivables panel: flips a recv_
-// filter while preserving every other param (incl. the sales table's own
-// filters). Resets only the receivables page, never the sales page.
-function applyRecvFilter(key, value) {
-  const params = new URLSearchParams(window.location.search);
-  if (value) { params.set(key, value); } else { params.delete(key); }
-  params.delete("recv_page");
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
-
-// Clear every receivables filter at once (used by the "Show all" empty-state
-// link), preserving the sales table's own params.
-function clearRecvFilters() {
-  const params = new URLSearchParams(window.location.search);
-  ["recv_period", "recv_status", "recv_page"].forEach(k => params.delete(k));
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
 </script>
 
 <div class="page-wrapper">
@@ -97,117 +81,42 @@ function clearRecvFilters() {
       <h1 class="page-title">Sales Records</h1>
       <p class="page-subtitle">
         Products sold to customers, tracked per transaction
-        {% comment %} {% if kpis.current.computed_at %}
-          <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
-            title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
-            style="cursor: help; font-size: 0.85em;"></i>
-        {% endif %} {% endcomment %}
       </p>
     </div>
-    {% comment %} <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-file-earmark-text"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> record{{ page_obj.paginator.count|pluralize }}
-      </div>
-      <div class="header-stat accent">
-        <i class="bi bi-trophy"></i>
-        Best sale: <strong>₱{% if max_revenue %}{{ max_revenue|floatformat:2|intcomma }}{% else %}0.00{% endif %}</strong>
-      </div>
-    </div> {% endcomment %}
-  </div>
-
-  {% comment %} MOVED TO ANALYTICS (IA phase 3) — Sales KPI strip commented 2026-07-03.
-  Today's Sales / Today's Revenue / This Week / This Month + deltas belong to the
-  Sales Analytics page; relocate there, then delete this block. View still computes
-  kpis/sales_deltas — leave views.py untouched until the numbers have a new home.
-  <div class="kpi-row kpi-row--4col">
-
-    <!-- TODAY'S SALES -->
-    <div class="kpi-card">
-      <div class="kpi-icon kpi-icon--info">
-        <i class="bi bi-cart-check"></i>
-      </div>
-      <div class="kpi-body">
-        <div class="kpi-label">Today's Sales</div>
-        <div class="kpi-value">{{ kpis.current.count_today|default:"0" }}</div>
-        {% if sales_deltas.today_dir %}
-          <div class="kpi-delta kpi-delta--{{ sales_deltas.today_dir }}">
-            <i class="bi bi-arrow-{% if sales_deltas.today_dir == 'up' %}up{% elif sales_deltas.today_dir == 'down' %}down{% else %}right{% endif %}"></i>
-            {{ sales_deltas.today_pct }} <span class="kpi-delta-note">vs Yesterday</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- TODAY'S REVENUE -->
-    <div class="kpi-card">
-      <div class="kpi-icon kpi-icon--success">
-        <i class="bi bi-cash-coin"></i>
-      </div>
-      <div class="kpi-body">
-        <div class="kpi-label">Today's Revenue</div>
-        <div class="kpi-value">₱{{ kpis.current.revenue_today|default:"0"|floatformat:2|intcomma }}</div>
-        {% if sales_deltas.today_rev_dir %}
-          <div class="kpi-delta kpi-delta--{{ sales_deltas.today_rev_dir }}">
-            <i class="bi bi-arrow-{% if sales_deltas.today_rev_dir == 'up' %}up{% elif sales_deltas.today_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
-            {{ sales_deltas.today_rev_pct }} <span class="kpi-delta-note">vs Yesterday</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— Nothing recorded yesterday</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- THIS WEEK REVENUE -->
-    <div class="kpi-card">
-      <div class="kpi-icon kpi-icon--purple">
-        <i class="bi bi-calendar-week"></i>
-      </div>
-      <div class="kpi-body">
-        <div class="kpi-label">This Week Revenue</div>
-        <div class="kpi-value">₱{{ kpis.current.revenue_week|default:"0"|floatformat:2|intcomma }}</div>
-        {% if sales_deltas.week_rev_dir %}
-          <div class="kpi-delta kpi-delta--{{ sales_deltas.week_rev_dir }}">
-            <i class="bi bi-arrow-{% if sales_deltas.week_rev_dir == 'up' %}up{% elif sales_deltas.week_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
-            {{ sales_deltas.week_rev_pct }} <span class="kpi-delta-note">vs Last Week</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data last week</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- THIS MONTH REVENUE -->
-    <div class="kpi-card">
-      <div class="kpi-icon kpi-icon--warning">
-        <i class="bi bi-calendar3"></i>
-      </div>
-      <div class="kpi-body">
-        <div class="kpi-label">This Month Revenue</div>
-        <div class="kpi-value">₱{{ kpis.current.revenue_month|default:"0"|floatformat:2|intcomma }}</div>
-        {% if sales_deltas.month_rev_dir %}
-          <div class="kpi-delta kpi-delta--{{ sales_deltas.month_rev_dir }}">
-            <i class="bi bi-arrow-{% if sales_deltas.month_rev_dir == 'up' %}up{% elif sales_deltas.month_rev_dir == 'down' %}down{% else %}right{% endif %}"></i>
-            {{ sales_deltas.month_rev_pct }} <span class="kpi-delta-note">vs Last Month</span>
-          </div>
-        {% else %}
-          <div class="kpi-delta kpi-delta--muted">— No data last month</div>
-        {% endif %}
-      </div>
-    </div>
 
   </div>
-  {% endcomment %}
-
-
-  {% comment %} ANALYTICS SLIM-DOWN 2026-07-03: was <div class="two-col-layout"> —
-  restore that class when bringing the right column back. {% endcomment %}
   <div>
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
+
+       {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════════
+           Everything a filter can change lives in here, and htmx replaces the whole
+           block: filter panel, quick ranges, count badge, table, pagination.
+
+           WHY THE FILTER PANEL IS INSIDE and not just the table: every one of these is
+           derived from request.GET on the server — the <details open> state, the "Active"
+           badge, the quick-range .active pill, the date inputs' values, the record count.
+           Swap only the table and they all go stale: click "This week" after typing a date
+           range and the inputs still show the old dates while the URL says otherwise. Let
+           the server re-render the lot and desync is impossible by construction.
+
+           hx-select means the VIEW IS UNTOUCHED. htmx fetches this same page URL — the one
+           the browser would have loaded anyway — and lifts #sale-results out of the
+           response. No JSON, no partial, no serializer: the server already renders the
+           right HTML for ?period=week&payment=cash&page=3. We just stop repainting.
+
+           ★ hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
+           filter form, Reset) — which is the point, but it is ALSO the trap: a link that
+           LEAVES this page must opt out with hx-boost="false", or htmx tries to lift
+           #sale-results out of a page that has none, hits a target error, and drops the
+           navigation silently. See the tbody and the Pending link below. {% endcomment %}
+      <div id="sale-results"
+           hx-boost="true"
+           hx-target="#sale-results"
+           hx-select="#sale-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
@@ -221,11 +130,41 @@ function clearRecvFilters() {
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+           {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+               Vendored htmx 2.0.3 boosts a form like this:
+                   o = getAttribute(form, "action");
+                   if (verb === "get" && o.includes("?")) { ... }
+               With no action attribute o is null, so o.includes() throws a TypeError —
+               inside htmx's DOM-processing pass, which aborts. Every element after this
+               form (the whole table, the pagination, the Receivables panel) then never gets
+               wired up and falls back to native navigation: a full page reload on every
+               filter. Silently — the only trace is one console error. The topbar keeps
+               working because it is processed before this point.
+               htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+               boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'sale-list' business_slug=current_business.slug %}"
+                class="filter-form filter-form--inline" autocomplete="off">
 
-            <!-- keep the categorical filters when applying a month/date range -->
-            {% if active_payment %}<input type="hidden" name="payment" value="{{ active_payment }}">{% endif %}
-            {% if active_user %}<input type="hidden" name="user" value="{{ active_user }}">{% endif %}
+             {% comment %} Keep the ACTIVE QUICK RANGE when applying a payment/user filter. Cleared by
+                 JS the moment a month or date is typed, because a date range and a quick
+                 range are mutually exclusive — same reason month and start/end clear each
+                 other up in the script block. Without this, picking a payment while "This
+                 week" is active would silently widen the results back to all time.
+                 (payment + user are no longer hidden inputs: the two selects in the table
+                 header now belong to this form via form="filterForm", so they submit their
+                 own values. Hidden copies here would send each param twice.) {% endcomment %}
+            {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
+
+             {% comment %} The Receivables panel below shares this one query string, and a GET form
+                 submits ONLY its own fields — so without these, applying a sales filter would
+                 wipe recv_period/recv_status/recv_page off the URL while the panel on screen
+                 kept showing filtered rows. Same failure the quick-range links had. Links can
+                 use {% templatetag openblock %} querystring {% templatetag closeblock %} to
+                 preserve-by-default; a form cannot, so it has to carry the other panel's state
+                 explicitly. {% endcomment %}
+            {% if request.GET.recv_period %}<input type="hidden" name="recv_period" value="{{ request.GET.recv_period }}">{% endif %}
+            {% if request.GET.recv_status %}<input type="hidden" name="recv_status" value="{{ request.GET.recv_status }}">{% endif %}
+            {% if request.GET.recv_page %}<input type="hidden" name="recv_page" value="{{ request.GET.recv_page }}">{% endif %}
 
             {% comment %}
             Search temporarily disabled due to duplicate rows caused by joins.
@@ -245,7 +184,7 @@ function clearRecvFilters() {
                   <i class="bi bi-calendar3"></i> Month
                 </label>
                 <input type="month" name="select_month" class="form-control form-control--polish"
-                      value="{{ request.GET.select_month|default:current_year }}">
+                      value="{{ request.GET.select_month|default:''}}">
               </div>
 
               <div class="form-field">
@@ -270,7 +209,11 @@ function clearRecvFilters() {
                 <button class="btn btn-primary btn-sm" type="submit">
                   <i class="bi bi-funnel-fill"></i> Apply
                 </button>
-                <a href="{% url 'sale-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+                {% comment %} Resets this table's filters only, leaving the Receivables panel's
+                     recv_ state alone — same reasoning as the "All" pill. Was a bare sale-list
+                     URL, which dropped everything on the page. {% endcomment %}
+                <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
+                   class="btn btn-light btn-sm">
                   <i class="bi bi-arrow-counterclockwise"></i> Reset
                 </a>
               </div>
@@ -288,7 +231,10 @@ function clearRecvFilters() {
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
 
+            {% comment %} hx-boost="false": this leaves for the drafts page, which has no
+                 #sale-results to lift out. Boosted, it would silently do nothing at all. {% endcomment %}
             <a href="{% url 'sale-draft-list' business_slug=current_business.slug %}"
+              hx-boost="false"
               class="drafts-link {% if pending_count %}drafts-link--active{% endif %}"
               title="Sales awaiting payment confirmation">
               <i class="bi bi-hourglass-split"></i> Pending
@@ -296,25 +242,38 @@ function clearRecvFilters() {
             </a>
             <span class="drafts-sep" aria-hidden="true"></span>
 
-            <!-- QUICK RANGES — set the date window; keep payment/user filters -->
-            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+             {% comment %} QUICK RANGES — set the date window; keep payment/user.
+                 ★ Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
+                 rather than a hand-listed "?period=x&payment=y" — that older form silently
+                 DROPPED every param it didn't name, which meant the Receivables panel's own
+                 recv_ filters below. As a full reload that only reset the panel (annoying).
+                 Once the sales table swaps on its own, it becomes a lie: the URL loses
+                 recv_period while the panel on screen still shows the filtered rows, so a
+                 refresh makes it jump. Naming what to CHANGE and letting everything else ride
+                 is the only form that stays correct as more params appear.
+                 page=None resets to page 1 (a narrower window has fewer pages); the month/date
+                 window is cleared because a quick range and a custom range are exclusive. {% endcomment %}
+            <a href="{% querystring period='today' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='last_week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
-            <!-- ALL RECORDS — clears every filter (date + payment/user); true reset -->
-            <a href="{% url 'sale-list' business_slug=current_business.slug %}"
+             {% comment %} ALL RECORDS — clears every filter this table owns (date + payment/user).
+                 It no longer clears the Receivables panel's recv_ filters too: this button
+                 lives in the sales card and speaks for the sales table only, exactly as the
+                 panel's own "All" leaves the sales table alone. {% endcomment %}
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
@@ -327,9 +286,15 @@ function clearRecvFilters() {
               <label for="paymentFilter" class="user-filter-label">
                 <i class="bi bi-wallet2"></i> Payment
               </label>
-              <select id="paymentFilter"
+               {% comment %} form="filterForm" adopts this select into the filter form even though it
+                   sits outside it in the markup (plain HTML, no JS). That hands it to the
+                   boosted form: it submits every other active filter with it, htmx swaps the
+                   region, and hx-push-url keeps the URL honest so back/refresh/bookmark all
+                   still work. It replaces applyQueryFilter(), which rebuilt the query string
+                   by hand and then did window.location.href = ... — a full page reload. {% endcomment %}
+              <select id="paymentFilter" name="payment" form="filterForm"
                       class="user-filter-select {% if active_payment %}is-filtered{% endif %}"
-                      onchange="applyQueryFilter('payment', this.value)">
+                      onchange="this.form.requestSubmit()">
                 <option value="" {% if not active_payment %}selected{% endif %}>All payments</option>
                 {% for code, label in payment_methods %}
                   <option value="{{ code }}" {% if active_payment == code %}selected{% endif %}>{{ label }}</option>
@@ -341,9 +306,9 @@ function clearRecvFilters() {
               <label for="userFilter" class="user-filter-label">
                 <i class="bi bi-person-fill"></i> Show by
               </label>
-              <select id="userFilter"
+              <select id="userFilter" name="user" form="filterForm"
                       class="user-filter-select {% if active_user %}is-filtered{% endif %}"
-                      onchange="applyQueryFilter('user', this.value)">
+                      onchange="this.form.requestSubmit()">
                 <option value="" {% if not active_user %}selected{% endif %}>All users</option>
                 {% for s in users %}
                   <option value="{{ s.id }}" {% if active_user == s.id|stringformat:'s' %}selected{% endif %}>
@@ -370,7 +335,11 @@ function clearRecvFilters() {
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-boost="false": every row navigates to a sale detail page, which has
+                 no #sale-results. Boosted, clicking a sale would do nothing. The row's own
+                 onclick= isn't an <a> so boost never saw it, but the reference link inside
+                 is one — opt the whole tbody out and neither can rot. {% endcomment %}
+            <tbody hx-boost="false">
               {% for sale in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'sale-detail' sale_id=sale.id business_slug=current_business.slug %}'">
                 <td class="cell-primary">
@@ -454,6 +423,12 @@ function clearRecvFilters() {
 
       </div>
 
+      </div>
+      {% comment %} ═══ end #sale-results ═══════════════════════════════════════════════
+           The Receivables panel below is deliberately OUTSIDE this region: it has its own
+           recv_-prefixed params and its own pagination, so swapping it on a sales filter
+           would reset it. It carries its own #recv-results region instead. {% endcomment %}
+
       {% comment %} Embedded Receivables — outstanding sales owed to the business.
       Renamed (recv_-prefixed) params so its filters never clash with the sales
       table above. Hidden unless owner/dev or a staffer the owner granted
@@ -463,112 +438,6 @@ function clearRecvFilters() {
       {% endif %}
 
     </div>
-
-    <!-- RIGHT PANEL -->
-    <div class="right-panel">
-
-      {% comment %} MOVED TO ANALYTICS (IA phase 3) — Period Summary commented 2026-07-03.
-      Total Revenue / Avg per sale / Best sale → Sales Analytics; Collected /
-      Receivables already live in Financial Overview. The filtered total now shows
-      as a badge in the table header. View still computes all of these — leave
-      views.py untouched until relocation.
-      <div class="card">
-        <div class="card-header">
-            <span class="card-header-title">
-              <i class="bi bi-graph-up-arrow"></i> Period Summary
-            </span>
-            <span class="card-header-sub">
-              {% if request.GET.period == 'today' %}Today
-              {% elif request.GET.period == 'last_week' %}Last week
-              {% elif request.GET.period == 'week' %}This week
-              {% elif request.GET.period == 'month' %}This month
-              {% elif request.GET.select_month %}{{ request.GET.select_month }}
-              {% elif request.GET.start_date and request.GET.end_date %}{{ request.GET.start_date }} → {{ request.GET.end_date }}
-              {% else %}All time
-              {% endif %}
-            </span>
-          </div>
-
-        <div class="card-body" style="padding: 1rem;">
-
-          <!-- Featured Total Revenue -->
-          <div class="period-net">
-            <div class="period-net-label">TOTAL REVENUE</div>
-            <div class="period-net-value">
-              ₱{{ total_revenue|default:0|floatformat:2|intcomma }}
-            </div>
-          </div>
-
-          <!-- Insights -->
-          <dl class="period-breakdown">
-            <div><dt>Transactions</dt><dd>{{ total_sales_count|default:"0" }}</dd></div>
-            <div><dt>Collected</dt><dd class="text-success">₱{{ collected|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Receivables</dt><dd style="color:var(--muted);">₱{{ receivables|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Avg per sale</dt><dd>₱{{ average_total_revenue|floatformat:2|intcomma|default:"0.00" }}</dd></div>
-            <div><dt>Best sale</dt><dd class="text-success">₱{% if max_revenue %}{{ max_revenue|floatformat:2|intcomma }}{% else %}0.00{% endif %}</dd></div>
-          </dl>
-        </div>
-      </div>
-      {% endcomment %}
-
-      {% comment %} Quick Ranges card retired 2026-07-03 — the buttons moved up
-      beside the Advanced filters (they're filters, not analytics). Safe to delete
-      once the slim layout is confirmed.
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-calendar-range"></i> Quick Ranges
-          </span>
-        </div>
-        <div class="card-body quick-ranges">
-          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=today"
-            class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
-            <i class="bi bi-calendar-day"></i> Today
-          </a>
-          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=last_week"
-            class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
-            <i class="bi bi-clock-history"></i> Last week
-          </a>
-          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=week"
-            class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
-            <i class="bi bi-calendar-week"></i> This week
-          </a>
-          <a href="{% url 'sale-list' business_slug=current_business.slug %}?period=month"
-            class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
-            <i class="bi bi-calendar-month"></i> This month
-          </a>
-        </div>
-      </div>
-      {% endcomment %}
-
-      {% comment %} <!-- Related -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-link-45deg"></i> Related
-          </span>
-        </div>
-        <div class="card-body" style="padding: 1rem;">
-          <a href="{% url 'view-sale' business_slug=current_business.slug %}" class="btn btn-primary btn-sm btn-block" style="margin-bottom: 0.75rem;">
-            <i class="bi bi-plus-circle"></i> New Sale
-          </a>
-          <div class="related-links">
-            <a href="{% url 'sales-return-list' business_slug=current_business.slug %}" class="related-link">
-              <i class="bi bi-arrow-return-left"></i> Sales Returns
-            </a>
-            <a href="{% url 'sales-receivables' business_slug=current_business.slug %}" class="related-link">
-              <i class="bi bi-cash-stack"></i> Sales Receivables
-            </a>
-            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="related-link">
-              <i class="bi bi-bookmark-fill"></i> Presets
-            </a>
-          </div>
-        </div>
-      </div> {% endcomment %}
-
-    </div>
-
-
   </div>
 </div>
 

@@ -8,10 +8,30 @@ standalone purchase-payables page. Data comes from _build_payables_context()
 under pay_-prefixed context (pay_page_obj, pay_total_outstanding, pay_period,
 pay_status, pay_filter_active, pay_any_count) so its filters never clash with the
 purchase list's own period/page/payment filters on the same page (one page = one
-request.GET). Filter controls call applyPayFilter()/clearPayFilters() (defined at
-the bottom of this partial so both hosts inherit them). Pagination uses the
-built-in {% templatetag openblock %} querystring {% templatetag closeblock %} tag,
-which keeps every other active param intact while turning pay_page.
+request.GET).
+
+★ THE LIVE REGION (#pay-results) IS DECLARED BY THE HOST, NOT HERE — on purpose.
+Both hosts name it #pay-results, but its correct EXTENT differs, and that is exactly
+why it cannot live in this shared partial:
+  · purchase-list wraps only this include. Everything else pay_ params affect is in
+    here, and the purchase table beside it must NOT be swapped (it has its own
+    #purchase-results region and its own page).
+  · purchase-payables wraps its whole two-column layout, because its month/date form
+    AND its "TOTAL OWED" summary card are both rendered from these same pay_ params
+    but sit outside this partial. Swap only the table there and the summary keeps
+    showing the old period's total next to the new rows — the screen lies.
+Declaring it here would silently pick the first extent for both. So the host owns the
+region; this partial just supplies boostable controls that inherit hx-target/hx-select/
+hx-swap/hx-push-url from whichever region wraps it.
+
+Every link here is built with the built-in {% templatetag openblock %} querystring
+{% templatetag closeblock %} tag, which flips one pay_ param while preserving
+everything else — including the purchase table's page/filters when embedded.
+
+This replaced applyPayFilter()/clearPayFilters(), two hand-rolled JS helpers that
+rebuilt the query string and then did window.location.href = ... (a full page reload).
+{% templatetag openblock %} querystring {% templatetag closeblock %} does the same job
+server-side, so the controls are plain links and htmx boosts them for free — no JS left.
 
 Mirrors Sales/templates/sales/partials/_receivables_panel.html.
 {% endcomment %}
@@ -24,27 +44,33 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
         {{ pay_page_obj.paginator.count }} record{{ pay_page_obj.paginator.count|pluralize }}
       </span>
 
-      <!-- QUICK RANGES — pay_-scoped; preserve the purchase table's params -->
-      <button type="button" onclick="applyPayFilter('pay_period','today')"
+      {% comment %} QUICK RANGES — pay_-scoped. Links, not buttons: hx-boost only picks up
+           <a> and <form>, and a link is what these always were semantically (they go
+           somewhere). pay_page=None resets to page 1 — filtering to a smaller set while
+           parked on page 4 would otherwise land on an empty page. {% endcomment %}
+      <a href="{% querystring pay_period='today' pay_page=None %}"
         class="quick-range-btn {% if pay_period == 'today' %}active{% endif %}">
         <i class="bi bi-calendar-day"></i> Today
-      </button>
-      <button type="button" onclick="applyPayFilter('pay_period','last_week')"
+      </a>
+      <a href="{% querystring pay_period='last_week' pay_page=None %}"
         class="quick-range-btn {% if pay_period == 'last_week' %}active{% endif %}">
         <i class="bi bi-clock-history"></i> Last week
-      </button>
-      <button type="button" onclick="applyPayFilter('pay_period','week')"
+      </a>
+      <a href="{% querystring pay_period='week' pay_page=None %}"
         class="quick-range-btn {% if pay_period == 'week' %}active{% endif %}">
         <i class="bi bi-calendar-week"></i> This week
-      </button>
-      <button type="button" onclick="applyPayFilter('pay_period','month')"
+      </a>
+      <a href="{% querystring pay_period='month' pay_page=None %}"
         class="quick-range-btn {% if pay_period == 'month' %}active{% endif %}">
         <i class="bi bi-calendar-month"></i> This month
-      </button>
-      <button type="button" onclick="applyPayFilter('pay_period','')"
+      </a>
+      {% comment %} "All" clears the quick-range window only — a chosen Status survives, and so
+           does the standalone page's month/date range, matching exactly what the old
+           applyPayFilter('pay_period','') did. {% endcomment %}
+      <a href="{% querystring pay_period=None pay_page=None %}"
         class="quick-range-btn {% if not pay_period %}active{% endif %}">
         <i class="bi bi-grid"></i> All
-      </button>
+      </a>
     </div>
 
     <div class="user-filter-bar">
@@ -52,9 +78,17 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
       <label for="payStatusFilter" class="user-filter-label">
         <i class="bi bi-flag"></i> Status
       </label>
-      <select id="payStatusFilter"
-              class="user-filter-select {% if pay_status %}is-filtered{% endif %}"
-              onchange="applyPayFilter('pay_status', this.value)">
+      {% comment %} A <select> is neither <a> nor <form>, so hx-boost can't see it — it gets
+           its own hx-get. It needs ONLY the URL and the trigger: hx-target/hx-select/
+           hx-swap/hx-push-url are inherited from #pay-results above.
+           The URL is this page minus pay_status (and minus pay_page, to reset to page 1);
+           htmx then appends this element's own name=value, which puts pay_status back with
+           the newly chosen value. Everything else on the URL — including the purchase
+           table's page and filters — rides along untouched. {% endcomment %}
+      <select id="payStatusFilter" name="pay_status"
+              hx-get="{% querystring pay_status=None pay_page=None %}"
+              hx-trigger="change"
+              class="user-filter-select {% if pay_status %}is-filtered{% endif %}">
         <option value="" {% if not pay_status %}selected{% endif %}>All</option>
         <option value="utang" {% if pay_status == 'utang' %}selected{% endif %}>Debt (unpaid)</option>
         <option value="partial" {% if pay_status == 'partial' %}selected{% endif %}>Partial</option>
@@ -77,7 +111,11 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
           <th class="sl-text-center">Payment</th>
         </tr>
       </thead>
-      <tbody>
+      {% comment %} hx-boost="false": the reference links go to a purchase detail page, which
+           has no #pay-results to select out of the response. Boosted, they would silently do
+           nothing. (The Add payment button carries its own hx-get to the modal — boost never
+           touches an element that already has an hx-* verb, so it is unaffected.) {% endcomment %}
+      <tbody hx-boost="false">
         {% for p in pay_page_obj %}
         <tr class="{% if p.due_date and p.due_date < today %}is-overdue{% endif %}">
           <td class="cell-primary">
@@ -145,7 +183,12 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
       <h3 class="empty-title">No bills in this range</h3>
       <p class="empty-text">
         {{ pay_any_count }} unpaid purchase{{ pay_any_count|pluralize }} outside this filter.
-        <a href="#" onclick="clearPayFilters(); return false;" class="link-accent">Show all</a>
+        {% comment %} Clears every pay_ filter at once — including the standalone page's
+             month/date range, exactly as the old clearPayFilters() did — while keeping the
+             purchase table's params. A real href now instead of href="#" + JS: boost swaps
+             it, and it still works as an ordinary link if JS is off. {% endcomment %}
+        <a href="{% querystring pay_period=None pay_status=None pay_select_month=None pay_start_date=None pay_end_date=None pay_page=None %}"
+           class="link-accent">Show all</a>
       </p>
     </div>
     {% else %}
@@ -162,27 +205,10 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
   <!-- PAGINATION — turns pay_page; {% templatetag openblock %} querystring {% templatetag closeblock %} keeps every other param -->
   {% pagination pay_page_obj param='pay_page' %}
 </div>
-
 {% comment %}
-Filter helpers live here (not in the host) so BOTH purchase_history and the
-standalone purchase-payables page inherit them from the single include. Twins of
-applyQueryFilter — flip a pay_ param while preserving every other param
-(including the host table's own filters); reset only pay_page.
-{% endcomment %}
-<script>
-function applyPayFilter(key, value) {
-  const params = new URLSearchParams(window.location.search);
-  if (value) { params.set(key, value); } else { params.delete(key); }
-  params.delete("pay_page");
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
-
-function clearPayFilters() {
-  const params = new URLSearchParams(window.location.search);
-  ["pay_period", "pay_status", "pay_select_month", "pay_start_date", "pay_end_date", "pay_page"]
-    .forEach(k => params.delete(k));
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
-</script>
+applyPayFilter() / clearPayFilters() used to live here — defined in the partial so both
+hosts inherited them from the single include. Both built a query string by hand and then
+did window.location.href = ..., i.e. the full page reload this work removed. Their jobs
+are now done server-side by {% templatetag openblock %} querystring {% templatetag closeblock %}
+on the links above, so there is no query-string JS left to keep in sync — and nothing for
+the two hosts to inherit. {% endcomment %}

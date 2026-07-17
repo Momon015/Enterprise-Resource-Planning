@@ -174,7 +174,7 @@
                     </button>
                     {% else %}
                     <button hx-post="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
-                            hx-target="#cart-badge" hx-swap="outerHTML"
+                            hx-target="#sale-cart-badge" hx-swap="outerHTML"
                             class="action-btn action-btn--add" title="Add to sale">
                       <i class="bi bi-plus"></i>
                     </button>

@@ -1,5 +1,5 @@
 {% if user.is_authenticated and current_business %}
-<div class="topbar{% if on_cart_page %} topbar--hide-cart{% endif %}">
+<div class="topbar{% if on_sale_cart_page %} topbar--hide-sale-cart{% endif %}{% if on_purchase_cart_page %} topbar--hide-purchase-cart{% endif %}">
   <button type="button" class="topbar-icon-btn topbar-collapse-btn" id="sidebarCollapseBtn"
           aria-label="Toggle sidebar" title="Toggle sidebar">
     <i class="bi bi-x-lg topbar-collapse-icon--open"></i>
@@ -21,19 +21,19 @@
   </div>
 
   <div class="topbar-cluster">
-    {% if section == 'product' or section == 'service' or section == 'sale' %}
-      <a id="cart-badge" href="{% url 'view-sale' business_slug=current_business.slug %}"
-         class="topbar-icon-btn topbar-cart{% if not sale_cart_count or on_cart_page %} is-empty{% endif %}" title="Cart" aria-label="Cart">
-        <i class="bi bi-cart3"></i>
-        {% if sale_cart_count %}<span class="topbar-cart__badge">{{ sale_cart_count }}</span>{% endif %}
-      </a>
-    {% elif section == 'material' or section == 'purchase' %}
-      <a id="cart-badge" href="{% url 'view-cart' business_slug=current_business.slug %}"
-         class="topbar-icon-btn topbar-cart{% if not purchase_cart_count or on_cart_page %} is-empty{% endif %}" title="Cart" aria-label="Cart">
-        <i class="bi bi-cart3"></i>
-        {% if purchase_cart_count %}<span class="topbar-cart__badge">{{ purchase_cart_count }}</span>{% endif %}
-      </a>
-    {% endif %}
+    <!-- TWO carts, TWO slots, ALWAYS rendered.
+         Sales and purchases are separate sessions that can both hold items at once, so there
+         is no single "the cart" to show. The quick-add (+) in the search dropdown posts to
+         whichever cart the item belongs to — a material to the purchase cart, a product to
+         the sale cart — from ANY page, and it swaps that cart's badge as its hx-target.
+
+         Rendering a slot only inside its own section is what broke this: on the dashboard,
+         analytics, or any records page there was no #cart-badge, and htmx answers a target
+         that resolves to nothing by dropping the request without sending it — no error the
+         owner would ever see, the + just did nothing. A slot that is always in the DOM is
+         always a valid target; .is-empty hides the one with nothing to say. -->
+    {% include 'core/partials/_cart_badge_link.html' with badge_id='sale-cart-badge' badge_mod='topbar-cart--sale' cart_url='view-sale' icon='bi-cart3' cart_title='Sale cart' cart_count=sale_cart_count current_business=current_business only %}
+    {% include 'core/partials/_cart_badge_link.html' with badge_id='purchase-cart-badge' badge_mod='topbar-cart--purchase' cart_url='view-cart' icon='bi-cart3' cart_title='Purchase cart' cart_count=purchase_cart_count current_business=current_business only %}
 
     <!-- NOTIFICATIONS -->
     <div class="topbar-notif" id="topbarNotif"

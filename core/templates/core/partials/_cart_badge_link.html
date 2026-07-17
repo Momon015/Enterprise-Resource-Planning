@@ -1,0 +1,16 @@
+<!-- The cart button itself — ONE copy, shared by the topbar's first render and by the htmx
+     swap that every add-to-cart returns (_cart_badge.html wraps this one plus the toasts).
+     It has to be one copy: the swap replaces this element outerHTML, so if the two sides
+     drifted the button would visibly change shape the moment you added something.
+
+     Kept apart from _cart_badge.html because that partial carries an hx-swap-oob toast
+     block, which is right for a response and wrong for a page that already has toasts. -->
+<a id="{{ badge_id }}"
+   href="{% url cart_url business_slug=current_business.slug %}"
+   class="topbar-icon-btn topbar-cart {{ badge_mod }}{% if not cart_count %} is-empty{% endif %}"
+   title="{{ cart_title }}" aria-label="{{ cart_title }}">
+  <i class="bi {{ icon }}"></i>
+  {% if cart_count %}
+    <span class="topbar-cart__badge">{{ cart_count }}</span>
+  {% endif %}
+</a>

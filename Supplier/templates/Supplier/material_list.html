@@ -185,7 +185,7 @@
                 <td class="sl-text-end">
                   <div class="table-actions">
                     <button hx-post="{% url 'add-to-cart' business_slug=current_business.slug id=material.id %}"
-                            hx-target="#cart-badge"
+                            hx-target="#purchase-cart-badge"
                             hx-swap="outerHTML"
                             class="action-btn action-btn--add" title="Add to cart">
                       <i class="bi bi-plus"></i>

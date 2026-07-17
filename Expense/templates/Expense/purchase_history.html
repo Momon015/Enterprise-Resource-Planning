@@ -20,35 +20,39 @@
 {% endif %}
 </div>
 
+{% comment %}
+Mutually-exclusive date filters clear each other. DELEGATED, not bound per element:
+#purchase-results is replaced wholesale on every filter/paginate, so anything bound directly
+to these inputs (as the old DOMContentLoaded block did) would be thrown away with the first
+swap and the rule would quietly stop applying.
+
+applyQueryFilter used to live in this block too. It built a query string by hand and then did
+window.location.href = ... — the full page reload this work removed. Both tables now swap
+their own region over htmx, and their links are built server-side by the built-in
+{% templatetag openblock %} querystring {% templatetag closeblock %} tag, so there is no
+query-string JS left to keep in sync.
+{% endcomment %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+document.addEventListener("change", function (e) {
+  const form = document.getElementById("filterForm");
+  if (!form || !form.contains(e.target)) return;
 
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+  const month  = form.querySelector('input[name="select_month"]');
+  const start  = form.querySelector('input[name="start_date"]');
+  const end    = form.querySelector('input[name="end_date"]');
+  const period = form.querySelector('input[name="period"]');
+
+  if (e.target === month) {
+    if (start) start.value = "";
+    if (end) end.value = "";
+  } else if (e.target === start || e.target === end) {
+    if (month) month.value = "";
+  } else {
+    return;                       // a payment/user select — leave the date window alone
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
+  // Typing a date window overrides an active quick range ("This week"), so drop it.
+  if (period) period.remove();
 });
-
-// Set/clear one query param while preserving every other active filter
-// (period, date range, user, …). Empty value removes the param. Resets page.
-function applyQueryFilter(key, value) {
-  const params = new URLSearchParams(window.location.search);
-  if (value) { params.set(key, value); } else { params.delete(key); }
-  params.delete("page");
-  const qs = params.toString();
-  window.location.href = window.location.pathname + (qs ? "?" + qs : "");
-}
 </script>
 
 <div class="page-wrapper">
@@ -170,6 +174,34 @@ function applyQueryFilter(key, value) {
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+       {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════════
+           Everything a filter can change lives in here, and htmx replaces the whole
+           block: filter panel, quick ranges, count badge, table, pagination.
+
+           WHY THE FILTER PANEL IS INSIDE and not just the table: every one of these is
+           derived from request.GET on the server — the <details open> state, the "Active"
+           badge, the quick-range .active pill, the date inputs' values, the record count.
+           Swap only the table and they all go stale: click "This week" after typing a date
+           range and the inputs still show the old dates while the URL says otherwise. Let
+           the server re-render the lot and desync is impossible by construction.
+
+           hx-select means the VIEW IS UNTOUCHED. htmx fetches this same page URL — the one
+           the browser would have loaded anyway — and lifts #purchase-results out of the
+           response. No JSON, no partial, no serializer: the server already renders the
+           right HTML for ?period=week&payment=cash&page=3. We just stop repainting.
+
+           ★ hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
+           filter form, Reset) — which is the point, but it is ALSO the trap: a link that
+           LEAVES this page must opt out with hx-boost="false", or htmx tries to lift
+           #purchase-results out of a page that has none, hits a target error, and drops the
+           navigation silently. See the tbody below. {% endcomment %}
+      <div id="purchase-results"
+           hx-boost="true"
+           hx-target="#purchase-results"
+           hx-select="#purchase-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
                {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
@@ -182,11 +214,41 @@ function applyQueryFilter(key, value) {
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+           {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+               Vendored htmx 2.0.3 boosts a form like this:
+                   o = getAttribute(form, "action");
+                   if (verb === "get" && o.includes("?")) { ... }
+               With no action attribute o is null, so o.includes() throws a TypeError —
+               inside htmx's DOM-processing pass, which aborts. Every element after this
+               form (the whole table, the pagination, the Payables panel) then never gets
+               wired up and falls back to native navigation: a full page reload on every
+               filter. Silently — the only trace is one console error. The topbar keeps
+               working because it is processed before this point.
+               htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+               boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'purchase-list' business_slug=current_business.slug %}"
+                class="filter-form filter-form--inline" autocomplete="off">
 
-            <!-- keep the categorical filters when applying a month/date range -->
-            {% if active_payment %}<input type="hidden" name="payment" value="{{ active_payment }}">{% endif %}
-            {% if active_user %}<input type="hidden" name="user" value="{{ active_user }}">{% endif %}
+             {% comment %} Keep the ACTIVE QUICK RANGE when applying a payment/user filter. Cleared by
+                 JS the moment a month or date is typed, because a date range and a quick
+                 range are mutually exclusive — same reason month and start/end clear each
+                 other up in the script block. Without this, picking a payment while "This
+                 week" is active would silently widen the results back to all time.
+                 (payment + user are no longer hidden inputs: the two selects in the table
+                 header now belong to this form via form="filterForm", so they submit their
+                 own values. Hidden copies here would send each param twice.) {% endcomment %}
+            {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
+
+             {% comment %} The Payables panel below shares this one query string, and a GET form
+                 submits ONLY its own fields — so without these, applying a purchase filter would
+                 wipe pay_period/pay_status/pay_page off the URL while the panel on screen kept
+                 showing filtered rows. Same failure the quick-range links had. Links can use
+                 {% templatetag openblock %} querystring {% templatetag closeblock %} to
+                 preserve-by-default; a form cannot, so it has to carry the other panel's state
+                 explicitly. {% endcomment %}
+            {% if request.GET.pay_period %}<input type="hidden" name="pay_period" value="{{ request.GET.pay_period }}">{% endif %}
+            {% if request.GET.pay_status %}<input type="hidden" name="pay_status" value="{{ request.GET.pay_status }}">{% endif %}
+            {% if request.GET.pay_page %}<input type="hidden" name="pay_page" value="{{ request.GET.pay_page }}">{% endif %}
 
             {% comment %}
             Search temporarily disabled due to duplicate rows caused by joins.
@@ -206,7 +268,7 @@ function applyQueryFilter(key, value) {
                 <i class="bi bi-calendar3"></i> Month
               </label>
               <input type="month" name="select_month" class="form-control form-control--polish"
-                    value="{{ request.GET.select_month|default:current_year }}">
+                    value="{{ request.GET.select_month|default:'' }}">
             </div>
 
             <div class="form-field">
@@ -231,7 +293,11 @@ function applyQueryFilter(key, value) {
               <button class="btn btn-primary btn-sm" type="submit">
                 <i class="bi bi-funnel-fill"></i> Apply
               </button>
-              <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="btn btn-light btn-sm">
+              {% comment %} Resets this table's filters only, leaving the Payables panel's pay_
+                   state alone — same reasoning as the "All" pill. Was a bare purchase-list
+                   URL, which dropped everything on the page. {% endcomment %}
+              <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
+                 class="btn btn-light btn-sm">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
               </a>
             </div>
@@ -248,25 +314,38 @@ function applyQueryFilter(key, value) {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
-            <!-- QUICK RANGES — set the date window; keep payment/user filters -->
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=today{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+             {% comment %} QUICK RANGES — set the date window; keep payment/user.
+                 ★ Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
+                 rather than a hand-listed "?period=x&payment=y" — that older form silently
+                 DROPPED every param it didn't name, which meant the Payables panel's own
+                 pay_ filters below. As a full reload that only reset the panel (annoying).
+                 Once the purchase table swaps on its own, it becomes a lie: the URL loses
+                 pay_period while the panel on screen still shows the filtered rows, so a
+                 refresh makes it jump. Naming what to CHANGE and letting everything else ride
+                 is the only form that stays correct as more params appear.
+                 page=None resets to page 1 (a narrower window has fewer pages); the month/date
+                 window is cleared because a quick range and a custom range are exclusive. {% endcomment %}
+            <a href="{% querystring period='today' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=last_week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='last_week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=week{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}?period=month{% if active_payment %}&payment={{ active_payment }}{% endif %}{% if active_user %}&user={{ active_user }}{% endif %}"
+            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
-            <!-- ALL RECORDS — clears every filter (date + payment/user); true reset -->
-            <a href="{% url 'purchase-list' business_slug=current_business.slug %}"
+             {% comment %} ALL RECORDS — clears every filter this table owns (date + payment/user).
+                 It no longer clears the Payables panel's pay_ filters too: this button lives in
+                 the purchase card and speaks for the purchase table only, exactly as the
+                 panel's own "All" leaves the purchase table alone. {% endcomment %}
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
@@ -277,9 +356,15 @@ function applyQueryFilter(key, value) {
               <label for="paymentFilter" class="user-filter-label">
                 <i class="bi bi-wallet2"></i> Payment
               </label>
-              <select id="paymentFilter"
+               {% comment %} form="filterForm" adopts this select into the filter form even though it
+                   sits outside it in the markup (plain HTML, no JS). That hands it to the
+                   boosted form: it submits every other active filter with it, htmx swaps the
+                   region, and hx-push-url keeps the URL honest so back/refresh/bookmark all
+                   still work. It replaces applyQueryFilter(), which rebuilt the query string
+                   by hand and then did window.location.href = ... — a full page reload. {% endcomment %}
+              <select id="paymentFilter" name="payment" form="filterForm"
                       class="user-filter-select {% if active_payment %}is-filtered{% endif %}"
-                      onchange="applyQueryFilter('payment', this.value)">
+                      onchange="this.form.requestSubmit()">
                 <option value="" {% if not active_payment %}selected{% endif %}>All payments</option>
                 {% for code, label in payment_methods %}
                   <option value="{{ code }}" {% if active_payment == code %}selected{% endif %}>{{ label }}</option>
@@ -291,9 +376,9 @@ function applyQueryFilter(key, value) {
               <label for="userFilter" class="user-filter-label">
                 <i class="bi bi-person-fill"></i> Show by
               </label>
-              <select id="userFilter"
+              <select id="userFilter" name="user" form="filterForm"
                       class="user-filter-select {% if active_user %}is-filtered{% endif %}"
-                      onchange="applyQueryFilter('user', this.value)">
+                      onchange="this.form.requestSubmit()">
                 <option value="" {% if not active_user %}selected{% endif %}>All users</option>
                 {% for s in users %}
                   <option value="{{ s.id }}" {% if active_user == s.id|stringformat:'s' %}selected{% endif %}>
@@ -321,7 +406,11 @@ function applyQueryFilter(key, value) {
                 {% comment %} <th class="sl-text-center">Action</th> {% endcomment %}
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-boost="false": every row navigates to a purchase detail page, which
+                 has no #purchase-results. Boosted, clicking a purchase would do nothing. The
+                 row's own onclick= isn't an <a> so boost never saw it, but the View link inside
+                 is one — opt the whole tbody out and neither can rot. {% endcomment %}
+            <tbody hx-boost="false">
               {% for purchase in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'purchase-detail' business_slug=current_business.slug purchase_id=purchase.id %}?{{ request.GET.urlencode }}'">
                 <td class="cell-primary">
@@ -403,13 +492,31 @@ function applyQueryFilter(key, value) {
         {% pagination page_obj %}
       </div>
 
+      </div>
+      {% comment %} ═══ end #purchase-results ═══════════════════════════════════════════════
+           The Payables panel below is deliberately OUTSIDE this region: it has its own
+           pay_-prefixed params and its own pagination, so swapping it on a purchase filter
+           would reset it. It carries its own #pay-results region instead. {% endcomment %}
+
       {% comment %} EMBEDDED PAYABLES — the same _payables_panel.html partial the
       standalone purchase-payables page uses (one source of truth). pay_-prefixed
       params so its filters never clash with the purchase table above. Hidden
       unless owner/dev or a staffer the owner granted can_handle_payables.
       Mirrors the receivables panel in sale_list. {% endcomment %}
       {% if can_view_payables %}
-        {% include 'Expense/partials/_payables_panel.html' %}
+        {% comment %} #pay-results — the payables panel's own live region, declared HERE rather
+             than inside the partial because its correct extent is host-specific (see the header
+             of _payables_panel.html). On this page it wraps the include and nothing else: the
+             purchase table beside it has its own region and its own page, and a payables filter
+             must not reset it. {% endcomment %}
+        <div id="pay-results"
+             hx-boost="true"
+             hx-target="#pay-results"
+             hx-select="#pay-results"
+             hx-swap="outerHTML"
+             hx-push-url="true">
+          {% include 'Expense/partials/_payables_panel.html' %}
+        </div>
       {% endif %}
 
     </div>

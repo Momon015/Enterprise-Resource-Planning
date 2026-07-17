@@ -1,7 +1,7 @@
 <div id="cart-clear" hx-swap-oob="true">
   {% if cart_items %}
     <button hx-post="{% url clear_sessions business_slug=current_business.slug %}"
-            hx-target="#cart-badge"
+            hx-target="#{{ badge_id }}"
             hx-swap="outerHTML"
             hx-confirm="Are you sure you want to clear all items?"
             class="btn btn-sm btn-block"

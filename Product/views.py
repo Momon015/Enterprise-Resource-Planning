@@ -820,6 +820,10 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
             'cart_items': len(sale),
             'cart_count': sum(product['quantity'] for product in sale.values()),
             'cart_url': 'view-sale',
+            'icon': 'bi-cart3',
+            'badge_id': 'sale-cart-badge',
+            'badge_mod': 'topbar-cart--sale',
+            'cart_title': 'Sale cart',
             'preset': preset,
         })
         resp['HX-Trigger'] = 'cartChanged'

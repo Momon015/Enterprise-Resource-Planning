@@ -15,7 +15,7 @@
         {% for s in service.sessions.all %}
         <button type="button" class="session-pick__btn"
                 hx-get="{% url 'add-to-sale' product_id=service.id business_slug=current_business.slug %}?session={{ s.id }}"
-                hx-target="#cart-badge" hx-swap="outerHTML"
+                hx-target="#sale-cart-badge" hx-swap="outerHTML"
                 hx-on::after-request="document.getElementById('confirmModal').classList.remove('is-open'); document.body.style.overflow=''; document.getElementById('confirmBody').innerHTML='';">
           <span class="session-pick__label">{{ s.label }}</span>
           <span class="session-pick__price">₱{{ s.price|floatformat:2|intcomma }}</span>

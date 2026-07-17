@@ -1,1 +1,7 @@
-{% include 'core/partials/_preset_badge.html' %} <!-- main target -->
+<!-- Applying a preset is just adding items, so it answers with the same badge + toasts a
+     single add does. It used to answer with _preset_badge.html, whose #preset-badge lived
+     in a page-header block that has since been commented out on BOTH preset lists — so the
+     target resolved to nothing, htmx refused to send, and the + on a preset silently did
+     nothing at all. Reusing the topbar badge means there is no preset-only target left to
+     rot: the slot the rest of the app already keeps alive is the slot presets swap too. -->
+{% include 'core/partials/_cart_badge.html' %}
