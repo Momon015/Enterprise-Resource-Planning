@@ -57,7 +57,10 @@ def notification_badge(request):
         'notification_count': len(unread_list),
         'notification_events': unread_list,
 
-        # PINNED — state (things that are true right now). Never read/unread,
-        # never counted in the badge (or the badge could never reach zero).
+        # PINNED — state (things that are true right now). Never read/unread, and never
+        # counted in the badge: a count mixing unread news with unfixed state means the
+        # owner reads everything and the badge still shows 2, which reads as broken.
+        # They do drive a DOT on the bell (templates/partials/_topbar_notif.html) — the
+        # silent-bell case: no unread events, but a product is still out of stock.
         'pinned_items': attention_items(business),
     }

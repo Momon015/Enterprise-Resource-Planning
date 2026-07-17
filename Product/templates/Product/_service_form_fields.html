@@ -1,0 +1,238 @@
+        <div class="mf-fields-grid">
+
+          {% if form_error %}
+          <div class="mf-error" style="grid-column: 1 / -1;">
+            <i class="bi bi-exclamation-circle sl-me-1"></i> {{ form_error }}
+          </div>
+          {% endif %}
+
+          {# Name — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+              {{ form.name.label }}{% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Session toggle — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label class="mf-switch">
+              {{ form.is_session_based }}
+              <span class="mf-switch__track"></span>
+              <span class="mf-switch__label">{{ form.is_session_based.label }}</span>
+            </label>
+            <div class="mf-help">For billiards, court rentals, etc. — charge by time block instead of a flat fee.</div>
+          </div>
+
+
+          {# Image — left half #}
+          <div class="mf-field-group">
+            <label for="{{ form.image.id_for_label }}" class="mf-form-label">{{ form.image.label }}</label>
+            {{ form.image }}
+            <div class="mf-help">Optional — a logo like GCash, Meralco, or PLDT.</div>
+            {% if form.image.errors %}<div class="mf-error">{{ form.image.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Flat fee — right half (hidden when session-based) #}
+          <div class="mf-field-group" id="flatFeeField">
+            {% comment %} Asterisk is UNCONDITIONAL, not `{% if form.selling_price.field.required %}`.
+            The fee is only required when the service is NOT session-based (ServiceForm.clean
+            zeroes it and skips the check when it is) — and Django's `required` can't say
+            "required depending on another field". Setting required=True to win the asterisk
+            would reject a session-based service with a blank fee, which is legitimate.
+            This whole block is hidden exactly when the fee stops mattering, so if you can
+            see the asterisk it is telling the truth. {% endcomment %}
+            <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+              {{ form.selling_price.label }}<span class="mf-required">*</span>
+            </label>
+            <div class="mf-peso-wrap">
+              <span class="mf-peso-prefix">₱</span>
+              <div class="mf-stepper">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.selling_price.id_for_label }}', -1)">−</button>
+                <input type="number" name="{{ form.selling_price.html_name }}" id="{{ form.selling_price.id_for_label }}"
+                       class="form-control" step="0.01" min="0"
+                       value="{{ form.selling_price.value|default_if_none:'0.00' }}">
+                <button class="qty-btn" type="button" onclick="stepDecimal('{{ form.selling_price.id_for_label }}', 1)">+</button>
+              </div>
+            </div>
+            {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {# Session tiers — full width (hidden unless session-based) #}
+          <div class="mf-field-group" id="sessionTiers" style="grid-column: 1 / -1; display:none;">
+            <label class="mf-form-label">Session tiers <span class="mf-required">*</span></label>
+            <div class="mf-help" style="margin-bottom:.5rem;">Each time block and its price — e.g. "30 mins" ₱40, "1 hr" ₱70.</div>
+
+            {{ formset.management_form }}
+
+            <div class="tier-head"><span>Duration</span><span>Price (₱)</span><span></span></div>
+            <div id="tierRows">
+              {% for f in formset %}
+                <div class="tier-row">
+                  {{ f.id }}
+                  <div class="tier-row__field">{{ f.label }}</div>
+                  <div class="tier-row__field">{{ f.price }}</div>
+                  <span class="tier-del-hidden">{{ f.DELETE }}</span>
+                  <button type="button" class="tier-remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+                </div>
+              {% endfor %}
+            </div>
+
+            <template id="emptyTierTpl">
+              <div class="tier-row">
+                {{ formset.empty_form.id }}
+                <div class="tier-row__field">{{ formset.empty_form.label }}</div>
+                <div class="tier-row__field">{{ formset.empty_form.price }}</div>
+                <span class="tier-del-hidden">{{ formset.empty_form.DELETE }}</span>
+                <button type="button" class="tier-remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </template>
+
+            <button type="button" id="addTier" class="btn btn-light btn-sm" style="margin-top:.5rem;">
+              <i class="bi bi-plus"></i> Add tier
+            </button>
+          </div>
+
+          {# Description — full width #}
+          <div class="mf-field-group" style="grid-column: 1 / -1;">
+            <label for="{{ form.description.id_for_label }}" class="mf-form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
+          </div>
+
+        </div>
+
+<script>
+function stepDecimal(id, delta) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  let value = parseFloat(input.value || 0);
+  value = isNaN(value) ? 0 : value + delta;
+  if (value < 0) value = 0;
+  input.value = value.toFixed(2);
+  // Setting .value in code fires no event, so anything listening for `input` never
+  // hears the +/− buttons — the fee error below would sit there after they fixed it.
+  // (The product form's changeValue() had to learn the same thing for its margin bar.)
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+(function () {
+  const toggle = document.querySelector('input[name="is_session_based"]');
+  if (!toggle) return;
+  const flat  = document.getElementById('flatFeeField');
+  const tiers = document.getElementById('sessionTiers');
+
+  function sync() {
+    const on = toggle.checked;
+    if (tiers) tiers.style.display = on ? '' : 'none';
+    if (flat)  flat.style.display  = on ? 'none' : '';
+  }
+  toggle.addEventListener('change', sync);
+  sync();   // honor server state on load (e.g. update page or re-render after error)
+
+  const addBtn = document.getElementById('addTier');
+  const rows   = document.getElementById('tierRows');
+  const total  = document.querySelector('input[name="sessions-TOTAL_FORMS"]');
+  const tpl    = document.getElementById('emptyTierTpl');
+
+  if (addBtn && rows && total && tpl) {
+    addBtn.addEventListener('click', () => {
+      const idx = parseInt(total.value, 10);
+      rows.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/__prefix__/g, idx));
+      total.value = idx + 1;
+    });
+  }
+  if (rows) {
+    rows.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tier-remove');
+      if (!btn) return;
+      const row = btn.closest('.tier-row');
+      const del = row.querySelector('input[type="checkbox"]');  // the DELETE box
+      if (del) del.checked = true;     // mark for deletion (existing rows)
+      row.style.display = 'none';      // hide it; TOTAL_FORMS never decreases (Django-safe)
+    });
+  }
+})();
+
+// SERVICE PRICING GUARD — the session toggle decides which field must be filled:
+//   sessions OFF -> a flat fee greater than ₱0   (ServiceForm.clean, Product/forms.py)
+//   sessions ON  -> at least one tier            (service_create/update, Product/views.py)
+// Both are server rules that RE-RENDER, and a re-render silently drops a chosen image —
+// the browser will not re-attach a file to a rebuilt input. So the user picked a logo,
+// hit Save, and got the error back with their image gone. The server keeps both checks
+// (it stays the authority); this only stops the round trip.
+//
+// _required_guard.html cannot cover either one: "0.00" is not empty, and a tier rule is
+// about a formset, not a field. Same cancellable hook — see that file for why
+// preventDefault() alone does not stop htmx.
+(function () {
+  const form = document.getElementById('serviceForm');
+  if (!form || form.dataset.serviceGuard) return;
+  form.dataset.serviceGuard = '1';
+
+  const toggle = form.querySelector('input[name="is_session_based"]');
+  const tiers  = document.getElementById('sessionTiers');
+  const rows   = document.getElementById('tierRows');
+  const flat   = document.getElementById('flatFeeField');
+  const fee    = form.querySelector('input[name="selling_price"]');
+  if (!toggle) return;
+
+  const ERR = 'js-service-error';
+
+  function clear() {
+    form.querySelectorAll('.' + ERR).forEach(function (el) { el.remove(); });
+  }
+
+  function show(box, text) {
+    const err = document.createElement('div');
+    err.className = 'mf-error ' + ERR;
+    err.textContent = text;
+    box.appendChild(err);
+    box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  // A tier counts when it has a duration AND is not marked for deletion — mirrors the
+  // server's `has_tier`. Keep the two in step; a looser client rule just brings the
+  // round trip back.
+  function hasTier() {
+    if (!rows) return false;
+    return Array.from(rows.querySelectorAll('.tier-row')).some(function (row) {
+      const del = row.querySelector('input[type="checkbox"]');
+      if (del && del.checked) return false;
+      const label = row.querySelector('input[name$="-label"]');
+      return label && label.value.trim();
+    });
+  }
+
+  function invalid() {
+    clear();
+    if (toggle.checked) {
+      if (tiers && !hasTier()) {
+        show(tiers, 'Add at least one session tier (e.g. 1 hr — ₱70).');
+        return true;
+      }
+    } else if (flat && fee) {
+      // Mirrors ServiceForm.clean: empty or <= 0 is rejected. parseFloat('') is NaN,
+      // and NaN > 0 is false, so both cases fall through here.
+      if (!(parseFloat(fee.value) > 0)) {
+        show(flat, 'Enter a fee greater than ₱0.');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  form.addEventListener('submit', function (e) { if (invalid()) e.preventDefault(); });
+  form.addEventListener('htmx:beforeRequest', function (e) { if (invalid()) e.preventDefault(); });
+
+  // Clear as soon as they fix it — typing a duration or a fee, or flipping the toggle
+  // (which swaps which rule even applies, so a stale message would be nonsense).
+  form.addEventListener('input', function (e) {
+    if (e.target === fee || e.target.matches('input[name$="-label"]')) clear();
+  });
+  toggle.addEventListener('change', clear);
+})();
+</script>
+
+{% include 'partials/_required_guard.html' with form_id='serviceForm' %}

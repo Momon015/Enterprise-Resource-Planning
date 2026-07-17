@@ -97,7 +97,10 @@
           </div>
           <!-- QUICK LINKS — moved from the old right column -->
           <div class="d-flex gap-2">
-            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'service-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'service-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Create service
             </a>
             {% if request.user.role == 'owner' %}
@@ -117,7 +120,7 @@
             <thead>
               <tr>
                 <th>Name</th>
-                <th>SKU</th>
+                <th class="sl-text-center">SKU</th>
                 <th class="sl-text-center col-mobile-hidden">Type</th>
                 <th class="sl-text-center">Fee</th>
                 <th class="sl-text-end mobile-center">Actions</th>
@@ -148,8 +151,8 @@
                     {% endif %}
                   </div>
                 </td>
-                <td>
-                  <div class="cell-primary">{{ service.sku }}</div>
+                <td class="sl-text-center">
+                  <span class="sku-pill">{{ service.sku|upper }}</span>
                 </td>
                 <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{% if service.is_session_based %}Rental{% else %}Service{% endif %}</span>
@@ -177,6 +180,8 @@
                     </button>
                     {% endif %}
                     <a href="{% url 'service-update' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                       hx-get="{% url 'service-update' service_id=service.id service_slug=service.slug business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit service">
                       <i class="bi bi-pencil"></i>
                     </a>
@@ -206,7 +211,10 @@
               {% endif %}
             </p>
             {% if not search %}
-            <a href="{% url 'service-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'service-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'service-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Add your first service fee
             </a>
             {% endif %}

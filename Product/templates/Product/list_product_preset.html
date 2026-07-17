@@ -188,18 +188,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     <!-- VIEW -->
                     <a href="{% url 'product-preset-detail' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'product-preset-detail' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--view" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
 
                     <!-- EDIT -->
                     <a href="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
                     {% if request.user.role == 'owner' %}
                     <!-- DELETE -->
                     <a href="{% url 'product-delete-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'product-delete-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--danger" title="Delete preset">
                       <i class="bi bi-trash"></i>
                     </a>

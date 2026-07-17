@@ -75,6 +75,8 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- Quick Actions — moved from the old right column; Categories link dropped (own sidebar page) -->
           <div class="d-flex gap-2">
             <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
                class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Create template
             </a>
@@ -92,7 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <tr>
                 <th class="col-mobile-hidden">Date</th>
                 <th>Name</th>
-                <th class="sl-text-end">Default Amount</th>
+                <th class="sl-text-center">Default Amount</th>
                 <th class="sl-text-end">Actions</th>
               </tr>
             </thead>
@@ -107,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="cell-primary">{{ misc.name|capfirst }}</div>
                   <div class="cell-sub">{{ misc.category.name|default:"No category" }}</div>
                 </td>
-                <td class="sl-text-end sl-fw-semibold mobile-center">
+                <td class="sl-text-center sl-fw-semibold mobile-center">
                   ₱{{ misc.amount|floatformat:2|intcomma }}
                 </td>
                 <td class="sl-text-end">
@@ -141,7 +143,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
             <h3 class="empty-title">No templates yet</h3>
             <p class="empty-text">Create reusable expense templates for recurring costs like rent or utilities.</p>
-            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Create your first template
             </a>
           </div>

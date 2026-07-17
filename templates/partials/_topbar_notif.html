@@ -1,6 +1,25 @@
-<button type="button" class="topbar-icon-btn topbar-notif__btn" aria-label="Notifications">
+{% comment %} The bell carries ONE mark, never two.
+
+Number = unread events: news you haven't seen, clears when you read it.
+Dot    = pinned state: something is true RIGHT NOW and still needs doing. It can't be a
+         number in the badge — a count that only clears when the stock is replenished
+         mixes "unread" with "unfixed", so the owner reads everything and the badge
+         still says 2, which reads as broken. It can't be an EVENT either: an event
+         saying "Coke is out of stock" is a lie the day after you restock, while the pin
+         self-clears (that's why product stock.* events are dropped from this dropdown —
+         see activity/context_processors.py).
+
+The dot only shows when there is no count: both marks mean "open me", so together they
+add nothing and just look like a bug. Read your last event and the number gives way to
+the dot — which is the case this exists for: no news, but the stock is still out. {% endcomment %}
+<button type="button" class="topbar-icon-btn topbar-notif__btn"
+        aria-label="{% if notification_count %}Notifications, {{ notification_count }} unread{% elif pinned_items %}Notifications, needs attention{% else %}Notifications{% endif %}">
   <i class="bi bi-bell"></i>
-  {% if notification_count %}<span class="topbar-notif__badge">{{ notification_count }}</span>{% endif %}
+  {% if notification_count %}
+    <span class="topbar-notif__badge">{{ notification_count }}</span>
+  {% elif pinned_items %}
+    <span class="topbar-notif__dot"></span>
+  {% endif %}
 </button>
 
 <div class="topbar-notif__menu">
@@ -10,7 +29,8 @@
   </div>
 
   <!-- PINNED — current state, not events. Navigates but never marks read;
-       clears itself only when the condition ends. Not in the badge count. -->
+       clears itself only when the condition ends. Not in the badge COUNT — it drives
+       the dot on the bell instead (see the note above the button). -->
   {% if pinned_items %}
   <div class="topbar-notif__pinned">
     <div class="topbar-notif__pinned-label">

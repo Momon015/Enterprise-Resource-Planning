@@ -95,77 +95,10 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
 
         <div class="card-body" style="padding: 1.25rem;">
-          <form method="POST" action="{% url 'misc-expense-create' business_slug=current_business.slug %}" autocomplete="off" novalidate>
+          <form id="miscExpenseForm" method="POST" action="{% url 'misc-expense-create' business_slug=current_business.slug %}" autocomplete="off" novalidate>
             {% csrf_token %}
 
-            <!-- Name -->
-            <div class="form-field">
-              <label class="form-label" for="{{ form.name.id_for_label }}">
-                <i class="bi bi-tag"></i> {{ form.name.label }}
-                {% if form.name.field.required %}<span class="form-required">*</span>{% endif %}
-              </label>
-              <input type="text"
-                name="{{ form.name.html_name }}"
-                id="{{ form.name.id_for_label }}"
-                value="{{ form.name.value|default_if_none:'' }}"
-                class="form-control form-control--polish"
-                autocomplete="off"
-                placeholder="e.g. Electric Bill">
-              {% if form.name.errors %}<div class="form-error">{{ form.name.errors|striptags }}</div>{% endif %}
-            </div>
-
-            <div class="form-grid-2col" style="margin-top: 1rem;">
-
-              <!-- Amount -->
-            <div class="form-field">
-              <label class="form-label" for="{{ form.amount.id_for_label }}">
-                <i class="bi bi-cash"></i> {{ form.amount.label }}
-                {% if form.amount.field.required %}<span class="form-required">*</span>{% endif %}
-              </label>
-              <div class="input-with-prefix" style="display: flex; align-items: stretch; width: 100%;">
-                <span class="input-prefix">₱</span>
-                <input type="number"
-                  name="{{ form.amount.html_name }}"
-                  id="{{ form.amount.id_for_label }}"
-                  value="{{ form.amount.value|default_if_none:'' }}"
-                  class="form-control form-control--polish"
-                  style="flex: 1; min-width: 0;"
-                  step="0.01" min="0"
-                  placeholder="0.00">
-              </div>
-              {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|striptags }}</div>{% endif %}
-            </div>
-
-
-              <!-- Category -->
-              <div class="form-field">
-                <label class="form-label" for="{{ form.category.id_for_label }}">
-                  <i class="bi bi-grid-3x3-gap-fill"></i> {{ form.category.label }}
-                  {% if form.category.field.required %}<span class="form-required">*</span>{% endif %}
-                </label>
-                <select name="{{ form.category.html_name }}"
-                  id="{{ form.category.id_for_label }}"
-                  class="form-control form-control--polish">
-                  {% for value, label in form.category.field.choices %}
-                    <option value="{{ value }}"
-                      {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
-                      {{ label }}
-                    </option>
-                  {% endfor %}
-                </select>
-                {% if form.category.errors %}<div class="form-error">{{ form.category.errors|striptags }}</div>{% endif %}
-              </div>
-
-            </div>
-
-            {% if form.non_field_errors %}
-            <div class="sd-note-box" style="background: var(--danger-light); border-color: var(--danger-border); margin-top: 1rem;">
-              <div class="sd-note-icon">
-                <i class="bi bi-exclamation-circle-fill" style="color: var(--danger);"></i>
-              </div>
-              <div class="sd-note-text" style="color: var(--danger);">{{ form.non_field_errors|striptags }}</div>
-            </div>
-            {% endif %}
+            {% include 'Expense/partials/_misc_expense_form_fields.html' %}
 
             <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; justify-content: flex-end;">
               <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
@@ -371,7 +304,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
             <h3 class="empty-title">No expense templates yet</h3>
             <p class="empty-text">Create templates first, then you can log actual expenses from them.</p>
-            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-primary btn-sm">
               <i class="bi bi-plus-circle"></i> Create your first template
             </a>
           </div>
@@ -398,7 +334,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.825rem;">
               <li><i class="bi bi-1-circle-fill" style="color: #2563eb;"></i> Check the expense(s) you paid</li>
               <li><i class="bi bi-2-circle-fill" style="color: #2563eb;"></i> Adjust the actual amount if different</li>
-              <li><i class="bi bi-3-circle-fill" style="color: #2563eb;"></i> Set the date and click Log Selected</li>
+              <li><i class="bi bi-3-circle-fill" style="color: #2563eb;"></i> Set the date and click Log Expense</li>
             </ul>
           </div>
 
@@ -423,7 +359,10 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-block">
+          <a href="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+             hx-get="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-outline-secondary btn-block">
             <i class="bi bi-plus-circle"></i> Create template
           </a>
           <a href="{% url 'misc-expense-list' business_slug=current_business.slug %}" class="btn btn-light btn-block">

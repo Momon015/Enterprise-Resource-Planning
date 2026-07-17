@@ -55,9 +55,9 @@
         </ul>
       </div>
 
-      {# Same warning the modal shows — the other businesses only get their lower price
+      {% comment %} Same warning the modal shows — the other businesses only get their lower price
          because THIS one is the main plan. Cancelling it puts them back on the regular
-         price, so it has to be said out loud, in pesos, before they confirm. #}
+         price, so it has to be said out loud, in pesos, before they confirm. {% endcomment %}
       {% if reprice %}
       <div class="alert alert-danger">
         <strong><i class="bi bi-exclamation-triangle-fill"></i>

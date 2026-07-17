@@ -553,10 +553,10 @@
 </div>
 
 
-{# KPI ▼ popovers + card-body navigation: ONE global handler in static/js/kpi-cards.js
+{% comment %} KPI ▼ popovers + card-body navigation: ONE global handler in static/js/kpi-cards.js
    (loaded from main.html). Both are driven by the markup — [data-kpi-popover] and
    .kpi-card--clickable[data-href] — so this page needs no script of its own. Never
-   re-add a page-level copy: it would double-toggle and kill every dropdown. #}
+   re-add a page-level copy: it would double-toggle and kill every dropdown. {% endcomment %}
 
 {% endblock content %}
 

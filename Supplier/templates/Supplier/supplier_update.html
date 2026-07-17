@@ -44,61 +44,10 @@
 
 
     <div class="card-body">
-      <form method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
+      <form id="supplierForm" method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
         {% csrf_token %}
 
-        <div class="mf-fields-grid">
-
-          {# Name #}
-          <div class="mf-field-group">
-            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-              {{ form.name.label }}
-              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.name }}
-            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-          </div>
-
-          {# Image #}
-          <div class="mf-field-group">
-            <label class="mf-form-label">Supplier Image</label>
-            <div class="file-input-wrapper">
-              <label for="{{ form.image.id_for_label }}" class="file-input-button">
-                <i class="bi bi-cloud-arrow-up"></i>
-                <span id="image-label-{{ form.image.id_for_label }}">
-                  {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
-                </span>
-              </label>
-              {{ form.image }}
-              <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
-                {% if form.instance.image %}Image uploaded{% else %}No file chosen{% endif %}
-              </span>
-              <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically. Tip: a PNG with a transparent background looks best — no white box around the photo.</small>
-              {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
-            </div>
-          </div>
-
-          {# Email #}
-          <div class="mf-field-group">
-            <label for="{{ form.email.id_for_label }}" class="mf-form-label">
-              {{ form.email.label }}
-              {% if form.email.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.email }}
-            {% if form.email.errors %}<div class="mf-error">{{ form.email.errors|striptags }}</div>{% endif %}
-          </div>
-
-          {# Contact #}
-          <div class="mf-field-group">
-            <label for="{{ form.contact_number.id_for_label }}" class="mf-form-label">
-              {{ form.contact_number.label }}
-              {% if form.contact_number.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.contact_number }}
-            {% if form.contact_number.errors %}<div class="mf-error">{{ form.contact_number.errors|striptags }}</div>{% endif %}
-          </div>
-
-        </div>
+        {% include 'Supplier/_supplier_form_fields.html' %}
 
           <div class="mf-form-actions">
           <a href="{{ request.session.return_to|default:list_fallback }}" class="btn btn-light">Cancel</a>
@@ -118,19 +67,6 @@
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
-
-(function() {
-  const fileInput = document.getElementById('{{ form.image.id_for_label }}');
-  if (!fileInput) return;
-  const label = document.getElementById('image-label-{{ form.image.id_for_label }}');
-  const filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
-  fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) { filename.textContent = 'No file chosen'; return; }
-    label.textContent = 'Change image';
-    filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
-  });
-})();
 </script>
 
 {% endblock %}

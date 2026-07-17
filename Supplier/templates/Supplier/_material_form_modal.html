@@ -5,36 +5,41 @@
     {# fixed header #}
     <div class="cm-card__head">
       <div class="cm-head" style="margin-bottom:0;">
-        <div class="cm-thumb cm-thumb--muted"><span class="cm-thumb__ph" id="mxf-initials">??</span></div>
+        <div class="cm-thumb cm-thumb--muted"><span class="cm-thumb__ph" id="mf-initials">??</span></div>
         <div>
-          <div class="cm-title">New Expense Template</div>
-          <div class="cm-sub">Add an expense you record regularly.</div>
+          <div class="cm-title">New Material</div>
+          <div class="cm-sub">Add a material for stock tracking and costing.</div>
         </div>
       </div>
     </div>
 
-    <form id="miscExpenseForm" method="POST"
-          action="{% url 'misc-expense-create' business_slug=current_business.slug %}"
-          hx-post="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+    <form id="materialForm" method="POST"
+          action="{% url 'material-create' business_slug=current_business.slug %}"
+          hx-post="{% url 'material-create' business_slug=current_business.slug %}"
           hx-target="#confirmBody" hx-swap="innerHTML"
           autocomplete="off" novalidate>
       {% csrf_token %}
 
       {# scrollable body #}
       <div class="cm-card__body">
-        {% include 'Expense/partials/_misc_expense_form_fields.html' %}
-
-        <div class="mf-help" style="margin-top:0.75rem;">
-          A saved expense you pay again and again — rent, electric bill. Tick it when you log
-          instead of typing it out. You can change the amount every time you log it.
+        <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+          <i class="bi bi-lightbulb sd-note-icon" style="color: var(--warning);"></i>
+          <div>
+            <div class="sd-note-title">Quick tips</div>
+            <div class="sd-note-text">
+              Use clear names staff recognize (e.g. "Coke 1L") · Set the correct unit before using this material · Pieces per unit handles bulk (1 dozen = 12) · Quantity auto-updates from purchases.
+            </div>
+          </div>
         </div>
+
+        {% include 'Supplier/_material_form_fields.html' %}
       </div>
 
       {# fixed footer #}
       <div class="cm-card__foot">
         <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
         <button type="submit" class="btn cm-btn cm-btn--success">
-          <i class="bi bi-check-circle sl-me-1"></i> Save Template
+          <i class="bi bi-check-circle sl-me-1"></i> Save Material
         </button>
       </div>
     </form>
@@ -45,7 +50,7 @@
 <script>
   (function () {
     var name = document.getElementById('{{ form.name.id_for_label }}');
-    var ph = document.getElementById('mxf-initials');
+    var ph = document.getElementById('mf-initials');
     if (!name || !ph) return;
     name.addEventListener('input', function () {
       var v = name.value.trim();

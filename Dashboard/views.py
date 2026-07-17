@@ -112,7 +112,7 @@ def _compute_dashboard_metrics(business, today):
     total_revenue       = gross_revenue  - sales_refunds
     total_material_cost = gross_material - purchase_refunds
     total_expense_cost  = expenses_today.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
-    total_salary_cost   = shifts_today.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
+    total_salary_cost   = shifts_today.aggregate(t=Sum('amount'))['t'] or Decimal(0)
     total_waste_cost    = wastes_today.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
 
     # Cost of the goods that actually left the shelf today, already relieved of anything a
@@ -143,7 +143,7 @@ def _compute_dashboard_metrics(business, today):
     y_material = y_gross_material - y_purchase_refunds
     y_waste    = y_wastes.aggregate(t=Sum('total_cost'))['t'] or Decimal(0)
     y_expense  = y_expenses.aggregate(t=Sum('total_amount'))['t'] or Decimal(0)
-    y_salary   = y_shifts.aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal(0)
+    y_salary   = y_shifts.aggregate(t=Sum('amount'))['t'] or Decimal(0)
     y_opex     = y_salary + y_expense
     y_cogs     = cogs_in(business, yesterday, yesterday)
     y_net      = net_profit_formula(
@@ -187,7 +187,7 @@ def _compute_dashboard_metrics(business, today):
         gross_cost = _bucket(Purchase.objects.active(), 'total_cost',    {'purchase_date__range': (start, end)})
         waste      = _bucket(Waste.objects,   'total_cost',   {'date__range': (start, end)})
         expense    = _bucket(Expense.objects, 'total_amount', {'date__range': (start, end)})
-        salary     = _bucket(Shift.objects,   'shift_employees__daily_rate', {'date__range': (start, end)})
+        salary     = _bucket(Shift.objects,   'amount',       {'date__range': (start, end)})
 
         s_ret = float(sales_returns_total(business, start, end))
         p_ret = float(purchase_returns_total(business, start, end))
@@ -802,9 +802,11 @@ def _away_summary(request, business):
     sales       = Sale.objects.active().filter(business=business, created_at__range=(start, end))
     sales_count = sales.count()
     revenue     = sales.aggregate(t=Sum('total_revenue'))['t'] or 0
+    # sale__in=sales, not a hand-rolled is_void filter: `sales` above is already
+    # Sale.objects.active(), so the item count can't drift from the sale count and
+    # revenue beside it (it used to omit status='completed' and counted drafts' items).
     items_sold  = (SaleItem.objects
-                   .filter(sale__business=business, sale__is_void=False,
-                           sale__created_at__range=(start, end))
+                   .filter(sale__in=sales)
                    .aggregate(t=Sum('quantity'))['t'] or 0)
     purchases_count = Purchase.objects.active().filter(business=business, created_at__range=(start, end)).count()
     expenses_count  = Expense.objects.filter(business=business, created_at__range=(start, end)).count()

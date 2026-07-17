@@ -4,6 +4,7 @@ from django import forms
 from Supplier.models import Material, Supplier
 from core.models import Category
 
+from core.utils.forms import mark_required
 from core.utils.images import process_uploaded_image
 
 # Create your forms here.
@@ -74,6 +75,8 @@ class MaterialForm(ModelForm):
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control').strip()
 
+        mark_required(self)
+
 
 class SupplierForm(ModelForm):
     class Meta:
@@ -105,9 +108,11 @@ class SupplierForm(ModelForm):
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.fields['name'].required = True
-        
+
+        mark_required(self)
+
     def clean_name(self):
         name = self.cleaned_data.get('name').strip()
         if name.lower() == 'no supplier':

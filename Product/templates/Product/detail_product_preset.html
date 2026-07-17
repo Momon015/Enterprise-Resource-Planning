@@ -129,10 +129,13 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- ACTIONS -->
     <div class="card-body" style="border-top: 1px solid var(--border-light);">
       <div class="mf-form-actions">
-        <a href="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}" class="btn btn-outline-secondary">
+        <a href="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+           hx-get="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+           hx-target="#confirmBody" hx-swap="innerHTML"
+           class="btn btn-outline-secondary">
           <i class="bi bi-pencil sl-me-1"></i> Edit
         </a>
-        <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?next={{request.path}}" class="btn btn-primary">
+        <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?next={{ back_url|urlencode }}" class="btn btn-primary">
           <i class="bi bi-plus"></i> Add to Sale
         </a>
       </div>

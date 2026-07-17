@@ -5,6 +5,7 @@ from django.forms import inlineformset_factory
 from Product.models import Product, ProductPreset, ProductPresetItem, ServiceSession
 from core.models import Category
 
+from core.utils.forms import mark_required
 from core.utils.images import process_uploaded_image
 
 class ProductForm(ModelForm):
@@ -149,11 +150,13 @@ class ProductForm(ModelForm):
         
         self.fields['low_stock_threshold'].label = 'Low stock at'
         self.fields['high_stock_threshold'].label = 'High stock at'
-        
+
         # Apply form-control class without nuking existing widget attrs
         for field in self.fields.values():
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control').strip()
+
+        mark_required(self)
 
 class ProductFilterForm(forms.Form):
     search = forms.CharField(required=False)
@@ -233,6 +236,8 @@ class ServiceForm(ModelForm):
         for field in self.fields.values():
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control').strip()
+
+        mark_required(self)
 
     def save(self, commit=True):
         obj = super().save(commit=False)

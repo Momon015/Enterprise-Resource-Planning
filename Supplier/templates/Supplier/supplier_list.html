@@ -40,7 +40,10 @@
         <i class="bi bi-building"></i>
         <strong>{{ page_obj.paginator.count }}</strong> supplier{{ page_obj.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'supplier-create' business_slug=current_business.slug %}"
+         hx-get="{% url 'supplier-create' business_slug=current_business.slug %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle"></i> Create supplier
       </a>
     </div> {% endcomment %}
@@ -175,6 +178,8 @@
                     <div class="btn-group">
                     {% endif %}
                     <a href="{% url 'supplier-update' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                       hx-get="{% url 'supplier-update' slug=supplier.slug supplier_id=supplier.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit supplier">
                       <i class="bi bi-pencil"></i>
                     </a>
@@ -251,7 +256,10 @@
         </div>
         <div class="card-body">
           <div class="btn-grid">
-            <a href="{% url 'supplier-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'supplier-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'supplier-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-plus-circle"></i> Create supplier
             </a>
             <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}"

@@ -1,0 +1,75 @@
+<div class="quickview__panel cm-panel cm-panel--form cm-panel--scroll">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+
+    {# fixed header #}
+    <div class="cm-card__head">
+      <div class="cm-head" style="margin-bottom:0;">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-bookmark-fill"></i></div>
+        <div>
+          <div class="cm-title">{{ preset.name }}</div>
+          <div class="cm-sub">{{ preset.created_at|date:"M d, Y" }} · {{ preset.created_by }}</div>
+        </div>
+      </div>
+    </div>
+
+    {# scrollable body #}
+    <div class="cm-card__body">
+
+      <div class="sd-section-label" style="margin-top: 0;">
+        <i class="bi bi-box-seam sl-me-1"></i> Products in this preset
+      </div>
+      <p class="mf-help" style="margin: 0.25rem 0 .75rem; color: var(--muted);">
+        Selling price and revenue are based on current product values.
+      </p>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="sl-text-center">Quantity</th>
+              <th class="sl-text-center">Unit Price</th>
+              <th class="sl-text-end">Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td>
+                <div class="cell-primary">{{ item.name }}</div>
+                <div class="cell-sub">{{ item.supplier_name|default:"No supplier" }}</div>
+              </td>
+              <td class="sl-text-center">
+                <span class="sl-badge sl-badge-light">{{ item.quantity }}</span>
+              </td>
+              <td class="sl-text-center sl-fw-semibold">₱{{ item.selling_price|floatformat:2 }}</td>
+              <td class="sl-text-end sl-fw-semibold">₱{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr class="sl-empty-row">
+              <td colspan="4">No products found in this preset.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    {# fixed footer — Edit swaps this modal for the edit one, in place #}
+    <div class="cm-card__foot">
+      <a href="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+         hx-get="{% url 'product-edit-preset' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="btn btn-outline-secondary">
+        <i class="bi bi-pencil sl-me-1"></i> Edit
+      </a>
+      <a href="{% url 'product-preset-add-to-sale' preset_slug=preset.slug preset_id=preset.id business_slug=current_business.slug %}?next={{ back_url|urlencode }}"
+         class="btn cm-btn cm-btn--success">
+        <i class="bi bi-plus sl-me-1"></i> Add to Sale
+      </a>
+    </div>
+
+  </div>
+</div>

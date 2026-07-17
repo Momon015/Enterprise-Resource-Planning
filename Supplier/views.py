@@ -30,6 +30,8 @@ from user.models import User
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
 from core.utils.cart import prune_stale_cart_lines
+from core.utils.htmx import redirect_after_form, back_url
+from core.utils.forms import add_duplicate_name_error
 
 from django.contrib.messages import get_messages
 
@@ -167,29 +169,30 @@ def material_create(request, business_slug):
             ).first()
             
             if existing:
-                if existing.status != 'inactive':
-                    messages.warning(request, f"{existing.name} already exists.")
-                    return redirect('material-list', business_slug=business.slug)
-                else:
-                    # Archived twin exists — offer restore instead of creating duplicate
-                    messages.info(request,f"{existing.name} exists in your archive. ")
-                    return redirect('material-list', business_slug=business.slug)
-            
-            material.user = business.user
-            material.created_by = request.user
-            material.name = material.name.title()
-            material.business = business
-            material.save()
-            
-            log_activity(business, request.user, 'material.created',
-                target=material, description=f"{material.name} added")
+                # Inline on the field — see add_duplicate_name_error. Material says
+                # archived with `status`, not `is_active` like Product does.
+                add_duplicate_name_error(form, existing, archived=existing.status == 'inactive')
+            else:
+                material.user = business.user
+                material.created_by = request.user
+                material.name = material.name.title()
+                material.business = business
+                material.save()
 
-            messages.success(request, f"{material.name} successfully created.")
-            return redirect('material-list', business_slug=business.slug)
+                log_activity(business, request.user, 'material.created',
+                    target=material, description=f"{material.name} added")
+
+                messages.success(request, f"{material.name} successfully created.")
+                return redirect_after_form(request, 'material-list', business_slug=business.slug)
     else:
         form = MaterialForm(business=business)
-        
+
     context = {'form': form, 'section': 'material'}
+
+    # htmx → render just the modal partial (opened from the material list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_material_form_modal.html', context)
+
     return render(request, 'Supplier/material_create.html', context)
 
 @login_required(login_url='login')
@@ -222,12 +225,17 @@ def material_update(request,  slug, id, business_slug):
 
             
             messages.success(request, f"{material.name} successfully updated.")
-            return redirect('material-list', business_slug=business.slug)
+            return redirect_after_form(request, 'material-list', business_slug=business.slug)
 
     else:
         form = MaterialForm(instance=material, business=business)
-        
+
     context = {'form': form, 'material': material, 'section': 'material'}
+
+    # htmx → render just the modal partial (opened from the material list / detail)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_material_update_modal.html', context)
+
     return render(request, 'Supplier/material_update.html', context)
 
 @login_required(login_url='login')
@@ -315,38 +323,48 @@ def save_items(request, business_slug):
     
     if request.method == 'POST':
         checkbox = request.POST.get('checkbox')
-        name = request.POST.get('name').title()
-        
-        if checkbox and not name:
-                messages.warning(request, "You forgot to add a preset title.")
-                
-        elif not checkbox and name:
-            messages.warning(request, "You forgot to click the checkbox.")
-        
-        else:
+        # Strip before testing: a name of "   " is truthy, and used to save a preset
+        # with a blank-looking title. Title-case here so the name we check for a clash
+        # is the same one we store and echo back.
+        name = (request.POST.get('name') or '').strip().title()
+
+        if not checkbox and not name:
             messages.warning(request, "Please add a preset title and don't forget to check the checkbox.")
-            
-        if checkbox and name:
-            preset, _ = MaterialPreset.objects.get_or_create(
+
+        elif not name:
+            messages.warning(request, "You forgot to add a preset title.")
+
+        elif not checkbox:
+            messages.warning(request, "You forgot to click the checkbox.")
+
+        elif not cart:
+            messages.warning(request, "Your cart is empty. Add materials first, then save them as a preset.")
+
+        elif MaterialPreset.objects.filter(business=business, name=name).exists():
+            # The name is unique per business (MaterialPreset.Meta.unique_together), so
+            # get_or_create handed back the EXISTING preset and then get_or_create'd each
+            # item — leaving the old quantities untouched while reporting success. Say the
+            # name is taken rather than silently doing nothing or silently overwriting.
+            messages.warning(request, f"You already have a preset called {name}. Pick a different name.")
+
+        else:
+            preset = MaterialPreset.objects.create(
                 user=business.user,
-                business=business, 
+                business=business,
                 name=name,
-                defaults={
-                    'is_active': True,
-                    'created_by': request.user
-                })
-        
+                is_active=True,
+                created_by=request.user,
+            )
+
             for material_id, data in cart.items():
-                
+
                 material = get_object_or_404(Material, business=business, id=material_id)
-                quantity = data['quantity']
-                discount = data.get('discount', 0)
-                
-                MaterialPresetItem.objects.get_or_create(
+
+                MaterialPresetItem.objects.create(
                     preset=preset,
                     material=material,
-                    defaults={'quantity': quantity, 'discount': discount}
-                    
+                    quantity=data['quantity'],
+                    discount=data.get('discount', 0),
                 )
             messages.success(request, f"{name} added to preset.")
             request.session['preset_id'] = preset.id
@@ -364,22 +382,39 @@ def adding_preset_to_cart(request, preset_id, business_slug):
     
     added_count = 0
     failed_count = 0
-    
-    if preset:
+    locked_count = 0
+
+    # GUARD 1 — the preset is over the plan's preset cap. This lock is about the PRESET
+    # itself, so refuse the whole thing. The list has always shown a "Locked" badge that
+    # nothing actually enforced. Locks on the materials INSIDE are guard 2, handled per
+    # item: a material-level fact must not become a preset-level consequence.
+    # (Replaces `if preset:`, which get_object_or_404 above already guarantees.)
+    if preset.is_locked:
+        messages.warning(request, f"{preset.name} is locked - upgrade your plan or unlock it to use.")
+    else:
         for item in items:
             material = item.material
+
+            # GUARD 2 — a locked material is over the plan's material cap, so a preset
+            # must not quietly pull it back into a purchase. Counted apart from
+            # failed_count so the summary doesn't blame the "quantity limit" for what is
+            # really a plan state the owner has to act on.
+            if material.is_locked:
+                locked_count += 1
+                continue
+
             material_key = str(material.id)
-            
+
             """
             The cart.get() will get the material_key if it exists
-            then it will get the quantity else 0 and it will not 
+            then it will get the quantity else 0 and it will not
             throw a KeyError if there is a low stock in inventory
-            because in your condition you added both item's quantity 
-            and cart's quantity to check if it's low then It will not 
+            because in your condition you added both item's quantity
+            and cart's quantity to check if it's low then It will not
             be added to the cart session.
             """
             existing_qty = cart.get(material_key, {}).get('quantity', 0)
-            
+
             if material_key in cart:
                 if material.quantity >= item.quantity + existing_qty:
                     cart[material_key]['quantity'] += item.quantity
@@ -401,7 +436,9 @@ def adding_preset_to_cart(request, preset_id, business_slug):
             messages.success(request, f"{preset.name} - {added_count} item(s) added to purchase.")
         if failed_count > 0:
             messages.warning(request, f"{failed_count} item(s) couldn't be added (quantity limit).")
-                
+        if locked_count > 0:
+            messages.warning(request, f"{locked_count} item(s) are locked - upgrade your plan or unlock them to buy.")
+
 
     request.session['cart'] = cart
     request.session.modified = True
@@ -467,7 +504,13 @@ def preset_detail(request, business_slug, id, slug):
     
     preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
 
-    context = {'preset': preset, 'section': 'material'}
+    # Add to Cart sends the user back HERE — which is the list when this is a modal.
+    context = {'preset': preset, 'back_url': back_url(request), 'section': 'material'}
+
+    # htmx → render just the modal partial (opened from the preset list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_preset_detail_modal.html', context)
+
     return render(request, 'Supplier/detail_preset.html', context)
 
 @login_required(login_url='login')
@@ -515,9 +558,14 @@ def edit_preset(request, business_slug, id, slug):
         if discount_changed == True and not qty_changed == True:
             messages.success(request, f"{item.material.name}'s discount has been updated. ")
         
-        return redirect('material-preset-list', business_slug=business.slug)
-      
+        return redirect_after_form(request, 'material-preset-list', business_slug=business.slug)
+
     context = {'preset': preset, 'items': save_items, 'section': 'material'}
+
+    # htmx → render just the modal partial (opened from the preset list / detail modal)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_preset_edit_modal.html', context)
+
     return render(request, 'Supplier/edit_preset.html', context)
 
 @login_required(login_url='login')
@@ -528,10 +576,28 @@ def delete_preset(request, business_slug, id, slug):
     preset = get_object_or_404(MaterialPreset, business=business, id=id, slug=slug)
     
     if request.method == 'POST':
+        name = preset.name          # read it BEFORE the row is gone
         preset.delete()
-        messages.success(request, f"{preset.name} has been deleted.")
-        return redirect('material-preset-list', business_slug=business.slug)
-    
+        messages.success(request, f"{name} has been deleted.")
+        return redirect_after_form(request, 'material-preset-list', business_slug=business.slug)
+
+    # htmx → the shared confirm modal, same component archive/void/payment use.
+    # The full-page delete_preset.html stays as the no-JS fallback.
+    if request.headers.get('HX-Request'):
+        count = preset.preset_items.count()
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': preset.name,
+            'cm_subtitle': f"{count} material{'' if count == 1 else 's'} · saved {preset.created_at:%b %d, %Y}",
+            'cm_note': "Deletes the preset only — your <strong>materials and purchase history "
+                       "are not affected</strong>. This can’t be undone.",
+            'cm_tone': 'danger',
+            'cm_icon': 'bi-bookmark-fill',
+            'cm_action': reverse('material-delete-preset', kwargs={
+                'business_slug': business.slug, 'id': preset.id, 'slug': preset.slug}),
+            'cm_label': "Confirm Delete",
+            'cm_btn_icon': 'bi-trash3-fill',
+        })
+
     context = {'preset': preset, 'section': 'material'}
     return render(request, 'Supplier/delete_preset.html', context)
 
@@ -629,14 +695,19 @@ def supplier_create(request, business_slug):
 
             except ValidationError as e:
                 messages.warning(request, e.messages[0])
-                return redirect('supplier-list', business_slug=business.slug)
-            
+                return redirect_after_form(request, 'supplier-list', business_slug=business.slug)
+
             messages.success(request, f"{supplier.name} successfully created.")
-            return redirect('supplier-list', business_slug=business.slug)
+            return redirect_after_form(request, 'supplier-list', business_slug=business.slug)
     else:
         form = SupplierForm()
-        
+
     context = {'form': form, 'section': 'supplier'}
+
+    # htmx → render just the modal partial (opened from the supplier list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_supplier_form_modal.html', context)
+
     return render(request, 'Supplier/supplier_create.html', context)
 
 # @login_required(login_url='login')
@@ -652,29 +723,36 @@ def supplier_update(request, business_slug, supplier_id, slug):
     business = get_business_for_user(request.user, business_slug)
     supplier = get_object_or_404(Supplier, business=business, id=supplier_id, slug=slug)
 
+    # A GET exit, so it needs the htmx-aware redirect too: an hx-get answered with a
+    # plain 302 has the LIST swapped into the modal instead of navigating.
     if supplier.slug == 'no-supplier':
         messages.warning(request, '"No Supplier" is a system default and cannot be edited — it holds materials that have no supplier assigned.')
-        return redirect('supplier-list', business_slug=business.slug)
+        return redirect_after_form(request, 'supplier-list', business_slug=business.slug)
 
     if request.method == 'POST':
         form = SupplierForm(request.POST, request.FILES, instance=supplier)
-        
+
         if form.is_valid():
             supplier = form.save(commit=False)
             supplier.name = supplier.name.title()
             supplier.save()
-            
+
             log_activity(business, request.user, 'supplier.updated',
                 target=supplier, description=f"{supplier.name} updated")
 
             messages.success(request, f"{supplier.name} successfully updated.")
-            query_string = request.META.get('QUERY_STRING', '')
-            url = reverse('supplier-list', kwargs={'business_slug': business.slug})
-            return redirect(f"{url}?{query_string}" if query_string else url)
+            return redirect_after_form(request, 'supplier-list',
+                                       query=request.META.get('QUERY_STRING', ''),
+                                       business_slug=business.slug)
     else:
         form = SupplierForm(instance=supplier)
-        
+
     context = {'form': form, 'supplier': supplier, 'section': 'supplier'}
+
+    # htmx → render just the modal partial (opened from the supplier list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Supplier/_supplier_update_modal.html', context)
+
     return render(request, 'Supplier/supplier_update.html', context)
 
 @login_required(login_url='login')

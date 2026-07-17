@@ -1,0 +1,167 @@
+<div class="quickview__panel cm-panel cm-panel--form cm-panel--scroll">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+
+    {# fixed header #}
+    <div class="cm-card__head">
+      <div class="cm-head" style="margin-bottom:0;">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-bookmark-fill"></i></div>
+        <div>
+          <div class="cm-title">{{ preset.name }}</div>
+          <div class="cm-sub">{{ items|length }} item{{ items|length|pluralize }} · adjust quantities and discounts</div>
+        </div>
+      </div>
+    </div>
+
+    <form id="presetForm" method="POST"
+          action="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}"
+          hx-post="{% url 'material-edit-preset' id=preset.id slug=preset.slug business_slug=current_business.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML"
+          autocomplete="off">
+      {% csrf_token %}
+
+      {# scrollable body #}
+      <div class="cm-card__body">
+
+        <!-- Editing scope tip -->
+        <div class="sd-note-box" style="margin-bottom: 1.25rem;">
+          <i class="bi bi-info-circle-fill sd-note-icon" style="color: var(--info);"></i>
+          <div>
+            <div class="sd-note-title">Editing scope</div>
+            <div class="sd-note-text">Changes here only affect the preset — not past purchases. Add or remove materials from the purchase screen.</div>
+          </div>
+        </div>
+
+        <!-- PRESET NAME -->
+        <div class="mf-field-group" style="margin-bottom: 1.25rem;">
+          <label for="preset_{{ preset.id }}" class="mf-form-label">
+            Preset Name <span class="mf-required">*</span>
+          </label>
+          <input type="text"
+                 id="preset_{{ preset.id }}"
+                 class="form-control"
+                 name="preset_{{ preset.id }}"
+                 value="{{ preset.name }}"
+                 placeholder="e.g. Weekly delivery bundle">
+          <div class="mf-help">Shown on the presets list and when adding to a purchase.</div>
+        </div>
+
+        <!-- Materials section label -->
+        <div class="sd-section-label">
+          <i class="bi bi-box-seam sl-me-1"></i> Materials in this preset
+        </div>
+
+        <div class="table-responsive">
+          {% if items %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th class="sl-text-center">Quantity</th>
+                <th class="sl-text-center">Discount</th>
+                <th class="sl-text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr id="preset-row-{{ item.id }}">
+                <td>
+                  <div class="cell-primary">{{ item.material.name }}</div>
+                  <div class="cell-sub">{{ item.material.supplier.name|default:"No supplier" }}</div>
+                </td>
+                <td class="sl-text-center">
+                  <div class="qty-stepper">
+                    <button type="button" class="qty-btn qty-ctrl"
+                            data-target="quantity_{{ item.id }}" data-step="-1">−</button>
+                    <input type="number"
+                           class="qty-input"
+                           name="quantity_{{ item.id }}"
+                           value="{{ item.quantity }}"
+                           min="1" readonly>
+                    <button type="button" class="qty-btn qty-ctrl"
+                            data-target="quantity_{{ item.id }}" data-step="1">+</button>
+                  </div>
+                </td>
+                <td class="sl-text-center">
+                  <div class="qty-stepper" style="justify-content:flex-end;">
+                    <button type="button" class="qty-btn qty-ctrl"
+                            data-target="discount_{{ item.id }}" data-step="-1">−</button>
+                    <input type="number"
+                           class="qty-input"
+                           name="discount_{{ item.id }}"
+                           value="{{ item.discount|floatformat:0 }}"
+                           min="0" step="1" readonly>
+                    <button type="button" class="qty-btn qty-ctrl"
+                            data-target="discount_{{ item.id }}" data-step="1">+</button>
+                  </div>
+                </td>
+
+                <td class="sl-text-end">
+                  <div class="table-actions">
+                    <button type="button"
+                            class="action-btn action-btn--remove"
+                            title="Remove from preset"
+                            hx-post="{% url 'material-preset-remove-item' business_slug=current_business.slug id=preset.id item_id=item.id %}"
+                            hx-target="#preset-row-{{ item.id }}"
+                            hx-swap="outerHTML">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="sl-empty-row">
+                <td colspan="4">No saved materials found for this preset.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+            <h3 class="empty-title">No items in this preset</h3>
+            <p class="empty-text">This preset has no saved materials to edit.</p>
+          </div>
+          {% endif %}
+        </div>
+
+      </div>
+
+      {# fixed footer #}
+      <div class="cm-card__foot">
+        <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+        <button type="submit" class="btn cm-btn cm-btn--success">
+          <i class="bi bi-check-circle sl-me-1"></i> Save changes
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- STEPPER LOGIC -->
+<script>
+// Bound to the FORM, not to document. The full page could delegate off document
+// because it loads once; this modal is swapped into #confirmBody every time it's
+// opened, and htmx re-runs this script on each swap — a document listener would
+// stack, so the second open would step twice per click, the third three times.
+// Bound here, the listener is discarded with the node it lives on.
+(function () {
+  const form = document.getElementById('presetForm');
+  if (!form) return;
+  form.addEventListener('click', function (e) {
+    const btn = e.target.closest('.qty-ctrl');
+    if (!btn) return;
+
+    const inputName = btn.dataset.target;
+    const step = parseInt(btn.dataset.step, 10);
+    const input = form.querySelector(`input[name="${inputName}"]`);
+    if (!input) return;
+    const min = parseInt(input.min, 10) || 0;
+    let current = parseInt(input.value, 10) || min;
+    current += step;
+    if (current < min) current = min;
+    input.value = current;
+  });
+})();
+</script>

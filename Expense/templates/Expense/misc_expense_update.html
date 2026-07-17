@@ -31,75 +31,10 @@
 
       <div class="card-body" style="padding: 1.25rem;">
 
-        <form method="POST" autocomplete="off" novalidate>
+        <form id="miscExpenseForm" method="POST" autocomplete="off" novalidate>
           {% csrf_token %}
 
-          <!-- Name -->
-          <div class="form-field">
-            <label class="form-label" for="{{ form.name.id_for_label }}">
-              <i class="bi bi-tag"></i> {{ form.name.label }}
-              {% if form.name.field.required %}<span class="form-required">*</span>{% endif %}
-            </label>
-            <input type="text"
-              name="{{ form.name.html_name }}"
-              id="{{ form.name.id_for_label }}"
-              value="{{ form.name.value|default_if_none:'' }}"
-              class="form-control form-control--polish"
-              autocomplete="off">
-            {% if form.name.errors %}<div class="form-error">{{ form.name.errors|striptags }}</div>{% endif %}
-          </div>
-
-          <div class="form-grid-2col" style="margin-top: 1rem;">
-
-            <!-- Amount -->
-            <div class="form-field">
-              <label class="form-label" for="{{ form.amount.id_for_label }}">
-                <i class="bi bi-cash"></i> {{ form.amount.label }}
-                {% if form.amount.field.required %}<span class="form-required">*</span>{% endif %}
-              </label>
-              <div class="input-with-prefix" style="display: flex; align-items: stretch; width: 100%;">
-                <span class="input-prefix">₱</span>
-                <input type="number"
-                  name="{{ form.amount.html_name }}"
-                  id="{{ form.amount.id_for_label }}"
-                  value="{{ form.amount.value|default_if_none:'' }}"
-                  class="form-control form-control--polish"
-                  style="flex: 1; min-width: 0;"
-                  step="0.01" min="0">
-              </div>
-              {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|striptags }}</div>{% endif %}
-            </div>
-
-            <!-- Category -->
-            {% if form.category %}
-            <div class="form-field">
-              <label class="form-label" for="{{ form.category.id_for_label }}">
-                <i class="bi bi-grid-3x3-gap-fill"></i> {{ form.category.label }}
-              </label>
-              <select name="{{ form.category.html_name }}"
-                id="{{ form.category.id_for_label }}"
-                class="form-control form-control--polish">
-                {% for value, label in form.category.field.choices %}
-                  <option value="{{ value }}"
-                    {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
-                    {{ label }}
-                  </option>
-                {% endfor %}
-              </select>
-              {% if form.category.errors %}<div class="form-error">{{ form.category.errors|striptags }}</div>{% endif %}
-            </div>
-            {% endif %}
-
-          </div>
-
-          {% if form.non_field_errors %}
-          <div class="sd-note-box" style="background: var(--danger-light); border-color: var(--danger-border); margin-top: 1rem;">
-            <div class="sd-note-icon">
-              <i class="bi bi-exclamation-circle-fill" style="color: var(--danger);"></i>
-            </div>
-            <div class="sd-note-text" style="color: var(--danger);">{{ form.non_field_errors|striptags }}</div>
-          </div>
-          {% endif %}
+          {% include 'Expense/partials/_misc_expense_form_fields.html' %}
 
           <!-- Note about scope -->
           <div class="sd-note-box" style="margin-top: 1rem;">
@@ -108,7 +43,7 @@
             </div>
             <div>
               <div class="sd-note-title">Heads up</div>
-              <div class="sd-note-text">Changes apply to future expense logs only. Past records are not affected.</div>
+              <div class="sd-note-text">This only changes what shows up next time you log the expense. Expenses you already logged stay the same.</div>
             </div>
           </div>
 

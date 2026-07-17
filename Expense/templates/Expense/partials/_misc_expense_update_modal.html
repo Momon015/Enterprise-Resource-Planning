@@ -2,20 +2,20 @@
   <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
   <div class="card cm-card">
 
-    {# fixed header #}
+    {# fixed header — initials, matching the product/supplier update modals #}
     <div class="cm-card__head">
       <div class="cm-head" style="margin-bottom:0;">
-        <div class="cm-thumb cm-thumb--muted"><span class="cm-thumb__ph" id="mxf-initials">??</span></div>
+        <div class="cm-thumb cm-thumb--muted"><span class="cm-thumb__ph" id="mxf-initials">{{ misc_expense.name|slice:":2"|upper }}</span></div>
         <div>
-          <div class="cm-title">New Expense Template</div>
-          <div class="cm-sub">Add an expense you record regularly.</div>
+          <div class="cm-title">{{ misc_expense.name|capfirst }}</div>
+          <div class="cm-sub">Update this template's defaults.</div>
         </div>
       </div>
     </div>
 
     <form id="miscExpenseForm" method="POST"
-          action="{% url 'misc-expense-create' business_slug=current_business.slug %}"
-          hx-post="{% url 'misc-expense-create' business_slug=current_business.slug %}"
+          action="{{ cm_action }}"
+          hx-post="{{ cm_action }}"
           hx-target="#confirmBody" hx-swap="innerHTML"
           autocomplete="off" novalidate>
       {% csrf_token %}
@@ -25,16 +25,16 @@
         {% include 'Expense/partials/_misc_expense_form_fields.html' %}
 
         <div class="mf-help" style="margin-top:0.75rem;">
-          A saved expense you pay again and again — rent, electric bill. Tick it when you log
-          instead of typing it out. You can change the amount every time you log it.
+          This only changes what shows up next time you log the expense. Expenses you already
+          logged stay the same.
         </div>
       </div>
 
       {# fixed footer #}
       <div class="cm-card__foot">
-        <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" data-quickview-close>{{ cm_cancel|default:'Cancel' }}</button>
         <button type="submit" class="btn cm-btn cm-btn--success">
-          <i class="bi bi-check-circle sl-me-1"></i> Save Template
+          <i class="bi bi-check-circle sl-me-1"></i> Save Changes
         </button>
       </div>
     </form>

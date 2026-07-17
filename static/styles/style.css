@@ -2393,6 +2393,27 @@ details.filter-card summary:hover {
   margin-top: 0.22rem;
 }
 
+/* Money input — the ₱ sits INSIDE the field, not floating beside it.
+   Not `.input-with-prefix`: that one is a flex row with a gap, so the sign hangs
+   outside the box and reads as a stray mark on a full-width form field. (It still
+   suits the narrow right-aligned cells in the log-expense table, so it stays.)
+   The sign is decorative — the input keeps its own padding-left to clear it. */
+.mf-money { position: relative; display: block; }
+.mf-money .input-prefix {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;          /* click the sign, land in the field */
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mf-money .form-control {
+  width: 100%;
+  padding-left: 1.7rem;          /* 0.65rem gutter + the glyph */
+}
+
 .mf-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -4814,7 +4835,7 @@ details.filter-card summary:hover {
   height: 40px;
   border-radius: 6px;
   object-fit: cover;
-  border: 1px solid var(--border);
+  border: 1px solid var(--thumb-ring);
   background: var(--surface);
   flex-shrink: 0;
 }
@@ -4852,7 +4873,24 @@ details.filter-card summary:hover {
   padding: .2rem .5rem; border-radius: 6px;
   background: var(--surface-alt); border: 1px solid var(--border); color: var(--text);
 }
-.sku-barcode { margin-top: .3rem; font-variant-numeric: tabular-nums; }
+
+/* SKU + barcode are two names for the SAME product, so they share one chip
+   instead of the barcode hanging loose underneath it. Only products that HAVE a
+   barcode get the modifier — most don't, and an empty second row would read as
+   missing data rather than as a field they never filled in. */
+.sku-pill--stack {
+  display: inline-grid;
+  justify-items: center;
+  gap: .1rem;
+  padding: .25rem .5rem;
+}
+.sku-pill__barcode {
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 
 .list-name-cell {
   display: flex;
@@ -4895,6 +4933,11 @@ details.filter-card summary:hover {
   --surface-alt:      #f9fafb;
   --border:           #e5e7eb;
   --border-light:     #f0f0ec;
+  /* Ring for photos (product/service thumbs). Deliberately NOT a --border token:
+     those are solid darks, and a solid dark line around a bright product photo
+     reads as a black frame on dark backgrounds. This one is translucent, so it
+     darkens the edge on light surfaces and lightens it on dark ones. */
+  --thumb-ring:       rgba(0, 0, 0, 0.10);
 
   /* ── Colors: text ─────────────────────────────────── */
   --text:             #1a1a18;
@@ -5062,6 +5105,7 @@ details.filter-card summary:hover {
   --surface-alt:      #1b202c;
   --border:           #262c3a;
   --border-light:     #202634;
+  --thumb-ring:       rgba(255, 255, 255, 0.14);
 
   /* text */
   --text:             #e7e9ee;
@@ -7560,6 +7604,25 @@ button.topbar-account__item {
   min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 8px; background: var(--danger); color: #fff;
   font-size: 0.62rem; font-weight: 700; line-height: 16px; text-align: center;
+}
+
+/* PINNED state mark — shown only when there is no count (see _topbar_notif.html): both
+   say "open me", so two marks on one bell would read as a rendering fault, not as two
+   signals. Warning, not danger: the number is unread news, this is a standing to-do that
+   may sit for days, and red for days is how a signal becomes wallpaper.
+
+   Positioned off the BELL, not the button corner. The button is 36px and the glyph only
+   16px, so the badge's top/right:-4 lands ~10px of padding away from the bell — fine for
+   a 16px badge, which is big enough to still read as attached, but a 5px dot out there
+   just looks like a stray pixel. top/right:8 sits it on the glyph's upper-right shoulder.
+   ★ Size and offset interact — both are measured from the BUTTON's corner, so shrinking
+   the dot without raising the offsets drifts its centre outward. The ring keeps it
+   legible over the bell's strokes; keep it a token so it flips with the theme. */
+.topbar-notif__dot {
+  position: absolute; top: 8px; right: 8px;
+  width: 5px; height: 5px;
+  border-radius: 50%; background: var(--warning);
+  box-shadow: 0 0 0 1.5px var(--surface);
 }
 
 .topbar-notif__menu {

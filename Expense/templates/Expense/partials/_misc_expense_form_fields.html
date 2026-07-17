@@ -1,0 +1,63 @@
+{% comment %} The ONE copy of the template form's fields. Both full pages
+(misc_and_expense_create.html / misc_expense_update.html) and both modals
+(_misc_expense_form_modal.html / _misc_expense_update_modal.html) include this,
+so create and update can never drift apart. The per-shell note (Tip vs Heads up)
+lives in the shells, since that is the one thing that genuinely differs. {% endcomment %}
+<div class="mf-fields-grid">
+
+  {# Name — full width #}
+  <div class="mf-field-group" style="grid-column: 1 / -1;">
+    <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+      {{ form.name.label }}{% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+    <input type="text"
+      name="{{ form.name.html_name }}"
+      id="{{ form.name.id_for_label }}"
+      value="{{ form.name.value|default_if_none:'' }}"
+      class="form-control form-control--polish"
+      autocomplete="off" data-req
+      placeholder="e.g. Electric Bill">
+    {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {# Default amount — left #}
+  <div class="mf-field-group">
+    <label for="{{ form.amount.id_for_label }}" class="mf-form-label">
+      {{ form.amount.label }}{% if form.amount.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+    <div class="mf-money">
+      <span class="input-prefix">₱</span>
+      <input type="number"
+        name="{{ form.amount.html_name }}"
+        id="{{ form.amount.id_for_label }}"
+        value="{{ form.amount.value|default_if_none:'' }}"
+        class="form-control form-control--polish"
+        step="0.01" min="0" data-req
+        placeholder="0.00">
+    </div>
+    {% if form.amount.errors %}<div class="mf-error">{{ form.amount.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {# Category — right. Optional (form sets required=False), so no asterisk. #}
+  <div class="mf-field-group">
+    <label for="{{ form.category.id_for_label }}" class="mf-form-label">{{ form.category.label }}</label>
+    <select name="{{ form.category.html_name }}"
+      id="{{ form.category.id_for_label }}"
+      class="form-control form-control--polish">
+      {% for value, label in form.category.field.choices %}
+        <option value="{{ value }}"
+          {% if form.category.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+    {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+  </div>
+
+</div>
+
+{% if form.non_field_errors %}
+<div class="mf-error" style="margin-top:0.75rem;">{{ form.non_field_errors|striptags }}</div>
+{% endif %}
+
+{% include 'partials/_required_guard.html' with form_id='miscExpenseForm' %}

@@ -34,25 +34,15 @@ from activity.utils import log_activity, scope_events_for_user
 from Product.models import CRITICAL_BAND_Q, LOW_BAND_Q, with_stock_bands
 
 from core.utils.owner import permission_required, get_queryset_for_user, get_business_for_user
+from core.utils.htmx import redirect_after_form, back_url
+from core.utils.forms import add_duplicate_name_error
 from core.constants import LOW_STOCK_THRESHOLD, HIGH_STOCK_THRESHOLD, NO_STOCK_THRESHOLD
 
 # Create your views here.
 
-def _redirect_after_form(request, url_name, **kwargs):
-    """Redirect that survives an htmx modal submit.
-
-    The product create/update forms live in an htmx modal AND on a full page,
-    served by the same view. A plain redirect works for the full page, but when
-    the form is submitted from the modal (hx-post → #confirmBody) htmx would
-    transparently follow the 302 and swap the destination PAGE into the modal.
-    So for htmx we send HX-Redirect, which tells htmx to do a real browser
-    navigation instead (messages then show on the destination as normal).
-    """
-    if request.headers.get('HX-Request'):
-        resp = HttpResponse(status=204)
-        resp['HX-Redirect'] = reverse(url_name, kwargs=kwargs)
-        return resp
-    return redirect(url_name, **kwargs)
+# Moved to core/utils/htmx.py when Materials became the third and fourth consumer.
+# Kept under the old private name so the call sites below read unchanged.
+_redirect_after_form = redirect_after_form
 
 @login_required(login_url='login')
 def product_list(request, business_slug):
@@ -238,31 +228,29 @@ def product_create(request, business_slug):
                 business=business,
                 name__iexact=product.name.title(),
             ).first()
-            
+
             if existing:
-                if existing.is_active:
-                    messages.warning(request, f"{existing.name} already exists.")
-                    return _redirect_after_form(request, 'product-create', business_slug=business.slug)
-                else:
-                    # Archived twin exists — offer restore instead of creating duplicate
-                    messages.info(request,f"{existing.name} exists in your archive.")
-                    return _redirect_after_form(request, 'product-create', business_slug=business.slug)
+                # Inline on the field, NOT a toast + redirect. The redirect threw away
+                # everything they had typed to tell them one word was wrong, and a
+                # message queued on this path would be dead anyway: re-rendering the
+                # modal emits no #messages div, so it would surface on some later page.
+                add_duplicate_name_error(form, existing, archived=not existing.is_active)
+            else:
+                product.user = business.user
+                product.name = product.name.title()
+                product.business = business
+                product.created_by = request.user
 
-            product.user = business.user
-            product.name = product.name.title()
-            product.business = business
-            product.created_by = request.user
-            
-            if product.description:
-                product.description = product.description.title()
+                if product.description:
+                    product.description = product.description.title()
 
-            product.save()
-            
-            log_activity(business, request.user, 'product.created',
-                target=product, description=f"{product.name} added")
+                product.save()
 
-            messages.success(request, f"{product.name} has been created.")
-            return _redirect_after_form(request, 'product-list', business_slug=business.slug)
+                log_activity(business, request.user, 'product.created',
+                    target=product, description=f"{product.name} added")
+
+                messages.success(request, f"{product.name} has been created.")
+                return _redirect_after_form(request, 'product-list', business_slug=business.slug)
             
             # elif business.business_type in ('cafe', 'restaurant'):
             #     messages.info(request, "🚀 Cafe & Restaurant features launching soon! For now, this business is in view-only mode.")
@@ -294,28 +282,37 @@ def product_detail(request, business_slug, product_slug, product_id):
     today = timezone.localdate()
     window_start = today - timedelta(days=30)
 
-    # Units SOLD (net of returns), excluding voided sales
+    # Units SOLD (net of returns) — a real sale is NOT voided AND NOT a draft.
+    # `sale__status='completed'` is the same rule SaleQuerySet.active() encodes ("use for
+    # all revenue/count aggregations"); these queries reach across the FK from SaleItem,
+    # so they have to spell it out rather than inherit it. Omitting it counts pending +
+    # canceled drafts as sales, which is what made this page disagree with Sales
+    # Analytics (it builds off Sale.objects.active()). See the draft design: a draft
+    # touches no stock, no revenue and no cap until it's confirmed.
     sold_30d = SaleItem.objects.filter(
-        product=product, sale__is_void=False, sale__date__gte=window_start,
+        product=product, sale__is_void=False, sale__status='completed',
+        sale__date__gte=window_start,
     ).aggregate(q=Sum('quantity'))['q'] or 0
     returned_30d = SalesReturnItem.objects.filter(
         original_sale_item__product=product,
         original_sale_item__sale__is_void=False,
+        original_sale_item__sale__status='completed',
         original_sale_item__sale__date__gte=window_start,
     ).aggregate(q=Sum('quantity'))['q'] or 0
     units_sold_30d = max(sold_30d - returned_30d, 0)
 
     sold_all = SaleItem.objects.filter(
-        product=product, sale__is_void=False,
+        product=product, sale__is_void=False, sale__status='completed',
     ).aggregate(q=Sum('quantity'))['q'] or 0
     returned_all = SalesReturnItem.objects.filter(
         original_sale_item__product=product,
         original_sale_item__sale__is_void=False,
+        original_sale_item__sale__status='completed',
     ).aggregate(q=Sum('quantity'))['q'] or 0
     units_sold_all = max(sold_all - returned_all, 0)
 
-    last_sold = Sale.objects.filter(
-        sale_items__product=product, is_void=False,
+    last_sold = Sale.objects.active().filter(
+        sale_items__product=product,
     ).order_by('-date').values_list('date', flat=True).first()
 
     # RESTOCK + mover — only valid where product IS its stock 1:1 (resale).
@@ -348,7 +345,7 @@ def product_detail(request, business_slug, product_slug, product_id):
                 mover = 'new'
                 
     recent_sales = (SaleItem.objects
-        .filter(product=product, sale__is_void=False)
+        .filter(product=product, sale__is_void=False, sale__status='completed')
         .select_related('sale')
         .order_by('-sale__date', '-sale__id')[:6])
 
@@ -367,14 +364,15 @@ def product_detail(request, business_slug, product_slug, product_id):
     # tag, so an all-time total would move every time the price is edited.
     # Netted against refunds so it stays consistent with units_sold_all (already net).
     sold_items = (SaleItem.objects
-        .filter(product=product, sale__is_void=False)
+        .filter(product=product, sale__is_void=False, sale__status='completed')
         .select_related('sale'))
     gross_sales_value = sum(
         (si.effective_unit_price * si.quantity for si in sold_items), Decimal('0'))
 
     refunded_items = (SalesReturnItem.objects
         .filter(original_sale_item__product=product,
-                original_sale_item__sale__is_void=False)
+                original_sale_item__sale__is_void=False,
+                original_sale_item__sale__status='completed')
         .select_related('original_sale_item', 'original_sale_item__sale'))
     refunded_value = sum(
         (ri.original_sale_item.effective_unit_price * ri.quantity
@@ -423,21 +421,16 @@ def product_update(request, business_slug, product_slug, product_id):
             ).exclude(id=product_id).first()
         
             if existing:
-                if existing.is_active:
-                    messages.warning(request, f"{existing.name} already exists.")
-                    return _redirect_after_form(request, 'product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
-                else:
-                    # Archived twin exists — offer restore instead of creating duplicate
-                    messages.info(request,f"{existing.name} exists in your archive.")
-                    return _redirect_after_form(request, 'product-update', business_slug=business.slug, product_id=product_id, product_slug=product_slug)
+                # Inline on the field — see add_duplicate_name_error.
+                add_duplicate_name_error(form, existing, archived=not existing.is_active)
+            else:
+                product.save()
 
-            product.save()
+                log_activity(business, request.user, 'product.updated',
+                    target=product, description=f"{product.name} updated")
 
-            log_activity(business, request.user, 'product.updated',
-                target=product, description=f"{product.name} updated")
-
-            messages.success(request, f"{product.name} has been updated.")
-            return _redirect_after_form(request, 'product-list', business_slug=business.slug)
+                messages.success(request, f"{product.name} has been updated.")
+                return _redirect_after_form(request, 'product-list', business_slug=business.slug)
     else:
         form = ProductForm(instance=product, business=business, user=request.user)
 
@@ -512,18 +505,24 @@ def add_product_to_preset(request, business_slug):
 
     if request.method == 'POST':
         product_checkbox = request.POST.get('product_checkbox')
-        product_name = request.POST.get('product_name')
-        
-        if product_checkbox and not product_name:
-            messages.warning(request, "You forgot to add a preset title.")
-            
-        elif not product_checkbox and product_name:
-            messages.warning(request, "You forgot to click the checkbox.")
-        
-        elif not product_checkbox and not product_name:
+        # Strip before testing: a name of "   " is truthy, and used to save a preset
+        # with a blank-looking title. Title-case here so the name we check for a clash
+        # is the same one we store and echo back.
+        product_name = (request.POST.get('product_name') or '').strip().title()
+
+        if not product_checkbox and not product_name:
             messages.warning(request, "Please add a preset title and don't forget to click the checkbox.")
-            
-        if product_checkbox and product_name:
+
+        elif not product_name:
+            messages.warning(request, "You forgot to add a preset title.")
+
+        elif not product_checkbox:
+            messages.warning(request, "You forgot to click the checkbox.")
+
+        elif not sale:
+            messages.warning(request, "Your cart is empty. Add products first, then save them as a preset.")
+
+        else:
             # only non-service cart items can seed a preset
             sale_products = []
             for product_id, data in sale.items():
@@ -534,26 +533,32 @@ def add_product_to_preset(request, business_slug):
 
             if not sale_products:
                 messages.warning(request, "Service fees can't be saved as presets — presets are for products only.")
-                return redirect('view-sale', business_slug=business.slug)
 
-            preset, _ = ProductPreset.objects.get_or_create(
-                business=business,
-                user=business.user,
-                name=product_name.title(),
-                defaults={'is_active': True, 'created_by': request.user},
-            )
+            elif ProductPreset.objects.filter(business=business, name=product_name).exists():
+                # The name is unique per business (ProductPreset.Meta.unique_together), so
+                # get_or_create handed back the EXISTING preset and then get_or_create'd each
+                # item — leaving the old quantities untouched while reporting success. Say the
+                # name is taken rather than silently doing nothing or silently overwriting.
+                messages.warning(request, f"You already have a preset called {product_name}. Pick a different name.")
 
-            for product, data in sale_products:
-                ProductPresetItem.objects.get_or_create(
-                    preset=preset,
-                    product=product,
-                    defaults={
-                        'quantity': data.get('quantity', 0),
-                        'cost_price': Decimal(data.get('cost_price', 0)),
-                    }
+            else:
+                preset = ProductPreset.objects.create(
+                    business=business,
+                    user=business.user,
+                    name=product_name,
+                    is_active=True,
+                    created_by=request.user,
                 )
 
-            messages.success(request, f"{product_name} has been added to preset.")
+                for product, data in sale_products:
+                    ProductPresetItem.objects.create(
+                        preset=preset,
+                        product=product,
+                        quantity=data.get('quantity', 0),
+                        cost_price=Decimal(data.get('cost_price', 0)),
+                    )
+
+                messages.success(request, f"{product_name} has been added to preset.")
 
 
     return redirect('view-sale', business_slug=business.slug)
@@ -627,7 +632,14 @@ def detail_product_preset(request, business_slug, preset_id, preset_slug):
         })
     item_count = len(items)
     
-    context= {'preset': preset, 'items': items, 'item_count': item_count, 'section': 'product'}
+    # Add to Sale sends the user back HERE — which is the list when this is a modal.
+    context= {'preset': preset, 'items': items, 'item_count': item_count,
+              'back_url': back_url(request), 'section': 'product'}
+
+    # htmx → render just the modal partial (opened from the preset list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_product_preset_detail_modal.html', context)
+
     return render(request, 'Product/detail_product_preset.html', context)
 
 @login_required(login_url='login')
@@ -658,9 +670,14 @@ def edit_product_preset(request, business_slug, preset_id, preset_slug):
                 item.save()
                 messages.success(request, f"The quantity has been updated.")
             
-        return redirect('product-preset-list', business_slug=business.slug)
-    
+        return _redirect_after_form(request, 'product-preset-list', business_slug=business.slug)
+
     context = {'preset': preset, 'preset_items': preset_items, 'section': 'product'}
+
+    # htmx → render just the modal partial (opened from the preset list / detail modal)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_product_preset_edit_modal.html', context)
+
     return render(request, 'Product/edit_product_preset.html', context)
 
 @login_required(login_url='login')
@@ -691,10 +708,28 @@ def delete_product_preset(request, business_slug, preset_slug, preset_id):
     preset = get_object_or_404(ProductPreset, business=business, slug=preset_slug, id=preset_id)
     
     if request.method == 'POST':
+        name = preset.name          # read it BEFORE the row is gone
         preset.delete()
-        messages.success(request, f"{preset.name} has been deleted.")
-        return redirect('product-preset-list', business_slug=business.slug)
-    
+        messages.success(request, f"{name} has been deleted.")
+        return _redirect_after_form(request, 'product-preset-list', business_slug=business.slug)
+
+    # htmx → the shared confirm modal, same component archive/void/payment use.
+    # The full-page delete_product_preset.html stays as the no-JS fallback.
+    if request.headers.get('HX-Request'):
+        count = preset.product_preset_items.count()
+        return render(request, 'core/partials/_confirm_modal.html', {
+            'cm_title': preset.name,
+            'cm_subtitle': f"{count} product{'' if count == 1 else 's'} · saved {preset.created_at:%b %d, %Y}",
+            'cm_note': "Deletes the preset only — your <strong>products and sales history "
+                       "are not affected</strong>. This can’t be undone.",
+            'cm_tone': 'danger',
+            'cm_icon': 'bi-bookmark-fill',
+            'cm_action': reverse('product-delete-preset', kwargs={
+                'business_slug': business.slug, 'preset_id': preset.id, 'preset_slug': preset.slug}),
+            'cm_label': "Confirm Delete",
+            'cm_btn_icon': 'bi-trash3-fill',
+        })
+
     context = {'preset': preset, 'section': 'product'}
     return render(request, 'Product/delete_product_preset.html', context)
 
@@ -708,42 +743,71 @@ def product_add_preset_to_sale(request, business_slug, preset_slug, preset_id):
     
     added_count = 0
     failed_count = 0
-    
-    for item in preset_items:
-        product = item.product
-        
-        if not product:
-            failed_count += 1
-            continue
-            
-        id = item.product.id
-        name = item.product.name
-        quantity = item.quantity
-        product_key = str(product.id)
-        existing_qty = sale.get(product_key, {}).get('quantity', 0) + quantity
+    locked_count = 0
 
-        if product_key in sale:
-            if product.prepared_quantity >= existing_qty:
-                sale[product_key]['quantity'] = existing_qty
+    # GUARD 1 — the preset is over the plan's preset cap. This lock is about the PRESET
+    # itself, so refuse the whole thing. The list has always shown a "Locked" badge that
+    # nothing actually enforced. Locks on the products INSIDE are guard 2, handled per
+    # item: a product-level fact must not become a preset-level consequence, or one
+    # locked product would kill a preset full of sellable ones.
+    if preset.is_locked:
+        messages.warning(request, f"{preset.name} is locked - upgrade your plan or unlock it to use.")
+    else:
+        for item in preset_items:
+            product = item.product
+
+            if not product:
+                failed_count += 1
+                continue
+
+            # GUARD 2 — add_to_sales refuses a locked product, so a preset must not be a
+            # way around that: a preset is a shortcut for adding these products by hand,
+            # and a shortcut may not have looser rules than the long way. Counted apart
+            # from failed_count so the summary doesn't blame the "quantity limit" for
+            # what is really a plan state the owner has to act on.
+            if product.is_locked:
+                locked_count += 1
+                continue
+
+            id = item.product.id
+            name = item.product.name
+            quantity = item.quantity
+            product_key = str(product.id)
+            existing_qty = sale.get(product_key, {}).get('quantity', 0) + quantity
+
+            if product_key in sale:
+                if product.prepared_quantity >= existing_qty:
+                    sale[product_key]['quantity'] = existing_qty
+                    added_count += 1
+                else:
+                    failed_count += 1
+            # Stock is checked here too, not just on the branch above. This branch is the
+            # common case — applying a preset to an empty cart — and it used to write the
+            # line unchecked, so a preset for 50 went in against 3 in stock while the same
+            # preset was correctly refused once the product was already in the cart.
+            # Refuse the whole line rather than trimming it: that is what the branch above
+            # and the material side both do, and a silently reduced quantity is worse than
+            # being told.
+            elif product.prepared_quantity >= quantity:
+                sale[product_key] = {
+                    'id': id,
+                    'name': name,
+                    'quantity': quantity,
+                    'cost_price': str(item.cost_price),
+                    'selling_price': str(item.product.selling_price)
+                }
                 added_count += 1
             else:
                 failed_count += 1
-        else:
-            sale[product_key] = {
-                'id': id,
-                'name': name,
-                'quantity': quantity,
-                'cost_price': str(item.cost_price),
-                'selling_price': str(item.product.selling_price)
-            }
-            added_count += 1
-    
-    # Show ONE summary message
-    if added_count > 0:
-        messages.success(request, f"{preset.name} - {added_count} product(s) added to sale.")
-    if failed_count > 0:
-        messages.warning(request, f"{failed_count} product(s) couldn't be added (quantity limit).")
-    
+
+        # Show ONE summary message
+        if added_count > 0:
+            messages.success(request, f"{preset.name} - {added_count} product(s) added to sale.")
+        if failed_count > 0:
+            messages.warning(request, f"{failed_count} product(s) couldn't be added (quantity limit).")
+        if locked_count > 0:
+            messages.warning(request, f"{locked_count} product(s) are locked - upgrade your plan or unlock them to sell.")
+
     request.session['sale'] = sale
     request.session.modified = True
     
@@ -874,6 +938,7 @@ def service_session_picker(request, business_slug, product_id):
 @permission_required('add')  # dev
 def service_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+    form_error = None
 
     if request.method == 'POST':
         form = ServiceForm(request.POST, request.FILES, business=business, user=request.user)
@@ -886,35 +951,43 @@ def service_create(request, business_slug):
                 for cd in (f.cleaned_data for f in formset.forms)
             )
             if session_based and not has_tier:
-                messages.error(request, "Add at least one session tier (e.g. 1 hr — ₱70).")
+                # Inline, not a toast: this path re-renders the form rather than
+                # redirecting, and in the modal a queued message would sit unrendered
+                # until the next full page load — surfacing on some unrelated screen.
+                form_error = "Add at least one session tier (e.g. 1 hr — ₱70)."
             else:
                 service = form.save(commit=False)
                 existing = Product.all_objects.filter(
                     business=business, name__iexact=service.name.title(),
                 ).first()
                 if existing:
-                    messages.warning(request, f"{existing.name} already exists.")
-                    return redirect('service-create', business_slug=business.slug)
+                    # Inline on the field — see add_duplicate_name_error.
+                    add_duplicate_name_error(form, existing, archived=not existing.is_active)
+                else:
+                    service.user = business.user
+                    service.name = service.name.title()
+                    service.business = business
+                    service.created_by = request.user
+                    service.save()
 
-                service.user = business.user
-                service.name = service.name.title()
-                service.business = business
-                service.created_by = request.user
-                service.save()
+                    if session_based:
+                        formset.instance = service
+                        formset.save()
 
-                if session_based:
-                    formset.instance = service
-                    formset.save()
-
-                log_activity(business, request.user, 'product.created',
-                    target=service, description=f"{service.name} (service fee) added")
-                messages.success(request, f"{service.name} has been created.")
-                return redirect('service-list', business_slug=business.slug)
+                    log_activity(business, request.user, 'product.created',
+                        target=service, description=f"{service.name} (service fee) added")
+                    messages.success(request, f"{service.name} has been created.")
+                    return _redirect_after_form(request, 'service-list', business_slug=business.slug)
     else:
         form = ServiceForm(business=business, user=request.user)
         formset = ServiceSessionFormSet(prefix='sessions')
 
-    context = {'form': form, 'formset': formset, 'section': 'service'}
+    context = {'form': form, 'formset': formset, 'form_error': form_error, 'section': 'service'}
+
+    # htmx → render just the modal partial (opened from the service list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_service_form_modal.html', context)
+
     return render(request, 'Product/service_create.html', context)
 
 
@@ -923,6 +996,7 @@ def service_create(request, business_slug):
 def service_update(request, business_slug, service_slug, service_id):
     business = get_business_for_user(request.user, business_slug)
     service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
+    form_error = None
 
     if request.method == 'POST':
         form = ServiceForm(request.POST, request.FILES, instance=service, business=business, user=request.user)
@@ -935,7 +1009,8 @@ def service_update(request, business_slug, service_slug, service_id):
                 for cd in (f.cleaned_data for f in formset.forms)
             )
             if session_based and not has_tier:
-                messages.error(request, "Add at least one session tier (e.g. 1 hr — ₱70).")
+                # Inline rather than a toast — see service_create for why.
+                form_error = "Add at least one session tier (e.g. 1 hr — ₱70)."
             else:
                 service = form.save(commit=False)
                 service.name = service.name.title()
@@ -944,29 +1019,31 @@ def service_update(request, business_slug, service_slug, service_id):
                     business=business, name__iexact=service.name.title(),
                 ).exclude(id=service.id).first()
                 if existing:
-                    if existing.is_active:
-                        messages.warning(request, f"{existing.name} already exists.")
-                    else:
-                        messages.info(request, f"{existing.name} exists in your archive.")
-                    return redirect('service-update', business_slug=business.slug,
-                                    service_id=service_id, service_slug=service_slug)
-
-                service.save()
-
-                if session_based:
-                    formset.save()
+                    # Inline on the field — see add_duplicate_name_error.
+                    add_duplicate_name_error(form, existing, archived=not existing.is_active)
                 else:
-                    service.sessions.all().delete()   # switched to flat → drop stale tiers
+                    service.save()
 
-                log_activity(business, request.user, 'product.updated',
-                    target=service, description=f"{service.name} (service fee) updated")
-                messages.success(request, f"{service.name} has been updated.")
-                return redirect('service-list', business_slug=business.slug)
+                    if session_based:
+                        formset.save()
+                    else:
+                        service.sessions.all().delete()   # switched to flat → drop stale tiers
+
+                    log_activity(business, request.user, 'product.updated',
+                        target=service, description=f"{service.name} (service fee) updated")
+                    messages.success(request, f"{service.name} has been updated.")
+                    return _redirect_after_form(request, 'service-list', business_slug=business.slug)
     else:
         form = ServiceForm(instance=service, business=business, user=request.user)
         formset = ServiceSessionFormSet(instance=service, prefix='sessions')
 
-    context = {'form': form, 'formset': formset, 'service': service, 'section': 'service'}
+    context = {'form': form, 'formset': formset, 'service': service,
+               'form_error': form_error, 'section': 'service'}
+
+    # htmx → render just the modal partial (opened from the service list)
+    if request.headers.get('HX-Request'):
+        return render(request, 'Product/_service_update_modal.html', context)
+
     return render(request, 'Product/service_update.html', context)
 
 

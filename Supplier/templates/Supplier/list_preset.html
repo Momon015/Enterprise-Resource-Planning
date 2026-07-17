@@ -176,12 +176,16 @@
 
                     <!-- VIEW -->
                     <a href="{% url 'material-preset-detail' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'material-preset-detail' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--view" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
 
                     <!-- EDIT -->
                     <a href="{% url 'material-edit-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'material-edit-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit preset">
                       <i class="bi bi-pencil"></i>
                     </a>
@@ -189,6 +193,8 @@
                     {% if request.user.role == 'owner' %}
                     <!-- DELETE -->
                     <a href="{% url 'material-delete-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-get="{% url 'material-delete-preset' slug=preset.slug id=preset.id business_slug=current_business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--danger" title="Delete preset">
                       <i class="bi bi-trash3"></i>
                     </a>

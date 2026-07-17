@@ -95,16 +95,45 @@ class Shift(TimeStampModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shift_logs')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='shifts', null=True, blank=True)
     date = models.DateField(db_index=True)
+    # The day's payroll — Σ of this shift's ShiftEmployee.daily_rate. STORED, not live:
+    # summing across the reverse relation crosses a multi-valued join, so the moment a
+    # query combines it with any other join it fans out and double-counts. A plain
+    # column can't. Never assign this by hand — recompute_amount() owns it, and the
+    # signal below calls it on every ShiftEmployee write. created_by is NULL for the
+    # normal clock-in path (nobody "made" it — the timecard did); templates read
+    # `created_by|default:"System"`. Do NOT invent a System user for it: a real User row
+    # would surface in staff lists, count against the seat cap and be a login target.
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_shift_logs')
-    
+
     def __str__(self):
         return f"{self.id} - {self.amount} — {self.date}"
-    
+
     def save(self, *args, **kwargs):
         if not self.date:
             self.date = timezone.localdate()
         super().save(*args, **kwargs)
+
+    def recompute_amount(self, save=True):
+        """THE payroll definition. Recomputed from the rows — never incremented.
+
+        A daily rate is earned by SHOWING UP, so every ShiftEmployee counts from the
+        moment it exists; clock_out is deliberately not a condition. Tying payroll to
+        clock-out would understate the day until the last person left, and would pay
+        ₱0 to anyone who forgot to time out until an owner closed them — which the
+        owner-close/dispute flow exists precisely because it happens.
+
+        Recompute-don't-increment is the point: an increment is only correct if every
+        past write was correct and none is ever replayed. This can be run any number of
+        times, from any path, and lands on the same number.
+        """
+        total = self.shift_employees.aggregate(t=Sum('daily_rate'))['t'] or Decimal('0')
+        if total != self.amount:
+            self.amount = total
+            if save:
+                # update_fields so this can't clobber a concurrent write to another column
+                super().save(update_fields=['amount'])
+        return total
 
 
 class ShiftEmployee(TimeStampModel):

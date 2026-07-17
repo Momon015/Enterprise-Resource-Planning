@@ -99,11 +99,15 @@ def view_summary(request, business_slug):
     # This used to be re-applied inside six separate `if period ==` branches, once per
     # queryset. Two bugs grew out of that duplication (both fixed 2026-07-13):
     #
-    #   1. SALARY HAD TWO DEFINITIONS. The unfiltered path summed Shift.amount — which is
+    #   1. SALARY HAD TWO DEFINITIONS. The unfiltered path summed Shift.amount — which was
     #      0 on every row — while the filtered path summed shift_employees__daily_rate.
     #      So the DEFAULT view (no query params -> unbound form -> is_valid() False)
-    #      reported ₱0 payroll and overstated net profit. The Dashboard has always used
-    #      shift_employees__daily_rate; that is the one true definition.
+    #      reported ₱0 payroll and overstated net profit.
+    #      ★ 2026-07-17: both now sum **Shift.amount**, and the reason the old one read 0
+    #      is gone — Shift.recompute_amount() + a ShiftEmployee signal keep the column
+    #      equal to Σ daily_rate, and migration 0013 backfilled every historical row.
+    #      Shift.amount is now THE definition everywhere (a plain column can't fan out
+    #      across a join the way the reverse relation could). See Employee/models.py.
     #
     #   2. THE FREEZE WAS NON-DETERMINISTIC. close_day() trusts the row it's handed, so
     #      whichever request first read a past day decided its books forever — land on the
@@ -188,13 +192,13 @@ def view_summary(request, business_slug):
     purchase_returns_qs = in_period(
         PurchaseReturn.objects.filter(business=business), 'date')
 
-    # ONE definition of each per-day figure. Salary is shift_employees__daily_rate, the
-    # same column the Dashboard and Expense Analytics use — Shift.amount is empty.
+    # ONE definition of each per-day figure. Salary is Shift.amount, the same column the
+    # Dashboard and Expense Analytics use (kept in step with Σ daily_rate by the signal).
     sales_by_date     = sales.values('date').annotate(v=Sum('total_revenue'))
     purchase_by_date  = purchases.values('purchase_date').annotate(v=Sum('total_cost'))
     wastes_by_date    = wastes.values('date').annotate(v=Sum('total_cost'))
     expenses_by_date  = expenses.values('date').annotate(v=Sum('total_amount'))
-    shifts_by_date    = shifts.values('date').annotate(v=Sum('shift_employees__daily_rate'))
+    shifts_by_date    = shifts.values('date').annotate(v=Sum('amount'))
     sales_ret_by_date = sales_returns_qs.values('date').annotate(v=Sum('refund_total'))
     purch_ret_by_date = purchase_returns_qs.values('date').annotate(v=Sum('refund_total'))
 
@@ -354,7 +358,7 @@ def view_summary(request, business_slug):
     rev_by_month     = {s['date__month']:          s['total'] for s in year_sales.values('date__month').annotate(total=Sum('total_revenue'))}
     waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(**year).values('date__month').annotate(total=Sum('total_cost'))}
     expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(**year).values('date__month').annotate(total=Sum('total_amount'))}
-    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('shift_employees__daily_rate'))}
+    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('amount'))}
 
     # ★ COGS by month, not purchases — "best month" has to use the SAME formula as every row
     # in the table above it, or the badge could crown a month the table says lost money.

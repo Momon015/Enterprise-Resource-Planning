@@ -127,7 +127,10 @@ document.addEventListener("DOMContentLoaded", function () {
           </span>
         </div>
         <div class="card-body" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="{% url 'misc-expense-update' misc_expense_id=misc_expense.id business_slug=current_business.slug %}" class="btn btn-primary btn-block">
+          <a href="{% url 'misc-expense-update' misc_expense_id=misc_expense.id business_slug=current_business.slug %}"
+             hx-get="{% url 'misc-expense-update' misc_expense_id=misc_expense.id business_slug=current_business.slug %}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-primary btn-block">
             <i class="bi bi-pencil"></i> Edit template
           </a>
           {% if request.user.role == 'owner' %}

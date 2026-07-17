@@ -7,6 +7,7 @@ from Inventory.models import Material
 from Supplier.models import Supplier
 
 from core.models import Category
+from core.utils.forms import mark_required
 # Create your forms here.
 
 class PurchaseForm(ModelForm):
@@ -99,6 +100,8 @@ class MiscExpenseForm(ModelForm):
         self.fields['category'].empty_label = None
         self.fields['category'].required = False
         self.fields['category'].label_from_instance = lambda obj: obj.name.title()
+
+        mark_required(self)
         
 class ExpenseFilterForm(forms.Form):
     # search = forms.CharField(required=False)

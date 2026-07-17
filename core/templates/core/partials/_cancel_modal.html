@@ -29,9 +29,9 @@
         {% if refund_due > 0 %} You paid the year upfront, so the {{ months_used }} month(s) used are re-priced at the standard rate and we refund the rest: <strong>₱{{ refund_due|floatformat:2|intcomma }}</strong>, within 30 days.{% else %} No refund is due — and you can re-subscribe anytime.{% endif %}
       </p>
 
-      {# The discounted rate on the other businesses only exists because THIS one is the
+      {% comment %} The discounted rate on the other businesses only exists because THIS one is the
          main plan. Cancelling it puts them back on the regular price — say so in pesos,
-         before they click, or it lands as a surprise on the next bill. #}
+         before they click, or it lands as a surprise on the next bill. {% endcomment %}
       {% if reprice %}
       <div class="cm-note cm-note--danger" style="margin-top:.75rem;">
         <div style="display:flex; gap:.5rem; align-items:flex-start;">

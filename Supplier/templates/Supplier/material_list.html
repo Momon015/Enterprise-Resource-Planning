@@ -201,6 +201,8 @@
                       <i class="bi bi-eye"></i>
                     </a>
                     <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}"
+                       hx-get="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}"
+                       hx-target="#confirmBody" hx-swap="innerHTML"
                        class="action-btn action-btn--edit" title="Edit material">
                       <i class="bi bi-pencil"></i>
                     </a>
@@ -278,7 +280,10 @@
             </div>
             <div class="card-body">
               <div class="btn-grid">
-                <a href="{% url 'material-create' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+                <a href="{% url 'material-create' business_slug=current_business.slug %}"
+                   hx-get="{% url 'material-create' business_slug=current_business.slug %}"
+                   hx-target="#confirmBody" hx-swap="innerHTML"
+                   class="btn btn-outline-secondary btn-sm btn-block">
                   <i class="bi bi-plus-circle"></i> Create material
                 </a>
                 <a href="{% url 'material-preset-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">

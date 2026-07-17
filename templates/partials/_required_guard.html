@@ -1,0 +1,95 @@
+{% comment %} Client-side required-field guard for the htmx modal forms.
+
+WHY THIS EXISTS: these forms carry `novalidate`, so the browser's own required-field
+bubble is off. Without a guard an empty submit POSTs, the view finds the form invalid
+and re-renders the modal, and htmx swaps the whole panel — the modal visibly "refreshes",
+scroll position resets, and on any form with a file input THE CHOSEN FILE IS LOST
+(a browser will not re-attach a file to a re-rendered input). Catching it here means
+the form never round-trips for something the page already knows.
+
+`novalidate` stays ON PURPOSE — do not "simplify" this away by dropping it and letting
+the browser validate. These forms hide fields conditionally (a product linked to a
+material renders prepared_quantity as a hidden input), and native validation on a
+hidden required control aborts the submit with an unfocusable-control console error
+and NO visible message — a dead Save button with no explanation.
+
+USAGE: mark each genuinely-required visible input with `data-req`, then include this
+once inside the form:
+    {% include 'partials/_required_guard.html' with form_id='materialForm' %}
+Required sets differ per form (supplier = name; material = name/price/quantity/unit/
+piece_per_unit), which is exactly why the fields declare themselves instead of this
+snippet hardcoding a list.
+{% endcomment %}
+<script>
+(function () {
+  const form = document.getElementById('{{ form_id }}');
+  if (!form || form.dataset.reqGuard) return;
+  form.dataset.reqGuard = '1';   // included twice = bound once
+
+  const ERR = 'js-req-error';
+
+  // The message goes at the END of the field group — the same place the server's own
+  // {{ form.x.errors }} renders, so the two can't disagree about where errors appear.
+  // NOT insertAdjacentElement after the input: several inputs sit inside a flex row
+  // (.mf-stepper wraps the −/+ buttons around material's quantity and price), and a
+  // div dropped in there becomes a flex item wedged between the input and the + button.
+  function box(el) {
+    return el.closest('.mf-field-group, .mf-form-group') || el.parentNode;
+  }
+
+  function clear(el) {
+    const prev = box(el).querySelector('.' + ERR);
+    if (prev) prev.remove();
+    el.style.borderColor = '';
+  }
+
+  function fail(el) {
+    clear(el);
+    el.style.borderColor = 'var(--danger)';
+    const err = document.createElement('div');
+    err.className = 'mf-error ' + ERR;
+    err.textContent = 'This field is required.';
+    box(el).appendChild(err);
+  }
+
+  // A field the user cannot see cannot be filled in — the server owns those.
+  function visible(el) {
+    return el.type !== 'hidden' && el.offsetParent !== null;
+  }
+
+  function invalid() {
+    let first = null;
+    form.querySelectorAll('[data-req]').forEach(function (el) {
+      if (!visible(el)) { clear(el); return; }
+      if (el.value.trim()) { clear(el); return; }
+      fail(el);
+      if (!first) first = el;
+    });
+    if (first) {
+      first.focus();
+      first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    return !!first;
+  }
+
+  // Full page: preventDefault stops the browser.
+  form.addEventListener('submit', function (e) {
+    if (invalid()) e.preventDefault();
+  });
+
+  // Modal: preventDefault above does NOT stop htmx — htmx has its own listener on this
+  // same form, never reads defaultPrevented, and calls preventDefault itself before
+  // firing. So a cancelled native submit still POSTs. htmx:beforeRequest is the
+  // documented cancellable hook. (stopPropagation can't help: same-element listeners
+  // all run regardless of order.)
+  form.addEventListener('htmx:beforeRequest', function (e) {
+    if (invalid()) e.preventDefault();
+  });
+
+  // Bound to the FORM, not document: the listener dies with the modal, so reopening
+  // can't stack a second copy that reports every error twice.
+  form.addEventListener('input', function (e) {
+    if (e.target.matches('[data-req]') && e.target.value.trim()) clear(e.target);
+  });
+})();
+</script>

@@ -46,58 +46,7 @@
 
         {% csrf_token %}
 
-        <div class="mf-fields-grid">
-
-          {# Name #}
-          <div class="mf-field-group">
-            <label for="{{ form.name.id_for_label }}" class="mf-form-label">
-              {{ form.name.label }}
-              {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.name }}
-            {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
-          </div>
-
-          {# Image #}
-          <div class="mf-field-group">
-            <label class="mf-form-label">Supplier Image</label>
-            <div class="file-input-wrapper">
-              <label for="{{ form.image.id_for_label }}" class="file-input-button">
-                <i class="bi bi-cloud-arrow-up"></i>
-                <span id="image-label-{{ form.image.id_for_label }}">
-                  {% if form.instance.pk and form.instance.image %}Replace image{% else %}Choose image{% endif %}
-                </span>
-              </label>
-              {{ form.image }}
-                <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
-                  {% if form.instance.pk and form.instance.image %}Image uploaded{% else %}No file chosen{% endif %}
-                </span>
-              <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically. Tip: a PNG with a transparent background looks best — no white box around the photo.</small>
-              {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
-            </div>
-          </div>
-
-          {# Email #}
-          <div class="mf-field-group">
-            <label for="{{ form.email.id_for_label }}" class="mf-form-label">
-              {{ form.email.label }}
-              {% if form.email.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.email }}
-            {% if form.email.errors %}<div class="mf-error">{{ form.email.errors|striptags }}</div>{% endif %}
-          </div>
-
-          {# Contact #}
-          <div class="mf-field-group">
-            <label for="{{ form.contact_number.id_for_label }}" class="mf-form-label">
-              {{ form.contact_number.label }}
-              {% if form.contact_number.field.required %}<span class="mf-required">*</span>{% endif %}
-            </label>
-            {{ form.contact_number }}
-            {% if form.contact_number.errors %}<div class="mf-error">{{ form.contact_number.errors|striptags }}</div>{% endif %}
-          </div>
-
-        </div>
+        {% include 'Supplier/_supplier_form_fields.html' %}
 
         <div class="mf-form-actions">
           <a href="{% url 'supplier-list' business_slug=current_business.slug %}" class="btn btn-light">Cancel</a>
@@ -111,49 +60,5 @@
   </div>
 
 </div>
-
-<script>
-
-document.getElementById('supplierForm').addEventListener('submit', function (e) {
-  const name = document.getElementById('{{ form.name.id_for_label }}');
-  if (name && !name.value.trim()) {
-    e.preventDefault();              // ← page never reloads → file survives
-    name.focus();
-    name.style.borderColor = 'var(--danger)';
-    name.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
-});
-
-(function () {
-  const formEl = document.getElementById('supplierForm');
-  const name   = document.getElementById('{{ form.name.id_for_label }}');
-  if (!formEl || !name) return;
-
-  formEl.addEventListener('submit', function (e) {
-    const prev = document.getElementById('name-client-error');
-    if (prev) prev.remove();
-    name.style.borderColor = '';
-
-    if (!name.value.trim()) {
-      e.preventDefault();                          // page never reloads → file survives
-      name.style.borderColor = 'var(--danger)';
-      const err = document.createElement('div');
-      err.className = 'mf-error';
-      err.id = 'name-client-error';
-      err.textContent = 'This field is required.';
-      name.insertAdjacentElement('afterend', err); // shows right under the name input
-      name.focus();
-      name.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  });
-
-  // clear the message as soon as they start typing a name
-  name.addEventListener('input', function () {
-    const prev = document.getElementById('name-client-error');
-    if (prev && this.value.trim()) { prev.remove(); this.style.borderColor = ''; }
-  });
-})();
-
-</script>
 
 {% endblock %}

@@ -397,7 +397,11 @@ def sales_analytics(request, business_slug):
 # key -> (label, date field, money field, CSS colour token, icon)
 STREAMS = [
     ('stock',  'Stock Purchases',   'purchase_date', 'total_cost',                  '--violet', 'bi-box-seam'),
-    ('salary', 'Payroll',           'date',         'shift_employees__daily_rate', '--info',   'bi-people'),
+    # 'amount' (not shift_employees__daily_rate): a plain column can't fan out. This set
+    # feeds an aggregate, a donut AND a stacked trend — a multi-valued join here would
+    # double-count the moment one of them grew a second join. Shift.recompute_amount()
+    # keeps it equal to the rates. See Employee/models.py.
+    ('salary', 'Payroll',           'date',         'amount',                      '--info',   'bi-people'),
     # Label is "Business expenses" — the same words the Dashboard, Accrual and Cash Flow
     # pages already use for this exact number. ("Overhead" was jargon; one name, everywhere.)
     # The KEY stays 'bills' — it's internal, and renaming it would touch a lot for nothing.
@@ -713,7 +717,7 @@ def _pnl(business, start, end):
     cogs = cogs_of(sales) - returned_cogs_of(returns)
 
     qs     = _stream_querysets(business, start, end)
-    salary = qs['salary'].aggregate(t=Sum('shift_employees__daily_rate'))['t'] or Decimal('0')
+    salary = qs['salary'].aggregate(t=Sum('amount'))['t'] or Decimal('0')
     bills  = qs['bills'].aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
     waste  = qs['waste'].aggregate(t=Sum('total_cost'))['t'] or Decimal('0')
 
@@ -765,7 +769,7 @@ def _profit_trend(business, period):
             sales_return__in=returns, original_sale_item__isnull=False),
         'sales_return__date', RETURNED_COGS_LINE, period, keys)
 
-    salary = _series(qs['salary'], 'date', 'shift_employees__daily_rate', period, keys)
+    salary = _series(qs['salary'], 'date', 'amount', period, keys)
     bills  = _series(qs['bills'],  'date', 'total_amount', period, keys)
     waste  = _series(qs['waste'],  'date', 'total_cost',   period, keys)
 

@@ -380,13 +380,20 @@
               <tr>
                 {% comment %} <th>Date Added</th> {% endcomment %}
                 <th>Name</th>
-                <th>SKU / Barcode </th>
+                <th class="sl-text-center">SKU / Barcode </th>
                 <th class="sl-text-center col-mobile-hidden">Category</th>
                 <th class="sl-text-center col-mobile-hidden">Cost</th>
                 <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center">Price</th>
                 <th class="sl-text-center col-mobile-hidden">Stock / Status</th>
+                {% comment %} MOVED TO ANALYTICS (IA phase 3) — Sold column commented 2026-07-16,
+                finishing the 07-04 pass that moved this page's Units Sold card / Sales Velocity /
+                Top Items out. Sold is a RANKING metric this table can't serve: name-ordered,
+                paginated, not sortable by Sold. Sales Analytics → Top Products answers it; the
+                ?velocity= filters (best/slow/never) answer it here for non-Pro tiers. The
+                units_sold annotation STAYS in the view — those filters use it.
                 <th class="sl-text-end col-mobile-hidden">Sold</th>
+                {% endcomment %}
                 <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
@@ -416,15 +423,17 @@
                     {% endif %}
                 </td>
 
-                <td>
-                  <span class="sku-pill">{{ product.sku|upper }}</span>
-                  {% if product.barcode %}
-                  <div class="cell-sub sku-barcode">{{ product.barcode }}</div>
-                  {% endif %}
+                <td class="sl-text-center">
+                  <span class="sku-pill{% if product.barcode %} sku-pill--stack{% endif %}">
+                    {{ product.sku|upper }}
+                    {% if product.barcode %}
+                    <span class="sku-pill__barcode">{{ product.barcode }}</span>
+                    {% endif %}
+                  </span>
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
-                  <span class="cell-primary">{{ product.category.name|default:"No category" }}</span>
+                  <span class="cell-primary">{{ product.category.name|default:"No Category" }}</span>
                 </td>
 
                 <td class="sl-text-center col-mobile-hidden">
@@ -463,9 +472,11 @@
                   {% endif %}
                 </td>
 
+                {% comment %} MOVED TO ANALYTICS (IA phase 3) — see the Sold <th> above.
                 <td class="sl-text-end col-mobile-hidden">
                   <span class="sl-fw-semibold">{{ product.units_sold|default:0 }}</span>
                 </td>
+                {% endcomment %}
 
                 <td class="sl-text-center mobile-center">
 

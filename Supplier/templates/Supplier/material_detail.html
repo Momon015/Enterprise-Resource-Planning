@@ -111,7 +111,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         <!-- Actions -->
         <div class="form-actions-inline" style="border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1rem; justify-content: flex-end;">
-          <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}" class="btn btn-outline-secondary">
+          <a href="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}"
+             hx-get="{% url 'material-update' id=material.id slug=material.slug business_slug=material.business.slug %}"
+             hx-target="#confirmBody" hx-swap="innerHTML"
+             class="btn btn-outline-secondary">
             <i class="bi bi-pencil sl-me-1"></i> Edit
           </a>
           <a href="{% url 'add-to-cart' id=material.id business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-primary">

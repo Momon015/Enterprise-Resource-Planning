@@ -34,6 +34,7 @@ from Supplier.forms import MaterialForm
 from Inventory.models import Stock
 from Product.models import Product
 from core.models import StatusModel
+from core.utils.htmx import redirect_after_form
 
 from Sales.models import Sale, SaleEmployee
 
@@ -2368,11 +2369,16 @@ def misc_expense_create(request, business_slug):
             misc_expense.name = misc_expense.name.title()
             misc_expense.save()
             messages.success(request, f"{misc_expense.name} has been added to expense.")
-            return redirect('misc-expense-list', business_slug=business.slug)
-        
+            return redirect_after_form(request, 'misc-expense-list', business_slug=business.slug)
+
     else:
         form = MiscExpenseForm(business=business)
-        
+
+    # htmx → the modal (both the GET that opens it and an invalid POST re-rendering
+    # inside it); a plain request gets the full page, which survives as the no-JS path.
+    if request.headers.get('HX-Request'):
+        return render(request, 'Expense/partials/_misc_expense_form_modal.html', {'form': form})
+
     context = {'form': form, 'section': 'expense'}
     return render(request, 'Expense/misc_and_expense_create.html', context)
 
@@ -2404,14 +2410,15 @@ def misc_expense_update(request, business_slug, misc_expense_id):
             misc_expense.name = misc_expense.name.title()
             misc_expense.save()
             messages.success(request, f"{misc_expense.name} has been updated.")
-            return redirect('misc-expense-list', business_slug=business.slug)
-    
+            return redirect_after_form(request, 'misc-expense-list', business_slug=business.slug)
+
     else:
         form = MiscExpenseForm(instance=misc_expense, business=business)
 
-    # htmx GET → form-in-modal (plain POST inside; invalid POST falls back to the full page)
-    if request.method == 'GET' and request.headers.get('HX-Request'):
-        return render(request, 'Expense/partials/_misc_expense_form_modal.html', {
+    # htmx → the modal. NOT `method == 'GET'`-gated: an invalid POST from the modal has
+    # to re-render IN the modal, and gating on GET is what sent it to the full page.
+    if request.headers.get('HX-Request'):
+        return render(request, 'Expense/partials/_misc_expense_update_modal.html', {
             'form': form,
             'misc_expense': misc_expense,
             'cm_action': reverse('misc-expense-update', kwargs={
