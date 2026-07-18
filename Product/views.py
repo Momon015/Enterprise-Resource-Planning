@@ -137,7 +137,7 @@ def product_list(request, business_slug):
 
     
 
-    paginator = Paginator(products, 5)
+    paginator = Paginator(products, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Swift ERP — Enterprise Resource Planning</title>
+  <title>paKITA — Sales, Stock, and Profit in One Place</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
@@ -84,6 +84,12 @@
 
 
     .lp-brand-name em { color: var(--accent); font-style: normal; }
+
+    /* Λ mark — tile blends into the surrounding bg (white on nav, black on footer), so only
+       the gold Λ reads. Kept square; the wordmark sits beside it. */
+    .lp-brand-mark { height: 40px; width: 40px; display: block; flex-shrink: 0; }
+    /* paKITA wordmark — the SAME gold recraft image the navbar uses */
+    .lp-brand-wordmark { height: 30px; width: auto; display: block; }
 
     .lp-brand-badge {
       font-size: 0.6rem; font-weight: 700;
@@ -1134,11 +1140,13 @@
   {% endif %}
 
 <nav class="lp-nav">
+  {% comment %} Λ mark uses the LIGHT tile here: mark-light-48 has a pure-white (#fff) tile that
+      blends into this white nav (bg rgba(255,255,255,.9)), so only the gold Λ shows — the same
+      trick the sidebar uses (white tile on light, black tile on dark). The footer uses favicon-48
+      (black tile) against its #0f1117 background. {% endcomment %}
   <a class="lp-brand" href="#">
-    <div class="lp-brand-icon">
-      <img src="{% static 'images/logo.png' loading="lazy" %}" alt="Swift ERP">
-    </div>
-    <div class="lp-brand-name">Swift <em>ERP</em></div>
+    <img class="lp-brand-mark" src="{% static 'images/brand/mark-light-48.png' %}" loading="lazy" alt="">
+    <img class="lp-brand-wordmark" src="{% static 'images/brand/pakita-recraft-light.png' %}" loading="lazy" alt="paKITA">
     <span class="lp-brand-badge">SaaS</span>
   </a>
 
@@ -1186,7 +1194,7 @@
   </h1>
 
   <p class="anim-3">
-    Swift ERP is a complete web-based system for managing sales, inventory, purchases, expenses, employees, and more — built for owners who want clarity, not complexity.
+    paKITA is a complete web-based system for managing sales, inventory, purchases, expenses, employees, and more — built for owners who want clarity, not complexity.
   </p>
 
   <div class="lp-hero-actions anim-4">
@@ -1220,11 +1228,11 @@
         <div class="lp-mock-sidebar">
           <div class="lp-mock-brand">
             <div class="lp-mock-brand-icon">
-              <img src="{% static 'images/logo.png' %}" alt="">
+              <img src="{% static 'images/brand/mark-light-48.png' %}" alt="">
             </div>
             <div class="lp-mock-brand-text-wrap">
-              <div class="lp-mock-brand-text">Swift ERP</div>
-              <div class="lp-mock-brand-sub">Enterprise Resource Planning</div>
+              <div class="lp-mock-brand-text">paKITA</div>
+              <div class="lp-mock-brand-sub">Sales &amp; Inventory</div>
             </div>
           </div>
 
@@ -1554,7 +1562,7 @@
 <section class="lp-section" id="features" style="padding-top: 0;">
   <div class="lp-section-label">Features</div>
   <h2 class="lp-section-title">Everything you need to operate</h2>
-  <p class="lp-section-sub">From ringing up a sale to reviewing end-of-day profits — Swift ERP covers the full business cycle.</p>
+  <p class="lp-section-sub">From ringing up a sale to reviewing end-of-day profits — paKITA covers the full business cycle.</p>
 
   <div class="lp-features-grid">
     <div class="lp-feature-card reveal">
@@ -1671,7 +1679,7 @@
   <div class="lp-section">
     <div class="lp-section-label">Modules</div>
     <h2 class="lp-section-title">One system, every department</h2>
-    <p class="lp-section-sub">Swift ERP covers all areas of your business — connected, not siloed.</p>
+    <p class="lp-section-sub">paKITA covers all areas of your business — connected, not siloed.</p>
 
     <div class="lp-modules-grid">
       <div class="lp-module-pill reveal"><i class="bi bi-speedometer2"></i> Dashboard</div>
@@ -1746,7 +1754,7 @@
         <div class="lp-pricing-price">
           <span class="price-value">₱0</span><span class="price-suffix">/forever</span>
         </div>
-        <div class="lp-pricing-desc">Try out Swift ERP with no commitment.</div>
+        <div class="lp-pricing-desc">Try out paKITA with no commitment.</div>
         <ul class="lp-pricing-features">
           <li><i class="bi bi-check-lg"></i> Up to 3 businesses</li>
           <li><i class="bi bi-check-lg"></i> Solo owner (no staff)</li>
@@ -1859,7 +1867,7 @@
           <div>
             <div class="lp-contact-label">Email</div>
             <div class="lp-contact-value">
-              <a href="mailto:swifterp.support@gmail.com">swifterp.support@gmail.com</a>
+              <a href="mailto:support@pakita.ph">support@pakita.ph</a>
             </div>
             <div class="lp-contact-note">For bug reports, feature requests, or general inquiries.</div>
           </div>
@@ -1886,7 +1894,7 @@
           <div>
             <div class="lp-contact-label">About</div>
             <div class="lp-contact-value">Raymond Dela Cruz</div>
-            <div class="lp-contact-note">Solo developer building Swift ERP as a SaaS product for small business owners in the Philippines.</div>
+            <div class="lp-contact-note">Solo developer building paKITA as a SaaS product for small business owners in the Philippines.</div>
           </div>
         </div>
       </div>
@@ -1896,7 +1904,11 @@
         <div class="lp-form-title">Send a message</div>
         <div class="lp-form-sub">Fill out the form and I'll get back to you as soon as possible.</div>
 
-        <form method="POST" action="mailto:swifterp.support@gmail.com">
+        {% comment %} NOTE: a POST to a mailto: action does NOT send anything — browsers either
+            ignore it or hand the mail client a form-encoded blob. This button is non-functional
+            until the form posts to a real view (see subscription/views.py for the working
+            server-side contact pattern). Address kept in sync in the meantime. {% endcomment %}
+        <form method="POST" action="mailto:support@pakita.ph">
           <div class="lp-field">
             <label for="contact-name">Your name</label>
             <input type="text" id="contact-name" name="name" placeholder="e.g. Juan dela Cruz" required>
@@ -1929,15 +1941,14 @@
 
     <div>
       <a class="lp-brand" href="#">
-        <div class="lp-brand-icon">
-          <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
-        </div>
-        <div class="lp-brand-name">Swift <em>ERP</em></div>
+        <img class="lp-brand-mark" src="{% static 'images/brand/favicon-48.png' %}" alt="">
+        <img class="lp-brand-wordmark" src="{% static 'images/brand/pakita-recraft-light.png' %}" alt="paKITA">
         <span class="lp-brand-badge">SaaS</span>
       </a>
 
-      <div class="lp-footer-brand-name">Swift ERP</div>
-      <div class="lp-footer-brand-desc">An all-in-one ERP solution for small business owners. Manage sales, inventory, expenses, and your team from one dashboard.</div>
+      {% comment %} lp-footer-brand-name text removed — the wordmark image in the brand block
+          above already spells paKITA, so the text below was a duplicate. {% endcomment %}
+      <div class="lp-footer-brand-desc">Everything your small business needs in one place. Track sales, inventory, expenses, and your team from one dashboard.</div>
     </div>
 
     <div>
@@ -1961,7 +1972,7 @@
     <div>
       <div class="lp-footer-col-title">Contact</div>
       <ul class="lp-footer-links">
-        <li><a href="mailto:swifterp.support@gmail.com">swifterp.support@gmail.com</a></li>
+        <li><a href="mailto:support@pakita.ph">support@pakita.ph</a></li>
         <li><a href="tel:+639762049668">+63 976 204 9668</a></li>
 
       </ul>
@@ -1975,7 +1986,7 @@
       <a href="tel:+639123456789" class="lp-social-btn" title="Phone">
         <i class="bi bi-telephone-fill"></i>
       </a>
-      <a href="mailto:swifterp.support@gmail.com" class="lp-social-btn" title="Email">
+      <a href="mailto:support@pakita.ph" class="lp-social-btn" title="Email">
         <i class="bi bi-envelope-fill"></i>
       </a>
     </div>

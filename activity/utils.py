@@ -157,7 +157,7 @@ def log_margin_drop(business, actor, product, status_before):
     badge and a suggested price, so alerting them about the thing they are staring
     at would be noise.
 
-    ★ CROSSING, not state. Fires only when the status gets WORSE
+    CROSSING, not state. Fires only when the status gets WORSE
     (good→warning, good→critical, warning→critical). A product that is already
     below target and stays there is silent, so restocking a chronically thin item
     doesn't re-alert every single time. Fix the price and it can fire again later.
@@ -279,7 +279,7 @@ def close_day(business, day, metrics):
     Uses get_or_create so the FIRST close wins forever (pen, not pencil) — a later
     read never overwrites it. Returns (DailyClose, created).
 
-    ★ total_cogs joined the snapshot 2026-07-13, when profit moved to a cost-of-goods-SOLD
+      total_cogs joined the snapshot 2026-07-13, when profit moved to a cost-of-goods-SOLD
       basis. Freezing it matters more than it looks: cost_price is a per-sale snapshot, but
       the RELIEF from a later return is read back through it, so a day's cost of sales must
       be pinned at close or a refund booked next month could quietly restate a sealed day.

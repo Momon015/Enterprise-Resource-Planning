@@ -40,7 +40,35 @@
     </div> {% endcomment %}
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+      Same pattern as sale_list: everything a filter can change lives in here and htmx
+      replaces the whole block. hx-select means the VIEW IS UNTOUCHED — htmx fetches this
+      same page URL and lifts #category-results out of the full response. No partial, no
+      JSON, no serializer.
+
+      THE REGION WRAPS BOTH COLUMNS HERE, unlike the other lists. On those pages the right
+      rail is commented out, so the region could stop at the left panel. Not here: the
+      "Quick Filter" card in the RIGHT rail reads request.GET.category_type for its .active
+      chip. Wrap only the left panel and clicking "Product" would filter the table while the
+      chip you just clicked stayed unlit — the screen disagreeing with its own URL. Same
+      rule that forced the standalone payables page to wrap its whole two-col layout: ask
+      what ELSE on the page is rendered from these params, and put all of it inside.
+
+      The "About Categories" card re-renders too. That's fine — it reads business.business_type,
+      which no filter can change, so it renders identically every time.
+
+      KNOWN, NOT FIXED HERE: the view also flips `section` (material -> 'supplier',
+      expense -> 'expense'), which drives the SIDEBAR's active item — and the sidebar lives in
+      main.html, outside any region. So the sidebar no longer jumps to "Suppliers" when you
+      filter categories by Material; it stays on Categories. That is a behaviour change and
+      arguably the better one (you are still on the Categories page), but it is a change.
+      {% endcomment %}
+  <div class="two-col-layout" id="category-results"
+       hx-boost="true"
+       hx-target="#category-results"
+       hx-select="#category-results"
+       hx-swap="outerHTML"
+       hx-push-url="true">
 
     <!-- LEFT: TABLE -->
     <div class="left-panel">
@@ -55,7 +83,27 @@
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT.
+              This form now sits inside the boosted #category-results region. Vendored
+              htmx 2.0.3 boosts a form like this:
+                  o = getAttribute(form, "action");
+                  if (verb === "get" && o.includes("?")) { ... }
+              With no action attribute o is null, so o.includes() throws a TypeError —
+              inside htmx's DOM-processing pass, which aborts. Every element after this form
+              (the whole table and its pagination) then never gets wired up and falls back to
+              native navigation: a full page reload on every filter. Silently — the only
+              trace is one console error.
+              htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+              boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'category-list' business_slug=current_business.slug %}"
+                autocomplete="off">
+
+            {% comment %} Keep the ACTIVE TYPE FILTER when applying a search. A GET form submits
+                ONLY its own fields, so without this, searching while "Product" was selected
+                would silently widen the list back to every type — and the Product chip would
+                still be lit beside Expense rows. {% endcomment %}
+            {% if request.GET.category_type %}<input type="hidden" name="category_type" value="{{ request.GET.category_type }}">{% endif %}
+
             <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">
@@ -110,19 +158,33 @@
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} categor{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
           </div>
           <div class="d-flex gap-2 align-items-center">
+            {% comment %} The × stays a plain boosted link: it clears the filter and re-renders
+                this same region, which is exactly what boost does. {% endcomment %}
             {% if request.GET.category_type %}
               <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">
                 Filtered: {{ request.GET.category_type|capfirst }}
-                <a href="{% url 'category-list' business_slug=current_business.slug %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
+                <a href="{% querystring category_type=None page=None %}" style="color:var(--accent); margin-left:0.3rem;">×</a>
               </span>
             {% endif %}
-            <!-- Create — moved from the right-rail Quick links card; opens the form modal -->
-            <a href="{% url 'category-create' business_slug=current_business.slug %}"
-              hx-get="{% url 'category-create' business_slug=current_business.slug %}"
-              hx-target="#confirmBody" hx-swap="innerHTML"
-              class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-plus-circle"></i> Create category
-            </a>
+
+            {% comment %} Create — moved from the right-rail Quick links card; opens the form modal.
+                hx-disinherit="*" IS LOAD-BEARING, DO NOT DROP IT. This link owns an hx-get to
+                #confirmBody, but hx-select/hx-target/hx-swap/hx-push-url are INHERITED — htmx
+                resolves them by walking UP the tree. Without this it picks up
+                hx-select="#category-results" from the region, looks for that id inside the
+                create-form MODAL's response, finds none, and swaps NOTHING into #confirmBody;
+                main.html's htmx:afterSwap then opens the modal anyway, so you get an empty
+                panel over a dimmed page. hx-boost="false" does NOT prevent this — boosting and
+                inheritance are different mechanisms. Guarded by
+                core/tests/test_htmx_regions.py. {% endcomment %}
+            <span hx-disinherit="*">
+              <a href="{% url 'category-create' business_slug=current_business.slug %}"
+                hx-get="{% url 'category-create' business_slug=current_business.slug %}"
+                hx-target="#confirmBody" hx-swap="innerHTML"
+                class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-plus-circle"></i> Create category
+              </a>
+            </span>
           </div>
         </div>
 
@@ -136,7 +198,15 @@
                 <th class="sl-text-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-disinherit="*" IS LOAD-BEARING, DO NOT DROP IT. Every row action
+                (Edit, Delete) owns an hx-get to #confirmBody. Without this they INHERIT
+                hx-select="#category-results" from the region, try to lift that id out of a
+                modal fragment that hasn't got one, and swap NOTHING — an empty modal over a
+                dimmed page. See the fuller note on the Create button above; hx-boost="false"
+                does not prevent inheritance. Their own hx-get/hx-target/hx-swap keep working:
+                an element's OWN attributes are found before the walk up ever starts.
+                Guarded by core/tests/test_htmx_regions.py. {% endcomment %}
+            <tbody hx-disinherit="*">
               {% for category in page_obj %}
               <tr>
                 <td>
@@ -241,28 +311,45 @@
           {% comment %} Quick links card retired 2026-07-04 — its only button
           (Create Category) moved into the table header. {% endcomment %}
 
+          {% comment %} QUICK FILTER — these live in the right rail but they are FILTERS, which is
+              why the region wraps both columns (see the note at the top). Rebuilt with the
+              querystring tag (Django 5.1+, no load needed): the old hand-written
+              "{% templatetag openblock %} url {% templatetag closeblock %}?category_type=x"
+              rebuilt the URL from scratch and so silently THREW AWAY an active search — type
+              "rice", click Product, and your search vanished while the drawer above still
+              showed "rice" in the box. Name only what CHANGES; everything else rides.
+              page=None resets to page 1, since a new filter has its own page count.
+
+              BUGFIX 07-17: the Material chip's href sends category_type=material (which the
+              view filters on correctly), but its active test read == 'item' — a value nothing
+              ever sends. The chip could never light up. Harmless while these were full page
+              reloads and nobody looked; not harmless now, because putting these inside the
+              region is precisely what makes the lit chip a promise about the rows beside it.
+              {% endcomment %}
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick Filter</div>
             <div class="quick-range-grid">
               {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material"
-                class="quick-range-btn {% if request.GET.category_type == 'item' %}active{% endif %}"
-                style="{% if request.GET.category_type == 'item' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
+              <a href="{% querystring category_type='material' page=None %}"
+                class="quick-range-btn {% if request.GET.category_type == 'material' %}active{% endif %}"
+                style="{% if request.GET.category_type == 'material' %}background:var(--accent-light); border-color:var(--accent); color:var(--accent);{% endif %}">
                 <i class="bi bi-box-seam"></i> Material
               </a>
               {% endif %}
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=product"
+              <a href="{% querystring category_type='product' page=None %}"
                 class="quick-range-btn {% if request.GET.category_type == 'product' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'product' %}background:var(--info-light); border-color:var(--info); color:var(--info);{% endif %}">
                 <i class="bi bi-basket"></i> Product
               </a>
-              <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=expense"
+              <a href="{% querystring category_type='expense' page=None %}"
                 class="quick-range-btn {% if request.GET.category_type == 'expense' %}active{% endif %}"
                 style="{% if request.GET.category_type == 'expense' %}background:var(--warning-light); border-color:var(--warning); color:var(--warning);{% endif %}">
                 <i class="bi bi-receipt"></i> Expense
               </a>
               {% if business.business_type == 'cafe' or business.business_type == 'restaurant' %}
-              <a href="{% url 'category-list' business_slug=current_business.slug %}"
+              {% comment %} All clears the search too — it is the one chip that means "show me
+                  everything", so leaving a search riding would make it lie. {% endcomment %}
+              <a href="{% querystring category_type=None search=None page=None %}"
                 class="quick-range-btn {% if not request.GET.category_type and not request.GET.search %}quick-range-btn--selected{% endif %}">
                 <i class="bi bi-grid"></i> All
               </a>
@@ -274,6 +361,7 @@
       </div>
     </div>
 
+  {% comment %} ═══ end #category-results ════════════════════════════════════════════ {% endcomment %}
   </div>
 </div>
 

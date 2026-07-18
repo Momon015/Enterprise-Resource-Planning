@@ -449,7 +449,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // already; nothing in this file can reach them.)
   const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // ★ AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
+  // AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
   // labels crowding (and a shop doing millions getting a wall of digits). Money the owner
   // actually reads — cards, tables, tooltips — stays exact. Same helper on all 3 Analytics
   // pages; if you change it, change it in all three or the axes stop matching each other.

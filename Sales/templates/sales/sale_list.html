@@ -106,7 +106,7 @@ document.addEventListener("change", function (e) {
            response. No JSON, no partial, no serializer: the server already renders the
            right HTML for ?period=week&payment=cash&page=3. We just stop repainting.
 
-           ★ hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
+           hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
            filter form, Reset) — which is the point, but it is ALSO the trap: a link that
            LEAVES this page must opt out with hx-boost="false", or htmx tries to lift
            #sale-results out of a page that has none, hits a target error, and drops the
@@ -130,7 +130,7 @@ document.addEventListener("change", function (e) {
         </summary>
 
         <div class="filter-body">
-           {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+           {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT.
                Vendored htmx 2.0.3 boosts a form like this:
                    o = getAttribute(form, "action");
                    if (verb === "get" && o.includes("?")) { ... }
@@ -154,6 +154,11 @@ document.addEventListener("change", function (e) {
                  header now belong to this form via form="filterForm", so they submit their
                  own values. Hidden copies here would send each param twice.) {% endcomment %}
             {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
+            {% comment %} Keep the VOIDED filter when applying a date/payment/user filter — same
+                 reason as `period` above: a GET form submits only its own fields, so without this
+                 carrier, narrowing a voided view by date would silently drop void=1 and widen back
+                 to all sales. {% endcomment %}
+            {% if request.GET.void %}<input type="hidden" name="void" value="1">{% endif %}
 
              {% comment %} The Receivables panel below shares this one query string, and a GET form
                  submits ONLY its own fields — so without these, applying a sales filter would
@@ -212,7 +217,7 @@ document.addEventListener("change", function (e) {
                 {% comment %} Resets this table's filters only, leaving the Receivables panel's
                      recv_ state alone — same reasoning as the "All" pill. Was a bare sale-list
                      URL, which dropped everything on the page. {% endcomment %}
-                <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
+                <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None void=None voided_from=None voided_to=None %}"
                    class="btn btn-light btn-sm">
                   <i class="bi bi-arrow-counterclockwise"></i> Reset
                 </a>
@@ -240,10 +245,30 @@ document.addEventListener("change", function (e) {
               <i class="bi bi-hourglass-split"></i> Pending
               {% if pending_count %}<span class="drafts-link__count">{{ pending_count }}</span>{% endif %}
             </a>
+
+            {% comment %} VOIDED — grouped with Pending as a status exception, but unlike Pending
+                 (which JUMPS to the drafts page) this is an IN-LIST toggle: voided sales live in
+                 this same list with the bi-ban badge, so ?void=1 just filters to them. Clicking
+                 again — or All / Reset — clears it. It preserves the date window on purpose, so it
+                 composes with the ranges AND so the dashboard "while you were away" recap can link
+                 here with void=1 + voided_from/voided_to bounding the away window.
+
+                 ★ EVERY control in this card must clear voided_from/voided_to. They are a ONE-SHOT
+                 deep-link narrowing owned by the recap, not a filter the user can see or switch
+                 off — and {% templatetag openblock %} querystring {% templatetag closeblock %}
+                 keeps whatever it isn't told to drop. Left unnamed they rode through All, Reset and
+                 the ranges invisibly, so re-picking Voided+Today showed 1 of 2 voids until you left
+                 the module and the query string got rebuilt. Nothing on screen explained the
+                 missing row. {% endcomment %}
+            <a href="{% if request.GET.void %}{% querystring void=None page=None voided_from=None voided_to=None %}{% else %}{% querystring void='1' page=None voided_from=None voided_to=None %}{% endif %}"
+              class="quick-range-btn {% if request.GET.void %}active{% endif %}"
+              title="Show voided sales only">
+              <i class="bi bi-ban"></i> Voided
+            </a>
             <span class="drafts-sep" aria-hidden="true"></span>
 
              {% comment %} QUICK RANGES — set the date window; keep payment/user.
-                 ★ Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
+                 Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
                  rather than a hand-listed "?period=x&payment=y" — that older form silently
                  DROPPED every param it didn't name, which meant the Receivables panel's own
                  recv_ filters below. As a full reload that only reset the panel (annoying).
@@ -253,19 +278,19 @@ document.addEventListener("change", function (e) {
                  is the only form that stays correct as more params appear.
                  page=None resets to page 1 (a narrower window has fewer pages); the month/date
                  window is cleared because a quick range and a custom range are exclusive. {% endcomment %}
-            <a href="{% querystring period='today' page=None select_month=None start_date=None end_date=None %}"
+            <a href="{% querystring period='today' page=None select_month=None start_date=None end_date=None voided_from=None voided_to=None %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% querystring period='last_week' page=None select_month=None start_date=None end_date=None %}"
+            <a href="{% querystring period='last_week' page=None select_month=None start_date=None end_date=None voided_from=None voided_to=None %}"
               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% querystring period='week' page=None select_month=None start_date=None end_date=None %}"
+            <a href="{% querystring period='week' page=None select_month=None start_date=None end_date=None voided_from=None voided_to=None %}"
               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None %}"
+            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None voided_from=None voided_to=None %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
@@ -273,8 +298,8 @@ document.addEventListener("change", function (e) {
                  It no longer clears the Receivables panel's recv_ filters too: this button
                  lives in the sales card and speaks for the sales table only, exactly as the
                  panel's own "All" leaves the sales table alone. {% endcomment %}
-            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
-              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user %}active{% endif %}">
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None void=None voided_from=None voided_to=None %}"
+              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user and not request.GET.void %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
           </div>

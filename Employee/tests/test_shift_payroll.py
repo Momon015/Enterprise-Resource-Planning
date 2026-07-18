@@ -11,7 +11,7 @@ survived only because they summed the relation directly. Migration 0013 backfill
 column and the readers now trust it, which means the signal in Employee/signals.py is
 load-bearing.
 
-★ These tests are the point. `margin_low` was a signal silently deleted by an unrelated
+These tests are the point. `margin_low` was a signal silently deleted by an unrelated
 rework, and nothing failed, because nothing held it down. If you are here because a test
 broke after removing the signal — the signal is the thing that was supposed to stay.
 """

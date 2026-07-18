@@ -104,7 +104,7 @@ document.addEventListener("change", function (e) {
         </summary>
 
         <div class="filter-body">
-          {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. 
               This form now sits inside the boosted #purchase-return-results region. Vendored
               htmx 2.0.3 boosts a form like this:
                   o = getAttribute(form, "action");
@@ -195,7 +195,7 @@ document.addEventListener("change", function (e) {
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
             {% comment %} QUICK RANGES — set the date window; keep the search and reason.
-                ★ Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
+                Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
                 rather than the old hand-written "?period=today", which silently DROPPED every
                 param it didn't name — so clicking "Today" threw away an active search and
                 reason filter. Naming what to CHANGE and letting everything else ride is the

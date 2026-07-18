@@ -19,24 +19,37 @@
 {% endif %}
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+{% comment %}
+Mutually-exclusive date filters clear each other. DELEGATED, not bound per element:
+#waste-results is replaced wholesale on every filter/paginate, so anything bound directly to
+these inputs would be thrown away with the first swap and the rule would quietly stop applying.
+(This page's old DOMContentLoaded version did exactly that — correct until the region went
+live, then it only worked until your first filter.)
 
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+The else → return is not dead code: the search box is PARKED (commented out below, 07-17), and
+if it comes back it must fall through here — searching an item must not touch the date window
+or drop the active quick range.
+{% endcomment %}
+<script>
+document.addEventListener("change", function (e) {
+  const form = document.getElementById("filterForm");
+  if (!form || !form.contains(e.target)) return;
+
+  const month  = form.querySelector('input[name="select_month"]');
+  const start  = form.querySelector('input[name="start_date"]');
+  const end    = form.querySelector('input[name="end_date"]');
+  const period = form.querySelector('input[name="period"]');
+
+  if (e.target === month) {
+    if (start) start.value = "";
+    if (end) end.value = "";
+  } else if (e.target === start || e.target === end) {
+    if (month) month.value = "";
+  } else {
+    return;                       // search — leave the date window alone
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
+  // Typing a date window overrides an active quick range ("This week"), so drop it.
+  if (period) period.remove();
 });
 </script>
 
@@ -57,6 +70,29 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as sale_list: everything a filter can change lives in here and htmx
+          replaces the whole block — filter panel, quick ranges, count badge, table,
+          pagination. The panel is INSIDE because every part of it is derived from
+          request.GET on the server (the <details open> state, the "Active" badge, the
+          quick-range .active pill, the field values, the record count, and the empty state's
+          "No results for …"); swap only the table and they go stale against the URL.
+
+          hx-select means the VIEW IS UNTOUCHED — htmx fetches this same page URL and lifts
+          #waste-results out of the full response. No partial, no JSON, no serializer.
+
+          Region extent = the whole left column's content. Nothing else on this page reads
+          these params: the right panel is entirely commented out (Waste Summary went to
+          Analytics 07-04). If that summary ever comes back it renders from the SAME filters,
+          so it must come back INSIDE this region or it will show the previous period's total
+          beside the new rows. {% endcomment %}
+      <div id="waste-results"
+           hx-boost="true"
+           hx-target="#waste-results"
+           hx-select="#waste-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
         {% if request.GET.search or request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
@@ -69,16 +105,36 @@ document.addEventListener("DOMContentLoaded", function () {
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. 
+              This form now sits inside the boosted #waste-results region. Vendored
+              htmx 2.0.3 boosts a form like this:
+                  o = getAttribute(form, "action");
+                  if (verb === "get" && o.includes("?")) { ... }
+              With no action attribute o is null, so o.includes() throws a TypeError —
+              inside htmx's DOM-processing pass, which aborts. Every element after this form
+              (the whole table and its pagination) then never gets wired up and falls back to
+              native navigation: a full page reload on every filter. Silently — the only
+              trace is one console error.
+              htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+              boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'expense-waste-list' business_slug=current_business.slug %}"
+                class="filter-form filter-form--inline" autocomplete="off">
 
-            <div class="form-field" style="flex: 2;">
+            {% comment %} Keep the ACTIVE QUICK RANGE when applying a search. A GET form submits
+                ONLY its own fields, so without this, searching an item while "This week" is
+                active would silently widen the results back to all time. Removed by the script
+                at the top of this page the moment a month or date is typed, because a date
+                window and a quick range are mutually exclusive. {% endcomment %}
+            {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
+
+            {% comment %} <div class="form-field" style="flex: 2;">
               <label class="form-label">
                 <i class="bi bi-search"></i> Search
               </label>
               <input type="search" name="search" class="form-control form-control--polish"
                 placeholder="Item, cost, or quantity"
                 value="{{ request.GET.search|default:'' }}">
-            </div>
+            </div> {% endcomment %}
 
             <div class="form-field">
               <label class="form-label">
@@ -127,32 +183,46 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
-            <!-- QUICK RANGES — filter chips, moved from the old right column -->
-            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=today"
+            {% comment %} QUICK RANGES — filter chips, moved from the old right column.
+                Built with the querystring tag (Django 5.1+, no load needed) instead of a
+                hardcoded ?period=…: these chips sit in the same region as the filter panel, so
+                a bare ?period=today DROPPED an active search. Name only what CHANGES;
+                everything else rides. page=None resets to page 1 — a new range has its own
+                page count, so keeping "page 5" would land you on an empty page. The date
+                params clear because a quick range and a date window are the same choice made
+                two ways; All clears the lot, search included.
+
+                ⚠ "This week" sends period=week, which waste_list has NO branch for (it handles
+                today / last_week / month only) — the chip lights up and changes nothing. It
+                was already broken before this conversion; left as-is because fixing it is a
+                VIEW change, not part of this pass. {% endcomment %}
+            <a href="{% querystring period='today' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'today' %}active{% endif %}">
               <i class="bi bi-calendar-day"></i> Today
             </a>
-            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=last_week"
+            <a href="{% querystring period='last_week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'last_week' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last week
             </a>
-            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=week"
+            <a href="{% querystring period='week' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'week' %}active{% endif %}">
               <i class="bi bi-calendar-week"></i> This week
             </a>
-            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}?period=month"
+            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
-            <a href="{% url 'expense-waste-list' business_slug=current_business.slug %}"
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None search=None %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not request.GET.search %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
           </div>
           {% if stocks %}
-          <!-- Quick Action — subtle outline button in the header (was "Most recent first") -->
+          {% comment %} Quick Action — subtle outline button in the header (was "Most recent
+              first"). hx-boost="false": it LEAVES this page, and the waste form has no
+              #waste-results for htmx to lift — boosted, it would do nothing at all. {% endcomment %}
           <a href="{% url 'material-waste-create' business_slug=current_business.slug %}"
-             class="btn btn-outline-secondary btn-sm">
+             hx-boost="false" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-trash2"></i> Log waste
           </a>
           {% endif %}
@@ -169,7 +239,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center col-mobile-hidden">Reason</th>
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-boost="false": every row navigates to a waste detail page, which has
+                 no #waste-results. Boosted, clicking a record would do nothing — htmx would
+                 fetch the detail page, fail to find the region, and swap nothing. {% endcomment %}
+            <tbody hx-boost="false">
               {% for waste in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'material-waste-detail' waste_id=waste.id business_slug=current_business.slug %}'">
                 <td class="cell-primary">
@@ -179,8 +252,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 <td>
                   <div class="cell-primary">{{ waste.waste_items.count }} waste{{ waste.waste_items.count|pluralize }}</div>
+                  {% comment %} `created_by` was added to Waste LATE, so it's nullable and any row
+                      predating that migration has none. The trailing |default:"—" did NOT cover
+                      that: it's the ARGUMENT — `waste.created_by.username` — that fails to
+                      resolve on a null, and a filter argument raises VariableDoesNotExist
+                      instead of falling back, so the whole page 500s rather than showing a dash.
+                      Guard with {% templatetag openblock %} if {% templatetag closeblock %} like
+                      waste_detail.html already does. {% endcomment %}
                   {% if request.user.role == 'owner' %}
-                  <div class="cell-sub"><i class="bi bi-person"></i> {{ waste.created_by.get_full_name|default:waste.created_by.username|default:"—" }}</div>
+                  <div class="cell-sub"><i class="bi bi-person"></i>
+                    {% if waste.created_by %}{{ waste.created_by.get_full_name|default:waste.created_by.username }}{% else %}—{% endif %}
+                  </div>
                   {% endif %}
                 </td>
 
@@ -239,6 +321,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         <!-- PAGINATION -->
         {% pagination page_obj %}
+      </div>
+
+      {% comment %} ═══ end #waste-results ═══════════════════════════════════════════════ {% endcomment %}
       </div>
     </div>
 

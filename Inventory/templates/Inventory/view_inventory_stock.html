@@ -63,7 +63,19 @@
     {% endcomment %}
   </div>
 
-  <!-- KPI STRIP -->
+  {% comment %} KPI STRIP — outside #stock-results, but it DRIVES it (same shape as
+  product_list). Each card is a FILTER, so clicking one swaps the list in place instead
+  of reloading: hence hx-get on the card pointed at the region below. The counts come from
+  get_inventory_kpis(business) and the ▼ money breakdowns from stock_values (both computed
+  BEFORE the search/category/stock filters), so they are identical for every query string —
+  re-rendering them on each filter would change nothing. That is why the strip sits outside
+  the region yet still drives it.
+
+  ONE WRINKLE product_list does not have: these cards ALSO carry a ▼ popover button. htmx
+  binds its click trigger to the CARD, so a click on the ▼ (a child) bubbles up and would
+  fire the card's hx-get — filtering the list instead of opening the breakdown. kpi-cards.js
+  intercepts that in the capture phase for cards that own both hx-get and a ▼; see the note
+  there. Nothing to do in this template beyond rendering both, as below. {% endcomment %}
   <div class="kpi-row kpi-row--4col">
 
     {% comment %} RETIRED 2026-07-12 — Total Inventory Value card dropped so the strip is
@@ -83,7 +95,9 @@
 
     <!-- IN STOCK (click = filter · ▼ = money tied up here) -->
     <div class="kpi-card kpi-card--hue-success kpi-card--clickable"
-         data-href="?stock=high" tabindex="0">
+         data-href="?stock=high" tabindex="0"
+         hx-get="?stock=high" hx-target="#stock-results" hx-select="#stock-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--success">
         <i class="bi bi-check2-circle"></i>
       </div>
@@ -108,7 +122,9 @@
 
     <!-- LOW STOCK (click = filter · ▼ = money tied up here) -->
     <div class="kpi-card kpi-card--hue-neutral kpi-card--clickable"
-         data-href="?stock=low" tabindex="0">
+         data-href="?stock=low" tabindex="0"
+         hx-get="?stock=low" hx-target="#stock-results" hx-select="#stock-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--neutral">
         <i class="bi bi-exclamation-triangle"></i>
       </div>
@@ -136,7 +152,9 @@
          Hue FIXED warning, same rule as Out of Stock below: a list card is a FILTER, so its
          colour names the band it selects and never moves. -->
     <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
-         data-href="?stock=critical" tabindex="0">
+         data-href="?stock=critical" tabindex="0"
+         hx-get="?stock=critical" hx-target="#stock-results" hx-select="#stock-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-exclamation-octagon"></i>
       </div>
@@ -165,7 +183,9 @@
          filter chip does. The green "all clear" treatment is DASHBOARD-ONLY, where a card
          really is reporting status. -->
     <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
-         data-href="?stock=none" tabindex="0">
+         data-href="?stock=none" tabindex="0"
+         hx-get="?stock=none" hx-target="#stock-results" hx-select="#stock-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--danger">
         <i class="bi bi-slash-circle"></i>
       </div>
@@ -182,7 +202,21 @@
   <div>
 
     <!-- ========== LEFT PANEL ========== -->
-    <div class="left-panel">
+    {% comment %} LIVE FILTER REGION — no full page reload. Everything a filter can change
+    lives in here and htmx replaces the whole block: the filter drawer (its open state and
+    "Active" badge read request.GET), the status popover (its trigger LABEL and is-active row),
+    the count badge, the table, and the pagination. hx-select means the VIEW IS UNTOUCHED —
+    htmx fetches this same URL and lifts #stock-results out of the full response. No partial,
+    no JSON. The KPI strip is deliberately OUTSIDE (see its note) but drives this from above.
+    No hx-disinherit anywhere here on purpose: this table is read-only (no per-row edit/archive,
+    no modal, no add-to-cart), so nothing inside owns an hx-target that could inherit and leak.
+    {% endcomment %}
+    <div class="left-panel" id="stock-results"
+         hx-boost="true"
+         hx-target="#stock-results"
+         hx-select="#stock-results"
+         hx-swap="outerHTML"
+         hx-push-url="true">
 
       <!-- FILTER DRAWER -->
       <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
@@ -194,7 +228,20 @@
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING — do not remove it. This form now sits inside
+              the boosted #stock-results region. Vendored htmx 2.0.3 reads getAttribute(form,
+              "action") and calls .includes("?") on it; with no action that is null.includes()
+              — a TypeError thrown inside htmx's DOM pass, which aborts, leaving the table and
+              its pagination unwired so every filter falls back to a full page reload. Silently.
+              htmx 2.0.4+ guards the null; until we upgrade, every boosted GET form carries an
+              explicit action. {% endcomment %}
+          <form method="get" id="filterForm"
+                action="{% url 'view-inventory-stock' business_slug=current_business.slug %}"
+                autocomplete="off">
+            {% comment %} Keep the ACTIVE STATUS FILTER when applying a search or category. A GET
+                form submits ONLY its own fields, so without this, searching while "Out of Stock"
+                is selected would silently widen the list back to every status. {% endcomment %}
+            {% if request.GET.stock %}<input type="hidden" name="stock" value="{{ request.GET.stock }}">{% endif %}
             <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">

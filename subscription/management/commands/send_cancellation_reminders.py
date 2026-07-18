@@ -45,7 +45,7 @@ class Command(BaseCommand):
         )
         try:
             EmailMultiAlternatives(
-                subject=f"[Swift ERP Admin] {kind} — ₱{inv.refund_amount} refund owed",
+                subject=f"[paKITA Admin] {kind} — ₱{inv.refund_amount} refund owed",
                 body=body, from_email=settings.EMAIL_HOST_USER, to=[support],
             ).send()
         except Exception:

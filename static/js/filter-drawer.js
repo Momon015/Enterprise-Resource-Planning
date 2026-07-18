@@ -57,7 +57,7 @@ document.addEventListener("htmx:afterSwap", syncMonthPlaceholders);
 // every filter, so a listener bound to the inputs themselves would be discarded on the
 // first swap and the field would quietly go back to its old behavior.
 //
-// ★★ CAPTURE PHASE (the `true`) IS LOAD-BEARING — this silently did NOTHING without it. ★★
+// CAPTURE PHASE (the `true`) IS LOAD-BEARING — this silently did NOTHING without it.
 // Behavior 3 below does filterForm.addEventListener("click", e => e.stopPropagation()), and
 // every month field lives INSIDE #filterForm. In the bubble phase the click therefore dies
 // at the form and never reaches document, so this handler was never called: the field still

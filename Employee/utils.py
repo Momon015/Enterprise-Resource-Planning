@@ -1,6 +1,9 @@
+from decimal import Decimal
+
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from .models import ShiftEmployee, OpeningCashOverride
+from .models import Shift, ShiftEmployee, OpeningCashOverride, DrawerSession
 
 
 def get_opening_cash_for_today(business):
@@ -128,6 +131,67 @@ def own_shift_open(business, user):
         clock_in__isnull=False,
         clock_out__isnull=True,
     ).exists()
+
+
+def open_fresh_shift(business, employee):
+    """Clock `employee` in for a FRESH drawer open (no hand-over) and return the ShiftEmployee.
+
+    Shared by the clock-in page and the point-of-sale clock-in modal so both snapshot opening
+    cash identically. This is deliberately the FRESH path only — a shared-drawer HAND-OVER needs
+    a blind recount and lives in Employee.views.clock_in; callers must rule that out first.
+    For cashiers the caller must have confirmed the opening cash; attendance-only (non-cashier)
+    shifts start at 0 and skip all cash.
+
+    ⚠ Keep in sync with the fresh branch of Employee.views.clock_in — the opening-cash snapshot
+    logic is intentionally identical. If one changes, change both.
+    """
+    today = timezone.localdate()
+    is_cashier = employee.is_cashier
+
+    with transaction.atomic():
+        shift, _ = Shift.objects.get_or_create(
+            business=business, date=today, user=business.user,
+            defaults={'amount': Decimal('0')},
+        )
+
+        opening_cash = Decimal('0')
+        opening_bills = Decimal('0')
+        opening_coins = Decimal('0')
+        drawer_session = None
+        if is_cashier:
+            opening_cash = get_opening_cash_for_today(business)['amount']
+            if business.track_coins_separately:
+                opening_bills = business.default_opening_bills
+                opening_coins = business.default_opening_coins
+                opening_cash = opening_bills + opening_coins
+            if business.shared_cash_drawer:
+                drawer_session = DrawerSession.objects.filter(
+                    business=business, date=today, status='open'
+                ).first()
+                if drawer_session is None:
+                    drawer_session = DrawerSession.objects.create(
+                        business=business, date=today, opening_cash=opening_cash,
+                    )
+
+        shift_emp = ShiftEmployee.objects.create(
+            shift=shift,
+            employee=employee,
+            name=employee.name,
+            daily_rate=employee.daily_rate or Decimal('0'),
+            clock_in=timezone.now(),
+            is_cashier=is_cashier,
+            opening_cash=opening_cash,
+            opening_bills=opening_bills,
+            opening_coins=opening_coins,
+            staff_confirmed_opening=is_cashier,
+            staff_confirmed_opening_at=timezone.now() if is_cashier else None,
+            drawer_session=drawer_session,
+        )
+        if drawer_session is not None:
+            drawer_session.current_holder = shift_emp
+            drawer_session.save(update_fields=['current_holder'])
+
+    return shift_emp
 
 
 def counted_drawers(business, on_date):

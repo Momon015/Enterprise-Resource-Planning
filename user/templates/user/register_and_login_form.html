@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% if page == 'login' %}Sign In{% else %}Create Account{% endif %} — Swift ERP</title>
+  <title>{% if page == 'login' %}Sign In{% else %}Create Account{% endif %} — paKITA</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
@@ -99,6 +99,8 @@
       line-height: 1.2;
     }
     .auth-brand-name span { color: var(--accent); }
+    /* paKITA wordmark — same gold recraft image as the navbar */
+    .auth-brand-wordmark { height: 28px; width: auto; display: block; margin: 0 auto .15rem; }
     .auth-brand-tagline {
       font-size: 0.7875rem;
       color: var(--muted);
@@ -178,10 +180,10 @@
 
         <div class="auth-brand">
           <div class="auth-brand-icon">
-            <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+            <img src="{% static 'images/brand/mark-light-48.png' %}" alt="paKITA">
           </div>
-          <div class="auth-brand-name">Swift <span>ERP</span></div>
-          <div class="auth-brand-tagline">Enterprise Resource Planning</div>
+          <img class="auth-brand-wordmark" src="{% static 'images/brand/pakita-recraft-light.png' %}" alt="paKITA">
+          <div class="auth-brand-tagline">Sales, stock, and profit in one place</div>
         </div>
 
         <div class="card-body" style="padding-top: 1.25rem;">
@@ -236,10 +238,10 @@
 
         <div class="auth-brand">
           <div class="auth-brand-icon">
-            <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+            <img src="{% static 'images/brand/mark-light-48.png' %}" alt="paKITA">
           </div>
           <div class="auth-brand-name">Create Account</div>
-          <div class="auth-brand-tagline">Swift ERP &mdash; Enterprise Resource Planning</div>
+          <div class="auth-brand-tagline">paKITA &mdash; Sales, stock, and profit in one place</div>
         </div>
 
         <div class="card-body" style="padding-top: 1.25rem;">

@@ -38,7 +38,7 @@ def pagination(context, page_obj, param='page', on_each_side=3, on_ends=1):
     Copying request.GET wholesale means no template ever needs to know its filters.
     Add filters freely; pagination keeps working, untouched.
 
-    ★ This also FIXES a live bug: sale_list's links dropped `recv_page`, so paging the
+    This also FIXES a live bug: sale_list's links dropped `recv_page`, so paging the
     sales list bounced the embedded receivables panel back to page 1. Carrying the
     whole query string keeps the two paginators independent.
 
@@ -51,7 +51,7 @@ def pagination(context, page_obj, param='page', on_each_side=3, on_ends=1):
     bar wraps now — `.pagination` gained flex-wrap — but a two-line pagination
     control looks broken.)
 
-    ★ A leading "…" that hides only pages 2-3 is NOT worth adding: the ellipsis is
+    A leading "…" that hides only pages 2-3 is NOT worth adding: the ellipsis is
     as wide as a page number, so you'd trade two clickable pages for nothing.
     Django already knows this and only elides once there's a real gap to collapse.
 

@@ -2,7 +2,7 @@
 
 Added 2026-07-13, replacing the `net_profit` that lived in core/utils/returns.py.
 
-★★ WHAT CHANGED AND WHY — read this before "simplifying" anything below.
+WHAT CHANGED AND WHY — read this before "simplifying" anything below.
 
 The old formula subtracted the stock you BOUGHT in the window:
 
@@ -22,19 +22,19 @@ SNAPSHOT taken at the moment of sale (Sales/views.py sets it from the product's 
 the line is added to the cart), so a later price change never rewrites an old sale's cost.
 That snapshot is the only reason true COGS is possible here at all.
 
-★ CONSEQUENCE 1 — PURCHASE RETURNS NO LONGER TOUCH PROFIT, and that is correct.
+  CONSEQUENCE 1 — PURCHASE RETURNS NO LONGER TOUCH PROFIT, and that is correct.
   Buying stock moves money into inventory; sending it back moves it out again. Neither
   event is a sale, so neither belongs in a profit-and-loss. (They still very much matter
   to CASH FLOW and to Expense Analytics — that is a different question and a different
   page.) The old formula had to net them off only because it was subtracting purchases.
   So `purchase_returns` is deliberately ABSENT from net_profit() below. Do not add it back.
 
-★ CONSEQUENCE 2 — A SALES RETURN RELIEVES COGS TOO, not just revenue.
+  CONSEQUENCE 2 — A SALES RETURN RELIEVES COGS TOO, not just revenue.
   When a customer brings goods back you refund the money AND the goods return to you, so
   you no longer bore their cost. Reduce revenue but NOT cost and every return would book a
   phantom loss equal to the item's full cost.
 
-  ★ This applies to RESELLABLE **AND** DAMAGED returns alike — subtle, and the whole reason
+    This applies to RESELLABLE **AND** DAMAGED returns alike — subtle, and the whole reason
     returned_cogs() ignores the `resellable` flag. A damaged return does not go back on the
     shelf, but Sales/views.py already writes a **Waste record** for its cost. So the cost is
     re-charged there. Relieve COGS in both cases and the books come out right:
@@ -116,8 +116,8 @@ def net_profit(revenue, cogs, salary, waste, bills, sales_returns=ZERO):
     returned_cogs_of yourself) — the relief belongs with the cost, not bolted on here,
     so that a caller holding a pre-netted figure can't accidentally relieve it twice.
 
-    ★ There is no `purchase_returns` argument. Stock bought and stock sent back are both
-      inventory movements, not trading results. See the module docstring.
+    There is no `purchase_returns` argument. Stock bought and stock sent back are both
+    inventory movements, not trading results. See the module docstring.
 
     Can legitimately go negative. Never clamp.
     """

@@ -122,7 +122,7 @@
 
   {% comment %} HEADLINE KPIs.
 
-  ★ Every delta here carries .kpi-delta--inverse. On a COST card, up is the red
+  Every delta here carries .kpi-delta--inverse. On a COST card, up is the red
   direction — without it the page would congratulate an owner in green for burning
   more money. The class already exists in style.css for exactly this.
 
@@ -139,7 +139,7 @@
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Total Spend
-          {% comment %} ★ Mirror of the Total Costs tooltip on Profit Analytics. Both cards
+          {% comment %} Mirror of the Total Costs tooltip on Profit Analytics. Both cards
           name the difference, so whichever page the owner is standing on, the answer to
           "why don't these match?" is right there. {% endcomment %}
           <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
@@ -471,7 +471,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // already; nothing in this file can reach them.)
   const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // ★ AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
+  // AXIS TICKS ONLY — a gridline is a ruler mark, not a figure. Abbreviating stops the
   // labels crowding (and a shop doing millions getting a wall of digits). Money the owner
   // actually reads — cards, tables, tooltips — stays exact. Same helper on all 3 Analytics
   // pages; if you change it, change it in all three or the axes stop matching each other.

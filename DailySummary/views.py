@@ -35,7 +35,7 @@ from core.models import StatusModel
 # Importing it (rather than re-typing `revenue - cost - ...` here) is what stops this page
 # from drifting out of step with them again.
 #
-# ★ 2026-07-13: profit now subtracts COST OF GOODS SOLD, not stock purchased. The accrual
+# 2026-07-13: profit now subtracts COST OF GOODS SOLD, not stock purchased. The accrual
 # table's cost column changed with it — see the per-day fold below.
 from core.utils.returns import _total, sales_returns_total
 from core.utils.profit import COGS_LINE, RETURNED_COGS_LINE, cogs_in, net_profit
@@ -103,7 +103,7 @@ def view_summary(request, business_slug):
     #      0 on every row — while the filtered path summed shift_employees__daily_rate.
     #      So the DEFAULT view (no query params -> unbound form -> is_valid() False)
     #      reported ₱0 payroll and overstated net profit.
-    #      ★ 2026-07-17: both now sum **Shift.amount**, and the reason the old one read 0
+    #      2026-07-17: both now sum **Shift.amount**, and the reason the old one read 0
     #      is gone — Shift.recompute_amount() + a ShiftEmployee signal keep the column
     #      equal to Σ daily_rate, and migration 0013 backfilled every historical row.
     #      Shift.amount is now THE definition everywhere (a plain column can't fan out
@@ -202,7 +202,7 @@ def view_summary(request, business_slug):
     sales_ret_by_date = sales_returns_qs.values('date').annotate(v=Sum('refund_total'))
     purch_ret_by_date = purchase_returns_qs.values('date').annotate(v=Sum('refund_total'))
 
-    # ★ COST OF GOODS SOLD (2026-07-13) — what profit actually subtracts now. Grouped by the
+    # COST OF GOODS SOLD (2026-07-13) — what profit actually subtracts now. Grouped by the
     # parent SALE's date (a line item has no date of its own), and relieved by the cost of
     # anything customers brought back that day. See core/utils/profit.py.
     cogs_by_date      = (SaleItem.objects.filter(sale__in=sales)
@@ -218,7 +218,7 @@ def view_summary(request, business_slug):
     # return streams that way was a drift trap waiting to happen. A zero-filled default
     # makes a missing day cost nothing to express, and a new stream is one line.
     #
-    # ★ A day can now appear on the strength of a RETURN alone (a refund on a day with no
+    #   A day can now appear on the strength of a RETURN alone (a refund on a day with no
     #   sales is still a real day in the books). The old shape would have dropped it.
     STREAMS = (
         (sales_by_date,     'date',                'total_revenue'),
@@ -248,7 +248,7 @@ def view_summary(request, business_slug):
         net_material = v['total_material_cost'] - v['purchase_returns']
         net_cogs     = v['total_cogs']          - v['returned_cogs']
 
-        # ★ COGS, not material cost. This is the ACCRUAL table — it answers "did we trade
+        # COGS, not material cost. This is the ACCRUAL table — it answers "did we trade
         # profitably", so the cost of the goods that left the shelf is what belongs beside
         # the revenue that they earned. What we PAID suppliers that day is a cash question
         # and lives on the Cash Flow page (and Expense Analytics). Mixing them is what made
@@ -284,7 +284,7 @@ def view_summary(request, business_slug):
     # Any day strictly before today is complete (no record can backdate) → safe to
     # snapshot. get_or_create = first close wins; today stays live & editable.
     #
-    # ★ The rows handed to close_day are now NET of returns and carry the one true salary
+    #   The rows handed to close_day are now NET of returns and carry the one true salary
     #   figure, so a frozen day is finally deterministic. It used to depend on which filter
     #   the first reader happened to have applied.
     from activity.utils import close_day
@@ -351,7 +351,7 @@ def view_summary(request, business_slug):
     
     
     # so the user's filters above don't skew the "best month" result.
-    # ★ salary here read Sum('amount') too — the same empty column that zeroed payroll in
+    # salary here read Sum('amount') too — the same empty column that zeroed payroll in
     #   the table. A month's "profit" was therefore computed with NO wages in it.
     year = {'date__year': today.year}
     year_sales = all_sales.filter(**year)
@@ -360,7 +360,7 @@ def view_summary(request, business_slug):
     expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(**year).values('date__month').annotate(total=Sum('total_amount'))}
     salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('amount'))}
 
-    # ★ COGS by month, not purchases — "best month" has to use the SAME formula as every row
+    # COGS by month, not purchases — "best month" has to use the SAME formula as every row
     # in the table above it, or the badge could crown a month the table says lost money.
     cogs_by_month = {c['sale__date__month']: c['total'] for c in SaleItem.objects.filter(
         sale__in=year_sales).values('sale__date__month').annotate(total=Sum(COGS_LINE))}
@@ -640,7 +640,7 @@ def view_summary_detail(request, business_slug, date):
     sale_items  = SaleItem.objects.filter(sale__in=sales).select_related('product').order_by('product__is_service', 'id')
     sale_employees = SaleEmployee.objects.filter(sale__in=sales)
 
-    # ★ .active(), not .filter(is_void=False) — active() also drops UNCONFIRMED DRAFTS. The
+    # .active(), not .filter(is_void=False) — active() also drops UNCONFIRMED DRAFTS. The
     # old filter let a draft's revenue into the total while COGS (which uses active()) left
     # its cost out, so a parked GCash sale would have inflated this day's profit.
     posted = Sale.objects.active().filter(business=business, date=date)
@@ -661,7 +661,7 @@ def view_summary_detail(request, business_slug, date):
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
     total_salary_cost = shift_employees.aggregate(salary_cost=Sum(F('daily_rate')))['salary_cost'] or 0
 
-    # ★ This day's profit used the SAME shape as the old table formula AND silently ignored
+    # This day's profit used the SAME shape as the old table formula AND silently ignored
     # returns entirely — so a day with a refund on it disagreed with both the Dashboard and
     # the summary table it was opened from. Now it goes through the one shared function, on
     # cost of goods SOLD.

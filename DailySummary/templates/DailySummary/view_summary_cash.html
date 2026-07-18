@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="kpi-card{% if cash_paid > 0 %} kpi-card--hue-danger{% endif %} has-popover">
       <div class="kpi-icon kpi-icon--{% if cash_paid > 0 %}danger{% else %}neutral{% endif %}"><i class="bi bi-box-seam"></i></div>
       <div class="kpi-body">
-        {% comment %} ★ This card shows cash_paid — money that actually left for suppliers — NOT
+        {% comment %} This card shows cash_paid — money that actually left for suppliers — NOT
         what was bought. So it can't wear the same tooltip as the Stock Purchases card on Expense
         Analytics (which is what you bought, paid or not). Buy ₱1,000 on utang and pay ₱400: that
         card says ₱1,000, this one says ₱400. Both right, different questions. {% endcomment %}

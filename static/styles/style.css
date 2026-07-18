@@ -7060,11 +7060,11 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
    The label stays up while the field is FOCUSED and while its dropdown is open — clicking
    the field opens the picker (filter-drawer.js behavior 6), so focus does not mean "is
    typing" here and the dashes would just be noise under an open menu.
-   ★ opacity, NOT color:transparent. Focused, Chrome paints a blue SELECTION HIGHLIGHT
+   opacity, NOT color:transparent. Focused, Chrome paints a blue SELECTION HIGHLIGHT
    behind the active segment. color:transparent kills the dashes' glyphs but NOT that
    highlight, so it landed as a blue block on top of our label and the field read as
    struck-through text. opacity composites the whole segment away, highlight included.
-   ★ .is-typing (from filter-drawer.js) hands the real segments back the moment someone
+   is-typing (from filter-drawer.js) hands the real segments back the moment someone
    actually types, so keyboard entry is never blind. Not merged into :not(:focus): that
    would take the label away on every click too, which is the bug this replaces. */
 .form-field:has(> input[type="month"].is-empty:not(.is-typing)) { position: relative; }
@@ -7098,19 +7098,19 @@ input[type="month"].is-empty:not(.is-typing)::-webkit-datetime-edit { opacity: 0
    Kill the block, keep the glyphs (color:inherit — without it they'd inherit the UA's
    `highlighttext` white and vanish against the field).
 
-   ★★ DO NOT ADD :focus TO THESE SELECTORS. ★★ It looks like the obvious thing — the UA rule
+   DO NOT ADD :focus TO THESE SELECTORS. It looks like the obvious thing — the UA rule
    we're beating is itself `input::-webkit-datetime-edit-day-field:focus { background-color:
    light-dark(highlight,#99C8FF); color: light-dark(highlighttext,#000) }` — but a
    pseudo-CLASS after a pseudo-ELEMENT is only legal in Blink's own UA sheet, not in an
    author sheet. The author parser rejects the selector, and ONE bad selector in a comma list
    drops the WHOLE rule. That's exactly what happened on the first attempt: the rule looked
    right, changed nothing, and left no error anywhere (user-reported: "still highlighting").
-   ★ It works WITHOUT :focus because the cascade sorts by ORIGIN before specificity: any
+   It works WITHOUT :focus because the cascade sorts by ORIGIN before specificity: any
    normal author rule beats any normal UA rule, even a less specific one. The UA rule carries
    no !important, so this wins whenever the segment is focused — which is the only time it
    paints. Setting these on the unfocused segments too is a no-op (transparent + inherited
    colour is what they already are).
-   ★ Non-WebKit browsers drop the whole list (unknown pseudo = invalid), which is correct —
+   Non-WebKit browsers drop the whole list (unknown pseudo = invalid), which is correct —
    Firefox never paints this. */
 input[type="date"]::-webkit-datetime-edit-day-field,
 input[type="date"]::-webkit-datetime-edit-month-field,
@@ -7681,7 +7681,7 @@ button.topbar-account__item {
    clear-cart, session['cart']). So the count carries the difference instead: green = money
    coming in (a sale), red = money going out (a purchase) — the same in/out language the
    dashboard KPI cards use directly below this bar. Purchase keeps the base --danger above.
-   ★ --accent, NOT --emerald, and this is deliberate: --emerald is an INK token (KPI numbers,
+   --accent, NOT --emerald, and this is deliberate: --emerald is an INK token (KPI numbers,
    delta arrows, tinted icon chips — always `color:`, never a solid fill) and white on it is
    2.5:1, illegible at 0.62rem. --accent is the app's solid green FILL and clears 6.5:1.
    Do not "fix" this to --emerald for semantic tidiness; it fails the eye. */
@@ -7710,7 +7710,7 @@ button.topbar-account__item {
    16px, so the badge's top/right:-4 lands ~10px of padding away from the bell — fine for
    a 16px badge, which is big enough to still read as attached, but a 5px dot out there
    just looks like a stray pixel. top/right:8 sits it on the glyph's upper-right shoulder.
-   ★ Size and offset interact — both are measured from the BUTTON's corner, so shrinking
+   Size and offset interact — both are measured from the BUTTON's corner, so shrinking
    the dot without raising the offsets drifts its centre outward. The ring keeps it
    legible over the bell's strokes; keep it a token so it flips with the theme. */
 .topbar-notif__dot {
@@ -8293,6 +8293,28 @@ button.pd-menu__item {
 .away-tile__icon--danger  { background: var(--danger-light);  color: var(--danger); }
 .away-tile__value { font-size: 1.05rem; font-weight: 700; color: var(--text); line-height: 1.1; }
 .away-tile__label { font-size: .7rem; color: var(--muted); }
+
+/* Void alert — an exception row under the tiles, not a tile. Amber = attention, not danger:
+   a void is a "look at this", not an error. Only rendered when away.voids_count > 0. */
+.away-banner__alert {
+  display: flex; align-items: center; gap: .55rem;
+  margin-top: .7rem;
+  padding: .6rem .85rem;
+  background: var(--warning-light);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: filter .15s;
+}
+.away-banner__alert:hover { filter: brightness(.97); }
+.away-banner__alert > i { color: var(--warning); font-size: 1rem; flex-shrink: 0; }
+.away-banner__alert-text { font-size: .82rem; color: var(--text); }
+.away-banner__alert-text strong { color: var(--warning-text); font-weight: 700; }
+.away-banner__alert-cta {
+  margin-left: auto; white-space: nowrap;
+  font-size: .78rem; font-weight: 600; color: var(--warning-text);
+  display: inline-flex; align-items: center; gap: .25rem;
+}
 
 /* ══════════════════════════════════════════
    ADD NEXT TEMPLATE CSS BELOW

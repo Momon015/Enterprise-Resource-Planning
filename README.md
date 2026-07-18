@@ -1,6 +1,6 @@
-# Swift ERP
+# paKITA
 
-A web-based ERP for Filipino small business owners — cafés, retail shops, small restaurants. Manage sales, inventory, purchases, expenses, waste/loss, and employees from one dashboard.
+A web-based sales and inventory system for Filipino small business owners — cafés, retail shops, small restaurants. Manage sales, inventory, purchases, expenses, waste/loss, and employees from one dashboard.
 
 Built with Django. Solo-developer project, pre-launch.
 

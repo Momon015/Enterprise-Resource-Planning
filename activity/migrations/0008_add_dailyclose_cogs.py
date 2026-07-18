@@ -16,8 +16,8 @@ def drop_stale_closes(apps, schema_editor):
     Safe here because the owner confirmed every existing close is dummy/dev data. The days
     re-close automatically the next time the Daily Summary reads them.
 
-    ★ IF THIS EVER RUNS AGAINST REAL BOOKS, DON'T. Freeze rows are the audit trail; on live
-      data the correct move is a forward-dated adjustment, never a delete.
+    IF THIS EVER RUNS AGAINST REAL BOOKS, DON'T. Freeze rows are the audit trail; on live
+    data the correct move is a forward-dated adjustment, never a delete.
     """
     apps.get_model('activity', 'DailyClose').objects.all().delete()
 

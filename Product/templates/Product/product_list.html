@@ -30,11 +30,11 @@
       <h1 class="page-title">Products</h1>
       <p class="page-subtitle">
         Products available for sale and used in transactions
-        {% if kpis.current.computed_at %}
+        {% comment %} {% if kpis.current.computed_at %}
           <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
             title="Updated {{ kpis.current.computed_at|naturaltime }}. These totals refresh on their own within 30 minutes, or instantly when you record a transaction."
             style="cursor: help; font-size: 0.85em;"></i>
-        {% endif %}
+        {% endif %} {% endcomment %}
       </p>
     </div>
     {% comment %} <div class="page-header-right">
@@ -56,7 +56,25 @@
     </div> {% endcomment %}
   </div>
 
-  <!-- KPI STATS ROW (4-col) -->
+  {% comment %} ═══ KPI STRIP — outside #product-results, but it DRIVES it ══════════════════
+      Each card is a FILTER (see the hue note on Out of Stock below), so clicking one must feel
+      like the popover chips beside the table: rows change, page doesn't blink. Hence hx-get on
+      the card, pointed at the region further down.
+
+      WHY THE STRIP ITSELF IS NOT INSIDE THE REGION: these counts come from
+      get_product_kpis(business) and are computed before any filter is applied — they are the
+      SAME for every query string, so re-rendering them on each filter would be pure work for an
+      identical result. Outside-but-driving.
+
+      WHY THE hrefs STAY BARE (?stock=low, dropping an active search/category) while the
+      popover chips preserve theirs — this asymmetry is DELIBERATE, don't "fix" it: the card
+      shows an UNFILTERED count. "Out of Stock 5" that lands you on 1 row because a search was
+      still active is a card that lies about its own number. Wiping keeps the headline and the
+      result honest. The chips show no count, so they can afford to be additive.
+
+      data-href is kept alongside hx-get: it's the keyboard/no-htmx path in kpi-cards.js, and
+      that file now SKIPS its window.location when a card carries hx-get (so the two can't both
+      fire and race). Keep the two values identical. {% endcomment %}
   <div class="kpi-row kpi-row--4col">
 
     {% comment %} RETIRED 2026-07-12 — Total Products card dropped to make room for the
@@ -91,7 +109,9 @@
 
     <!-- IN STOCK (click = filter) -->
     <div class="kpi-card kpi-card--hue-success kpi-card--clickable"
-         data-href="?stock=high" tabindex="0">
+         data-href="?stock=high" tabindex="0"
+         hx-get="?stock=high" hx-target="#product-results" hx-select="#product-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--success">
         <i class="bi bi-check2-circle"></i>
       </div>
@@ -104,7 +124,9 @@
 
     <!-- LOW STOCK (click = filter) — silver: a nudge, not an alarm -->
     <div class="kpi-card kpi-card--hue-neutral kpi-card--clickable"
-         data-href="?stock=low" tabindex="0">
+         data-href="?stock=low" tabindex="0"
+         hx-get="?stock=low" hx-target="#product-results" hx-select="#product-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--neutral">
         <i class="bi bi-exclamation-triangle"></i>
       </div>
@@ -117,7 +139,9 @@
     <!-- CRITICALLY LOW (click = filter) — hue FIXED warning, same rule as Out of Stock below:
          a list card is a FILTER, so its colour names the band it selects and never moves. -->
     <div class="kpi-card kpi-card--hue-warning kpi-card--clickable"
-         data-href="?stock=critical" tabindex="0">
+         data-href="?stock=critical" tabindex="0"
+         hx-get="?stock=critical" hx-target="#product-results" hx-select="#product-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--warning">
         <i class="bi bi-exclamation-octagon"></i>
       </div>
@@ -132,7 +156,9 @@
          the count is 0 or 40, the way a filter chip does. The green "all clear" treatment is
          DASHBOARD-ONLY, where a card really is reporting status. -->
     <div class="kpi-card kpi-card--hue-danger kpi-card--clickable"
-         data-href="?stock=none" tabindex="0">
+         data-href="?stock=none" tabindex="0"
+         hx-get="?stock=none" hx-target="#product-results" hx-select="#product-results"
+         hx-swap="outerHTML" hx-push-url="true">
       <div class="kpi-icon kpi-icon--danger">
         <i class="bi bi-slash-circle"></i>
       </div>
@@ -151,6 +177,33 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as sale_list: everything a filter can change lives in here and htmx
+          replaces the whole block — filter drawer, status popover, count badge, table,
+          pagination. The drawer and popover are INSIDE because every part of them is derived
+          from request.GET server-side (the <details open> state, the "Active" badge, the
+          popover's trigger LABEL and its .is-active row, the field values, the record count);
+          swap only the table and they go stale against the URL.
+
+          hx-select means the VIEW IS UNTOUCHED — htmx fetches this same page URL and lifts
+          #product-results out of the full response. No partial, no JSON, no serializer.
+
+          THE KPI STRIP IS DELIBERATELY OUTSIDE THIS REGION, and that is not an oversight.
+          Its counts come from get_product_kpis(business) — business-wide, computed BEFORE any
+          filter is applied, so they are identical for every query string and re-rendering them
+          would change nothing. They still DRIVE the region: each card carries hx-get (see the
+          note on the strip). Outside-but-driving is the right shape here; contrast the Payables
+          panel, whose summary DID read the filters and therefore had to sit inside.
+          Everything else that reads these params (the empty state's "No results for …", the
+          Reset link) is inside. If a filtered summary card ever lands on this page, it belongs
+          in here too. {% endcomment %}
+      <div id="product-results"
+           hx-boost="true"
+           hx-target="#product-results"
+           hx-select="#product-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- FILTER DRAWER -->
       <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
         <summary>
@@ -161,7 +214,30 @@
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT.
+              This form now sits inside the boosted #product-results region. Vendored
+              htmx 2.0.3 boosts a form like this:
+                  o = getAttribute(form, "action");
+                  if (verb === "get" && o.includes("?")) { ... }
+              With no action attribute o is null, so o.includes() throws a TypeError —
+              inside htmx's DOM-processing pass, which aborts. Every element after this form
+              (the whole table and its pagination) then never gets wired up and falls back to
+              native navigation: a full page reload on every filter. Silently — the only
+              trace is one console error.
+              htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+              boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'product-list' business_slug=current_business.slug %}"
+                autocomplete="off">
+
+            {% comment %} Keep the ACTIVE STATUS FILTER when applying a search or category. A GET
+                form submits ONLY its own fields, so without these, searching a product while
+                "Out of Stock" was selected would silently widen the list back to every status —
+                the popover would still read "Out of Stock" beside rows that are in stock.
+                stock and velocity are mutually exclusive (the popover is one list), so at most
+                one of these is ever rendered. {% endcomment %}
+            {% if request.GET.stock %}<input type="hidden" name="stock" value="{{ request.GET.stock }}">{% endif %}
+            {% if request.GET.velocity %}<input type="hidden" name="velocity" value="{{ request.GET.velocity }}">{% endif %}
+
             <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">
@@ -253,48 +329,75 @@
                   {% endif %}
                 </span>
               </summary>
+              {% comment %} Rebuilt with the querystring tag (Django 5.1+, no load needed). The
+                  hand-written versions spelled out search/category by hand to carry them —
+                  which worked, but silently DROPPED `page`: pick "Low Stock" from page 4 and
+                  you'd land on page 4 of a 1-page list, i.e. an empty table. As a full reload
+                  that was merely odd; inside a live region it reads as "the filter broke".
+                  Name only what CHANGES, everything else rides.
+                  stock and velocity clear EACH OTHER on purpose — the popover presents them
+                  as ONE list (the trigger label can only name one), but the view applies both
+                  independently, so leaving the old one set would AND them together: "Best
+                  sellers" while stock=none was still on = best-selling out-of-stock products,
+                  under a label reading "Best sellers". The old hrefs got this right by accident
+                  (they simply never wrote the other one); here it has to be said out loud.
+                  {% endcomment %}
               <div class="activity-filter-menu">
-                {% with q=request.GET.search cat=request.GET.category %}
-                <a href="{% url 'product-list' business_slug=current_business.slug %}{% if q %}?search={{ q }}{% endif %}{% if cat %}{% if q %}&{% else %}?{% endif %}category={{ cat }}{% endif %}"
+                <a href="{% querystring stock=None velocity=None page=None %}"
                    class="{% if not request.GET.stock and not request.GET.velocity %}is-active{% endif %}">
                   <i class="bi bi-grid"></i> All status
                 </a>
-                <a href="?stock=high{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring stock='high' velocity=None page=None %}"
                   class="filter-tone-success {% if request.GET.stock == 'high' %}is-active{% endif %}">
                   <i class="bi bi-box-seam"></i> In Stock
                 </a>
-                <a href="?stock=low{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring stock='low' velocity=None page=None %}"
                   class="filter-tone-warning {% if request.GET.stock == 'low' %}is-active{% endif %}">
                   <i class="bi bi-exclamation-triangle"></i> Low Stock
                 </a>
-                <a href="?stock=critical{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring stock='critical' velocity=None page=None %}"
                   class="filter-tone-warning {% if request.GET.stock == 'critical' %}is-active{% endif %}">
                   <i class="bi bi-exclamation-octagon"></i> Critically Low
                 </a>
-                <a href="?stock=none{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring stock='none' velocity=None page=None %}"
                   class="filter-tone-danger {% if request.GET.stock == 'none' %}is-active{% endif %}">
                   <i class="bi bi-slash-circle"></i> Out of Stock
                 </a>
 
                 <div style="border-top:1px solid var(--border-light); margin:.3rem 0;"></div>
 
-                <a href="?velocity=best{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring velocity='best' stock=None page=None %}"
                   class="{% if request.GET.velocity == 'best' %}is-active{% endif %}">
                   <i class="bi bi-trophy"></i> Best sellers
                 </a>
-                <a href="?velocity=slow{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring velocity='slow' stock=None page=None %}"
                   class="{% if request.GET.velocity == 'slow' %}is-active{% endif %}">
                   <i class="bi bi-hourglass-split"></i> Slow movers
                 </a>
-                <a href="?velocity=never{% if q %}&search={{ q }}{% endif %}{% if cat %}&category={{ cat }}{% endif %}"
+                <a href="{% querystring velocity='never' stock=None page=None %}"
                   class="{% if request.GET.velocity == 'never' %}is-active{% endif %}">
                   <i class="bi bi-moon-stars"></i> Never sold
                 </a>
-                {% endwith %}
               </div>
             </details>
           </div>
-          <div class="activity-header-right">
+          {% comment %} hx-disinherit="*" IS THE LOAD-BEARING ONE — DO NOT DROP IT.
+              "Archive" and "Create product" open MODALS via their own hx-get → #confirmBody.
+              hx-boost="false" alone is NOT enough and shipping it that way BROKE them (07-17,
+              user-caught): hx-select/hx-target/hx-swap/hx-push-url are INHERITED, and htmx
+              resolves them by walking UP the tree (getClosestAttributeValue) until it finds a
+              value. So these buttons silently picked up hx-select="#product-results" from the
+              region, tried to lift #product-results out of the MODAL's response, found none,
+              and swapped NOTHING into #confirmBody — main.html's htmx:afterSwap opened the
+              modal anyway, so you got an empty panel over a dimmed page. hx-boost="false" only
+              turns off BOOSTING; it says nothing about inheritance.
+              hx-disinherit="*" makes the walk stop here, so these keep their own hx-get /
+              hx-target / hx-swap (an element's OWN attributes are always found first) and
+              inherit nothing from above — including hx-push-url, which would otherwise have
+              pushed the modal's URL into the address bar.
+              "Presets" is a plain <a> that LEAVES the page; with inheritance cut it just
+              navigates normally. {% endcomment %}
+          <div class="activity-header-right" hx-boost="false" hx-disinherit="*">
             {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant'%}
             <!-- QUICK LINKS — moved from the old right column (Categories has its own sidebar page now) -->
             <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -397,7 +500,18 @@
                 <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-disinherit="*" IS THE LOAD-BEARING ONE — DO NOT DROP IT.
+                Every row action owns an hx-* verb: add-to-sale (hx-post → #sale-cart-badge),
+                Edit and Archive (hx-get → #confirmBody). Without this they INHERIT
+                hx-select="#product-results" from the region and try to lift that id out of a
+                modal fragment / a cart-badge fragment that hasn't got one — swapping nothing
+                and leaving an empty modal (or a dead + button). See the full note on the header
+                group above; hx-boost="false" does NOT prevent inheritance.
+                Their own hx-get/hx-post/hx-target/hx-swap still apply — an element's OWN
+                attributes win before the walk up ever starts.
+                hx-boost="false" still earns its place: "View detail" is a plain <a> to a page
+                with no #product-results, which boosted would be a dead click. {% endcomment %}
+            <tbody hx-boost="false" hx-disinherit="*">
               {% for product in page_obj %}
               <tr class="{% if product.is_locked %}is-locked{% endif %}">
                 {% comment %} <td>
@@ -421,6 +535,11 @@
                   {% if product.is_locked %}
                       <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                     {% endif %}
+                  </div>{% comment %} /.list-name-cell — was never closed (found 07-17 while
+                      converting this page: every <tr> leaked one unclosed <div>). The browser
+                      auto-closed it at </td> so it LOOKED fine, but the locked badge was
+                      landing inside .list-name-cell's flex row by accident rather than by
+                      rule. {% endcomment %}
                 </td>
 
                 <td class="sl-text-center">
@@ -538,6 +657,9 @@
         <!-- PAGINATION -->
         {% pagination page_obj %}
 
+      </div>
+
+      {% comment %} ═══ end #product-results ═════════════════════════════════════════════ {% endcomment %}
       </div>
     </div>
 

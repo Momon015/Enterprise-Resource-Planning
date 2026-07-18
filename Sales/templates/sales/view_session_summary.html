@@ -59,6 +59,10 @@
   .ss-modal--center .ss-modal-text{ margin:0 auto 1.25rem; max-width:34ch; color:var(--muted); }
   .ss-modal--center .ss-modal-actions{ padding:0; }
   .ss-modal-badge--danger{ background:var(--danger-light); color:var(--danger); }
+  /* Wider variant for the clock-in modal — the "Time In & Confirm" label is long and wraps at
+     the default 420px. Only this modal opts in; the verify/discard modals stay compact. */
+  .ss-modal--wide{ max-width:480px; }
+  .ss-modal--wide .ss-modal-actions > *{ white-space:nowrap; }
 
 </style>
 {% endblock %}
@@ -304,6 +308,8 @@ function toggleSalesPaymentFields() {
 
 {% include 'sales/partials/_discard_sale_modal.html' %}
 
+{% if must_clock_in %}{% include 'sales/partials/_clockin_confirm_modal.html' %}{% endif %}
+
 <script>
   function ssOpenModal(id){ document.getElementById(id).hidden = false; }
   function ssCloseModal(id){ document.getElementById(id).hidden = true; }
@@ -311,7 +317,33 @@ function toggleSalesPaymentFields() {
     document.getElementById('sale_status_input').value = status;
     document.getElementById('saleForm').submit();
   }
+  // Staff not on shift yet: Confirm first opens the clock-in modal (confirm opening cash +
+  // time in), which then submits the sale into their drawer. Server-side is the real gate —
+  // this just replaces the old bounce to My Shift with an in-place modal.
+  const SS_MUST_CLOCK_IN = {{ must_clock_in|yesno:"true,false" }};
+
+  // Inject/overwrite a hidden field on #saleForm (marked data-ci so re-confirming is idempotent).
+  function ssAddHidden(name, value){
+    const f = document.getElementById('saleForm');
+    let el = f.querySelector('input[name="' + name + '"][data-ci]');
+    if (!el){
+      el = document.createElement('input');
+      el.type = 'hidden'; el.name = name; el.setAttribute('data-ci', '');
+      f.appendChild(el);
+    }
+    el.value = value;
+  }
+
+  function ssConfirmClockIn(){
+    const chk = document.getElementById('ci_confirm_cash');   // cashier only
+    if (chk && !chk.checked){ return; }                       // must confirm the cash first
+    ssAddHidden('confirm_clock_in', '1');
+    if (chk){ ssAddHidden('confirm_opening_cash', 'on'); }
+    ssSubmitSale('completed');
+  }
+
   function ssHandleConfirm(){
+    if (SS_MUST_CLOCK_IN){ ssOpenModal('clockInModal'); return; }
     const method = document.querySelector('#saleForm select[name="payment_method"]').value;
     const checked = document.querySelector('#saleForm input[name="payment_status"]:checked');
     const status = checked ? checked.value : 'full';

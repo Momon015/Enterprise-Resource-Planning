@@ -1,0 +1,50 @@
+{% load humanize %}
+{% comment %}
+  Clock-in-at-checkout modal. Shown when a not-on-shift staffer presses Confirm on the sale
+  summary (must_clock_in). Confirms the opening cash (cashiers) or just times them in
+  (attendance-only), then submits #saleForm with confirm_clock_in=1 (+ confirm_opening_cash=on
+  for cashiers). confirm_view_summary clocks them in on a FRESH drawer and posts the sale in the
+  same request — first-opening only; a shared-drawer hand-over falls back to My Shift server-side.
+{% endcomment %}
+<div class="ss-modal-overlay" id="clockInModal" hidden>
+  <div class="ss-modal ss-modal--center ss-modal--wide">
+    <button type="button" class="ss-modal-x" onclick="ssCloseModal('clockInModal')" aria-label="Close">
+      <i class="bi bi-x-lg"></i>
+    </button>
+
+    <div class="ss-modal-badge"><i class="bi bi-stopwatch"></i></div>
+    <div class="ss-modal-title">Time in to record this sale</div>
+
+    {% if clockin_is_cashier %}
+    <p class="ss-modal-text">This sale goes into your cash drawer, so time in first. Confirm the starting cash before you begin.</p>
+
+    <div class="sd-summary-block highlight" style="text-align:center; margin:0 0 .85rem;">
+      <div class="sd-summary-block-label">Starting cash in drawer</div>
+      <div class="sd-total-amount" style="color:var(--accent);">₱{{ opening_info.amount|floatformat:2|intcomma }}</div>
+      <div class="sd-total-sub">
+        {% if opening_info.source == 'override' %}Set for today{% if opening_info.note %} · {{ opening_info.note }}{% endif %}{% else %}Business default{% endif %}
+      </div>
+    </div>
+
+    {% comment %} The Time In button stays disabled until this is ticked (see onchange) —
+        same guard as the My Shift time-in card, so a cashier can't skip counting. {% endcomment %}
+    <label class="d-flex align-items-start gap-2" style="margin:0 0 .25rem; font-size:.85rem; cursor:pointer; text-align:left;">
+      <input type="checkbox" id="ci_confirm_cash" style="margin-top:.2rem;"
+             onchange="document.getElementById('ci_timein_btn').disabled = !this.checked;">
+      <span>I confirm the drawer holds <strong>₱{{ opening_info.amount|floatformat:2|intcomma }}</strong> before I start.</span>
+    </label>
+    {% else %}
+    <p class="ss-modal-text">Time in to start your shift so this sale is recorded under your hours.</p>
+    {% endif %}
+
+    <div class="ss-modal-actions">
+      <button type="button" class="btn-secondary-action" onclick="ssCloseModal('clockInModal')">
+        <i class="bi bi-x-lg"></i> Cancel
+      </button>
+      <button type="button" class="btn-confirm" id="ci_timein_btn" onclick="ssConfirmClockIn()"
+              {% if clockin_is_cashier %}disabled{% endif %}>
+        <i class="bi bi-box-arrow-in-right"></i> Time In &amp; Confirm
+      </button>
+    </div>
+  </div>
+</div>

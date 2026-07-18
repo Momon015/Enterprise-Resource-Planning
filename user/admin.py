@@ -13,7 +13,7 @@ class UserAdmin(DjangoUserAdmin):
     readonly_fields = ('date_joined', 'last_login', 'password_changed_at')
 
     fieldsets = DjangoUserAdmin.fieldsets + (
-        ('Swift ERP', {
+        ('paKITA', {
             'fields': ('name', 'slug', 'role', 'owner', 'birthday', 'phone_number',
                        'failed_attempts', 'locked_until', 'password_changed_at'),
         }),

@@ -108,11 +108,11 @@
 
   {% comment %} HEADLINE KPIs.
 
-  ★ Only ONE card here carries .kpi-delta--inverse: Total Costs. On every other card
+  Only ONE card here carries .kpi-delta--inverse: Total Costs. On every other card
   (profit, margin, revenue) up really is the good direction, so the plain classes are
   correct. Expense Analytics is the mirror image — there EVERY card is inverse.
 
-  ★ Net Profit is the only card whose HUE moves with the value: green when you kept
+  Net Profit is the only card whose HUE moves with the value: green when you kept
   money, red when you lost it. A loss must not be printed in the same calm grey as a
   profit. The other three are fixed hues — they name what they are, not how it went.
   {% endcomment %}
@@ -228,7 +228,7 @@
     </div>
 
     {% comment %} TOTAL COSTS — the only card on this page where UP is bad, hence the one
-    .kpi-delta--inverse. ★ This is NOT Expense Analytics' "Total Spend": that one counts the
+    .kpi-delta--inverse. This is NOT Expense Analytics' "Total Spend": that one counts the
     stock you BOUGHT, this one the stock you SOLD. They differ by whatever moved on or off
     the shelf, and both are true. The dropdown says so out loud so nobody files a bug. {% endcomment %}
     <div class="kpi-card{% if pnl.costs > 0 %} kpi-card--hue-danger{% endif %} has-popover">
@@ -237,7 +237,7 @@
       </div>
       <div class="kpi-body">
         <div class="kpi-label">Total Costs
-          {% comment %} ★ The tooltip that stops the "why don't these two pages match?" bug
+          {% comment %} The tooltip that stops the "why don't these two pages match?" bug
           report. Says the difference out loud, in the owner's words, on the card itself.
           {% endcomment %}
           <i class="bi bi-info-circle label-help" data-bs-toggle="tooltip" data-bs-placement="top"
@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // already; nothing in this file can reach them.)
   const pesoExact = v => '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // ★ AXIS TICKS ONLY — never money the owner actually reads.
+  // AXIS TICKS ONLY — never money the owner actually reads.
   // A gridline is a RULER MARK, not a figure: nobody reads "₱14,000" off an axis to learn a
   // number, they read it to know roughly where they are. Abbreviating keeps the labels short
   // so Chart.js stops dropping them, and a shop doing millions doesn't get a wall of digits.
@@ -601,7 +601,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const ctx = chart.ctx;
       if (!meta || !meta.data.length) return;
 
-      // ★ Muted TEXT colour, not --border. Drawn in --border first and it was invisible —
+      // Muted TEXT colour, not --border. Drawn in --border first and it was invisible —
       // which left five floating rectangles with nothing joining them, and a floating bar
       // that doesn't visibly hand off to the next one is just confusing (user: "isn't it
       // supposed to be on the bottom?"). The connector IS the explanation; it has to be seen.

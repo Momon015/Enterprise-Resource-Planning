@@ -19,23 +19,22 @@
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
-
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+// Month vs date-range are mutually exclusive filters. DELEGATED on document — NOT bound to the
+// inputs on DOMContentLoaded — because the filter now lives inside the boosted #shift-results
+// region: applying a filter or paginating swaps that block out, and any listener bound directly
+// to the old inputs would be gone (DOMContentLoaded never fires again on a boosted swap). This
+// script sits OUTSIDE the region, so it is neither swapped nor re-run, and document never gets
+// replaced — so the one listener keeps working across every swap. Same semantics as before:
+// picking a month clears the range, picking either range date clears the month.
+document.addEventListener("change", function (e) {
+  const t = e.target;
+  if (!t || !t.form) return;
+  if (t.name === "select_month") {
+    t.form.querySelectorAll('[name="start_date"],[name="end_date"]').forEach(el => el.value = "");
+  } else if (t.name === "start_date" || t.name === "end_date") {
+    const m = t.form.querySelector('[name="select_month"]');
+    if (m) m.value = "";
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
 });
 </script>
 
@@ -64,6 +63,24 @@ document.addEventListener("DOMContentLoaded", function () {
     <!-- LEFT -->
     <div class="left-panel">
 
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as the list pages: the advanced filter (its <details open> state + "Active"
+          badge are server-derived), the Recent Shifts card, and its pagination all live in here,
+          and htmx swaps the whole block. hx-select means the VIEW IS UNTOUCHED — htmx fetches this
+          same URL and lifts #shift-results out of the full response.
+
+          No hx-disinherit anywhere on purpose: nothing inside carries an hx-* verb. The rows
+          navigate with a plain onclick=window.location (a hard nav to the shift detail, not htmx),
+          and the pagination links are boosted and inherit this region correctly. So there is no
+          modal/cart control that could inherit hx-select and swap empty — nothing to leak.
+          The right-panel cards (Today / On Shift Now) are filter-independent and stay OUTSIDE. {% endcomment %}
+      <div id="shift-results"
+           hx-boost="true"
+           hx-target="#shift-results"
+           hx-select="#shift-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
                {% if request.GET.select_month or request.GET.start_date or request.GET.end_date %}open{% endif %}>
@@ -76,14 +93,21 @@ document.addEventListener("DOMContentLoaded", function () {
         </summary>
 
         <div class="filter-body">
-          <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. This form now sits inside the
+              boosted #shift-results region. Vendored htmx 2.0.3 reads form.getAttribute("action")
+              and calls .includes("?") on it; with no action the value is null, .includes() throws
+              inside htmx's DOM pass, and every element after this form (the table + pagination)
+              falls back to native navigation — a full reload on every filter, silently. htmx
+              2.0.4+ guards the null; until we upgrade, every boosted form MUST carry an action. {% endcomment %}
+          <form method="get" id="filterForm" class="filter-form filter-form--inline"
+                action="{% url 'shift-dashboard' business_slug=current_business.slug %}" autocomplete="off">
 
             <div class="form-field">
               <label class="form-label">
                 <i class="bi bi-calendar3"></i> Month
               </label>
               <input type="month" name="select_month" class="form-control form-control--polish"
-                    value="{{ request.GET.select_month|default:current }}">
+                    value="{{ request.GET.select_month|default:'' }}">
             </div>
 
             <div class="form-field">
@@ -187,6 +211,9 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
           {% endif %}
         </div>
+      </div>
+
+      {% comment %} ═══ end #shift-results ═══════════════════════════════════════════════ {% endcomment %}
       </div>
 
     </div>

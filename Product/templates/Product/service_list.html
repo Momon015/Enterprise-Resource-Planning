@@ -59,6 +59,27 @@
     <!-- LEFT PANEL -->
     <div class="left-panel">
 
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as sale_list: everything a filter can change lives in here and htmx
+          replaces the whole block — filter panel, count badge, table, pagination. The panel
+          is INSIDE because every part of it is derived from the request on the server (the
+          <details open> state, the "Active" badge, the field value, the record count, and the
+          empty state's "No results for …"); swap only the table and they go stale.
+
+          hx-select means the VIEW IS UNTOUCHED — htmx fetches this same page URL and lifts
+          #service-results out of the full response. No partial, no JSON, no serializer.
+
+          Extent stops at the left column: the right rail is entirely commented out (Sales
+          Velocity + Top Services went to Analytics 07-04) and nothing else on the page reads
+          `search`. If those cards return they render from the KPI cache, not from the filter,
+          so they can stay outside — but check that before assuming it. {% endcomment %}
+      <div id="service-results"
+           hx-boost="true"
+           hx-target="#service-results"
+           hx-select="#service-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- ADVANCED FILTERS (search only) -->
       <details class="filter-card" {% if search %}open{% endif %}>
         <summary>
@@ -67,7 +88,20 @@
           {% if search %}<span class="filter-badge">Active</span>{% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT.
+              This form now sits inside the boosted #service-results region. Vendored
+              htmx 2.0.3 boosts a form like this:
+                  o = getAttribute(form, "action");
+                  if (verb === "get" && o.includes("?")) { ... }
+              With no action attribute o is null, so o.includes() throws a TypeError —
+              inside htmx's DOM-processing pass, which aborts. Every element after this form
+              (the whole table and its pagination) then never gets wired up and falls back to
+              native navigation: a full page reload on every filter. Silently — the only
+              trace is one console error.
+              htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+              boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'service-list' business_slug=current_business.slug %}"
+                autocomplete="off">
             <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">
@@ -95,8 +129,18 @@
             <span class="card-header-title">Service Catalog</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count|default:0 }} service{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <!-- QUICK LINKS — moved from the old right column -->
-          <div class="d-flex gap-2">
+          {% comment %} QUICK LINKS — moved from the old right column.
+              hx-disinherit="*" IS LOAD-BEARING, DO NOT DROP IT. Both links own an hx-get to
+              #confirmBody, but hx-select/hx-target/hx-swap/hx-push-url are INHERITED — htmx
+              resolves them by walking UP the tree. Without this they pick up
+              hx-select="#service-results" from the region, look for that id inside the modal's
+              response, find none, and swap NOTHING into #confirmBody; main.html's
+              htmx:afterSwap opens the modal anyway, so you get an empty panel over a dimmed
+              page. hx-boost="false" does NOT prevent this — boosting and inheritance are
+              different mechanisms. Their own hx-get/hx-target/hx-swap still work: an element's
+              OWN attributes are found before the walk up ever starts.
+              Guarded by core/tests/test_htmx_regions.py. {% endcomment %}
+          <div class="d-flex gap-2" hx-disinherit="*">
             <a href="{% url 'service-create' business_slug=current_business.slug %}"
                hx-get="{% url 'service-create' business_slug=current_business.slug %}"
                hx-target="#confirmBody" hx-swap="innerHTML"
@@ -126,7 +170,14 @@
                 <th class="sl-text-end mobile-center">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-disinherit="*" IS LOAD-BEARING, DO NOT DROP IT. Every row action owns
+                an hx-* verb: the session picker, Edit and Archive (hx-get -> #confirmBody) and
+                add-to-sale (hx-post -> #sale-cart-badge). Without this they INHERIT
+                hx-select="#service-results" from the region and try to lift that id out of a
+                modal / cart-badge fragment that hasn't got one — swapping nothing, so the
+                picker and the modals open EMPTY and the + button does nothing at all.
+                See the fuller note on the quick links above. {% endcomment %}
+            <tbody hx-disinherit="*">
               {% for service in page_obj %}
               <tr class="{% if service.is_locked %}is-locked{% endif %}">
                 <td>
@@ -200,7 +251,12 @@
             </tbody>
           </table>
           {% else %}
-          <div class="empty-state">
+          {% comment %} hx-disinherit="*" here too — easy one to miss, because this button only
+              exists when the table is EMPTY, so it never appears in a review of a page that
+              has rows. It owns an hx-get to #confirmBody and would otherwise inherit the
+              region's hx-select and open an empty modal — for a brand-new business, on the
+              one button that is supposed to get them started. {% endcomment %}
+          <div class="empty-state" hx-disinherit="*">
             <div class="empty-icon"><i class="bi bi-ticket-perforated"></i></div>
             <h3 class="empty-title">No service fees yet</h3>
             <p class="empty-text">
@@ -225,6 +281,9 @@
         <!-- PAGINATION -->
         {% pagination page_obj %}
 
+      </div>
+
+      {% comment %} ═══ end #service-results ═════════════════════════════════════════════ {% endcomment %}
       </div>
     </div>
 

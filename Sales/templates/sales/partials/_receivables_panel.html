@@ -7,7 +7,7 @@ recv_-prefixed context (recv_page_obj, recv_total_outstanding, recv_period,
 recv_status) so its filters never clash with the sales table on the same page
 (one page = one request.GET).
 
-★ Its OWN live region (#recv-results), separate from the sales table's #sale-results.
+Its OWN live region (#recv-results), separate from the sales table's #sale-results.
 Two regions on one page is the whole point: filtering receivables must not reset the
 sales table's page, and vice versa. Each swaps only itself; the shared URL carries both
 sets of params, and every link here is built with the built-in
@@ -103,9 +103,18 @@ with the full month/custom-date-range filters.
       </thead>
       {% comment %} hx-boost="false": the reference links go to a sale detail page, which has
            no #recv-results to select out of the response. Boosted, they would silently do
-           nothing. (The Add payment button carries its own hx-get to the modal — boost
-           never touches an element that already has an hx-* verb, so it is unaffected.) {% endcomment %}
-      <tbody hx-boost="false">
+           nothing.
+           hx-disinherit="*" IS SEPARATE AND ALSO LOAD-BEARING. The note that used to sit
+           here said the Add payment button was "unaffected because boost never touches an
+           element that already has an hx-* verb". That is true of BOOST and irrelevant to
+           INHERITANCE — which is a different mechanism: htmx resolves hx-select/hx-target/
+           hx-swap/hx-push-url by walking UP the tree, so the button was silently inheriting
+           hx-select="#recv-results" from the region above, trying to lift that id out of the
+           payment MODAL's response, finding none, and swapping NOTHING into #confirmBody.
+           Result: the payment modal opened EMPTY. Shipped broken 07-17 and caught on
+           product_list, which has the same shape. Cut the walk here; the button's own hx-get /
+           hx-target / hx-swap are unaffected (an element's OWN attributes win first). {% endcomment %}
+      <tbody hx-boost="false" hx-disinherit="*">
         {% for s in recv_page_obj %}
         <tr>
           <td class="cell-primary">

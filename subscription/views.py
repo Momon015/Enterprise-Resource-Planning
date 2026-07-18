@@ -69,7 +69,7 @@ def contact(request, business_slug):
         )
         try:
             email = EmailMultiAlternatives(
-                subject=f"[Swift ERP Contact] {subject}",
+                subject=f"[paKITA Contact] {subject}",
                 body=body,
                 from_email=settings.EMAIL_HOST_USER,
                 to=[support_email],

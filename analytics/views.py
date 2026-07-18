@@ -194,7 +194,7 @@ def _top_products(sales, returns):
     run out of. Grouped by product_id (not the name snapshot) so renaming a product
     doesn't split it into two rows.
 
-    ★ NET of returns, per product. This column has to SUM to the headline Revenue, and the
+    NET of returns, per product. This column has to SUM to the headline Revenue, and the
     headline is now net — so if the refunds weren't backed out here too, the table would
     quietly exceed the number printed above it and stop being trustable. (Same reason
     NET_LINE exists at all: a table that doesn't add up is a table nobody believes.)
@@ -382,7 +382,7 @@ def sales_analytics(request, business_slug):
 # KPI strip, the donut and the stacked trend — so a stream cannot appear in one and go
 # missing from another.
 #
-# ★★ THIS IS *SPEND*, NOT *COST* — and since 2026-07-13 the two are different questions.
+#   THIS IS *SPEND*, NOT *COST* — and since 2026-07-13 the two are different questions.
 #   'stock' here is the stock you BOUGHT. Profit subtracts the stock you SOLD (COGS).
 #   So Total Spend on this page does NOT equal Total Costs on Profit Analytics, and it is
 #   NOT supposed to. The gap between them is whatever moved on or off the shelf.
@@ -420,7 +420,7 @@ def _stream_querysets(business, start, end):
     nothing to back out — summing it straight is the true spend.
 
     Purchase returns are NOT deducted. That is deliberate: the Dashboard and the Daily
-    ★ Supplier RETURNS are netted off the stock stream (2026-07-13) — see _purchase_returns_in.
+    Supplier RETURNS are netted off the stock stream (2026-07-13) — see _purchase_returns_in.
     """
     return {
         'stock':  Purchase.objects.active().filter(
@@ -601,7 +601,7 @@ def expense_analytics(request, business_slug):
     # Same rule as the Sales page: All time has nothing before it, so it draws no deltas
     # and the previous-window queries never run.
     #
-    # ★ Every delta on this page renders with .kpi-delta--inverse — on a COST card,
+    #   Every delta on this page renders with .kpi-delta--inverse — on a COST card,
     #   spending more is the red direction. Without it the page would congratulate an
     #   owner in green for burning more money.
     delta = None
@@ -630,7 +630,7 @@ def expense_analytics(request, business_slug):
         # The donut and the stacked bars are driven from the same rows, so a slice and
         # its band can never disagree about a colour or a number.
         #
-        # ★ Chart data is floored at 0, the LEGEND is not. Net stock can go negative when a
+        #   Chart data is floored at 0, the LEGEND is not. Net stock can go negative when a
         #   window's refunds outweigh its buying, and a doughnut cannot draw a negative arc
         #   — Chart.js would silently render it as a positive wedge, which is a lie. So the
         #   ring simply omits it (no money went out on balance) while the legend row still
@@ -658,7 +658,7 @@ def expense_analytics(request, business_slug):
 # PROFIT ANALYTICS — what you actually kept
 # ══════════════════════════════════════════════════════════════════════════════
 #
-# ★ This page is a PROFIT-AND-LOSS, and it runs on COST OF GOODS SOLD — the cost of the
+#   This page is a PROFIT-AND-LOSS, and it runs on COST OF GOODS SOLD — the cost of the
 #   goods that actually left the shelf — NOT on the stock bought in the window. See
 #   core/utils/profit.py for the full argument. Two consequences worth holding on to:
 #
@@ -863,7 +863,7 @@ def _waterfall(pnl):
 def _profit_by_product(sales, returns):
     """Which products actually MAKE the money — revenue, cost, margin ₱ and margin %.
 
-    ★ The point of the whole page. Revenue rank and PROFIT rank are usually different
+    The point of the whole page. Revenue rank and PROFIT rank are usually different
     lists: the cheap fast-mover that fills the till can earn less than a slow premium item,
     and no other screen in the app can tell you that.
 
@@ -943,7 +943,7 @@ def profit_analytics(request, business_slug):
 
     # All time has nothing before it → no deltas, and the previous-window queries never run.
     #
-    # ★ NO .kpi-delta--inverse anywhere on this page, unlike Expense Analytics. Here every
+    #   NO .kpi-delta--inverse anywhere on this page, unlike Expense Analytics. Here every
     #   headline is a GOOD-when-up figure (profit, margin, revenue) except Total Costs —
     #   which is the one card that carries the inverse class.
     delta = None

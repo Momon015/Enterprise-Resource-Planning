@@ -69,7 +69,6 @@ class ProductWasteForm(ModelForm):
         self.fields['product'].label = 'Finished Product'
 
 class WasteItemFilterForm(forms.Form):
-    search = forms.CharField(required=False)
     select_month = forms.CharField(required=False)
     start_date = forms.DateField(required=False)
     end_date = forms.DateField(required=False)

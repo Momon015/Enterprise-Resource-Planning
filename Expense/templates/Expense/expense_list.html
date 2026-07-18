@@ -20,24 +20,33 @@
 {% endif %}
 </div>
 
+{% comment %}
+Mutually-exclusive date filters clear each other. DELEGATED, not bound per element:
+#expense-results is replaced wholesale on every filter/paginate, so anything bound directly
+to these inputs would be thrown away with the first swap and the rule would quietly stop
+applying. (This page's old DOMContentLoaded version did exactly that — it was correct until
+the region went live, then it silently only worked until your first filter.)
+{% endcomment %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+document.addEventListener("change", function (e) {
+  const form = document.getElementById("filterForm");
+  if (!form || !form.contains(e.target)) return;
 
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+  const month  = form.querySelector('input[name="select_month"]');
+  const start  = form.querySelector('input[name="start_date"]');
+  const end    = form.querySelector('input[name="end_date"]');
+  const period = form.querySelector('input[name="period"]');
+
+  if (e.target === month) {
+    if (start) start.value = "";
+    if (end) end.value = "";
+  } else if (e.target === start || e.target === end) {
+    if (month) month.value = "";
+  } else {
+    return;
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
+  // Typing a date window overrides an active quick range ("This month"), so drop it.
+  if (period) period.remove();
 });
 </script>
 
@@ -72,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
       <script>
         (function () {
-          const KEY = 'swiftErp.hint.expenses';
+          const KEY = 'pakita.hint.expenses';
           const box = document.getElementById('expenseHint');
           if (!localStorage.getItem(KEY)) box.hidden = false;
           document.getElementById('expenseHintClose').addEventListener('click', function () {
@@ -81,6 +90,30 @@ document.addEventListener("DOMContentLoaded", function () {
           });
         })();
       </script>
+
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as sale_list: everything a filter can change lives in here and htmx
+          replaces the whole block — filter panel, quick ranges, count badge, table,
+          pagination. The panel is INSIDE because every part of it is derived from
+          request.GET on the server (the <details open> state, the "Active" badge, the
+          quick-range .active pill, the field values, the record count); swap only the table
+          and they go stale against the URL.
+
+          hx-select means the VIEW IS UNTOUCHED — htmx fetches this same page URL and lifts
+          #expense-results out of the full response. No partial, no JSON, no serializer.
+
+          Region extent = filter panel + table card, and no more. The two things ABOVE it in
+          this column are deliberately outside: the "About expenses" hint is filter-blind and
+          carries its own script, which would re-run and re-bind its ✕ on every swap. The
+          right panel is entirely commented out (Expense Summary went to Analytics 07-04); if
+          it ever returns it renders from these SAME filters, so it must return INSIDE this
+          region or it will show the previous period's total beside the new rows. {% endcomment %}
+      <div id="expense-results"
+           hx-boost="true"
+           hx-target="#expense-results"
+           hx-select="#expense-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
 
       <!-- ADVANCED FILTER -->
       <details class="filter-card"
@@ -94,7 +127,27 @@ document.addEventListener("DOMContentLoaded", function () {
         </summary>
 
         <div class="filter-body">
-          <form method="GET" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. 
+              This form now sits inside the boosted #expense-results region. Vendored
+              htmx 2.0.3 boosts a form like this:
+                  o = getAttribute(form, "action");
+                  if (verb === "get" && o.includes("?")) { ... }
+              With no action attribute o is null, so o.includes() throws a TypeError —
+              inside htmx's DOM-processing pass, which aborts. Every element after this form
+              (the whole table and its pagination) then never gets wired up and falls back to
+              native navigation: a full page reload on every filter. Silently — the only
+              trace is one console error.
+              htmx 2.0.4+ guards the null (path = location.href). Until we upgrade, every
+              boosted form in this app MUST carry an explicit action. {% endcomment %}
+          <form method="GET" id="filterForm" action="{% url 'expense-list' business_slug=current_business.slug %}"
+                class="filter-form filter-form--inline" autocomplete="off">
+
+            {% comment %} Keep the ACTIVE QUICK RANGE when applying a filter. A GET form submits
+                ONLY its own fields, so without this, applying anything while "This month" is
+                active would silently widen the results back to all time. Removed by the script
+                at the top of this page the moment a month or date is typed, because a date
+                window and a quick range are mutually exclusive. {% endcomment %}
+            {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
 
             <div class="form-field">
               <label class="form-label">
@@ -141,26 +194,35 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="card-header-left-group">
             <span class="card-header-title">Expense Records</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
-            <!-- QUICK RANGES — filter chips, moved from the old right column -->
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=month"
+            {% comment %} QUICK RANGES — filter chips, moved from the old right column.
+                Built with the querystring tag (Django 5.1+, no load needed) instead of a
+                hardcoded ?period=…: these chips sit in the same region as the filter panel, so
+                a bare ?period=month DROPPED whatever was already applied. Name only what
+                CHANGES; everything else rides. page=None resets to page 1 — a new range has
+                its own page count, so keeping "page 5" would land you on an empty page. The
+                date params clear because a quick range and a date window are the same choice
+                made two ways; All clears the lot. {% endcomment %}
+            <a href="{% querystring period='month' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'month' %}active{% endif %}">
               <i class="bi bi-calendar-month"></i> This month
             </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=last_month"
+            <a href="{% querystring period='last_month' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'last_month' %}active{% endif %}">
               <i class="bi bi-clock-history"></i> Last month
             </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}?period=current_year"
+            <a href="{% querystring period='current_year' page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if request.GET.period == 'current_year' %}active{% endif %}">
               <i class="bi bi-calendar"></i> This year
             </a>
-            <a href="{% url 'expense-list' business_slug=current_business.slug %}"
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None %}"
               class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
           </div>
-          <!-- Quick Actions — subtle outline buttons in the header (was "Most recent first") -->
-          <div class="d-flex gap-2">
+          {% comment %} Quick Actions — subtle outline buttons in the header (was "Most recent
+              first"). hx-boost="false": both LEAVE this page, and neither destination has an
+              #expense-results for htmx to lift — boosted, they would do nothing at all. {% endcomment %}
+          <div class="d-flex gap-2" hx-boost="false">
             <a href="{% url 'expense-create' business_slug=current_business.slug %}"
                class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-plus-circle"></i> Log expense
@@ -185,7 +247,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 <th class="sl-text-center">Total Cost</th>
               </tr>
             </thead>
-            <tbody>
+            {% comment %} hx-boost="false": every row navigates to an expense detail page, which
+                 has no #expense-results. Boosted, clicking a day would do nothing — htmx would
+                 fetch the detail page, fail to find the region, and swap nothing. {% endcomment %}
+            <tbody hx-boost="false">
               {% for record in page_obj %}
               <tr class="row-link" onclick="window.location='{% url 'expense-detail' date=record.date business_slug=current_business.slug %}?{{ request.GET.urlencode }}'">
                 <td class="cell-primary">
@@ -237,6 +302,9 @@ document.addEventListener("DOMContentLoaded", function () {
         <!-- PAGINATION -->
         {% pagination page_obj %}
 
+      </div>
+
+      {% comment %} ═══ end #expense-results ═════════════════════════════════════════════ {% endcomment %}
       </div>
     </div>
 
@@ -330,7 +398,7 @@ document.addEventListener("DOMContentLoaded", function () {
       {% endcomment %}
 
       {% comment %} About-expenses note moved to the top of the page 2026-07-04 as a
-      one-time dismissible hint (localStorage swiftErp.hint.expenses). {% endcomment %}
+      one-time dismissible hint (localStorage pakita.hint.expenses). {% endcomment %}
 
     </div>
 

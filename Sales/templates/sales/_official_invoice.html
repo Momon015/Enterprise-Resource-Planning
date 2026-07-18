@@ -37,7 +37,7 @@ GROSS while the VAT lines sum to NET, and the invoice contradicts itself. {% end
     <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
     <tr><td>Discount ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
     {% endif %}
-    {% comment %} ★ TOTAL is MANDATORY and is never replaced — BIR requires a stated total
+    {% comment %} TOTAL is MANDATORY and is never replaced — BIR requires a stated total
     amount due, so unlike the plain slip (which collapses to a single "UNPAID" line) this
     document always prints TOTAL and adds UNPAID as a STAMP. Paid/Balance are supplementary:
     under EOPT the Invoice documents the SALE; collection is a separate event. {% endcomment %}

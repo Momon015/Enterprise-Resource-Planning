@@ -190,7 +190,7 @@ document.addEventListener("change", function (e) {
            response. No JSON, no partial, no serializer: the server already renders the
            right HTML for ?period=week&payment=cash&page=3. We just stop repainting.
 
-           ★ hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
+           hx-boost catches every <a> and <form> in here (quick ranges, pagination, the
            filter form, Reset) — which is the point, but it is ALSO the trap: a link that
            LEAVES this page must opt out with hx-boost="false", or htmx tries to lift
            #purchase-results out of a page that has none, hits a target error, and drops the
@@ -214,7 +214,7 @@ document.addEventListener("change", function (e) {
         </summary>
 
         <div class="filter-body">
-           {% comment %} ★★ action= IS LOAD-BEARING, DO NOT REMOVE IT. ★★
+           {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. 
                Vendored htmx 2.0.3 boosts a form like this:
                    o = getAttribute(form, "action");
                    if (verb === "get" && o.includes("?")) { ... }
@@ -238,6 +238,10 @@ document.addEventListener("change", function (e) {
                  header now belong to this form via form="filterForm", so they submit their
                  own values. Hidden copies here would send each param twice.) {% endcomment %}
             {% if request.GET.period %}<input type="hidden" name="period" value="{{ request.GET.period }}">{% endif %}
+            {% comment %} Keep the VOIDED filter when applying a date/payment/user filter — a GET
+                 form submits only its own fields, so without this carrier a voided view narrowed
+                 by date would silently drop void=1 and widen back to all purchases. {% endcomment %}
+            {% if request.GET.void %}<input type="hidden" name="void" value="1">{% endif %}
 
              {% comment %} The Payables panel below shares this one query string, and a GET form
                  submits ONLY its own fields — so without these, applying a purchase filter would
@@ -296,7 +300,7 @@ document.addEventListener("change", function (e) {
               {% comment %} Resets this table's filters only, leaving the Payables panel's pay_
                    state alone — same reasoning as the "All" pill. Was a bare purchase-list
                    URL, which dropped everything on the page. {% endcomment %}
-              <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
+              <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None void=None %}"
                  class="btn btn-light btn-sm">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
               </a>
@@ -314,8 +318,23 @@ document.addEventListener("change", function (e) {
             <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
             </span>
+
+            {% comment %} VOIDED — in-list toggle (purchases have no drafts, so no Pending chip
+                 to sit beside; this leads the chip row as the one status exception). Voided
+                 purchases live in this list with the bi-ban badge; ?void=1 filters to them.
+                 Click again / All / Reset clears it; the date window is preserved so it composes
+                 with the ranges. {% endcomment %}
+            <a href="{% if request.GET.void %}{% querystring void=None page=None %}{% else %}{% querystring void='1' page=None %}{% endif %}"
+              class="quick-range-btn {% if request.GET.void %}active{% endif %}"
+              title="Show voided purchases only">
+              <i class="bi bi-ban"></i> Voided
+            </a>
+            {% comment %} Divider between the status chip and the time ranges — matches the
+                 sales page's .drafts-sep (that class lives in sale_list's own <style>, so it's
+                 inlined here with the same --border token rather than pulled in). {% endcomment %}
+            <span aria-hidden="true" style="width:1px; height:20px; background:var(--border); margin:0 .25rem; align-self:center;"></span>
              {% comment %} QUICK RANGES — set the date window; keep payment/user.
-                 ★ Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
+                Built with {% templatetag openblock %} querystring {% templatetag closeblock %}
                  rather than a hand-listed "?period=x&payment=y" — that older form silently
                  DROPPED every param it didn't name, which meant the Payables panel's own
                  pay_ filters below. As a full reload that only reset the panel (annoying).
@@ -345,8 +364,8 @@ document.addEventListener("change", function (e) {
                  It no longer clears the Payables panel's pay_ filters too: this button lives in
                  the purchase card and speaks for the purchase table only, exactly as the
                  panel's own "All" leaves the purchase table alone. {% endcomment %}
-            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None %}"
-              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user %}active{% endif %}">
+            <a href="{% querystring period=None page=None select_month=None start_date=None end_date=None payment=None user=None void=None %}"
+              class="quick-range-btn {% if not request.GET.period and not request.GET.select_month and not request.GET.start_date and not request.GET.end_date and not active_payment and not active_user and not request.GET.void %}active{% endif %}">
               <i class="bi bi-grid"></i> All
             </a>
           </div>
@@ -479,7 +498,7 @@ document.addEventListener("change", function (e) {
               <tr>
                 <td colspan="7">
                   <div class="empty-state">
-                    <div class="empty-icon"><i class="bi bi-cart"></i></div>
+                    <div class="empty-icon"><i class="bi bi-cart3"></i></div>
                     <h3 class="empty-title">No purchase transactions found</h3>
                     <p class="empty-text">Adjust your filters or record a new purchase.</p>
                   </div>

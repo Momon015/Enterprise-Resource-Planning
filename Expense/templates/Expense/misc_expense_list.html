@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
       <script>
         (function () {
-          const KEY = 'swiftErp.hint.expense-templates';
+          const KEY = 'pakita.hint.expense-templates';
           const box = document.getElementById('templateHint');
           if (!localStorage.getItem(KEY)) box.hidden = false;
           document.getElementById('templateHintClose').addEventListener('click', function () {
@@ -165,7 +165,7 @@ document.addEventListener("DOMContentLoaded", function () {
       {% comment %} Right column retired 2026-07-04 — Templates Overview's total
       duplicated the table-header count badge (not analytics, just redundant);
       the About note moved to the top as a one-time dismissible hint
-      (localStorage swiftErp.hint.expense-templates); Create template + Log expense
+      (localStorage pakita.hint.expense-templates); Create template + Log expense
       moved into the table header; Categories link dropped (own sidebar page).
       Nothing here is earmarked for Analytics. {% endcomment %}
 

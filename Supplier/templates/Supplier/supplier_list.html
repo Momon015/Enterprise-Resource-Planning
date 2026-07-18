@@ -55,6 +55,26 @@
     <!-- LEFT: TABLE -->
     <div class="left-panel">
 
+      {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
+          Same pattern as material_list / product_list: everything a filter can change lives in
+          here and htmx replaces the whole block — filter drawer (its <details open> state and
+          "Active" badge are server-derived), count badge, table, pagination. hx-select means
+          the VIEW IS UNTOUCHED: htmx fetches this same page URL and lifts #supplier-results out
+          of the full response. No partial, no JSON, no serializer.
+
+          Only filter here is `search`. No KPI strip drives the region from outside; the filter
+          form and the (boosted, inheriting) pagination links are the only drivers, both aimed at
+          this same URL. The right-panel Supplier Overview + Quick links sit OUTSIDE this region:
+          the overview's numbers are filter-independent (kpis.current.* is business-wide, and
+          TOTAL SUPPLIERS is the whole-business count on normal entry), and Create/Archive keep
+          their own #confirmBody targets, so none of it inherits this region's hx-select. {% endcomment %}
+      <div id="supplier-results"
+           hx-boost="true"
+           hx-target="#supplier-results"
+           hx-select="#supplier-results"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+
       <!-- FILTER DRAWER -->
       <details class="filter-card" {% if request.GET.search or request.GET.category %}open{% endif %}>
         <summary>
@@ -65,7 +85,15 @@
           {% endif %}
         </summary>
         <div class="filter-body">
-          <form method="get" id="filterForm" autocomplete="off">
+          {% comment %} action= IS LOAD-BEARING, DO NOT REMOVE IT. This form now sits inside the
+              boosted #supplier-results region. Vendored htmx 2.0.3 reads
+              form.getAttribute("action") and calls .includes("?") on it; with no action the
+              value is null, .includes() throws inside htmx's DOM pass, and every element after
+              this form (table + pagination) falls back to native navigation — a full reload on
+              every filter, silently. htmx 2.0.4+ guards the null; until we upgrade, every boosted
+              form MUST carry an explicit action. {% endcomment %}
+          <form method="get" id="filterForm" action="{% url 'supplier-list' business_slug=current_business.slug %}"
+                autocomplete="off">
             <div class="d-flex gap-2 align-items-center w-100">
               <div class="flex-grow-1">
                 <div class="input-group">
@@ -135,7 +163,14 @@
               </tr>
             </thead>
 
-            <tbody>
+            {% comment %} hx-disinherit="*" IS THE LOAD-BEARING ONE — DO NOT DROP IT.
+                Both row actions own an hx-get → #confirmBody (Edit, Archive). Without this they
+                INHERIT hx-select="#supplier-results" from the region and try to lift that id out
+                of the modal fragment, find none, and swap an empty modal over a dimmed page.
+                hx-boost="false" alone does NOT prevent inheritance (htmx walks UP the tree for
+                hx-select); hx-disinherit="*" stops that walk here so their own hx-target/hx-swap
+                win and nothing else (including hx-push-url) leaks down. {% endcomment %}
+            <tbody hx-boost="false" hx-disinherit="*">
               {% for supplier in page_obj %}
               <tr class="{% if supplier.is_locked %}is-locked{% endif %}">
                 <td>
@@ -218,6 +253,9 @@
         <!-- PAGINATION -->
         {% pagination page_obj %}
 
+      </div>
+
+      {% comment %} ═══ end #supplier-results ════════════════════════════════════════════ {% endcomment %}
       </div>
     </div>
 

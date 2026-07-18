@@ -7,7 +7,7 @@
 // Restore the collapsed icon-rail state BEFORE paint — no flash on reload.
 (function () {
   try {
-    if (localStorage.getItem('swiftErp.sidebar.collapsed') === '1'
+    if (localStorage.getItem('pakita.sidebar.collapsed') === '1'
         && window.matchMedia('(min-width: 992px)').matches) {
       document.documentElement.classList.add('sidebar-collapsed');
     }
@@ -16,7 +16,7 @@
 
 (function () {
   try {
-    var c = JSON.parse(localStorage.getItem('swiftErp.sidebar.collapsedGroups') || '[]');
+    var c = JSON.parse(localStorage.getItem('pakita.sidebar.collapsedGroups') || '[]');
     if (!c.length) return;
 
     // Inject TEMPORARY CSS to pre-collapse the right groups
@@ -67,9 +67,9 @@
   <!-- BRAND -->
   <a class="sidebar-brand"
      href="{% if user.is_authenticated and current_business.plan.has_dashboard %}{% url 'dashboard' business_slug=current_business.slug %}{% elif not current_business.plan.has_dashboard %}{% url 'product-list' business_slug=current_business.slug%}{% else %}{% url 'login' %}{% endif %}">
-    {% comment %} old Swift ERP logo — restore if paKITA wordmark test is reverted
+    {% comment %} old paKITA logo — restore if paKITA wordmark test is reverted
     <div class="sidebar-brand__icon">
-      <img src="{% static 'images/logo.png' %}" alt="Swift ERP">
+      <img src="{% static 'images/logo.png' %}" alt="paKITA">
     </div>
     {% endcomment %}
     <img class="sidebar-brand__mark sidebar-brand__mark--light" src="{% static 'images/brand/mark-light-48.png' %}" alt="" aria-hidden="true">
@@ -627,7 +627,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   // ── Sidebar group collapse with localStorage persistence ──
-  const STORAGE_KEY = 'swiftErp.sidebar.collapsedGroups';
+  const STORAGE_KEY = 'pakita.sidebar.collapsedGroups';
 
   const getCollapsed = () => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }

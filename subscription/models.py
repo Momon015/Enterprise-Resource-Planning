@@ -379,8 +379,8 @@ class Subscription(models.Model):
     def plan_components(self):
         """[(BusinessPlan, monthly_price)] for every paid business — base-payer first.
 
-        ★ THE single answer to "what does this business cost this owner". Billing AND
-          refunds must both read it.
+        THE single answer to "what does this business cost this owner". Billing AND
+        refunds must both read it.
 
         Bundle pricing means the highest tier pays the BASE rate and every other business
         pays a SURCHARGE, so a business's price depends on its siblings — it cannot be

@@ -75,6 +75,26 @@
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--danger"><i class="bi bi-recycle"></i></div>
         <div><div class="away-tile__value">{{ away.waste_count }}</div><div class="away-tile__label">Waste recorded</div></div></div>
     </div>
+    {% comment %} Voids are an EXCEPTION, not throughput — so they don't sit in the tile row
+        (where they'd read as "0 voids" most days and just add noise). They get their own amber
+        attention row, rendered ONLY when one actually happened, linking to the sales list where
+        voided rows carry the bi-ban badge. A void while the owner was away is exactly the kind
+        of thing this recap exists to catch. {% endcomment %}
+    {% comment %} Link bounds the VOID INSTANT (epoch seconds), matching how voids_count is
+        counted — `voided_at` inside this window. Do NOT swap this for start_date/end_date: those
+        narrow to a whole CALENDAR DAY, so a sale voided at 08:22 (before the owner left) shows up
+        beside one voided at 14:15 and the list contradicts the count printed right above it.
+        That exact mismatch shipped and was user-caught; core/tests/test_away_void_link.py pins it. {% endcomment %}
+    {% if away.voids_count %}
+    <a class="away-banner__alert"
+       href="{% url 'sale-list' business_slug=current_business.slug %}?void=1&voided_from={{ away.start|date:'U' }}&voided_to={{ away.end|date:'U' }}">
+      <i class="bi bi-ban"></i>
+      <span class="away-banner__alert-text">
+        <strong>{{ away.voids_count }} sale{{ away.voids_count|pluralize }}</strong> voided while you were away
+      </span>
+      <span class="away-banner__alert-cta">Review <i class="bi bi-arrow-right"></i></span>
+    </a>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -243,7 +263,7 @@
         {% comment %} "Stock purchases", not "Material Cost" — one name for this number across the
         Dashboard, Daily Summary and Analytics, and it says what it actually is.
 
-        ★ The tooltip is BASIS-AWARE because the VALUE is: in Cash mode this card shows what you
+        The tooltip is BASIS-AWARE because the VALUE is: in Cash mode this card shows what you
         actually PAID suppliers, in Accrual mode what you BOUGHT (paid or not). One static tooltip
         would be a lie in one of the two modes. {% endcomment %}
         <div class="kpi-label">Stock Purchases

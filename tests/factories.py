@@ -19,7 +19,10 @@ from user.models import User, BusinessProfile
 from subscription.models import Subscription, BusinessPlan
 from Product.models import Product
 from Sales.models import Sale, SaleItem, SalesPayment
+from Expense.models import Purchase
 from Employee.models import Employee, Shift, ShiftEmployee
+from Supplier.models import Material, Supplier
+from Inventory.models import Stock
 
 _seq = 0
 
@@ -94,6 +97,95 @@ def make_product(business, *, selling_price='100', cost_price='60', stock=100, n
         selling_price=Decimal(str(selling_price)),
         cost_price=Decimal(str(cost_price)),
         prepared_quantity=stock,
+    )
+
+
+def make_service(business, *, selling_price='20', name=None):
+    """A service fee — xerox, GCash cash-in, bills payment.
+
+    Product wears two hats, split by the `is_service` flag and surfaced as two managers:
+    Product.goods (is_service=False) and Product.services (is_service=True).
+
+    A service carries no stock in any sense that matters — service_list shows no quantity
+    column and checkout skips the deduction entirely — but prepared_quantity is still a
+    NOT NULL column, so it must be given something. Zero, explicitly: a service is not
+    "out of stock", the question just doesn't apply to it.
+
+    make_product() builds the OTHER hat, so a test that renders service_list gets an empty
+    table (and never exercises its row markup) unless it calls this.
+    """
+    return Product.objects.create(
+        user=business.user,
+        business=business,
+        name=name or _next('Service '),
+        selling_price=Decimal(str(selling_price)),
+        is_service=True,
+        prepared_quantity=0,
+    )
+
+
+def make_purchase(business, *, total_cost='500', date=None):
+    """A purchase with nothing paid against it — i.e. a PAYABLE.
+
+    `outstanding` is a computed property (total_cost - amount_paid - refunded credit),
+    not a DB field, so a purchase with no payment rows against it is money owed and
+    shows up in the payables panel. That is all this needs to be for now: a test that
+    renders that panel gets a real row instead of the empty state.
+
+    ★ No `status` here, unlike make_sale: Purchase.status is a FK to StatusModel, not
+    the CharField that Sale.status is. The two are NOT twins despite reading alike.
+    """
+    return Purchase.objects.create(
+        user=business.user,
+        business=business,
+        created_by=business.user,
+        purchase_date=date or timezone.localdate(),
+        total_cost=Decimal(str(total_cost)),
+        line_count=1,
+    )
+
+
+def make_stock(business, *, quantity=25, price='60', name=None, unit='pc'):
+    """A material and its Stock row — one line on the Stock Levels page.
+
+    Stock hangs off a Material (Supplier.models), not a Product: the stock list renders
+    stock.material.name / .supplier / .category, so the Material is the load-bearing half.
+    Stock.save() reads material.supplier and material.get_unit_display() to backfill its own
+    columns, so the Material must exist first. supplier/category are left null — the template
+    already handles "No supplier" / "No category", which is the common case anyway.
+
+    A test that renders view-inventory-stock gets the empty state (never the table markup)
+    unless it calls this.
+    """
+    material = Material.objects.create(
+        user=business.user,
+        business=business,
+        name=name or _next('Material '),
+        price=Decimal(str(price)),
+        quantity=quantity,
+        unit=unit,
+    )
+    return Stock.objects.create(
+        user=business.user,
+        business=business,
+        material=material,
+        price=Decimal(str(price)),
+        quantity=quantity,
+    )
+
+
+def make_supplier(business, *, name=None):
+    """One vendor row on the Supplier list.
+
+    A test that renders supplier-list gets the empty state (never the table markup, so
+    never its per-row Edit/Archive controls) unless it calls this. email/contact are left
+    null — the template already renders "No email" / "No contact", the common case.
+    """
+    return Supplier.objects.create(
+        user=business.user,
+        business=business,
+        created_by=business.user,
+        name=name or _next('Supplier '),
     )
 
 

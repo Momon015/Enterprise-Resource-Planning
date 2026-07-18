@@ -81,7 +81,7 @@ from core.utils.returns import (
     sales_returns_total,
 )
 
-# ★ PROFIT IS NOW COGS-BASED (2026-07-13) — see core/utils/profit.py. Net profit subtracts
+# PROFIT IS NOW COGS-BASED (2026-07-13) — see core/utils/profit.py. Net profit subtracts
 # the cost of the goods actually SOLD, not the stock BOUGHT in the window. A big delivery no
 # longer fakes a loss on the day it lands. `total_material_cost` is still computed and still
 # shown (it's real money out, and the Cash Flow lens needs it) — it just isn't what profit
@@ -98,7 +98,7 @@ def _compute_dashboard_metrics(business, today):
     expenses_today   = Expense.objects.filter(business=business, date=today)
     shifts_today     = Shift.objects.filter(business=business, date=today)
 
-    # ★ RETURNS (2026-07-12). Both figures below are NET of refunds:
+    #   RETURNS (2026-07-12). Both figures below are NET of refunds:
     #   Revenue      = sales      - customer refunds  (SalesReturn)
     #   Material cost= purchases  - supplier refunds  (PurchaseReturn)
     # They are dated by the RETURN's own date, so a refund today reduces TODAY — it never
@@ -179,7 +179,7 @@ def _compute_dashboard_metrics(business, today):
         goes through here, so a change to the profit formula cannot be applied to three of
         them and forgotten on the fourth.
 
-        ★ Everything here is a FLOAT (that's what _bucket returns), so cogs_in's Decimal is
+        Everything here is a FLOAT (that's what _bucket returns), so cogs_in's Decimal is
         cast on the way in. Mixing the two raises TypeError, and it would only blow up on a
         window that actually had sales — i.e. never in an empty test, always in production.
         """
@@ -258,7 +258,7 @@ def _compute_dashboard_metrics(business, today):
         'total_waste_cost': total_waste_cost,
         'total_expense_cost': total_expense_cost,
 
-        # ★ COGS is what net_profit subtracts; total_material_cost is what you PAID
+        # COGS is what net_profit subtracts; total_material_cost is what you PAID
         # suppliers. They are different questions and both are shown — the first on the
         # profit card's breakdown, the second on the Cash Flow lens and Expense Analytics.
         'total_cogs': total_cogs,
@@ -540,7 +540,7 @@ def dashboard(request, business_slug):
     # Cost was the one card carrying its chevron unconditionally, so on a quiet day it offered
     # a dropdown that opened to four zeros.
     #
-    # ★ Gated on _exp, which is ALREADY the lens-correct figure the card prints (cash = payroll
+    #   Gated on _exp, which is ALREADY the lens-correct figure the card prints (cash = payroll
     #   + expenses; accrual also folds in waste). Deliberately NOT reusing `hue_expense` even
     #   though it's true under the same condition today — that's a COLOUR rule, and tying the
     #   dropdown's existence to it would break the day someone changes how the card is tinted.
@@ -811,8 +811,15 @@ def _away_summary(request, business):
     purchases_count = Purchase.objects.active().filter(business=business, created_at__range=(start, end)).count()
     expenses_count  = Expense.objects.filter(business=business, created_at__range=(start, end)).count()
     waste_count     = Waste.objects.filter(business=business, created_at__range=(start, end)).count()
+    # Voids are keyed on voided_at, NOT created_at: what happened in this window is the void
+    # ACTION, and the sale it reverses was very often rung before the owner left. is_void sits
+    # outside .active(), so this is a plain filter on Sale.objects. A void is an owner-review
+    # event (unlike the routine counts above), which is why it earns its own alert row in the
+    # banner rather than a tile — and why it's in the guard below: a window whose ONLY event was
+    # a void must still surface, not stay silent.
+    voids_count     = Sale.objects.filter(business=business, is_void=True, voided_at__range=(start, end)).count()
 
-    if not any([sales_count, purchases_count, expenses_count, waste_count]):
+    if not any([sales_count, purchases_count, expenses_count, waste_count, voids_count]):
         request.session.pop(sess_key, None)   # nothing happened — stay silent
         return None
 
@@ -826,7 +833,7 @@ def _away_summary(request, business):
         'start': start, 'end': end, 'duration': duration,
         'sales_count': sales_count, 'revenue': revenue, 'items_sold': items_sold,
         'purchases_count': purchases_count, 'expenses_count': expenses_count,
-        'waste_count': waste_count,
+        'waste_count': waste_count, 'voids_count': voids_count,
     }
 
 @login_required(login_url='login')

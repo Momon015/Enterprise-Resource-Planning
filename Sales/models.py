@@ -278,7 +278,7 @@ class Sale(TimeStampModel):
         June 29 sale refunded on July 4 reduces JULY). So this never changes what the
         sale was worth — it only says the goods came back later.
 
-        ★ The chip this feeds sits BESIDE the settlement badge, never replacing it.
+        The chip this feeds sits BESIDE the settlement badge, never replacing it.
         "Paid" and "Returned" are INDEPENDENT facts: the customer really did hand over
         the money, and the goods really did come back. Collapsing them into one chip
         throws half the story away — which is exactly why a fully-refunded sale used to
@@ -384,11 +384,11 @@ class SaleItem(models.Model):
         order discount means every item is 20% off — spread proportionally, exactly the
         rule Sale.vat_summary() already applies to its VAT buckets.
 
-        ★ Anything that pays money BACK must price the line through here, never through
-          `price_at_sale`, or it refunds more than was ever collected. That was a real
-          bug: the return form prefilled the sticker price, so a partial return of a
-          discounted sale silently over-refunded, and a FULL return totalled more than
-          the sale and got rejected by the refund ceiling.
+        Anything that pays money BACK must price the line through here, never through
+        `price_at_sale`, or it refunds more than was ever collected. That was a real
+        bug: the return form prefilled the sticker price, so a partial return of a
+        discounted sale silently over-refunded, and a FULL return totalled more than
+        the sale and got rejected by the refund ceiling.
 
         Rounds DOWN to centavos on purpose: it keeps the sum of the lines at or under
         `total_revenue`, so a full return can always be processed and can never trip the
@@ -466,7 +466,7 @@ class SalesReturnSequence(AbstractDocumentSequence):
     pass
 
 class SalesReturn(TimeStampModel):
-    # ★ refund_method is now DERIVED, not chosen (2026-07-12). The refund is split by
+    # refund_method is now DERIVED, not chosen (2026-07-12). The refund is split by
     # core.utils.returns.split_refund — debt first, cash second — so a refund that is
     # impossible (cash back on a sale nobody paid for) can't be represented at all.
     # This field is the display summary; refund_cash / refund_credit carry the money.

@@ -1,5 +1,5 @@
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
 from django.http import JsonResponse
@@ -203,13 +203,19 @@ def cart_set_line(request, business_slug):
     get_object_or_404(Material, business=business, id=material_id)
     quantity = int(cart[material_id].get('quantity', 1) or 1)
 
-    raw_total = request.POST.get('total_price')
+    try:
+        raw_total = request.POST.get('total_price')
+    except (TypeError, InvalidOperation):
+        pass
     if raw_total not in (None, ''):
         cart[material_id]['price'] = str(Decimal(raw_total) / quantity)
 
     # flat discount only applies when NOT in % mode
     if not business.enable_purchase_discount:
-        raw_discount = request.POST.get('discount')
+        try:
+            raw_discount = request.POST.get('discount')
+        except (TypeError, InvalidOperation):
+            pass
         if raw_discount not in (None, ''):
             cart[material_id]['discount'] = str(Decimal(raw_discount))
 

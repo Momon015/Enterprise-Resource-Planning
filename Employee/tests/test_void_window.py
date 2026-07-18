@@ -20,7 +20,7 @@ THE RULE (2026-07-16), keyed on the drawer rather than the day:
   - and only ever by the person who rang it (staff additionally need their own
     timecard open, so a sale no drawer counted can't be rung-and-voided off-shift)
 
-The two cases marked ★ are holes in the version this replaced, which asked "is ANY
+The two cases marked are holes in the version this replaced, which asked "is ANY
 drawer open?" business-wide instead of "is THIS sale's drawer closed?".
 """
 from datetime import timedelta
@@ -93,10 +93,10 @@ def test_yesterdays_sale_is_never_voidable(business, owner, product):
     assert can_void_sale(sale, owner) is False
 
 
-# ── ★ The holes the per-drawer rule exists to close ──────────────────────────
+# ── The holes the per-drawer rule exists to close ──────────────────────────
 
 def test_a_sale_rung_after_every_drawer_closed_is_still_voidable(business, owner, product):
-    """★ Clock out at 3pm, ring a sale at 6pm — that sale is in no drawer at all.
+    """Clock out at 3pm, ring a sale at 6pm — that sale is in no drawer at all.
 
     No shift counted it, so voiding it cannot disturb any reconciliation. The old gate
     blocked it anyway: it saw "a shift existed today", found none still open, and shut
@@ -110,7 +110,7 @@ def test_a_sale_rung_after_every_drawer_closed_is_still_voidable(business, owner
 
 
 def test_an_open_pm_drawer_does_not_unseal_the_counted_am_drawer(business, owner, product):
-    """★ The handover hole, and why this change is a tightening, not a loosening.
+    """The handover hole, and why this change is a tightening, not a loosening.
 
     ShiftEmployee rows are per-employee, but the old gate read them business-wide. With
     an AM staffer clocked 9–1 (drawer counted, handed over, signed for) and a PM staffer

@@ -7,7 +7,7 @@ profit as if a refund never happened. There are two, and they are mirror images:
     PurchaseReturn  — we send goods back to the SUPPLIER   -> reduces COST
     SalesReturn     — a customer brings goods back to US   -> reduces REVENUE
 
-★ They must be fixed TOGETHER. Subtracting only purchase returns lowers cost while
+  They must be fixed TOGETHER. Subtracting only purchase returns lowers cost while
   revenue stays inflated by every customer refund, so net profit comes out HIGHER than
   reality — a half-fix that reads like an improvement. That is why the formula below is
   a single function: it is impossible to apply one side and forget the other.
@@ -75,9 +75,9 @@ def split_refund(outstanding, amount):
         credit = min(amount, outstanding)      # wipe the debt first
         cash   = amount - credit               # only what's left can be cash
 
-    ★ The invariant it buys: YOU NEVER RECEIVE CASH WHILE YOU STILL OWE MONEY.
-      Cash can only come back once the balance is settled, which is exactly how a real
-      supplier (or shop) handles it — a credit note before a cash refund.
+    The invariant it buys: YOU NEVER RECEIVE CASH WHILE YOU STILL OWE MONEY.
+    Cash can only come back once the balance is settled, which is exactly how a real
+    supplier (or shop) handles it — a credit note before a cash refund.
 
     Answers "do they have to pay it off first?" with NO: an unpaid order returning ₱85
     simply owes ₱85 less. Nobody has to settle ₱430 to claw back ₱85.
@@ -107,11 +107,11 @@ def refund_method_for(cash, credit):
 #
 #     from core.utils.profit import cogs_in, net_profit
 #
-# ★ Do not re-add a purchases-based profit here "for compatibility". Two profit formulas
+#   Do not re-add a purchases-based profit here "for compatibility". Two profit formulas
 #   in one codebase is precisely the disease this module was written to cure — see the
 #   docstring above on why both return types had to be fixed in a single function.
 #
-# ★ purchase_returns_total() above is STILL USED, but no longer by the profit formula:
+#   purchase_returns_total() above is STILL USED, but no longer by the profit formula:
 #   sending stock back to a supplier is an inventory/cash movement, not a trading result.
 #   It feeds CASH FLOW and Expense Analytics. sales_returns_total() still feeds profit.
 # ══════════════════════════════════════════════════════════════════════════════

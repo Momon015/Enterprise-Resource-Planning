@@ -310,10 +310,10 @@ class PurchaseItem(TimeStampModel):
             line = price × qty − discount          (flat mode; discount is 0 in % mode)
             line = line × (100 − percent) / 100    (percent is 0 in flat mode)
 
-        ★ Price every REFUND through here, never through `price`, or the return claims
-          back more than the PO was ever worth — and a FULL return totals more than
-          `total_cost` and gets rejected by the refund ceiling. Twin of
-          Sales.SaleItem.effective_unit_price; same reasoning, mirrored side.
+        Price every REFUND through here, never through `price`, or the return claims
+        back more than the PO was ever worth — and a FULL return totals more than
+        `total_cost` and gets rejected by the refund ceiling. Twin of
+        Sales.SaleItem.effective_unit_price; same reasoning, mirrored side.
 
         Rounds DOWN to centavos so the lines always sum to at or under `total_cost`.
         """
@@ -393,7 +393,7 @@ class PurchaseReturnSequence(AbstractDocumentSequence):
     pass
 
 class PurchaseReturn(TimeStampModel):
-    # ★ refund_method is now DERIVED, not chosen (2026-07-12) — mirror of SalesReturn.
+    # refund_method is now DERIVED, not chosen (2026-07-12) — mirror of SalesReturn.
     # The refund is split by core.utils.returns.split_refund (debt first, cash second),
     # so a cash refund on an order we never paid for can't be represented at all.
     REFUND_METHOD_CHOICES = [

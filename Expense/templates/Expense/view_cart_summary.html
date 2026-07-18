@@ -52,7 +52,7 @@ function togglePaymentFields() {
       <div class="pos-card">
         <div class="pos-card-header">
           <span class="pos-card-title">
-            <i class="bi bi-basket3 me-1"></i> Supplier
+            <i class="bi bi-cart me-1"></i> Supplier
           </span>
           {% comment %} <span class="sl-badge sl-badge-light">{{ cart_items|length }} line{{ cart_items|length|pluralize }}</span> {% endcomment %}
         </div>
@@ -242,7 +242,7 @@ function togglePaymentFields() {
 
   {% else %}
   <div class="empty-state">
-    <div class="empty-icon"><i class="bi bi-basket3"></i></div>
+    <div class="empty-icon"><i class="bi bi-cart3"></i></div>
     <div class="empty-title">No items yet</div>
     <p class="empty-sub">Add items to your purchase before confirming.</p>
     <a href="{% url 'view-cart' business_slug=current_business.slug %}" class="btn-add-product">

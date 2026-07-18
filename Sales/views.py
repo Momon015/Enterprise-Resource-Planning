@@ -25,9 +25,10 @@ from Product.models import Product
 from Product.forms import ProductForm
 
 from Expense.models import Purchase, PurchaseItem, Waste, WasteItem, Expense, MiscExpense
-from Employee.models import Employee, Shift, ShiftEmployee
+from Employee.models import Employee, Shift, ShiftEmployee, DrawerSession
 from Employee.forms import EmployeeForm
-from Employee.utils import void_allowed, must_clock_in_to_sell
+from Employee.utils import (void_allowed, must_clock_in_to_sell, open_fresh_shift,
+                            get_opening_cash_for_today)
 
 from Inventory.models import Stock
 from Expense.models import Waste, WasteItem
@@ -42,7 +43,7 @@ from django.views.decorators.http import require_POST
 
 from django.core.paginator import Paginator
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone as dt_timezone
 import calendar
 from django.db.models import Sum, Avg, Max, Q, F
 from django.db.models.functions import Coalesce
@@ -222,7 +223,42 @@ def sale_list(request, business_slug):
         business=business, status='completed').order_by('-reference')   # drafts live in the draft list
 
     # for staff to see their own records
-    sales = filter_to_own_if_staff(request.user, sales) 
+    sales = filter_to_own_if_staff(request.user, sales)
+
+    # Voided view: ?void=1 filters to voided sales only (they otherwise sit inline in the
+    # list with the bi-ban badge). Applied here on the base so every downstream total and the
+    # pagination reflect it.
+    void_only = request.GET.get('void') == '1'
+    if void_only:
+        sales = sales.filter(is_void=True)
+
+        # ?voided_from / ?voided_to = epoch seconds bounding the VOID INSTANT. The dashboard
+        # "while you were away" recap links here so the rows match the count it printed.
+        #
+        # ★ These exist because the obvious shortcut is WRONG and shipped broken (2026-07-18):
+        # the recap counts by `voided_at` over a TIME window (e.g. 08:40–15:42), but scoping the
+        # link by `date` only narrows to a whole CALENDAR DAY. A sale voided at 08:22 — before
+        # the owner ever left — has the same `date` as one voided at 14:15, so the banner said
+        # "1 sale voided" and the link listed 2. Same-day-void gating makes voided_at's DAY equal
+        # the sale's date, but the away window is a slice INSIDE a day, so day granularity can't
+        # reproduce it. Bound the instant, not the day.
+        # Epoch (not ISO) on purpose: no "+" in the query string to survive URL-encoding.
+        def _epoch_param(name):
+            raw = request.GET.get(name)
+            if not raw:
+                return None
+            try:
+                return datetime.fromtimestamp(int(raw), tz=dt_timezone.utc)
+            except (TypeError, ValueError, OSError, OverflowError):
+                return None
+
+        voided_from = _epoch_param('voided_from')
+        voided_to = _epoch_param('voided_to')
+        if voided_from:
+            sales = sales.filter(voided_at__gte=voided_from)
+        if voided_to:
+            sales = sales.filter(voided_at__lte=voided_to)
+
     form = SaleFilterForm(request.GET or None)
     
     today = timezone.localdate()
@@ -751,18 +787,34 @@ def view_session_summary(request, business_slug):
     discount_amount  = total_revenue * discount_percent / Decimal('100')
     net_total        = max(total_revenue - discount_amount, Decimal('0'))
 
+    # Clock-in-at-checkout: if this staffer isn't on shift, Confirm opens a modal to confirm the
+    # opening cash and time in (first-opening / fresh drawer) rather than bouncing them to My
+    # Shift. Only cashiers see the cash confirmation; attendance-only staff just time in.
+    must_clock_in = must_clock_in_to_sell(business, request.user)
+    clockin_is_cashier = False
+    opening_info = None
+    if must_clock_in:
+        employee = Employee.objects.filter(staff_user=request.user, business=business).first()
+        clockin_is_cashier = bool(employee and employee.is_cashier)
+        if clockin_is_cashier:
+            opening_info = get_opening_cash_for_today(business)
+
     context = {
-        'items': items, 
+        'items': items,
         'page_obj': page_obj,
-        'total_revenue': total_revenue, 
-        'total_cost_price': total_cost_price, 
-        'employees': 'employees', 
-        'total_salary_cost': total_salary_cost, 
+        'total_revenue': total_revenue,
+        'total_cost_price': total_cost_price,
+        'employees': 'employees',
+        'total_salary_cost': total_salary_cost,
         'section': 'product',
-        
-        'discount_percent': discount_percent, 
-        'discount_amount': discount_amount, 
+
+        'discount_percent': discount_percent,
+        'discount_amount': discount_amount,
         'net_total': net_total,
+
+        'must_clock_in': must_clock_in,
+        'clockin_is_cashier': clockin_is_cashier,
+        'opening_info': opening_info,
         }
     
     return render(request, 'Sales/view_session_summary.html', context)
@@ -773,15 +825,40 @@ def view_session_summary(request, business_slug):
 def confirm_view_summary(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
 
-    # Staff must be on shift for the cash to land in a drawer that someone counts.
-    # The cart is left untouched: they clock in and come straight back to it, so this
-    # costs a tap rather than the sale (see must_clock_in_to_sell for the why).
+    # Staff must be on shift for the cash to land in a drawer that someone counts (see
+    # must_clock_in_to_sell for the why). Rather than bounce them to My Shift, the summary page
+    # offers a clock-in modal: confirm the opening cash, time in, and post the sale in one go.
     if must_clock_in_to_sell(business, request.user):
-        messages.warning(
-            request,
-            "Time in first so this sale goes into your drawer. Your cart is saved."
-        )
-        return redirect('shift-dashboard', business_slug=business.slug)
+        if request.POST.get('confirm_clock_in') == '1':
+            employee = Employee.objects.filter(staff_user=request.user, business=business).first()
+            if not employee:
+                messages.error(request, 'You are not registered as an employee of this business.')
+                return redirect('product-list', business_slug=business.slug)
+
+            # A shared-drawer HAND-OVER (someone left the drawer open) needs a blind recount,
+            # which this modal doesn't do — send them to My Shift where that UI lives.
+            if employee.is_cashier and business.shared_cash_drawer:
+                open_session = DrawerSession.objects.filter(
+                    business=business, date=timezone.localdate(), status='open'
+                ).first()
+                if open_session and open_session.current_holder_id:
+                    messages.info(request, "The cash drawer needs a hand-over — time in from My Shift.")
+                    return redirect('shift-dashboard', business_slug=business.slug)
+
+            # Cashiers must tick the opening-cash confirmation in the modal.
+            if employee.is_cashier and request.POST.get('confirm_opening_cash') != 'on':
+                messages.error(request, 'Confirm the starting cash to time in.')
+                return redirect('view-session-summary', business_slug=business.slug)
+
+            open_fresh_shift(business, employee)
+            # must_clock_in_to_sell is now False — fall through and post the sale into their drawer.
+        else:
+            # No modal confirmation (older path / JS off) — keep the safe bounce.
+            messages.warning(
+                request,
+                "Time in first so this sale goes into your drawer. Your cart is saved."
+            )
+            return redirect('shift-dashboard', business_slug=business.slug)
 
     sale = prune_stale_cart_lines(request, business, 'sale', Product)
     line_count = request.session.get('line_count', 0)
@@ -1412,7 +1489,7 @@ def sales_return_create(request, business_slug, sale_id):
                                 business_slug=business_slug, sale_id=sale_id)
 
 
-            # ★ Price the refund off what the customer PAID (sticker less the whole-order
+            # Price the refund off what the customer PAID (sticker less the whole-order
             # discount), never off price_at_sale — see SaleItem.effective_unit_price.
             paid_per_unit = si.effective_unit_price
             unit_refund_str = request.POST.get(f'unit_refund_{si.id}', str(paid_per_unit))
@@ -1446,7 +1523,7 @@ def sales_return_create(request, business_slug, sale_id):
             return redirect('sales-return-create',
                             business_slug=business_slug, sale_id=sale_id)
 
-        # ★ Debt first, cash second. What the customer still owes is knocked off before a
+        # Debt first, cash second. What the customer still owes is knocked off before a
         # single peso is handed back, so an utang sale can never pay out cash for goods
         # that were never paid for. See core/utils/returns.split_refund.
         refund_cash, refund_credit = split_refund(sale.outstanding, total_refund)

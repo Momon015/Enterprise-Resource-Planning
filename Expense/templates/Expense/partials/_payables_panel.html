@@ -10,7 +10,7 @@ pay_status, pay_filter_active, pay_any_count) so its filters never clash with th
 purchase list's own period/page/payment filters on the same page (one page = one
 request.GET).
 
-★ THE LIVE REGION (#pay-results) IS DECLARED BY THE HOST, NOT HERE — on purpose.
+THE LIVE REGION (#pay-results) IS DECLARED BY THE HOST, NOT HERE — on purpose.
 Both hosts name it #pay-results, but its correct EXTENT differs, and that is exactly
 why it cannot live in this shared partial:
   · purchase-list wraps only this include. Everything else pay_ params affect is in
@@ -113,9 +113,19 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
       </thead>
       {% comment %} hx-boost="false": the reference links go to a purchase detail page, which
            has no #pay-results to select out of the response. Boosted, they would silently do
-           nothing. (The Add payment button carries its own hx-get to the modal — boost never
-           touches an element that already has an hx-* verb, so it is unaffected.) {% endcomment %}
-      <tbody hx-boost="false">
+           nothing.
+           hx-disinherit="*" IS SEPARATE AND ALSO LOAD-BEARING. The note that used to sit
+           here said the Add payment button was "unaffected because boost never touches an
+           element that already has an hx-* verb". True of BOOST, irrelevant to INHERITANCE —
+           a different mechanism: htmx resolves hx-select/hx-target/hx-swap/hx-push-url by
+           walking UP the tree, so the button silently inherited hx-select="#pay-results" from
+           the region above, tried to lift that id out of the payment MODAL's response, found
+           none, and swapped NOTHING into #confirmBody → the payment modal opened EMPTY.
+           Shipped broken 07-17; caught on product_list and swept for with a parser that walks
+           the ancestor stack the same way htmx does. Cut the walk here; the button's own
+           hx-get/hx-target/hx-swap are unaffected (an element's OWN attributes win first).
+           {% endcomment %}
+      <tbody hx-boost="false" hx-disinherit="*">
         {% for p in pay_page_obj %}
         <tr class="{% if p.due_date and p.due_date < today %}is-overdue{% endif %}">
           <td class="cell-primary">

@@ -313,7 +313,7 @@ function SaleCart() {
               )}
 
               <div className="total-row">
-                <span className="total-label"><i className="bi bi-basket3"></i> Items</span>
+                <span className="total-label"><i className="bi bi-cart3"></i> Items</span>
                 <span className="total-value">{cart.item_count}</span>
               </div>
               <div className="total-row">

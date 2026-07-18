@@ -139,9 +139,6 @@ def clear_cart(request, business_slug):
             'messages':       get_messages(request),
         })
     
-    
-    
-    
     return redirect('material-list', business_slug=business.slug)
 
 """clearing cart just in case there's a bug """
@@ -239,6 +236,15 @@ def purchase_history(request, business_slug):
     purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-reference')
     # show their own records if staff
     purchases = filter_to_own_if_staff(request.user, purchases)
+
+    # Voided view: ?void=1 filters to voided purchases only (they otherwise sit inline with the
+    # bi-ban badge). Applied on the base so totals + pagination reflect it; composes with the
+    # date range. Same-day void rule (can_void_purchase) means a purchase_date range captures
+    # exactly the purchases voided in that window.
+    void_only = request.GET.get('void') == '1'
+    if void_only:
+        purchases = purchases.filter(is_void=True)
+
     # forms
     form = PurchaseFilterForm(request.GET or None)
     
@@ -1394,7 +1400,7 @@ def purchase_return_create(request, business_slug, purchase_id):
                 return redirect('purchase-return-create',
                                 business_slug=business_slug, purchase_id=purchase_id)
 
-            # ★ Price the refund off what we PAID (unit price less whatever discount the
+            # Price the refund off what we PAID (unit price less whatever discount the
             # PO carried), never off pi.price — see PurchaseItem.effective_unit_price.
             paid_per_unit = pi.effective_unit_price
             unit_refund_str = request.POST.get(f'unit_refund_{pi.id}', str(paid_per_unit))
@@ -1425,7 +1431,7 @@ def purchase_return_create(request, business_slug, purchase_id):
             return redirect('purchase-return-create',
                             business_slug=business_slug, purchase_id=purchase_id)
 
-        # ★ The refund method is COMPUTED, not taken from the form (2026-07-12). Debt
+        # The refund method is COMPUTED, not taken from the form (2026-07-12). Debt
         # first, cash second: whatever we still owe is knocked off before any cash comes
         # back, so the supplier can never "refund" money we never paid them. The posted
         # refund_method is ignored on purpose — see core/utils/returns.split_refund.
@@ -1791,21 +1797,21 @@ def waste_list(request, business_slug):
     current_year = f"{today.year}-{today.month:02d}"
     
     if form.is_valid():
-        search = form.cleaned_data.get('search')
+        # search = form.cleaned_data.get('search')
         select_month = form.cleaned_data.get('select_month')
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
         
-        if search:
-            wastes = wastes.filter(
-                Q(waste_items__material__name__iexact=search) |
-                Q(total_cost__iexact=search) |
-                Q(waste_items__quantity__iexact=search)
-            )
+        # if search:
+        #     wastes = wastes.filter(
+        #         Q(waste_items__material__name__iexact=search) |
+        #         Q(total_cost__iexact=search) |
+        #         Q(waste_items__quantity__iexact=search)
+        #     )
         
         if select_month:
             parsed_date = datetime.strptime(select_month, '%Y-%m')
-            wastes = wastes.filter(date__month=parsed_date.month)
+            wastes = wastes.filter(date__month=parsed_date.month, date__year=parsed_date.year)
         
         if start_date and end_date:
             wastes = wastes.filter(date__range=(start_date, end_date))
@@ -1819,12 +1825,16 @@ def waste_list(request, business_slug):
                 wastes = wastes.filter(date__week=last_year_of_last_week, date__year=last_year)
             else:
                 wastes = wastes.filter(date__week=today.isocalendar()[1]-1, date__year=today.year)
-                
+        
+        if period == 'week':
+            wastes = wastes.filter(date__week=today.isocalendar()[1], date__year=today.year)
+           
         if period == 'month':
             wastes = wastes.filter(date__month=today.month, date__year=today.year)
             
         if period == 'today':
             wastes = wastes.filter(date__day=today.day, date__year=today.year)
+            
         
         total_waste_cost = wastes.total_waste_cost()
         
@@ -1944,7 +1954,7 @@ def waste_material_create(request, business_slug):
                             messages.error(request, f"All items were invalid: {', '.join(invalid_items)}")
                         else:
                             messages.error(request, "No valid items were processed.")
-                        return redirect('expense-waste-list', business_slug=business.slug)
+                        return redirect('material-waste-create', business_slug=business.slug)
 
                 # ── SUCCESS PATH (outside atomic, still inside try) ──
                 items_text = summarize_items(waste.waste_items.all(), prefix='-')
@@ -1961,7 +1971,7 @@ def waste_material_create(request, business_slug):
 
             except ValidationError:
                 messages.warning(request, "Waste record can't be processed.")
-                return redirect('expense-waste-list', business_slug=business.slug)
+                return redirect('material-waste-create', business_slug=business.slug)
 
     
     stocks = Stock.objects.filter(business=business)
