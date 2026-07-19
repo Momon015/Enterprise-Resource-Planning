@@ -132,7 +132,7 @@ def make_purchase(business, *, total_cost='500', date=None):
     shows up in the payables panel. That is all this needs to be for now: a test that
     renders that panel gets a real row instead of the empty state.
 
-    ★ No `status` here, unlike make_sale: Purchase.status is a FK to StatusModel, not
+    No `status` here, unlike make_sale: Purchase.status is a FK to StatusModel, not
     the CharField that Sale.status is. The two are NOT twins despite reading alike.
     """
     return Purchase.objects.create(

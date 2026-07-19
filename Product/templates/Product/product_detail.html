@@ -38,9 +38,9 @@ document.addEventListener("DOMContentLoaded", () =>
     {% if product.prepared_quantity <= product.low_stock_threshold or product.margin_status == 'warning' or product.margin_status == 'critical' %}
     <div class="pd-alerts" data-session="{{ request.session.session_key }}" data-product="{{ product.id }}">
       {% if product.prepared_quantity <= product.low_stock_threshold %}
-      <div class="pd-alert pd-alert--{% if product.prepared_quantity <= 0 %}danger{% else %}warning{% endif %}" data-alert="stock">
+      <div class="pd-alert pd-alert--{% if product.stock_status == 'out' %}danger{% else %}warning{% endif %}" data-alert="stock">
         <i class="bi bi-exclamation-triangle-fill"></i>
-        <span>{% if product.prepared_quantity <= 0 %}Out of stock — restock before selling.{% else %}Stock running low — only {{ product.prepared_quantity }} left.{% endif %}</span>
+        <span>{% if product.stock_status == 'out' %}Out of stock — restock before selling.{% elif product.stock_status == 'critical' %}Almost gone — only {{ product.prepared_quantity }} left, restock now.{% else %}Stock running low — only {{ product.prepared_quantity }} left.{% endif %}</span>
         <button type="button" class="pd-alert__dismiss" aria-label="Dismiss until next login" title="Dismiss until next login"><i class="bi bi-x-lg"></i></button>
       </div>
       {% endif %}
@@ -116,12 +116,14 @@ document.addEventListener("DOMContentLoaded", () =>
 
         <!-- featured stock band (color-coded) -->
         <div class="pd-stockband">
-          <div class="pd-stat-box pd-stat-box--{% if product.prepared_quantity <= 0 %}danger{% elif product.prepared_quantity <= product.low_stock_threshold %}warning{% else %}success{% endif %}">
+          {% comment %} Four bands via product.stock_status — see product_list.html. {% endcomment %}
+          <div class="pd-stat-box pd-stat-box--{% if product.stock_status == 'out' %}danger{% elif product.stock_status == 'critical' %}warning{% elif product.stock_status == 'low' %}muted{% else %}success{% endif %}">
             <div class="pd-stat-box__label">STOCK ON HAND</div>
             <div class="pd-stat-box__value">{{ product.prepared_quantity }} units</div>
             <div class="pd-stat-box__sub">
-              {% if product.prepared_quantity <= 0 %}<i class="bi bi-slash-circle"></i> Out of stock
-              {% elif product.prepared_quantity <= product.low_stock_threshold %}<i class="bi bi-exclamation-triangle-fill"></i> Low stock
+              {% if product.stock_status == 'out' %}<i class="bi bi-slash-circle"></i> Out of stock
+              {% elif product.stock_status == 'critical' %}<i class="bi bi-exclamation-octagon-fill"></i> Critically low
+              {% elif product.stock_status == 'low' %}<i class="bi bi-exclamation-triangle-fill"></i> Low stock
               {% else %}<i class="bi bi-check-circle-fill"></i> In stock{% endif %}
             </div>
           </div>

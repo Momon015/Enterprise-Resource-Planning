@@ -235,7 +235,7 @@ def sale_list(request, business_slug):
         # ?voided_from / ?voided_to = epoch seconds bounding the VOID INSTANT. The dashboard
         # "while you were away" recap links here so the rows match the count it printed.
         #
-        # ★ These exist because the obvious shortcut is WRONG and shipped broken (2026-07-18):
+        # These exist because the obvious shortcut is WRONG and shipped broken (2026-07-18):
         # the recap counts by `voided_at` over a TIME window (e.g. 08:40–15:42), but scoping the
         # link by `date` only narrows to a whole CALENDAR DAY. A sale voided at 08:22 — before
         # the owner ever left — has the same `date` as one voided at 14:15, so the banner said

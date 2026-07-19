@@ -382,10 +382,20 @@
 
                 <td class="sl-text-center sl-fw-semibold">{{ stock.quantity|intcomma }}</td>
                 <td class="sl-text-center col-mobile-hidden">
-                  {% if stock.quantity == 0 %}
+                  {% comment %}
+                    Reads stock.stock_status (Inventory/models.py) — it used to
+                    test `quantity <= 25` inline: the LITERAL rather than
+                    LOW_STOCK_THRESHOLD, and only three bands. So a Critically Low
+                    row rendered "Low stock" while the KPI card above counted it
+                    as critical and ?stock=critical selected it. Same fix as
+                    product_list.html, 2026-07-20.
+                  {% endcomment %}
+                  {% if stock.stock_status == 'out' %}
                     <span class="sl-badge" style="background:var(--danger-light); color:var(--danger);">Out of stock</span>
-                  {% elif stock.quantity <= 25 and stock.quantity > 0 %}
-                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Low stock</span>
+                  {% elif stock.stock_status == 'critical' %}
+                    <span class="sl-badge" style="background:var(--warning-light); color:var(--warning);">Critically low</span>
+                  {% elif stock.stock_status == 'low' %}
+                    <span class="sl-badge" style="background:color-mix(in srgb, var(--silver) 14%, var(--surface)); color:var(--silver);">Low stock</span>
                   {% else %}
                     <span class="sl-badge" style="background:var(--accent-light); color:var(--accent);">In stock</span>
                   {% endif %}

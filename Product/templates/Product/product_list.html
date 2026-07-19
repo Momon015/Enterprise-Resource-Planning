@@ -582,10 +582,20 @@
 
                 <td class="sl-text-center">
                   <div class="cell-primary">{{ product.prepared_quantity }}</div>
-                  {% if product.prepared_quantity <= 0 %}
+                  {% comment %}
+                    Reads product.stock_status (the model) instead of comparing
+                    thresholds here. This badge used to test low_stock_threshold
+                    directly with no critical branch, so a Critically Low row —
+                    the one the KPI card counted and the filter chip selected —
+                    still called itself "Low stock". Bands are disjoint in
+                    Product/models.py; the badge now says the same thing they do.
+                  {% endcomment %}
+                  {% if product.stock_status == 'out' %}
                     <span class="status-badge status-danger">Out of stock</span>
-                  {% elif product.prepared_quantity <= product.low_stock_threshold %}
-                    <span class="status-badge status-warning">Low stock</span>
+                  {% elif product.stock_status == 'critical' %}
+                    <span class="status-badge status-warning">Critically low</span>
+                  {% elif product.stock_status == 'low' %}
+                    <span class="status-badge status-neutral">Low stock</span>
                   {% else %}
                     <span class="status-badge status-success">In stock</span>
                   {% endif %}

@@ -121,13 +121,33 @@ def attention_items(business):
 
 def scope_events_for_user(qs, user):
     """
-    Staff see: their own events + stock alerts (low/out).
-    Owners/dev: see all.
+    Staff see: their own events + the urgent stock alerts. Owners/dev: see all.
+
+    SCOPE OF THIS FUNCTION — it does NOT gate any alert. It filters the Activity
+    PAGE and the module "Recent activity" panels, both of which are HISTORY that
+    someone opens on purpose. The BELL does not call this at all
+    (activity/context_processors.py), and is unscoped BY DESIGN — see
+    [[project_pinned_bell_attention]].
+
+    So nobody learns "the shelf is empty" from here. That is the PINNED block's
+    job: state, not events, collapsed to one line ("1 Product - Critically Low")
+    with a subtle dot, so a bad stock day cannot spam the floor with one
+    notification per product. Staff already see it; it needed no change.
+
+    What the verb list below decides is only what a staff member FINDS when they
+    open the Activity page. It carries the same two bands the pinned block treats
+    as urgent, so page and bell stop disagreeing about what counts:
+      - stock.critical / stock.out -> shelf problems, act today
+      - stock.low                  -> a REORDER decision, the owner's call, and
+                                      the noisiest band; owner-only on purpose
+    Matches the bell-worthy set in ActivityEvent.is_important. Before 2026-07-20
+    it was `low` + `out`, so staff saw the mildest band and the worst but skipped
+    the middle. Keep in step with the verbs emitted by activity/signals.py.
     """
     if user.role == 'staff':
         return qs.filter(
             Q(actor=user) |
-            Q(actor__isnull=True, verb__in=['stock.low', 'stock.out'])
+            Q(actor__isnull=True, verb__in=['stock.critical', 'stock.out'])
         )
     return qs
 

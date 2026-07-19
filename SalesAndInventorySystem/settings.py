@@ -109,9 +109,20 @@ LOGGING = {
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Env-driven so the UNSAFE value can only ever be opted INTO. Both of these used to
+# be hardcoded to their development values, which meant production inherited them by
+# forgetting rather than by choosing — and DEBUG=True on a live server renders a full
+# stack trace, with local variables and settings, to whoever triggered the error.
+# Local dev keeps working via DEBUG=True in .env; a server that sets nothing is safe.
+DEBUG = os.getenv('DEBUG', 'False').strip().lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*']
+# Comma-separated in the env, e.g. ALLOWED_HOSTS=pakita.app,www.pakita.app
+# '*' accepts any Host header, which defeats Django's HTTP Host header validation.
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv(
+        'ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]'
+    ).split(',') if h.strip()
+]
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [

@@ -2734,6 +2734,16 @@ details.filter-card summary:hover {
   color: var(--danger);
 }
 
+/* Low stock sits BELOW critical in urgency, so it gets the silver treatment the
+   "Low Stock" KPI card already uses (.kpi-icon--neutral). Before 2026-07-20 low
+   was amber and critical had no badge at all — a critical row rendered as an
+   amber "Low stock", indistinguishable from the milder band. Amber now belongs
+   to critical alone. */
+.status-badge.status-neutral {
+  background: color-mix(in srgb, var(--silver) 14%, var(--surface));
+  color: var(--silver);
+}
+
 /* ══════════════════════════════════════════
    QUICK RANGE BUTTONS
 ══════════════════════════════════════════ */
@@ -7667,7 +7677,7 @@ button.topbar-account__item {
    Order left→right: ☰ · search (fills the middle) · carts · bell · avatar —
    the same order as desktop, so an added item lands before the bell here too.
 
-   ★ SIDEBAR TOKENS, NOT APP-THEME TOKENS — user's call, do not re-litigate.
+   SIDEBAR TOKENS, NOT APP-THEME TOKENS — user's call, do not re-litigate.
    On mobile the three chrome surfaces (this bar, the drawer, the bottom nav) are
    ONE piece of furniture wrapping the page, so they move together on the SIDEBAR
    pref (User.sidebar_theme; 'match' is what makes it track the app theme). Setting
@@ -7734,7 +7744,7 @@ button.topbar-account__item {
   .topbar-search-btn:hover { color: var(--sidebar-strong); }
 
   /* Expanded: everything gives way to the field EXCEPT the carts.
-     ★ Adding from the results dropdown was silent — the cluster was hidden, so the
+     Adding from the results dropdown was silent — the cluster was hidden, so the
      badge it swaps had nowhere to be seen. The fix is to reveal the REAL cart, not
      to add a second one next to the ✕: both badges are addressed by id as htmx
      targets, and a duplicate id means the + keeps updating the first match while

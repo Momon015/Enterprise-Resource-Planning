@@ -12,7 +12,7 @@ The rule (user, 2026-07-19): "if owner is the user then the owner can see
 everything, if staff their only records." `scope_events_for_user` is where that
 lives — these tests hold the VIEWS to it.
 
-★ Scoping the list alone is cosmetic, which is why the endpoints are tested too:
+Scoping the list alone is cosmetic, which is why the endpoints are tested too:
 both take an event id straight off the URL, so anything hidden from the page was
 still reachable by guessing a number.
 """
@@ -115,12 +115,31 @@ def test_staff_cannot_mark_one_read_by_id(client, staff, business, owner_event):
     assert not owner_event.is_read
 
 
-def test_staff_still_see_stock_alerts(client, staff, business):
+@pytest.mark.parametrize('verb, description', [
+    ('stock.out', 'Chippy is out of stock'),
+    ('stock.critical', 'Chippy is critically low'),
+])
+def test_staff_still_see_urgent_stock_alerts(client, staff, business, verb, description):
     """Deliberate exception in scope_events_for_user: a null-actor stock alert is
-    nobody's "own record", but it is the one thing staff are expected to act on."""
-    alert = log_activity(
-        business, None, 'stock.out',
-        description='Chippy is out of stock', important=True,
-    )
+    nobody's "own record", so without this it would vanish from the staff view.
+
+    NOT the alerting channel — staff learn about stock from the PINNED block, which
+    is unscoped and shown to owners and staff alike. This only keeps the history on
+    their Activity page, so it agrees with what the pinned block is telling them.
+
+    Both urgent bands, because `critical` was the one missing from the allow-list
+    until 2026-07-20 — and it is bell-worthy where `low` is not."""
+    alert = log_activity(business, None, verb, description=description, important=True)
 
     assert alert in page_events(client, staff, business)
+
+
+def test_staff_do_not_see_low_stock(client, staff, business):
+    """`stock.low` is a REORDER decision, not a floor problem — owner-only by
+    design (user's call 2026-07-20), and the noisiest of the three bands."""
+    alert = log_activity(
+        business, None, 'stock.low',
+        description='Chippy is running low', important=False,
+    )
+
+    assert alert not in page_events(client, staff, business)

@@ -40,6 +40,29 @@ class Stock(TimeStampModel):
     @property
     def total_value(self):
         return self.price * self.quantity
+
+    @property
+    def stock_status(self):
+        """'out' | 'critical' | 'low' | 'ok' — the Stock twin of Product.stock_status.
+
+        Exists so TEMPLATES stop hand-rolling their own comparisons. The row badge
+        used to test `quantity <= 25` inline: the literal instead of the constant,
+        and only THREE bands, so a critical row rendered as "Low stock" while the
+        KPI card beside it counted it as Critically Low (fixed 2026-07-20).
+
+        Must agree with STOCK_CRITICAL_Q / STOCK_LOW_Q above — same thresholds,
+        same disjoint boundaries — so what a card COUNTS and what a row SAYS can
+        never drift apart.
+        """
+        if self.quantity is None:
+            return None
+        if self.quantity <= 0:
+            return 'out'
+        if self.quantity <= CRITICAL_STOCK_THRESHOLD:
+            return 'critical'
+        if self.quantity <= LOW_STOCK_THRESHOLD:
+            return 'low'
+        return 'ok'
     
     def save(self, *args, **kwargs):
         base_slug = slugify(self.name)  # or whatever name field
