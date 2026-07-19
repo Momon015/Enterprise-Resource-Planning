@@ -6,7 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>paKITA — Sales, Stock, and Profit in One Place</title>
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+  {% comment %} Vendored (v1.11.1 — the same version this was pulling from jsDelivr).
+       The rest of the app already loads the local copy; only the landing page was
+       still on the CDN, so a blocked CDN would strip every icon from the FIRST page
+       a prospect ever sees. Fonts resolve via ./fonts/ next to the stylesheet. {% endcomment %}
+  <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
 
   <style>
@@ -257,7 +261,8 @@
     }
 
     .lp-mock-sidebar {
-      background: #0f1117; padding: 0.875rem 0.625rem;
+      /* #0a0a0a to match the Λ tile that sits in it — same rule as .lp-footer. */
+      background: #0a0a0a; padding: 0.875rem 0.625rem;
       display: flex; flex-direction: column; gap: 0.15rem;
       overflow: hidden;
     }
@@ -663,7 +668,11 @@
 
     /* ── FOOTER ── */
     .lp-footer {
-      background: #0f1117;
+      /* #0a0a0a, not #0f1117 — the Λ mark has no transparent variant, only a solid
+         tile, so the footer has to BE the tile's colour or the square shows as a
+         patch of a slightly different black behind the gold Λ. Same rule the
+         favicon/sidebar marks follow: the tile must match whatever sits under it. */
+      background: #0a0a0a;
       padding: 3rem 2rem 2rem;
     }
 
@@ -1228,7 +1237,9 @@
         <div class="lp-mock-sidebar">
           <div class="lp-mock-brand">
             <div class="lp-mock-brand-icon">
-              <img src="{% static 'images/brand/mark-light-48.png' %}" alt="">
+              {% comment %} DARK tile — this mock sidebar is dark. It used to carry the
+                   WHITE-tile mark, which put a white square around the Λ. {% endcomment %}
+              <img src="{% static 'images/brand/favicon-48.png' %}" alt="">
             </div>
             <div class="lp-mock-brand-text-wrap">
               <div class="lp-mock-brand-text">paKITA</div>
@@ -1941,8 +1952,13 @@
 
     <div>
       <a class="lp-brand" href="#">
+        {% comment %} DARK-background pair, matching what navbar.html swaps to under the
+             dark theme. The light wordmark used to be here and its "pa" is near-black
+             (rgb 53,38,4) — built to sit on WHITE — so on this footer the p all but
+             vanished while KITA stayed bright gold. Nothing was wrong with the spacing;
+             it was the wrong asset. {% endcomment %}
         <img class="lp-brand-mark" src="{% static 'images/brand/favicon-48.png' %}" alt="">
-        <img class="lp-brand-wordmark" src="{% static 'images/brand/pakita-recraft-light.png' %}" alt="paKITA">
+        <img class="lp-brand-wordmark" src="{% static 'images/brand/pakita-recraft-transparent.png' %}" alt="paKITA">
         <span class="lp-brand-badge">SaaS</span>
       </a>
 

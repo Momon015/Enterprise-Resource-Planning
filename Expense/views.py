@@ -63,7 +63,7 @@ from django.contrib.messages import get_messages
 from subscription.decorators import capacity_required
 
 from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit, needs_owner_review, log_margin_drop
+from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit, needs_owner_review
 # logging
 import logging
 
@@ -875,19 +875,16 @@ def confirm_purchase_summary(request, business_slug):
                     previous_qty = product.prepared_quantity
                     previous_price = product.cost_price
 
-                    # Read the margin BEFORE the blend — this is the whole basis for
-                    # "did this delivery push it below target?" (see log_margin_drop).
-                    margin_status_before = product.margin_status
-
                     total_quantity = previous_qty + quantity
 
                     product.prepared_quantity = total_quantity
                     product.cost_price = ((previous_price * previous_qty) + line_total_cost) / total_quantity
                     product.save()
 
-                    # A supplier price rise erodes the margin silently — nobody is on the
-                    # product page when it happens. Fires only on a CROSSING (good→low).
-                    log_margin_drop(business, request.user, product, margin_status_before)
+                    # The margin_low alert used to be called here by hand. It now rides
+                    # Product's post_save (activity/signals.py:log_margin_drop_on_cost_rise),
+                    # keyed on cost_price RISING — so it covers every path that moves cost,
+                    # not just this blend, and no future view has to remember it.
 
 
             # ── Apply discount (flat per-item already in subtotal; % applied here) ──

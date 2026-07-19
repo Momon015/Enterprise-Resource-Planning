@@ -60,12 +60,19 @@
       <small>&copy; 2026 paKITA. All rights reserved.</small>
     </footer>   {% endcomment %}
      
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% comment %} Bootstrap JS (vendored — v5.3.3, matching bootstrap.min.css above).
+      Was on jsDelivr while the CSS, the icons and htmx were all local. That mattered
+      because the tooltip initializer below is the only consumer: if the CDN is blocked
+      or slow, `bootstrap` is undefined, the initializer throws, and all 12 tooltips
+      silently do nothing — no error anyone would notice. Exactly how the htmx CDN
+      failure hid itself (modals quietly fell back to plain links). {% endcomment %}
+    <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 
-    <!-- Initialize Bootstrap tooltips site-wide -->
+    {% comment %} Initialize Bootstrap tooltips site-wide. Guarded: a missing bundle should
+      cost tooltips, not every script that runs after this one on the page. {% endcomment %}
     <script>
       document.addEventListener('DOMContentLoaded', () => {
+        if (typeof bootstrap === 'undefined') return;
         document.querySelectorAll('[data-bs-toggle="tooltip"]')
           .forEach(el => new bootstrap.Tooltip(el));
       });

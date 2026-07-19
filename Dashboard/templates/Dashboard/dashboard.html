@@ -1,5 +1,6 @@
 {% extends 'main.html' %}
 {% load humanize %}
+{% load static %}
 {% block content %}
 
 
@@ -587,7 +588,7 @@
 ═══════════════════════════════════════════════════════════════════ #}
 
 {% comment %} MOVED TO ANALYTICS 2026-07-02 — Chart.js is only needed by the charts
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 {% endcomment %}
 
 {% comment %} <!-- 30-DAY REVENUE TREND -->

@@ -10,13 +10,38 @@ from datetime import timedelta
 
 from core.utils.owner import get_business_for_user
 from .models import ActivityEvent
+from .utils import scope_events_for_user
 
 # Create your views here.
+
+# ── VIEWER SCOPING (2026-07-19) ──────────────────────────────────────────────
+# Every queryset in this module goes through scope_events_for_user. Staff are
+# blocked from the sale list, purchase history and waste/expense pages, but those
+# same transactions are LOGGED as events with the amounts in `description` — so an
+# unscoped Activity page handed back, 20 rows at a time, exactly what those gates
+# were hiding. The per-module recent-activity panels had been scoped since they
+# were built; this page was simply never audited against them.
+#
+# Scoping the LIST alone is cosmetic. The count, "Mark all read" and both
+# mark-read endpoints all took a business-wide queryset, and the two endpoints
+# take an event id straight from the URL — so anything hidden from the page was
+# still reachable by id. All five now share the one rule.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _visible_events(request, business):
+    """Every event this viewer may see, before any UI filtering."""
+    return scope_events_for_user(
+        ActivityEvent.objects.filter(business=business), request.user
+    )
+
 
 @login_required(login_url='login')
 def click_event(request, business_slug, event_id):
     business = get_business_for_user(request.user, business_slug)
-    event = get_object_or_404(ActivityEvent, business=business, id=event_id)
+    # Scoped lookup, so an out-of-scope id is a 404 rather than a redirect that
+    # confirms the event exists (and silently marks someone else's alert read).
+    event = get_object_or_404(_visible_events(request, business), id=event_id)
 
     # Mark as read on first click
     if not event.is_read:
@@ -34,7 +59,7 @@ def click_event(request, business_slug, event_id):
 @login_required(login_url='login')
 def view_all_activity(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    events = ActivityEvent.objects.filter(business=business)
+    events = _visible_events(request, business)
 
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
@@ -52,10 +77,11 @@ def view_all_activity(request, business_slug):
         events = events.filter(is_read=False)
 
     # Count what "Mark all read" would actually clear — the SAME queryset the
-    # endpoint updates (whole business, unfiltered), not the filtered page. The
-    # button must not say "3" while clearing 11.
-    unread_count = ActivityEvent.objects.filter(
-        business=business, is_important=True, is_read=False
+    # endpoint updates (everything VISIBLE TO THIS VIEWER, unfiltered by the UI
+    # tabs), not the filtered page. The button must not say "3" while clearing 11,
+    # and after scoping it must not count rows this viewer can't see either.
+    unread_count = _visible_events(request, business).filter(
+        is_important=True, is_read=False
     ).count()
 
     paginator = Paginator(events, 20)
@@ -103,9 +129,12 @@ def mark_all_read(request, business_slug):
     bell template, which nothing includes any more, so the endpoint was reachable
     by nobody."""
     business = get_business_for_user(request.user, business_slug)
-    ActivityEvent.objects.filter(
-        business=business, is_important=True, is_read=False
-    ).update(is_read=True)
+    # Scoped: clearing your own bell must not silently mark the OWNER's alerts read.
+    # `.update()` can't run on a sliced/complex qs safely here, so re-filter by pk.
+    visible = _visible_events(request, business).filter(
+        is_important=True, is_read=False
+    )
+    ActivityEvent.objects.filter(pk__in=list(visible.values_list('pk', flat=True))).update(is_read=True)
 
     # Come back to the exact list they were looking at (category / important / unread).
     next_url = request.POST.get('next')
@@ -120,9 +149,9 @@ def mark_all_read(request, business_slug):
 @require_POST
 def mark_one_read(request, business_slug, event_id):
     business = get_business_for_user(request.user, business_slug)
-    ActivityEvent.objects.filter(
-        business=business, pk=event_id
-    ).update(is_read=True)
+    # Scoped — the id comes straight off the URL, so without this any staff member
+    # could mark any event in the business read by guessing a number.
+    _visible_events(request, business).filter(pk=event_id).update(is_read=True)
     return JsonResponse({'ok': True})
 
 @login_required(login_url='login')

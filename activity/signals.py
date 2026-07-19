@@ -2,7 +2,7 @@ from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 
 from Inventory.models import Stock
-from activity.utils import log_activity
+from activity.utils import log_activity, log_margin_drop
 
 from core.constants import LOW_STOCK_THRESHOLD, NO_STOCK_THRESHOLD 
 
@@ -71,18 +71,23 @@ def log_stock_threshold_events(sender, instance, created, **kwargs):
 from Product.models import Product
 @receiver(pre_save, sender=Product)
 def capture_old_margin(sender, instance, **kwargs):
-    """Stash margin status + prepared_quantity before save so post_save can detect crossings."""
+    """Stash margin status + prepared_quantity + cost price before save so post_save
+    can detect crossings. cost_price is what tells the margin alert below WHY the
+    margin moved, which is the difference between an alert and noise."""
     if not instance.pk:
         instance._old_margin_status = None
         instance._old_prepared_quantity = None
+        instance._old_cost_price = None
         return
     try:
         old = Product.objects.select_related('category').get(pk=instance.pk)
         instance._old_margin_status = old.margin_status
         instance._old_prepared_quantity = old.prepared_quantity
+        instance._old_cost_price = old.cost_price
     except Product.DoesNotExist:
         instance._old_margin_status = None
         instance._old_prepared_quantity = None
+        instance._old_cost_price = None
 
 
 
@@ -113,4 +118,53 @@ def log_product_stock_events(sender, instance, created, **kwargs):
             metadata={'quantity': qty, 'threshold': instance.critical_stock_threshold},
             important=True,
         )
+
+
+@receiver(post_save, sender=Product)
+def log_margin_drop_on_cost_rise(sender, instance, created, **kwargs):
+    """Bell `product.margin_low` when a rising COST pushes the margin below target.
+
+    Lives here rather than in the purchase view (where it was rebuilt 2026-07-14
+    after the original signal was deleted by an unrelated stock rework): the view
+    covered only ONE of the paths that move cost_price, so a cost rise from any
+    other route — a correction, an import, the admin — stayed silent. A signal
+    cannot be forgotten by the next view that touches cost.
+
+    KEYED ON "COST ROSE", not on "margin got worse". A margin drops for two very
+    different reasons and only one of them deserves a bell:
+      • cost rose      — a supplier raised their price and the weighted-average
+                         crept up with NOBODY looking. This is the silent one.
+      • owner cut the  — they are staring at the product form, which already shows
+        selling price   a live green/amber/red badge and a suggested price. Belling
+                        them about the number under their cursor is noise.
+    Comparing cost against its own previous value separates the two cleanly, with
+    no need to know which view is calling.
+
+    log_margin_drop() itself only fires on a CROSSING, so a chronically thin
+    product does not re-alert on every delivery.
+
+    actor=None on purpose — no request here, and the cause genuinely is the
+    supplier, not whoever happened to receive the delivery. It also keeps the
+    event off the module panels and the Activity page (scope_events_for_user),
+    which is right: re-pricing is the owner's call.
+
+    ⚠ NOT off the BELL — activity/context_processors.py has its own filter and
+    does not scope by viewer, so staff still see this one in the dropdown. Harmless
+    today (staff already see cost and the margin badge on the product list, by
+    design), but it is an owner to-do that staff cannot act on. Scope the bell and
+    this note goes away.
+    """
+    if created or not instance.business:
+        return
+    if instance.is_service or not instance.is_active:
+        return                                    # margin is a goods concept
+
+    old_cost = getattr(instance, '_old_cost_price', None)
+    if old_cost is None or instance.cost_price <= old_cost:
+        return                                    # cost held or fell — nothing silent happened
+
+    log_margin_drop(
+        instance.business, None, instance,
+        getattr(instance, '_old_margin_status', None),
+    )
 
