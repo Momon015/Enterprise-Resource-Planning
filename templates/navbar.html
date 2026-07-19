@@ -37,29 +37,30 @@
 <!-- MOBILE OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- MOBILE TOP BAR -->
-<div class="sidebar-mobile-bar" id="sidebarMobileBar">
-  <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
-    {% comment %} <img src="{% static 'images/hamburger-icon.png' %}" alt="Menu" class="sidebar-mobile-toggle__logo"> {% endcomment %}
-    <i class="bi bi-list"></i>
-  </button>
+{% comment %} MOBILE TOP BAR — REMOVED 2026-07-19. Mobile now shows the REAL .topbar
+     (partials/_topbar.html) restyled as the bar, so phones get the same search,
+     the same two cart slots and the same LIVE bell as desktop.
 
-  <div class="sidebar-mobile-brand-wrap">
-    <div class="sidebar-mobile-brand"><span class="brand-word__pa">pa</span><span class="brand-word__kita">KITA</span></div>
-    {% comment %} <div class="sidebar-mobile-brand__sub">Sales · Inventory · Operations</div> {% endcomment %}
-  </div>
-
-  <div class="sidebar-mobile-actions">
-    <button type="button" class="mb-icon-btn" aria-label="Notifications">
-      <i class="bi bi-bell"></i>
-      <span class="mb-icon-dot"></span>
+     This bar could not simply be given those pieces: the search input, the search
+     results dropdown and both cart badges are addressed by ID as htmx targets, so a
+     second copy would mean duplicate IDs — htmx resolves the FIRST match, which on a
+     phone would be the hidden desktop one, and the + would silently do nothing again.
+     One bar, one set of IDs. The hamburger (#sidebarToggle) moved into _topbar.html;
+     its brand/bell/avatar were dropped — the topbar already carries all three.
+{% endcomment %}
+{% if not current_business %}
+  {% comment %} _topbar.html renders NOTHING without an active business, so on those
+       pages the fallback below is the only thing holding the hamburger. Never both:
+       exactly one of these two conditions is true. {% endcomment %}
+  <div class="sidebar-mobile-bar" id="sidebarMobileBar">
+    <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
+      <i class="bi bi-list"></i>
     </button>
-    <a href="{% if user.is_authenticated %}{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}{% else %}{% url 'login' %}{% endif %}"
-       class="mb-avatar" aria-label="Profile">
-      {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
-    </a>
+    <div class="sidebar-mobile-brand-wrap">
+      <div class="sidebar-mobile-brand"><span class="brand-word__pa">pa</span><span class="brand-word__kita">KITA</span></div>
+    </div>
   </div>
-</div>
+{% endif %}
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
@@ -513,66 +514,12 @@
   </div>
 
 
-  <!-- FOOTER -->
-  <div class="sidebar-footer">
-
-    <div class="sidebar-account" id="accountToggle">
-      <div class="sidebar-account__avatar">
-        {% if user.is_authenticated %}{{ user.username|first|upper }}{% else %}<i class="bi bi-person"></i>{% endif %}
-      </div>
-
-      <div class="sidebar-account__text">
-        <div class="sidebar-account__name">
-          {% if user.is_authenticated %}
-            {{ request.user.username }}
-          {% else %}
-            Account
-          {% endif %}
-        </div>
-
-        {% if request.user.is_authenticated %}
-          {% if request.user.role == 'owner' and current_business %}
-            {% with bp=current_business.plan sub=request.user.subscription %}
-              {% if bp %}
-                <span class="plan-badge plan-badge--{{ bp.plan }} sidebar-account__plan">
-                  {{ bp.get_plan_display }}{% if sub.is_founder %} · Founder{% endif %}{% if sub.is_lifetime %} · Lifetime{% endif %}
-                </span>
-              {% endif %}
-            {% endwith %}
-          {% elif request.user.role == 'staff' %}
-            <span class="plan-badge plan-badge--staff sidebar-account__plan">
-              Staff
-            </span>
-          {% elif request.user.role == 'developer' %}
-            <span class="plan-badge plan-badge--developer sidebar-account__plan">
-              Developer
-            </span>
-          {% endif %}
-        {% endif %}
-      </div>
-
-      <i class="bi bi-chevron-up sidebar-account__chevron"></i>
-
-      <div class="sidebar-dropdown">
-        {% if user.is_authenticated %}
-          <a class="sidebar-dropdown__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
-            <i class="bi bi-person-circle"></i> Profile
-          </a>
-          <a class="sidebar-dropdown__item" href="{% url 'settings' business_slug=current_business.slug %}">
-            <i class="bi bi-gear"></i> Settings
-          </a>
-          <div class="sidebar-dropdown__divider"></div>
-          <a class="sidebar-dropdown__item sidebar-dropdown__item--danger" href="{% url 'logout' %}">
-            <i class="bi bi-box-arrow-right"></i> Logout
-          </a>
-        {% else %}
-          <a class="sidebar-dropdown__item" href="{% url 'login' %}">
-            <i class="bi bi-box-arrow-in-right"></i> Login
-          </a>
-        {% endif %}
-      </div>
-    </div>
-  </div>
+  {% comment %} SIDEBAR FOOTER (account block) REMOVED 2026-07-19 — it was the
+       avatar + username + plan + Profile/Settings/Logout dropdown pinned to the
+       bottom of the drawer. Desktop already hid it (.sidebar-footer{display:none}
+       once the account moved to the topbar), and the mobile topbar now carries the
+       same pill + dropdown, so it had no breakpoint left to serve. Its #accountToggle
+       handler went with it. {% endcomment %}
 
 </nav>
 
@@ -696,22 +643,17 @@ document.addEventListener("DOMContentLoaded", function () {
   syncCollapsedTitles();
   document.addEventListener('sidebar:collapse', syncCollapsedTitles);
 
-  // ── Account dropdown toggle ──
-  const accountToggle = document.getElementById('accountToggle');
-  if (accountToggle) {
-    accountToggle.addEventListener('click', function (e) {
-      e.stopPropagation();
-      this.classList.toggle('open');
-    });
-    document.addEventListener('click', () => accountToggle.classList.remove('open'));
-  }
+  // Account dropdown toggle removed with the sidebar footer — the topbar's own
+  // #topbarAccount handler (partials/_topbar.html) is the only one now.
 
   // ── Mobile drawer ──
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   const toggle  = document.getElementById('sidebarToggle');
   const moreBtn = document.getElementById('mobileMoreBtn');
-  const bar     = document.getElementById('sidebarMobileBar');
+  // The topbar IS the mobile bar now — it owns the scroll-hide the old bar had.
+  // Falls back to #sidebarMobileBar for the no-business pages that still use one.
+  const bar     = document.querySelector('.topbar') || document.getElementById('sidebarMobileBar');
 
   const setSidebarOpen = (open) => {
     sidebar?.classList.toggle('open', open);

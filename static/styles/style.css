@@ -7544,10 +7544,20 @@ input[type="month"]::-webkit-datetime-edit-year-field {
   transition: background .15s, border-color .15s;
 }
 .topbar-account__btn:hover { background: var(--surface-hover); }
+/* Name over plan. line-height is tightened so the two lines read as one block
+   and the pill stays inside the button's existing height. */
+.topbar-account__id {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
 .topbar-account__label {
   max-width: 120px;
   font-size: 0.8rem;
   font-weight: 600;
+  line-height: 1.15;
   color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -7580,21 +7590,6 @@ input[type="month"]::-webkit-datetime-edit-year-field {
 }
 .topbar-account.open .topbar-account__menu {
   opacity: 1; visibility: visible; transform: translateY(0);
-}
-
-.topbar-account__head {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  padding: 0.6rem 0.65rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0.3rem;
-}
-.topbar-account__name {
-  font-weight: 600; font-size: 0.88rem;
-  color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .topbar-account__item {
@@ -7630,24 +7625,265 @@ button.topbar-account__item {
 
 /* Plan badge — readable on white */
 /* Plan line — small sub under the username, no pill */
-.topbar-account__head .plan-badge {
+.topbar-account__id .plan-badge {
   display: block;
   padding: 0;
   background: transparent;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
+  line-height: 1.1;
   letter-spacing: 0.06em;
+  max-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.topbar-account__head .plan-badge--free      { color: var(--muted); }
-.topbar-account__head .plan-badge--standard  { color: var(--info); }
-.topbar-account__head .plan-badge--premium   { color: var(--violet); }
-.topbar-account__head .plan-badge--pro       { color: var(--warning); }
-.topbar-account__head .plan-badge--staff     { color: var(--info); }
-.topbar-account__head .plan-badge--developer { color: var(--violet); }
+.topbar-account__id .plan-badge--free      { color: var(--muted); }
+.topbar-account__id .plan-badge--standard  { color: var(--info); }
+.topbar-account__id .plan-badge--premium   { color: var(--violet); }
+.topbar-account__id .plan-badge--pro       { color: var(--warning); }
+.topbar-account__id .plan-badge--staff     { color: var(--info); }
+.topbar-account__id .plan-badge--developer { color: var(--violet); }
 
 
-/* Mobile keeps its own top/bottom bars */
+/* Confirms an add-to-cart: the badge is what changed, so the badge is what moves.
+   prefers-reduced-motion gets the color change alone — still a visible confirmation. */
+@keyframes cart-bump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes cart-bump { 0%, 100% { transform: none; } }
+}
+
+/* Mobile-only topbar controls. Above 992px the collapse button takes over from the
+   hamburger and the search field is always open, so its trigger and ✕ are dead weight. */
+.topbar-mobile-toggle,
+.topbar-search-btn,
+.topbar-search__collapse { display: none; }
+
+/* ══════════════════════════════════════════════════════════
+   TOPBAR AS THE MOBILE BAR  (≤991px)
+   The old .sidebar-mobile-bar was deleted; this bar replaces it.
+   What phones GAIN: the search field, both cart slots and the live bell.
+   Order left→right: ☰ · search (fills the middle) · carts · bell · avatar —
+   the same order as desktop, so an added item lands before the bell here too.
+
+   ★ SIDEBAR TOKENS, NOT APP-THEME TOKENS — user's call, do not re-litigate.
+   On mobile the three chrome surfaces (this bar, the drawer, the bottom nav) are
+   ONE piece of furniture wrapping the page, so they move together on the SIDEBAR
+   pref (User.sidebar_theme; 'match' is what makes it track the app theme). Setting
+   Sidebar=Light with App=Dark is a deliberate combination, not a bug to fix.
+   Everything below must use --sidebar-* tokens; --surface/--text would split this
+   bar away from the bottom nav, which is exactly what got reverted here.
+   ══════════════════════════════════════════════════════════ */
 @media (max-width: 991px) {
-  .topbar { display: none; margin-bottom: 0; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1001;
+    height: 56px;               /* main{padding-top:56px} already reserves this */
+    padding: 0 0.75rem;
+    margin-bottom: 0;
+    background: linear-gradient(180deg, var(--sidebar-bg-1) 0%, var(--sidebar-bg-2) 100%);
+    border-bottom: 1px solid var(--sidebar-border);
+    transition: transform var(--transition-normal), opacity 0s 0.25s;
+  }
+  /* Scroll-hide + drawer fade: the old bar got these from a `.sidebar-overlay.open ~`
+     sibling selector, which cannot reach the topbar (different branch of the DOM).
+     body.sidebar-open is set by the same toggle and works from anywhere. */
+  .topbar.is-hidden { transform: translateY(-100%); }
+  body.sidebar-open .topbar { opacity: 0; pointer-events: none; transition: opacity 0s 0s; }
+
+  .topbar-collapse-btn { display: none; }
+  .topbar-mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 40px; height: 40px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--sidebar-strong);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topbar-mobile-toggle i { font-size: 1.4rem; }
+
+  /* ── Search: collapsed to an icon, expands over the whole bar ──
+     A phone has ~208px of fixed furniture (☰ + 2 carts + bell + avatar + gaps),
+     which would leave the field about 140px — a stub, and worse once both carts
+     show. So it hides behind a trigger and takes the full bar when opened. */
+  .topbar-search { display: none; }
+  .topbar-search-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 38px; height: 38px;
+    margin-left: auto;          /* pushes the icon group to the right of the ☰ */
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-full);
+    color: var(--sidebar-text-muted);
+    font-size: 1.05rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topbar-search-btn:hover { color: var(--sidebar-strong); }
+
+  /* Expanded: everything gives way to the field EXCEPT the carts.
+     ★ Adding from the results dropdown was silent — the cluster was hidden, so the
+     badge it swaps had nowhere to be seen. The fix is to reveal the REAL cart, not
+     to add a second one next to the ✕: both badges are addressed by id as htmx
+     targets, and a duplicate id means the + keeps updating the first match while
+     the visible copy shows a stale count. Worse than silent — it looks reported.
+     Cost is ~36px of field width, and only for a cart that has something in it
+     (.is-empty keeps the other one out of the way). */
+  .topbar.search-open .topbar-mobile-toggle,
+  .topbar.search-open .topbar-search-btn,
+  .topbar.search-open .topbar-notif,
+  .topbar.search-open .topbar-account { display: none; }
+  .topbar.search-open .topbar-cluster { margin-left: 0; }
+
+  /* The count changing is the confirmation, so make the change catch the eye.
+     Scoped to .search-open, so it fires on an add and NOT on every page load. */
+  .topbar.search-open .topbar-cart__badge { animation: cart-bump 0.45s ease-out; }
+  .topbar.search-open .topbar-cart { color: var(--sidebar-strong); }
+  .topbar.search-open .topbar-search {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;               /* or the input's intrinsic width blocks shrinking */
+    max-width: none;
+  }
+  /* Shorter than desktop's 38px so it sits comfortably inside a 56px bar.
+     --sidebar-active-bg is the sidebar's own "raised surface" tint, so the field
+     reads as a well IN the bar under either sidebar theme — a fixed white pill
+     looked like a slab dropped on top of it. */
+  .topbar.search-open .topbar-search { align-items: center; gap: 0.25rem; }
+  .topbar-search__input {
+    height: 34px;
+    padding: 0 0.6rem 0 2.1rem;
+    font-size: 0.8rem;
+    background: var(--sidebar-active-bg);
+    border-color: var(--sidebar-border);
+    color: var(--sidebar-strong);
+  }
+  .topbar-search__input:focus {
+    border-color: var(--sidebar-strong);
+    box-shadow: none;
+  }
+  .topbar-search__input::placeholder { color: var(--sidebar-text-muted); }
+  .topbar-search__icon { left: 0.75rem; color: var(--sidebar-text-muted); }
+  .topbar-search__clear { right: 0.45rem; color: var(--sidebar-text-muted); }
+  .topbar-search__collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--sidebar-text-muted);
+  }
+
+  .topbar-cluster { gap: 0.35rem; flex-shrink: 0; }
+
+  /* Bare icons on the bar rather than desktop's bordered chips — at phone size a
+     row of outlined boxes reads as clutter. Both carts and the bell are
+     .topbar-icon-btn, so one rule covers them. Badges keep their own colors. */
+  .topbar-cluster .topbar-icon-btn {
+    background: transparent;
+    border-color: transparent;
+    color: var(--sidebar-text-muted);
+  }
+  .topbar-cluster .topbar-icon-btn i { color: inherit; }
+  .topbar-cluster .topbar-icon-btn:hover {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-strong);
+  }
+
+  /* Same account pill as desktop: avatar + name over plan. This only fits because
+     the search collapsed to an icon — it was hidden while the field held the middle.
+     The name caps at 68px (vs desktop's 120px) and ellipsises; the pill is the LAST
+     thing on the bar, so a long username eats its own width, never the icons'. */
+  /* The pill inherits desktop's --surface/--border, which are APP-theme tokens,
+     while the bar under it runs on SIDEBAR tokens. Mix App=Light with Sidebar=Dark
+     and you get a white capsule stamped on a dark bar. Everything on this bar reads
+     from the sidebar palette — no exceptions, or the mismatch comes back on whichever
+     of the four App×Sidebar combinations nobody checked. */
+  .topbar-account__btn {
+    padding: 0.15rem 0.4rem 0.15rem 0.15rem;
+    background: transparent;
+    border-color: var(--sidebar-border);
+  }
+  .topbar-account__btn:hover { background: var(--sidebar-active-bg); }
+  .topbar-account__label { max-width: 68px; font-size: 0.75rem; color: var(--sidebar-strong); }
+  .topbar-account__chevron { color: var(--sidebar-text-muted); }
+  .topbar-account__id .plan-badge { max-width: 68px; }
+  .topbar-account__avatar { width: 26px; height: 26px; font-size: 0.7rem; }
+  .topbar-account__chevron { font-size: 0.6rem; }  /* kept: marks the pill as a menu */
+
+  /* ── Dropdowns anchor to the BAR, not to their button ──
+     The notification panel is 330px wide and hangs left from the bell's right edge,
+     so where it lands depends on where the bell is — and the bell MOVES: every cart
+     that becomes non-empty shifts it further left, dragging the panel off-screen
+     with it. Two active carts is simply where it crossed zero. Pinned to the
+     viewport it cannot be pushed anywhere, whatever the cluster is holding.
+
+     ⚠ Two-class selector on purpose. The base .topbar-notif__menu rule is defined
+     LATER in this file, and a media query adds no specificity — a single-class
+     override here loses the cascade and the panel keeps its 330px right-anchor. */
+  .topbar .topbar-notif__menu {
+    position: fixed;
+    top: 60px;
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    max-height: calc(100vh - 76px);
+  }
+
+  /* The menu drops from the bar's right edge. Clamped so a narrow phone can't let
+     it run off-screen, and height-capped because the bar is pinned to the top —
+     with Theme expanded the menu is taller than a short viewport. */
+  .topbar-account__menu {
+    width: min(210px, calc(100vw - 1.5rem));
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+  }
+
+  /* The bottom nav is deliberately NOT restyled here: it already follows the
+     sidebar palette, which is the palette this topbar is meant to match. */
+
+  /* ── DRAWER NAV: TEXT ONLY ──
+     The leading glyph earns its place on desktop, where the rail collapses to
+     icons alone and they become the only label. In the mobile drawer there is no
+     collapsed state, so they are pure decoration down the left edge — 12 of them
+     competing with the words that actually carry the meaning. Only the FIRST child
+     goes; the lock badge on staff-blocked rows says something the text does not.
+     Section chevrons are untouched — those are controls, not decoration. */
+  .sidebar-nav__link > i:first-child { display: none; }
+  .sidebar-nav__link { padding-left: 0.9rem; }
+
+  /* ── BRAND BACK AT THE TOP ──
+     .sidebar is a COLUMN flex container, and the mobile rule above gives
+     .sidebar-brand `flex: 1` — so it stretched to eat every spare pixel and pushed
+     Current Business and the whole nav into the middle of the drawer. That rule was
+     written for a `.sidebar-mobile-header` wrapper meant to lay the brand out
+     HORIZONTALLY (flex:1 = take the row); no such wrapper exists in the markup, so
+     the brand is a direct child of the column and the value means "take the column".
+     !important is required only because the rule it corrects uses it.
+     The padding also comes back — it was zeroed for that same absent wrapper, which
+     is what left the wordmark hard against the left edge. */
+  .sidebar-brand {
+    flex: 0 0 auto !important;
+    padding: 1rem 1rem 0.85rem !important;
+    border-bottom: 1px solid var(--sidebar-border) !important;
+  }
+  /* Nav takes the slack instead, so the drawer fills top-down. */
+  .sidebar-nav { flex: 1 1 auto; }
 }
 /* Slim the sidebar on desktop — account lives in the topbar now */
 @media (min-width: 992px) {

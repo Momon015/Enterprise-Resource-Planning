@@ -1,5 +1,11 @@
 {% if user.is_authenticated and current_business %}
 <div class="topbar{% if on_sale_cart_page %} topbar--hide-sale-cart{% endif %}{% if on_purchase_cart_page %} topbar--hide-purchase-cart{% endif %}">
+  {% comment %} Two different toggles, one per breakpoint, never both on screen:
+       mobile opens the DRAWER, desktop collapses to the icon RAIL. {% endcomment %}
+  <button type="button" class="topbar-mobile-toggle" id="sidebarToggle" aria-label="Open menu">
+    <i class="bi bi-list"></i>
+  </button>
+
   <button type="button" class="topbar-icon-btn topbar-collapse-btn" id="sidebarCollapseBtn"
           aria-label="Toggle sidebar" title="Toggle sidebar">
     <i class="bi bi-x-lg topbar-collapse-icon--open"></i>
@@ -17,8 +23,20 @@
           <button type="button" class="topbar-search__clear" id="topbarSearchClear" aria-label="Clear search" hidden>
           <i class="bi bi-x-lg"></i>
           </button>
+          {% comment %} Mobile only — collapses the expanded field. Separate from the ✕ above,
+               which CLEARS the text and hides itself when the box is empty; this one always
+               needs to be there to get you back to the icons. {% endcomment %}
+          <button type="button" class="topbar-search__collapse" id="topbarSearchCollapse" aria-label="Close search">
+            <i class="bi bi-x-lg"></i>
+          </button>
     <div class="search-dropdown" id="searchResults"></div>
   </div>
+
+  {% comment %} Mobile only — the field itself is too wide to sit next to two carts,
+       a bell and an avatar on a phone, so below 992px it hides behind this. {% endcomment %}
+  <button type="button" class="topbar-search-btn" id="topbarSearchBtn" aria-label="Search" aria-expanded="false">
+    <i class="bi bi-search"></i>
+  </button>
 
   <div class="topbar-cluster">
     <!-- TWO carts, TWO slots, ALWAYS rendered.
@@ -48,14 +66,11 @@
     <div class="topbar-account" id="topbarAccount">
       <button type="button" class="topbar-account__btn" aria-label="Account menu">
         <span class="topbar-account__avatar">{{ user.username|first|upper }}</span>
-        <span class="topbar-account__label">{{ request.user.username }}</span>
-        <i class="bi bi-chevron-down topbar-account__chevron"></i>
-      </button>
-
-
-      <div class="topbar-account__menu">
-        <div class="topbar-account__head">
-          <span class="topbar-account__name">{{ request.user.username }}</span>
+        {% comment %} Name + plan stack. The plan used to live in the menu header, but that
+             put it one click away — it belongs where the account already is, under the
+             name. The menu header is gone entirely: it only repeated this. {% endcomment %}
+        <span class="topbar-account__id">
+          <span class="topbar-account__label">{{ request.user.username }}</span>
           {% if request.user.role == 'owner' and current_business %}
             {% with bp=current_business.plan sub=request.user.subscription %}
               {% if bp %}
@@ -69,11 +84,12 @@
           {% elif request.user.role == 'developer' %}
             <span class="plan-badge plan-badge--developer">Developer</span>
           {% endif %}
-        </div>
+        </span>
+        <i class="bi bi-chevron-down topbar-account__chevron"></i>
+      </button>
 
 
-
-
+      <div class="topbar-account__menu">
         <a class="topbar-account__item" href="{% url 'user-profile' user_id=request.user.id slug=request.user.slug %}">
           <i class="bi bi-person-circle"></i> Profile
         </a>
@@ -122,6 +138,29 @@
 </div>
 
 <script>
+  /* Mobile expanding search. Adding .search-open to the bar is the WHOLE mechanism —
+     CSS hides the icons and gives the field the full width; nothing here measures or
+     sets a pixel. Desktop never adds the class (the trigger is display:none there). */
+  (function () {
+    const bar      = document.querySelector('.topbar');
+    const openBtn  = document.getElementById('topbarSearchBtn');
+    const closeBtn = document.getElementById('topbarSearchCollapse');
+    const input    = document.getElementById('topbarSearchInput');
+    const results  = document.getElementById('searchResults');
+    if (!bar || !openBtn || !closeBtn || !input) return;
+
+    const setOpen = (open) => {
+      bar.classList.toggle('search-open', open);
+      openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) input.focus();
+      else { input.blur(); if (results) results.innerHTML = ''; }
+    };
+
+    openBtn.addEventListener('click', () => setOpen(true));
+    closeBtn.addEventListener('click', () => setOpen(false));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+  })();
+
   (function () {
     const btn = document.getElementById('sidebarCollapseBtn');
     if (!btn) return;
