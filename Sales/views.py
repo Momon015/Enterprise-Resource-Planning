@@ -73,9 +73,14 @@ import logging
 PENDING_SALE_CAP = 5   # max concurrent 'pending' drafts per business (verify-soon queue, not storage)
 
 def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
-                   payment_note, amount_str):
+                   payment_note, amount_str, tendered_str=None):
     """Post a sale for real: deduct stock, record the payment, log, lock.
-    Shared by the complete-now checkout path and (Stage 2) the draft-list confirm."""
+    Shared by the complete-now checkout path and (Stage 2) the draft-list confirm.
+
+    `tendered_str` is the cash the customer handed over, for the receipt's CHANGE
+    line. Optional: the draft-confirm path doesn't collect it, and every non-cash
+    method ignores it.
+    """
 
     # ── Stock deduction — completed sales only ──────────
     for item in sale_obj.sale_items.select_related('product', 'product__material').all():
@@ -120,11 +125,26 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
     else:
         payment_amount = Decimal('0')
 
+    # ── Cash tendered ───────────────────────────────────
+    # Only meaningful for cash, and only when it covers the payment — anything less
+    # isn't change, it's a shortfall, and the partial/utang path already models that.
+    # Dropped silently rather than rejected: a bad tender must never cost the cashier
+    # the sale, and the payment itself is unaffected either way.
+    tendered = None
+    if payment_method == 'cash' and payment_amount > 0 and tendered_str:
+        try:
+            candidate = Decimal(str(tendered_str).strip())
+        except (ValueError, ArithmeticError, InvalidOperation):
+            candidate = None
+        if candidate is not None and candidate >= payment_amount:
+            tendered = candidate
+
     method_display = None
     if payment_amount > 0:
         payment = SalesPayment.objects.create(
             sale=sale_obj, business=business, amount=payment_amount,
             method=payment_method, note=payment_note, created_by=request.user,
+            tendered=tendered,
         )
         method_display = payment.get_method_display()
         paid_desc = f"via {method_display}"
@@ -166,7 +186,7 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
     # pending sale can reach it. The pending branch further down logs its own
     # AuditLog 'create', so anything deriving the odometer from the audit trail
     # instead of this line would double-count a draft that is later confirmed.
-    # ★ GROSS, before the whole-order discount — `subtotal`, not `total_revenue`.
+    # IMPORTANT: GROSS, before the whole-order discount — `subtotal`, not `total_revenue`.
     # Settled by RMO 24-2023 Annex D-2, which prints "Present Accumulated Sales" and
     # "Gross Amount" as the SAME figure and then deducts discount from it. So the
     # odometer tracks gross and the Z reading subtracts discounts, returns and voids
@@ -820,7 +840,7 @@ def view_session_summary(request, business_slug):
 
     discount_type = request.session.get('sale_discount_type', '')
 
-    # ★ Never store the rate while a statutory type is active. The cart sends the applied
+    # IMPORTANT: Never store the rate while a statutory type is active. The cart sends the applied
     # rate as discount_percent, which for a senior is 20 — writing that into the MANUAL
     # discount slot meant clicking Edit came back to a cart showing "Regular customer" with
     # 20% typed in the manual box. The statutory rate is derived from the type, so the
@@ -939,6 +959,7 @@ def confirm_view_summary(request, business_slug):
     payment_method = request.POST.get('payment_method', 'cash')
     payment_note   = request.POST.get('payment_note', '')
     amount_str     = request.POST.get('amount_paid', '0')
+    tendered_str   = request.POST.get('cash_tendered', '')
 
     sale_status = request.POST.get('sale_status', 'completed')
     # Deferring only makes sense for electronic payments we can't verify instantly.
@@ -1027,7 +1048,8 @@ def confirm_view_summary(request, business_slug):
 
             if sale_status == 'completed':
                 _finalize_sale(request, sale_obj, business,
-                               payment_status, payment_method, payment_note, amount_str)
+                               payment_status, payment_method, payment_note, amount_str,
+                               tendered_str=tendered_str)
             else:
                 # Park it — remember the intended payment so the draft-list
                 # "Confirm" can finalize later without re-asking.
@@ -1051,7 +1073,7 @@ def confirm_view_summary(request, business_slug):
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
         return redirect('view-sale', business_slug=business.slug)
 
-    # ★ The statutory keys MUST be cleared here. They are per-customer, not per-session:
+    # IMPORTANT: The statutory keys MUST be cleared here. They are per-customer, not per-session:
     # leaving them set would apply the previous senior's discount — and their ID — to the
     # next person served.
     for key in ('total_salary_cost', 'line_count', 'sale_discount_percent',
@@ -1408,7 +1430,7 @@ def void_sale(request, business_slug, sale_id):
         # sales' discounts; D-2's arithmetic doesn't reconcile, so settle that when
         # building the reading rather than inferring it from the sample.
         #
-        # ★ business_date is the day the VOID happened, not the day the sale was rung.
+        # IMPORTANT: business_date is the day the VOID happened, not the day the sale was rung.
         # Without it, post() would fall back to sale.date and file a Wednesday void
         # onto Monday's Z reading — a day that may already be closed. The sale keeps
         # its own date on its own entry in the sale channel; this is a separate event.

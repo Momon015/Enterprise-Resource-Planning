@@ -50,6 +50,15 @@
     {# Pure utang: no money moved, so no payment lines. One line states amount AND status. #}
     <tr class="bold"><td>UNPAID</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
     {% endif %}
+    {% comment %} CASH / CHANGE, the standard PH POS pair (7-Eleven prints them directly
+    under Total Amount Due). Gated on cash_tendered being non-NULL, not on the sale being
+    cash: a tender is only recorded when the cashier typed one, and printing "CHANGE 0.00"
+    on every exact-change sale is noise. Both rows or neither — CASH alone reads like a
+    second total. {% endcomment %}
+    {% if sale.cash_tendered %}
+    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
+    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
+    {% endif %}
     <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
 </table>
 

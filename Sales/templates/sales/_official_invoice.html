@@ -67,6 +67,14 @@ GROSS while the VAT lines sum to NET, and the invoice contradicts itself. {% end
     {% else %}
     <tr class="bold"><td colspan="2" class="center">*** UNPAID ***</td></tr>
     {% endif %}
+    {% comment %} CASH / CHANGE — same pair as the plain slip, printed below the payment
+    lines so the invoice reads Total → how it was settled → what came back. These sit
+    ABOVE the VAT block deliberately: the VAT figures describe the SALE, and change is a
+    till movement that must not appear to modify them. {% endcomment %}
+    {% if sale.cash_tendered %}
+    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
+    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
+    {% endif %}
     <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
     {% if business.is_vat_registered %}
     <tr><td colspan="2"><div class="divider"></div></td></tr>

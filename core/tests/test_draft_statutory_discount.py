@@ -70,7 +70,7 @@ def test_a_gcash_draft_keeps_the_pwd_discount_while_parked(client, cart_with_a_p
 
 def test_confirming_the_draft_preserves_the_discount_and_issues_the_invoice(
         client, cart_with_a_pwd_customer):
-    """★ The round trip. Confirmation flips status, stamps the date and the SI number, and
+    """IMPORTANT: The round trip. Confirmation flips status, stamps the date and the SI number, and
     posts to the odometer — none of which may disturb the discount already agreed with
     the customer."""
     biz, _product = cart_with_a_pwd_customer

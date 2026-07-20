@@ -439,6 +439,73 @@
   font-weight: 600;
 }
 
+/* Quick-tender denominations (₱100 / ₱200 / ₱500 / ₱1000).
+   Deliberately mirrors .pay-status-opt so the payment panel reads as one control set
+   rather than two styles stacked. Disabled = the note is smaller than the amount due,
+   so tapping it could only ever produce a shortfall. */
+.tender-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+/* Each button wears its real banknote colour (PH New Generation Currency): ₱100 violet,
+   ₱200 green, ₱500 yellow, ₱1000 blue. Cashiers identify notes by colour long before they
+   read the number, so the button matches the thing in their hand.
+   IMPORTANT: These are NOT theme colours and must never be swapped for accent tokens — they encode
+   a real-world fact. They are still declared as tokens so dark mode can lift them. */
+:root {
+  --note-100:  #6d28d9;   /* violet */
+  --note-200:  #047857;   /* green  */
+  --note-500:  #a16207;   /* amber — true yellow is unreadable at text sizes */
+  --note-1000: #1d4ed8;   /* blue   */
+  --note-on:   #fff;      /* text on a filled (selected) button */
+}
+/* Dark mode lifts the hues so they read against a dark ground — which flips the filled
+   state too: white on #fbbf24 is worse than the light-mode problem it replaced, so the
+   selected button takes near-black text instead. */
+[data-theme="dark"] {
+  --note-100:  #a78bfa;
+  --note-200:  #34d399;
+  --note-500:  #fbbf24;
+  --note-1000: #60a5fa;
+  --note-on:   #0a0a0a;
+}
+
+.tender-quick {
+  padding: 0.5rem 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--note) 35%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--note) 8%, transparent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--note);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-variant-numeric: tabular-nums;
+}
+.tender-quick[data-tender="100"]  { --note: var(--note-100);  }
+.tender-quick[data-tender="200"]  { --note: var(--note-200);  }
+.tender-quick[data-tender="500"]  { --note: var(--note-500);  }
+.tender-quick[data-tender="1000"] { --note: var(--note-1000); }
+
+/* IMPORTANT: `:not(.is-active)` is load-bearing, not tidiness. `:not(:disabled)` scores a
+   class-level point, so this selector is 0,3,0 while `.tender-quick.is-active` is only
+   0,2,0 — without the exclusion, hover repaints the pale tint over the selected button
+   while its white text remains, and the cashier sees a blank button under the cursor
+   they just clicked. */
+.tender-quick:not(.is-active):hover:not(:disabled) {
+  border-color: var(--note);
+  background: color-mix(in srgb, var(--note) 14%, transparent);
+}
+/* Selected: filled, so which note was taken is readable at a glance across the row. */
+.tender-quick.is-active {
+  background: var(--note);
+  border-color: var(--note);
+  color: var(--note-on);
+}
+.tender-quick:disabled { opacity: 0.35; cursor: not-allowed; }
+
 /* ══════════════════════════════════════════
    POS CART ROWS (sale)
 ══════════════════════════════════════════ */

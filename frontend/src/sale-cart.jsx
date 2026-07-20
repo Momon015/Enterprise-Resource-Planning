@@ -227,7 +227,7 @@ function SaleCart() {
   // the server wins and the customer sees a different total than the screen promised, so
   // change them together.
   //
-  // ★ VAT exemption does NOT follow the rate: NAAC gets 20% off but keeps its VAT.
+  // IMPORTANT: VAT exemption does NOT follow the rate: NAAC gets 20% off but keeps its VAT.
   const STATUTORY = {
     sc:          { label: 'Senior Citizen',    rate: 20, vatExempt: true  },
     pwd:         { label: 'PWD',               rate: 20, vatExempt: true  },
@@ -256,7 +256,7 @@ function SaleCart() {
   const grand   = base - discAmt
 
   const goConfirm = () => {
-    // ★ discount_type is ALWAYS sent, empty for a regular customer. Omitting it when
+    // IMPORTANT: discount_type is ALWAYS sent, empty for a regular customer. Omitting it when
     // regular looks equivalent but isn't: the server reads the type from the session, and
     // an ABSENT key means "unchanged" while an EMPTY one means "cleared". Sending nothing
     // left a previously-picked PWD sitting in the session, so switching back to Regular
