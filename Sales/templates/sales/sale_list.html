@@ -374,6 +374,14 @@ document.addEventListener("change", function (e) {
 
                 <td class='sl-text-center'>
                   <div class="cell-primary">{{ sale.reference|default:"No reference" }}</div>
+                  {% comment %} The void's OWN document number, paired under the invoice it
+                  reversed. Shown on the row itself rather than only in the ?void=1 view: the
+                  pairing "SI-3 was voided by VD-1" is the auditable fact, and it explains the
+                  strikethrough on sight. Voids are rare, so this costs nothing on a normal list.
+                  This is what "Beg./End. VOID #" on the Z reading reads from. {% endcomment %}
+                  {% if sale.void_reference %}
+                    <div class="cell-sub">{{ sale.void_reference }}</div>
+                  {% endif %}
                    {% comment %} <div class="cell-sub col-mobile-hidden">#{{ forloop.revcounter }}</div>  {% endcomment %}
                 </td>
 

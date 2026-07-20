@@ -18,7 +18,8 @@ from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
 from Sales.models import (
-    Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn, SalesReturnItem)
+    Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn, SalesReturnItem,
+    VoidSequence)
 from Sales.forms import SaleForm, SaleFilterForm, SalesReturnFilterForm
 
 from Product.models import Product
@@ -165,12 +166,13 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
     # pending sale can reach it. The pending branch further down logs its own
     # AuditLog 'create', so anything deriving the odometer from the audit trail
     # instead of this line would double-count a draft that is later confirmed.
-    # We post the INVOICED amount (total_revenue, net of the whole-order discount)
-    # because that is the figure printed on the invoice; the Z reading reports
-    # discounts separately, so nothing is lost. ⚠ Confirm gross-vs-net with the
-    # accountant before accreditation — it is the one genuinely ambiguous call here.
+    # ★ GROSS, before the whole-order discount — `subtotal`, not `total_revenue`.
+    # Settled by RMO 24-2023 Annex D-2, which prints "Present Accumulated Sales" and
+    # "Gross Amount" as the SAME figure and then deducts discount from it. So the
+    # odometer tracks gross and the Z reading subtracts discounts, returns and voids
+    # afterwards to reach net. Posting net here would double-deduct the discount.
     AccumulatedGrandSalesEntry.post(
-        business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.total_revenue,
+        business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.subtotal,
         source=sale_obj, ref=sale_obj.reference,
     )
 
@@ -1285,11 +1287,17 @@ def void_sale(request, business_slug, sale_id):
                     stock.save(update_fields=['quantity'])
 
         # 2) flag void — revenue + drawer auto-exclude via is_void
+        # The void gets its OWN accountable number from a series separate to SI.
+        # A void is a supplementary invoice (RMO p.4(k)) and the Z reading prints
+        # "Beg./End. VOID #", so it cannot just be a boolean. Issued once — re-voiding
+        # is impossible anyway, since can_void_sale() rejects an already-void sale.
+        sale.void_reference, _, _ = VoidSequence.issue(business, 'VD')
         sale.is_void = True
         sale.void_reason = reason
         sale.voided_by = request.user
         sale.voided_at = timezone.now()
-        sale.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at'])
+        sale.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at',
+                                 'void_reference'])
 
         log_activity(
             business, request.user, 'sale.voided',
@@ -1315,12 +1323,25 @@ def void_sale(request, business_slug, sale_id):
         # Note the re-ring path below (action == 'reedit') voids and then re-sells:
         # the sales channel correctly takes BOTH hits, because two invoices were
         # issued. That is not double-counting, it is what the invoice run says.
+        #
+        # GROSS here too (`subtotal`), matching the sales channel. The two are meant to
+        # be read against each other — "of all gross sales ever rung, this much was
+        # voided" — and that comparison is meaningless if the channels use different
+        # bases. ⚠ The Z reading's own "Less Void" DEDUCTION line may still need a
+        # different figure depending on whether "Less Discount" already covers voided
+        # sales' discounts; D-2's arithmetic doesn't reconcile, so settle that when
+        # building the reading rather than inferring it from the sample.
+        #
         # ★ business_date is the day the VOID happened, not the day the sale was rung.
         # Without it, post() would fall back to sale.date and file a Wednesday void
         # onto Monday's Z reading — a day that may already be closed. The sale keeps
         # its own date on its own entry in the sale channel; this is a separate event.
+        #
+        # source_ref stays the SI, not the VD: the useful audit question is "which
+        # invoice did this reverse". The void's own number is on sale.void_reference,
+        # one hop away via source_id, and that is what "Beg./End. VOID #" reads.
         AccumulatedGrandSalesEntry.post(
-            business, AccumulatedGrandSalesEntry.CHANNEL_VOID, sale.total_revenue,
+            business, AccumulatedGrandSalesEntry.CHANNEL_VOID, sale.subtotal,
             source=sale, ref=sale.reference,
             business_date=timezone.localdate(),
         )
