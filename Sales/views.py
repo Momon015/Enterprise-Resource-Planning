@@ -59,7 +59,7 @@ from django.contrib.messages import get_messages
 
 from subscription.decorators import capacity_required
 
-from activity.models import ActivityEvent
+from activity.models import ActivityEvent, AccumulatedGrandSalesEntry
 from activity.utils import log_activity, scope_events_for_user, summarize_items, log_audit, needs_owner_review
 
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -158,6 +158,22 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
                     'payment_status': payment_status,
                     'payment_method': payment_method if payment_status != 'utang' else None},
     )
+    # ── BIR Accumulated Grand Total ────────────────────────────────────────
+    # Deliberately hooked HERE and nowhere else. _finalize_sale is the only path a
+    # sale takes to become real (checkout + draft-confirm both land here), so one
+    # call covers every accountable sale and — just as importantly — no draft or
+    # pending sale can reach it. The pending branch further down logs its own
+    # AuditLog 'create', so anything deriving the odometer from the audit trail
+    # instead of this line would double-count a draft that is later confirmed.
+    # We post the INVOICED amount (total_revenue, net of the whole-order discount)
+    # because that is the figure printed on the invoice; the Z reading reports
+    # discounts separately, so nothing is lost. ⚠ Confirm gross-vs-net with the
+    # accountant before accreditation — it is the one genuinely ambiguous call here.
+    AccumulatedGrandSalesEntry.post(
+        business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.total_revenue,
+        source=sale_obj, ref=sale_obj.reference,
+    )
+
     sale_obj.is_locked = True
     sale_obj.save(update_fields=['is_locked'])
 
@@ -1291,6 +1307,24 @@ def void_sale(request, business_slug, sale_id):
             reason=reason,
         )
 
+        # ── BIR Accumulated Grand Total ────────────────────────────────────
+        # A void ADDS to the void channel. It does not subtract from the sales
+        # channel — the odometer never rewinds, not even for a same-day void
+        # (RMO 24-2023). The Z reading prints both figures; the gap between the
+        # sales odometer and reported revenue is exactly this accumulator.
+        # Note the re-ring path below (action == 'reedit') voids and then re-sells:
+        # the sales channel correctly takes BOTH hits, because two invoices were
+        # issued. That is not double-counting, it is what the invoice run says.
+        # ★ business_date is the day the VOID happened, not the day the sale was rung.
+        # Without it, post() would fall back to sale.date and file a Wednesday void
+        # onto Monday's Z reading — a day that may already be closed. The sale keeps
+        # its own date on its own entry in the sale channel; this is a separate event.
+        AccumulatedGrandSalesEntry.post(
+            business, AccumulatedGrandSalesEntry.CHANNEL_VOID, sale.total_revenue,
+            source=sale, ref=sale.reference,
+            business_date=timezone.localdate(),
+        )
+
 
     # 3) re-ring → reload items into the cart and jump to it
     if action == 'reedit':
@@ -1430,7 +1464,8 @@ def cancel_sale_draft(request, business_slug, sale_id):
     log_audit(business, request.user, 'update', target=sale,
               old_values={'status': 'pending'}, new_values={'status': 'canceled'}, reason=reason)
 
-    messages.success(request, f"{sale.reference} canceled.")
+    # A draft never claimed an SI number, so there is nothing to name it by but its row.
+    messages.success(request, f"Draft #{sale.id} canceled.")
     if is_hx:
         resp = HttpResponse(status=204)
         resp['HX-Redirect'] = reverse('sale-draft-list',
@@ -1643,6 +1678,16 @@ def sales_return_create(request, business_slug, sale_id):
                             'refund_total': total_refund,
                             'refund_method': refund_method},
                 reason=reason,
+            )
+
+            # ── BIR Accumulated Grand Total ────────────────────────────────
+            # Its own channel, same rule as voids: the refund ACCUMULATES here
+            # rather than subtracting from the sales odometer. The original sale
+            # really was rung and really was invoiced; the refund is a second
+            # accountable event, not an erasure of the first.
+            AccumulatedGrandSalesEntry.post(
+                business, AccumulatedGrandSalesEntry.CHANNEL_RETURN, total_refund,
+                source=return_obj, ref=return_obj.reference,
             )
 
         messages.success(request, f"Return {return_obj.reference} recorded.")
