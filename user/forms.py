@@ -210,12 +210,17 @@ class BusinessProfileForm(ModelForm):
 
     class Meta:
         model = BusinessProfile
-        fields = ['business_name', 'business_type', 'address',
+        # registered_name + non_vat_type are owner-editable: they're facts the owner
+        # knows from their own BIR registration. The accreditation fields (bir_min,
+        # bir_ptu, bir_accreditation, bir_serial_number) deliberately stay OUT — BIR
+        # issues those to us at accreditation, so they're set in admin, not by the owner.
+        fields = ['business_name', 'registered_name', 'business_type', 'address',
                   'street', 'barangay', 'city', 'province', 'region', 'zip_code',
-                  'business_phone_number', 'is_vat_registered', 'tin']
+                  'business_phone_number', 'is_vat_registered', 'non_vat_type', 'tin']
 
         widgets = {
             'is_vat_registered': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'non_vat_type': forms.Select(attrs={'class': 'form-select'}),
         }
 
 

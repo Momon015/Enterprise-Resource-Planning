@@ -407,9 +407,9 @@
             </button>
             {% endif %}
 
-            <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
+            {% comment %} <a href="{% url 'product-preset-list' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-bookmark-fill"></i> Presets
-            </a>
+            </a> {% endcomment %}
             <a href="{% url 'archived-products' business_slug=current_business.slug %}"
                hx-get="{% url 'archived-products' business_slug=current_business.slug %}"
                hx-target="#confirmBody" hx-swap="innerHTML"

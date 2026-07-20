@@ -204,7 +204,11 @@ def can_void_sale(sale, user):
 def clear_sale(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     request.session['sale'] = {}
-    request.session.pop('sale_discount_percent', None)
+    # Clearing the cart clears the CUSTOMER too. A senior's ID lingering into the next
+    # customer's sale would silently apply a 20% discount to someone not entitled to it.
+    for key in ('sale_discount_percent', 'sale_discount_type',
+                'sale_discount_id_no', 'sale_discount_name'):
+        request.session.pop(key, None)
     request.session.modified = True
     messages.success(request, 'All items has been removed.')
     
@@ -798,17 +802,53 @@ def view_session_summary(request, business_slug):
     
     request.session['sale'] = sale
     request.session.modified = True
+    # ── Statutory customer type (SC / PWD / NAAC / Solo Parent) ──────────────────
+    # Deliberately NOT gated on enable_sale_discount, unlike the manual discount below:
+    # these rates are fixed by law and a business cannot decline them, so an owner who
+    # has switched ordinary discounts off must still be able to serve a senior.
+    # Validated against the model's own choices — a hand-typed query string must not be
+    # able to invent a discount category.
+    raw_type = (request.GET.get('discount_type') or '').strip()
+    if raw_type in Sale.STATUTORY_RATES:
+        request.session['sale_discount_type']  = raw_type
+        request.session['sale_discount_id_no'] = (request.GET.get('discount_id_no') or '').strip()[:60]
+        request.session['sale_discount_name']  = (request.GET.get('discount_name') or '').strip()[:255]
+    elif 'discount_type' in request.GET:
+        # explicitly cleared — switching back to a regular customer must drop the ID too
+        for key in ('sale_discount_type', 'sale_discount_id_no', 'sale_discount_name'):
+            request.session.pop(key, None)
+
+    discount_type = request.session.get('sale_discount_type', '')
+
+    # ★ Never store the rate while a statutory type is active. The cart sends the applied
+    # rate as discount_percent, which for a senior is 20 — writing that into the MANUAL
+    # discount slot meant clicking Edit came back to a cart showing "Regular customer" with
+    # 20% typed in the manual box. The statutory rate is derived from the type, so the
+    # manual value must be left exactly as the owner last set it.
     raw = request.GET.get('discount_percent')
-    if raw is not None and business.enable_sale_discount:
+    if raw is not None and business.enable_sale_discount and not discount_type:
         try:
             pct = Decimal(raw)
         except ArithmeticError:
             pct = Decimal('0')
         request.session['sale_discount_percent'] = str(max(Decimal('0'), min(pct, Decimal('100'))))
 
-    discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
-    discount_amount  = total_revenue * discount_percent / Decimal('100')
-    net_total        = max(total_revenue - discount_amount, Decimal('0'))
+    # A statutory rate overrides whatever the manual box held — they never stack.
+    if discount_type:
+        discount_percent = Sale.statutory_rate(discount_type)
+    else:
+        discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
+
+    # One function computes the three lines Annex D-2 prints, so the summary screen, the
+    # receipt and the stored Sale can never disagree about the arithmetic.
+    parts = Sale.price_breakdown(
+        total_revenue, discount_type,
+        seller_charges_vat=bool(business.is_vat_registered),
+        rate=discount_percent,
+    )
+    discount_amount = parts['discount_amount']
+    vat_adjustment  = parts['vat_adjustment']
+    net_total       = parts['total']
 
     # Clock-in-at-checkout: if this staffer isn't on shift, Confirm opens a modal to confirm the
     # opening cash and time in (first-opening / fresh drawer) rather than bouncing them to My
@@ -834,6 +874,13 @@ def view_session_summary(request, business_slug):
         'discount_percent': discount_percent,
         'discount_amount': discount_amount,
         'net_total': net_total,
+
+        # Statutory customer — drives the SC/PWD block on the summary and the receipt.
+        'discount_type': discount_type,
+        'discount_type_label': dict(Sale.DISCOUNT_TYPE_CHOICES).get(discount_type, ''),
+        'discount_id_no': request.session.get('sale_discount_id_no', ''),
+        'discount_name': request.session.get('sale_discount_name', ''),
+        'vat_adjustment': vat_adjustment,
 
         'must_clock_in': must_clock_in,
         'clockin_is_cashier': clockin_is_cashier,
@@ -936,19 +983,44 @@ def confirm_view_summary(request, business_slug):
             # NOTE: stock is deducted in _finalize_sale — completed sales only.
             # A pending draft snapshots the items but touches no inventory until confirmed.
 
-            # ── Whole-order customer discount (%) ───────────────
+            # ── Whole-order discount: statutory (SC/PWD/NAAC/Solo Parent) or manual ──
             gross = max(total_revenue, Decimal('0'))
-            discount_percent = Decimal('0')
-            if business.enable_sale_discount:
-                try:
-                    discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
-                except ArithmeticError:
-                    discount_percent = Decimal('0')
-                discount_percent = max(Decimal('0'), min(discount_percent, Decimal('100')))
+
+            # Re-validated from the session rather than trusted: the value arrived via a
+            # query string on the summary page, and this is where it becomes a record.
+            statutory_type = request.session.get('sale_discount_type', '')
+            if statutory_type not in Sale.STATUTORY_RATES:
+                statutory_type = ''
+
+            if statutory_type:
+                # Fixed by law, and NOT subject to enable_sale_discount — a business
+                # cannot decline a senior's discount by switching a preference off.
+                discount_percent = Sale.statutory_rate(statutory_type)
+            else:
+                discount_percent = Decimal('0')
+                if business.enable_sale_discount:
+                    try:
+                        discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
+                    except ArithmeticError:
+                        discount_percent = Decimal('0')
+                    discount_percent = max(Decimal('0'), min(discount_percent, Decimal('100')))
+
+            # Same function the summary screen used, so what the cashier was shown and what
+            # gets stored cannot drift. Strips VAT first when the buyer's type carries an
+            # exemption AND the seller charges VAT; otherwise it's a plain percentage off.
+            parts = Sale.price_breakdown(
+                gross, statutory_type,
+                seller_charges_vat=bool(business.is_vat_registered),
+                rate=discount_percent,
+            )
 
             sale_obj.discount_percent  = discount_percent
-            sale_obj.discount_amount   = gross * discount_percent / Decimal('100')
-            sale_obj.total_revenue     = max(gross - sale_obj.discount_amount, Decimal('0'))
+            sale_obj.discount_amount   = parts['discount_amount']
+            sale_obj.vat_adjustment    = parts['vat_adjustment']
+            sale_obj.total_revenue     = parts['total']
+            sale_obj.discount_type     = statutory_type
+            sale_obj.discount_id_no    = request.session.get('sale_discount_id_no', '')[:60]
+            sale_obj.discount_name     = request.session.get('sale_discount_name', '')[:255]
             sale_obj.total_salary_cost = total_salary_cost
             sale_obj.line_count        = line_count
             sale_obj.save()
@@ -979,7 +1051,11 @@ def confirm_view_summary(request, business_slug):
         messages.error(request, f"Cannot complete the sale - Insufficient stock.")
         return redirect('view-sale', business_slug=business.slug)
 
-    for key in ('total_salary_cost', 'line_count', 'sale_discount_percent'):
+    # ★ The statutory keys MUST be cleared here. They are per-customer, not per-session:
+    # leaving them set would apply the previous senior's discount — and their ID — to the
+    # next person served.
+    for key in ('total_salary_cost', 'line_count', 'sale_discount_percent',
+                'sale_discount_type', 'sale_discount_id_no', 'sale_discount_name'):
         request.session.pop(key, 0)
 
     request.session['sale'] = {}

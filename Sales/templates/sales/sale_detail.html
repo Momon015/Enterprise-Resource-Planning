@@ -299,10 +299,34 @@
               <dt>Subtotal</dt>
               <dd>₱{{ sale.subtotal|floatformat:2|intcomma }}</dd>
             </div>
+            {% comment %} `subtotal` above is the TRUE gross — it adds the VAT adjustment
+            back — so this line has to appear or the three figures don't reconcile. Non-zero
+            only for a VAT-registered seller. {% endcomment %}
+            {% if sale.vat_adjustment %}
             <div>
-              <dt>Discount ({{ sale.discount_percent|floatformat:0 }}%)</dt>
+              <dt>VAT exempt</dt>
+              <dd class="text-success">−₱{{ sale.vat_adjustment|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            <div>
+              <dt>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</dt>
               <dd class="text-success">−₱{{ sale.discount_amount|floatformat:2|intcomma }}</dd>
             </div>
+            {% comment %} The audit trail for a statutory discount — an examiner checking a
+            20% deduction wants the ID it was granted against, and this is the detail page
+            they'd be shown. {% endcomment %}
+            {% if sale.discount_type %}
+            <div>
+              <dt>ID number</dt>
+              <dd>{{ sale.discount_id_no|default:"—" }}</dd>
+            </div>
+            {% if sale.discount_name %}
+            <div>
+              <dt>ID holder</dt>
+              <dd>{{ sale.discount_name }}</dd>
+            </div>
+            {% endif %}
+            {% endif %}
             {% endif %}
 
             {% if sale.is_void %}

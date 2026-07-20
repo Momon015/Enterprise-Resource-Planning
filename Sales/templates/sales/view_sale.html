@@ -37,6 +37,11 @@
       data-product-list-url="{% url 'product-list' business_slug=current_business.slug %}"
       data-no-image="{% static 'images/no-image.svg' %}"
       data-discount-enabled="{{ current_business.enable_sale_discount|yesno:'1,' }}"
+      {% comment %} Statutory discounts are NOT gated by enable_sale_discount — SC and PWD are
+      fixed by law and a business cannot decline them, so the selector shows regardless.
+      vat-registered drives whether the exemption also strips the 12%: for a non-VAT seller
+      there is no VAT to remove and the discount is simply a percentage off. {% endcomment %}
+      data-vat-registered="{{ current_business.is_vat_registered|yesno:'1,' }}"
       data-preset-url="{% url 'product-add-to-preset' business_slug=current_business.slug %}"
       data-preset-list-url="{% url 'product-preset-list' business_slug=current_business.slug %}"></div>
 

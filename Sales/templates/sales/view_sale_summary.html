@@ -107,10 +107,24 @@
         <span class="total-label"><i class="bi bi-cash-stack"></i> Subtotal</span>
         <span class="total-value">₱{{ total_revenue|floatformat:2 }}</span>
       </div>
+      {% comment %} Without this line the column reads 50.00 − 8.93 = 35.71 and looks like
+      broken maths. Non-zero only for a VAT-registered seller. {% endcomment %}
+      {% if sale.vat_adjustment %}
       <div class="total-row">
-        <span class="total-label"><i class="bi bi-tag"></i> Discount ({{ sale.discount_percent|floatformat:0 }}%)</span>
+        <span class="total-label"><i class="bi bi-percent"></i> VAT exempt</span>
+        <span class="total-value" style="color:var(--success);">−₱{{ sale.vat_adjustment|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-tag"></i> {% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</span>
         <span class="total-value" style="color:var(--success);">−₱{{ sale.discount_amount|floatformat:2 }}</span>
       </div>
+      {% if sale.discount_type %}
+      <div class="total-row">
+        <span class="total-label"><i class="bi bi-person-vcard"></i> ID</span>
+        <span class="total-value" style="font-weight:500;">{{ sale.discount_id_no|default:"—" }}{% if sale.discount_name %} · {{ sale.discount_name }}{% endif %}</span>
+      </div>
+      {% endif %}
       {% endif %}
 
       <div class="total-row">

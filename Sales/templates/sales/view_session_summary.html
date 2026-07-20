@@ -190,10 +190,33 @@ function toggleSalesPaymentFields() {
               <span class="total-label"><i class="bi bi-cash-stack"></i>Subtotal</span>
               <span class="total-value">₱{{ total_revenue|floatformat:2|intcomma }}</span>
             </div>
+            {% comment %} VAT adjustment must be shown or the column stops adding up: a
+            senior's ₱50 sale reads 50.00 − 8.93 = 35.71, which looks like broken maths
+            until the ₱5.36 exemption is on screen. Only ever non-zero for a VAT-registered
+            seller. Order follows Annex D-2: VAT off first, then the discount. {% endcomment %}
+            {% if vat_adjustment %}
+            <div class="total-row">
+              <span class="total-label"><i class="bi bi-percent"></i>VAT exempt</span>
+              <span class="total-value" style="color:var(--success);">−₱{{ vat_adjustment|floatformat:2|intcomma }}</span>
+            </div>
+            {% endif %}
             {% if discount_percent %}
             <div class="total-row">
-              <span class="total-label"><i class="bi bi-tag"></i>Discount ({{ discount_percent|floatformat:0 }}%)</span>
+              <span class="total-label"><i class="bi bi-tag"></i>{% if discount_type_label %}{{ discount_type_label }} ({{ discount_percent|floatformat:0 }}%){% else %}Discount ({{ discount_percent|floatformat:0 }}%){% endif %}</span>
               <span class="total-value" style="color:var(--success);">−₱{{ discount_amount|floatformat:2|intcomma }}</span>
+            </div>
+            {% endif %}
+            {% comment %} Who the statutory discount was granted to. RMO 24-2023 p.5(n)
+            requires the ID number and holder's name on the invoice, so the cashier needs to
+            see what they captured BEFORE posting — a wrong OSCA number is unfixable once the
+            sale is locked. {% endcomment %}
+            {% if discount_type %}
+            <div class="total-row" style="align-items:flex-start;">
+              <span class="total-label"><i class="bi bi-person-vcard"></i>ID</span>
+              <span class="total-value" style="font-weight:500; text-align:right;">
+                {{ discount_id_no|default:"—" }}
+                {% if discount_name %}<div style="font-size:.78rem; color:var(--muted);">{{ discount_name }}</div>{% endif %}
+              </span>
             </div>
             {% endif %}
             <div class="total-row" style="margin-bottom:0;">

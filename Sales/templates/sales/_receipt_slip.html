@@ -23,7 +23,14 @@
 <table class="totals">
     {% if sale.discount_percent %}
     <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
-    <tr><td>Discount ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
+    {% comment %} `subtotal` is the TRUE gross (it adds the VAT adjustment back), so when a
+    statutory exemption stripped VAT this line MUST print or the receipt cannot be reconciled:
+    50.00 - 8.93 would show a TOTAL of 35.71 with 5.36 unaccounted for. Zero for a non-VAT
+    seller, so most receipts never show it. Order per RMO 24-2023 Annex D-2. {% endcomment %}
+    {% if sale.vat_adjustment %}
+    <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2 }}</td></tr>
+    {% endif %}
+    <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
     {% endif %}
     {% comment %} Payment lines only appear when they SAY something. A settled counter sale
     printed "TOTAL 47.00 / Paid 47.00" — the same number twice. The system owns the debt
