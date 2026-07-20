@@ -31,9 +31,10 @@ class EmailOTPAdmin(admin.ModelAdmin):
 
 @admin.register(BusinessProfile)
 class BusinessProfileAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'user', 'business_type', 'is_vat_registered', 'is_bir_active', 'created_at')
-    list_filter = ('is_bir_active', 'is_vat_registered', 'business_type')
-    search_fields = ('business_name', 'user__username', 'user__email')
+    list_display = ('business_name', 'user', 'business_type', 'is_vat_registered',
+                    'non_vat_type', 'is_bir_active', 'created_at')
+    list_filter = ('is_bir_active', 'is_vat_registered', 'non_vat_type', 'business_type')
+    search_fields = ('business_name', 'registered_name', 'user__username', 'user__email')
     readonly_fields = ('slug', 'created_at', 'updated_at')
     autocomplete_fields = ('user',)
 

@@ -145,6 +145,9 @@ function SaleCart() {
   const [toasts, setToasts] = useState([])
   const [cart, setCart] = useState(null)      // null = still loading
   const [discount, setDiscount] = useState(0)
+  const [discountType, setDiscountType] = useState('')     // '' = regular customer
+  const [discountIdNo, setDiscountIdNo] = useState('')     // OSCA / PWD / PNSTM / SP no.
+  const [discountName, setDiscountName] = useState('')     // the ID holder, not the payer
 
   // Load on mount — AND again whenever the cart is mutated from outside this island.
   //
@@ -161,6 +164,13 @@ function SaleCart() {
       fetch(URLS.state).then(r => r.json()).then(data => {
         setCart(data)
         setDiscount(parseFloat(data.discount_percent) || 0)
+        // The customer is server state too — clicking Edit on the summary re-mounts this
+        // component, and without restoring these the cart came back claiming "Regular
+        // customer" while the session still held the senior. The screen and the pending
+        // sale then disagreed about who was being served.
+        setDiscountType(data.discount_type || '')
+        setDiscountIdNo(data.discount_id_no || '')
+        setDiscountName(data.discount_name || '')
       })
 
     load()
@@ -210,13 +220,58 @@ function SaleCart() {
   const pageItems = cart.items.slice((current - 1) * PER_PAGE, current * PER_PAGE)
 
 
-  const subtotal   = parseFloat(cart.subtotal) || 0
-  const pct        = Math.max(0, Math.min(discount || 0, 100))
-  const discAmt    = subtotal * pct / 100
-  const grand      = subtotal - discAmt
-  const discountOn = CFG.discountEnabled === '1'
+  // ── Statutory discounts (SC / PWD / NAAC / Solo Parent) ───────────────────────────
+  // MUST mirror Sale.STATUTORY_RATES and Sale.STATUTORY_VAT_EXEMPT in Sales/models.py.
+  // The server recomputes everything on confirm via Sale.price_breakdown() — these exist
+  // only so the cashier sees the right number BEFORE committing. If the two ever drift,
+  // the server wins and the customer sees a different total than the screen promised, so
+  // change them together.
+  //
+  // ★ VAT exemption does NOT follow the rate: NAAC gets 20% off but keeps its VAT.
+  const STATUTORY = {
+    sc:          { label: 'Senior Citizen',    rate: 20, vatExempt: true  },
+    pwd:         { label: 'PWD',               rate: 20, vatExempt: true  },
+    solo_parent: { label: 'Solo Parent',       rate: 10, vatExempt: true  },
+    naac:        { label: 'National Athlete',  rate: 20, vatExempt: false },
+  }
 
-  const goConfirm = () => { window.location = CFG.confirmUrl + '?discount_percent=' + pct }
+  const subtotal    = parseFloat(cart.subtotal) || 0
+  const discountOn  = CFG.discountEnabled === '1'
+  const sellerVat   = CFG.vatRegistered === '1'
+  const statutory   = STATUTORY[discountType] || null
+
+  // Statutory wins over the owner's manual discount — they never stack.
+  const pct = statutory
+    ? statutory.rate
+    : (discountOn ? Math.max(0, Math.min(discount || 0, 100)) : 0)
+
+  // Mirrors price_breakdown(): strip VAT first, then discount the exempt base. Both are
+  // multiplications so the total is the same either way, but the DISCOUNT figure differs
+  // by which base it came off — and that is the number printed on the receipt.
+  const vatAdj  = (statutory && statutory.vatExempt && sellerVat)
+    ? subtotal - (subtotal / 1.12)
+    : 0
+  const base    = subtotal - vatAdj
+  const discAmt = base * pct / 100
+  const grand   = base - discAmt
+
+  const goConfirm = () => {
+    // ★ discount_type is ALWAYS sent, empty for a regular customer. Omitting it when
+    // regular looks equivalent but isn't: the server reads the type from the session, and
+    // an ABSENT key means "unchanged" while an EMPTY one means "cleared". Sending nothing
+    // left a previously-picked PWD sitting in the session, so switching back to Regular
+    // silently kept the 20%. Reported 2026-07-20; regression test in
+    // core/tests/test_statutory_discounts.py.
+    const params = new URLSearchParams({
+      discount_percent: pct,
+      discount_type: discountType,
+    })
+    if (statutory) {
+      params.set('discount_id_no', discountIdNo)
+      params.set('discount_name', discountName)
+    }
+    window.location = CFG.confirmUrl + '?' + params.toString()
+  }
 
   return (
     <div className="row g-3 g-lg-4">
@@ -294,7 +349,75 @@ function SaleCart() {
               <span className="pos-card-title"><i className="bi bi-receipt"></i> Order Summary</span>
             </div>
             <div style={{ padding:'1.25rem' }}>
-              {discountOn && (
+              {/* Customer type — ALWAYS shown, never gated on discountOn. SC and PWD are
+                  statutory: the owner cannot switch them off, so this must appear even for
+                  businesses that offer no ordinary discounts at all. */}
+              <div style={{ marginBottom:'.85rem' }}>
+                <label style={{ display:'block', fontSize:'.72rem', fontWeight:600,
+                                textTransform:'uppercase', letterSpacing:'.05em',
+                                color:'var(--muted)', marginBottom:'.35rem' }}>
+                  <i className="bi bi-person-vcard"></i> Customer
+                </label>
+                <select value={discountType}
+                        onChange={e => {
+                          const next = e.target.value
+                          setDiscountType(next)
+                          // Back to Regular means a DIFFERENT customer, so everything the
+                          // previous one carried goes with them — ID, name AND the rate.
+                          //
+                          // Resetting the manual % looks aggressive (the owner may have
+                          // typed it themselves before picking a statutory type) but the
+                          // counter case decides it: serve a senior at 20%, switch to
+                          // Regular for the next person, and a stale 20 sitting in the box
+                          // silently discounts someone not entitled to it. Losing a typed
+                          // rate is an annoyance; granting an unearned discount is money.
+                          if (!next) {
+                            setDiscountIdNo('')
+                            setDiscountName('')
+                            setDiscount(0)
+                          }
+                        }}
+                        style={{ width:'100%', padding:'.5rem .65rem', fontWeight:600,
+                                 border:'1px solid var(--border)', borderRadius:'8px',
+                                 background:'var(--surface)', color:'var(--text)' }}>
+                  <option value="">Regular customer</option>
+                  {Object.entries(STATUTORY).map(([key, s]) => (
+                    <option key={key} value={key}>{s.label} — {s.rate}% off</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ID capture — RMO 24-2023 p.5(n) requires the ID number and holder's name
+                  on the invoice, plus a signature (printed as a line on the receipt). Only
+                  rendered for a statutory type; a regular sale needs none of it. */}
+              {statutory && (
+                <div style={{ background:'var(--accent-light)', border:'1px solid var(--accent)',
+                              borderRadius:'10px', padding:'.7rem .85rem', marginBottom:'.85rem' }}>
+                  {/* maxLength MUST match Sale.discount_id_no (60) and the [:60] the view
+                      applies. Without it the browser accepts more, the server silently
+                      truncates, and a WRONG ID number ends up printed on a BIR invoice with
+                      nothing on screen to say it was cut. Free text on purpose: OSCA numbers
+                      have no national format (each LGU issues its own, often with letters or
+                      dashes), so a digits-only rule would reject valid IDs. */}
+                  <input type="text" value={discountIdNo} autoComplete="off" maxLength={60}
+                         onChange={e => setDiscountIdNo(e.target.value)}
+                         placeholder="OSCA / ID number"
+                         style={{ width:'100%', padding:'.4rem .55rem', marginBottom:'.45rem',
+                                  border:'1px solid var(--accent)', borderRadius:'8px',
+                                  background:'var(--surface)' }} />
+                  <input type="text" value={discountName} autoComplete="off" maxLength={255}
+                         onChange={e => setDiscountName(e.target.value)}
+                         placeholder="Name on the ID"
+                         style={{ width:'100%', padding:'.4rem .55rem',
+                                  border:'1px solid var(--accent)', borderRadius:'8px',
+                                  background:'var(--surface)' }} />
+                </div>
+              )}
+
+              {/* Manual discount — hidden entirely under a statutory type rather than shown
+                  disabled. The rate is the law's, not the cashier's, and an editable-looking
+                  box that silently does nothing is worse than no box. */}
+              {discountOn && !statutory && (
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                               background:'var(--accent-light)', border:'1px solid var(--accent)',
                               borderRadius:'10px', padding:'.6rem .85rem', marginBottom:'.85rem' }}>
@@ -320,9 +443,20 @@ function SaleCart() {
                 <span className="total-label"><i className="bi bi-cash-stack"></i> Subtotal</span>
                 <span className="total-value">₱{peso(subtotal)}</span>
               </div>
-              {discountOn && pct > 0 && (
+              {/* Deductions in the order Annex D-2 prints them: VAT adjustment first, then
+                  the discount off the exempt base. Only VAT-registered sellers ever show the
+                  first line — for a non-VAT business vatAdj is always 0. */}
+              {vatAdj > 0 && (
                 <div className="total-row">
-                  <span className="total-label"><i className="bi bi-tag"></i> Discount</span>
+                  <span className="total-label"><i className="bi bi-percent"></i> VAT exempt</span>
+                  <span className="total-value" style={{ color:'var(--success)' }}>−₱{peso(vatAdj)}</span>
+                </div>
+              )}
+              {pct > 0 && (
+                <div className="total-row">
+                  <span className="total-label">
+                    <i className="bi bi-tag"></i> {statutory ? `${statutory.label} ${pct}%` : 'Discount'}
+                  </span>
                   <span className="total-value" style={{ color:'var(--success)' }}>−₱{peso(discAmt)}</span>
                 </div>
               )}
@@ -349,7 +483,20 @@ function SaleCart() {
           </div>
         </div>
 
-          {/* Product Presets — posts to Django (not part of the live cart) */}
+          {/* ── Product Presets — HIDDEN 2026-07-20, not deleted ──────────────────────
+              Owner's call: presets stay on the MATERIALS side only. On the sales cart this
+              panel occupied the space directly under Order Summary, which is where the
+              statutory-discount controls (Senior Citizen / PWD / NAAC / Solo Parent, plus
+              the ID and name capture RMO 24-2023 p.5(n) requires) now need to live.
+
+              Kept commented rather than removed because the SERVICES case may bring it
+              back: xerox, GCash cash-in and bills payment are identical transactions rung
+              many times a day, which is exactly what a preset is for. If it returns, it
+              probably belongs somewhere other than under the checkout button.
+
+              The Django side is untouched — CFG.presetUrl / CFG.presetListUrl, the view and
+              the preset list page all still work. This hides ONE entry point, nothing more.
+
           <div className="pos-card" style={{ marginBottom:0, marginTop:'1rem' }}>
             <div className="pos-card-header">
               <span className="pos-card-title"><i className="bi bi-bookmark-fill"></i> Product Presets</span>
@@ -372,6 +519,7 @@ function SaleCart() {
               </form>
             </div>
           </div>
+          ─────────────────────────────────────────────────────────────────────────── */}
 
       </div>
     </div>

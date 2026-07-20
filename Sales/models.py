@@ -126,6 +126,83 @@ class Sale(TimeStampModel):
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (sales are %-only)
     discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
 
+    # ── Statutory discounts (SC / PWD / NAAC / Solo Parent) ──────────────────
+    # NOT an ordinary discount, and the difference drives most of the design:
+    #   * the rate is FIXED BY LAW, not typed by the cashier
+    #   * the business cannot decline it, so it must work even when the owner has
+    #     `enable_sale_discount` switched off
+    #   * RMO 24-2023 p.5(n) requires the ID number, the holder's name and a SIGNATURE
+    #     on the invoice, and the Z reading breaks the day's discounts out by category
+    #
+    # `discount_percent` still carries the applied rate — a statutory discount just
+    # SETS it — so all the existing peso math, receipt rendering and refund logic keep
+    # working untouched. The rate is stored rather than looked up at read time for the
+    # same reason `price_at_sale` and `vat_class` are snapshots: if Congress changes a
+    # rate, an old sale must still reproduce its own arithmetic.
+    #
+    # Mutually exclusive with an ordinary discount — a sale is either statutory or it
+    # isn't. Stacking them is not something the law contemplates and not something a
+    # cashier should be able to do by accident.
+    DISCOUNT_REGULAR     = ''
+    DISCOUNT_SC          = 'sc'
+    DISCOUNT_PWD         = 'pwd'
+    DISCOUNT_NAAC        = 'naac'
+    DISCOUNT_SOLO_PARENT = 'solo_parent'
+    DISCOUNT_TYPE_CHOICES = [
+        (DISCOUNT_REGULAR,     'Regular customer'),
+        (DISCOUNT_SC,          'Senior Citizen'),
+        (DISCOUNT_PWD,         'Person with Disability'),
+        (DISCOUNT_NAAC,        'National Athlete / Coach'),
+        (DISCOUNT_SOLO_PARENT, 'Solo Parent'),
+    ]
+    # RA 9994 (SC), RA 10754 (PWD), RA 10699 (NAAC) → 20%. RA 11861 (Solo Parent) → 10%,
+    # and only on specified child goods, which we do NOT enforce per-item: the cashier
+    # decides eligibility, the same way they do at every other PH counter.
+    STATUTORY_RATES = {
+        DISCOUNT_SC:          Decimal('20'),
+        DISCOUNT_PWD:         Decimal('20'),
+        DISCOUNT_NAAC:        Decimal('20'),
+        DISCOUNT_SOLO_PARENT: Decimal('10'),
+    }
+
+    # ★ VAT exemption does NOT ride along with every statutory discount, so it is a
+    # SEPARATE set rather than "anything with a rate is exempt".
+    #   SC  (RA 9994)  — 20% AND VAT-exempt
+    #   PWD (RA 10754) — 20% AND VAT-exempt
+    #   Solo Parent (RA 11861) — 10%, VAT-exempt on the specified child goods
+    #   NAAC (RA 10699) — 20%, discount ONLY; no VAT exemption
+    # Evidence for NAAC being the odd one out: RMO 24-2023 Annex D-2's VAT ADJUSTMENT
+    # block lists SC TRANS and PWD TRANS but NOT NAAC, while its DISCOUNT SUMMARY lists
+    # all four. ⚠️ Solo Parent's VAT treatment is the least certain of the four — confirm
+    # with the accountant. Moving a type in or out of this set is a one-line change.
+    #
+    # Only bites for VAT-REGISTERED businesses. A non-VAT seller has no VAT to exempt,
+    # so for most of our clients this set never comes into play.
+    STATUTORY_VAT_EXEMPT = {DISCOUNT_SC, DISCOUNT_PWD, DISCOUNT_SOLO_PARENT}
+
+    discount_type = models.CharField(
+        max_length=12, choices=DISCOUNT_TYPE_CHOICES, blank=True,
+        default=DISCOUNT_REGULAR, db_index=True,
+    )
+    # OSCA no. / PWD ID / PNSTM ID / Solo Parent ID — whichever applies to the type.
+    discount_id_no = models.CharField(max_length=60, blank=True)
+    discount_name  = models.CharField(max_length=255, blank=True)   # holder, not the payer
+    # "TIN, if any" (p.5(n)) — genuinely optional; most SC/PWD holders won't have one.
+    discount_tin   = models.CharField(max_length=20, blank=True)
+
+    # The VAT removed because the BUYER was exempt — NOT because the goods were. Kept as
+    # its own figure because Annex D-2 deducts it on a line separate from the discount:
+    #
+    #     Gross Amount          50.00
+    #     Less Discount         -8.93
+    #     Less VAT Adjustment   -5.36
+    #     Net Amount            35.71
+    #
+    # and the Z reading reports a DISCOUNT SUMMARY and a VAT ADJUSTMENT block that must
+    # each tie to their own total. Merging the two into one "discount" would make both
+    # blocks unreportable. Always 0 for a non-VAT seller, which is most of our clients.
+    vat_adjustment = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
     objects = SaleQuerySet.as_manager()
     
     def __str__(self):
@@ -200,8 +277,78 @@ class Sale(TimeStampModel):
         
     @property
     def subtotal(self):
-        """Gross line total before the whole-order discount (net + discount back-out)."""
-        return (self.total_revenue or Decimal('0')) + self.discount_amount
+        """The TRUE gross — what the goods rang up at before any relief came off.
+
+        Adds the VAT adjustment back as well as the discount. Without it, a senior's
+        ₱50 sale at a VAT-registered seller would report ₱44.64 as its gross, and since
+        this is the figure the BIR odometer posts, the accumulated grand total would
+        quietly under-report by exactly the VAT it exempted.
+
+        Non-VAT sellers have vat_adjustment=0, so this is unchanged for them.
+        """
+        return ((self.total_revenue or Decimal('0'))
+                + (self.discount_amount or Decimal('0'))
+                + (self.vat_adjustment or Decimal('0')))
+
+    @classmethod
+    def price_breakdown(cls, gross, discount_type, *, seller_charges_vat,
+                        rate=None):
+        """Split a gross amount into the three lines Annex D-2 prints.
+
+        Order matters for PRESENTATION, not arithmetic: VAT comes off first, then the
+        discount applies to the exempt base. (Both are multiplications, so the total is
+        the same either way — but the receipt must show them separately, and the
+        discount figure differs depending on which base it was taken from.)
+
+        `rate` overrides the statutory rate, for ordinary owner-set discounts.
+        Returns Decimals quantized to centavos, with
+        total + discount_amount + vat_adjustment == gross always holding.
+        """
+        from decimal import ROUND_HALF_UP
+        cents = Decimal('0.01')
+
+        gross = Decimal(gross or 0).quantize(cents, ROUND_HALF_UP)
+        if rate is None:
+            rate = cls.statutory_rate(discount_type)
+        rate = Decimal(rate or 0)
+
+        # VAT only comes off when the seller actually charges it AND the buyer's
+        # discount type carries an exemption. NAAC has a rate but no exemption.
+        if seller_charges_vat and discount_type in cls.STATUTORY_VAT_EXEMPT:
+            base = (gross / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
+        else:
+            base = gross
+        vat_adjustment = gross - base
+
+        discount_amount = (base * rate / Decimal('100')).quantize(cents, ROUND_HALF_UP)
+        total = base - discount_amount
+
+        return {
+            'gross':           gross,
+            'vat_adjustment':  vat_adjustment,
+            'discount_amount': discount_amount,
+            'total':           max(total, Decimal('0.00')),
+        }
+
+    @property
+    def is_statutory_discount(self):
+        """True when this sale carries an SC/PWD/NAAC/Solo Parent discount.
+
+        Distinguishes the two kinds of discount everywhere it matters: the receipt
+        prints the ID and signature block only for these, and the Z reading counts
+        them under their own category rather than 'Other'.
+        """
+        return bool(self.discount_type)
+
+    @classmethod
+    def statutory_rate(cls, discount_type):
+        """The legally fixed rate for a discount type, or 0 for a regular customer.
+
+        Used at checkout to SET discount_percent. Never used to re-derive the rate of
+        an existing sale — that one reads its own stored discount_percent, so a sale
+        rung before a rate change still prints the arithmetic it was rung with.
+        """
+        return cls.STATUTORY_RATES.get(discount_type or '', Decimal('0'))
     
     def vat_summary(self):
         """PH 12% VAT breakdown, VAT-inclusive, discount-aware.
@@ -211,10 +358,33 @@ class Sale(TimeStampModel):
         cents = Decimal('0.01')
         keep = (Decimal('100') - (self.discount_percent or 0)) / Decimal('100')
 
+        # ★ A statutory VAT exemption OVERRIDES every line's own vat_class. An SC or PWD
+        # sale is exempt in full — it does not matter that the product is ordinarily
+        # VATable, because the exemption attaches to the BUYER, not the goods.
+        # NAAC is deliberately absent from STATUTORY_VAT_EXEMPT — 20% off, VAT still due.
+        #
+        # ★★ The VAT must be REMOVED, not merely relabelled. Our prices are VAT-INCLUSIVE,
+        # so a ₱50 VATable sticker is ₱44.64 + ₱5.36 VAT. Moving ₱50 into the exempt
+        # bucket would hand the senior only the 20% and quietly keep the VAT — under-
+        # relieving the customer AND overstating exempt sales to BIR. Divide it out.
+        #
+        # Only VATable lines carry VAT to remove: an already-exempt or zero-rated line
+        # has none. And a NON-VAT business never charged VAT in the first place, so its
+        # prices are stripped of nothing — which is why this is gated on the business.
+        exempt_everything = self.discount_type in self.STATUTORY_VAT_EXEMPT
+        seller_charges_vat = bool(getattr(self.business, 'is_vat_registered', False))
+
         buckets = {'vatable': Decimal('0'), 'exempt': Decimal('0'), 'zero': Decimal('0')}
         for item in self.sale_items.all():
+            line = (item.price_at_sale or Decimal('0')) * item.quantity
             cls = item.vat_class if item.vat_class in buckets else 'vatable'
-            buckets[cls] += (item.price_at_sale or Decimal('0')) * item.quantity
+
+            if exempt_everything:
+                if cls == 'vatable' and seller_charges_vat:
+                    line = (line / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
+                cls = 'exempt'
+
+            buckets[cls] += line
 
         # whole-order discount hits every bucket proportionally
         for k in buckets:

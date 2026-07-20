@@ -51,6 +51,13 @@ def _serialize_cart(request, business):
         'subtotal': f'{subtotal:.2f}',
         'discount_percent': str(request.session.get('sale_discount_percent', 0) or 0),
         'discount_enabled': bool(business.enable_sale_discount),
+        # The statutory customer has to come back too. Without these, clicking Edit on the
+        # summary returned to a cart that had forgotten the senior — it showed "Regular
+        # customer" while the server still held the SC type, so the screen and the pending
+        # sale disagreed about who was being served.
+        'discount_type': request.session.get('sale_discount_type', '') or '',
+        'discount_id_no': request.session.get('sale_discount_id_no', '') or '',
+        'discount_name': request.session.get('sale_discount_name', '') or '',
     }
     
 @login_required(login_url='login')

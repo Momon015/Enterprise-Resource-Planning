@@ -129,7 +129,7 @@
             {% for field in form %}
               {% if field.name == "offers_services" %}
                 {# rendered separately in the Features section below #}
-              {% elif field.name == "is_vat_registered" or field.name == "tin" or field.name == "address" or field.name == "street" or field.name == "barangay" or field.name == "city" or field.name == "province" or field.name == "region" or field.name == "zip_code" %}
+              {% elif field.name == "is_vat_registered" or field.name == "non_vat_type" or field.name == "tin" or field.name == "registered_name" or field.name == "address" or field.name == "street" or field.name == "barangay" or field.name == "city" or field.name == "province" or field.name == "region" or field.name == "zip_code" %}
                 {# structured address (PSGC) + tax rendered explicitly below the loop #}
               {% else %}
 
@@ -192,6 +192,13 @@
             </div>
 
             <!-- TAX & BIR -->
+            {% comment %} Excluded from the loop above and rendered here so the tax fields sit
+            together instead of scattered through Basic Information. {% endcomment %}
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">Registered Name</label>
+              {{ form.registered_name }}
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">Only if different from your business name — like your full name for a sole proprietorship.</div>
+            </div>
             <div class="mf-field" style="margin-bottom:0.9rem;">
               <label class="mf-label">TIN</label>
               {{ form.tin }}
@@ -203,6 +210,11 @@
                 <label class="form-check-label" for="{{ form.is_vat_registered.id_for_label }}">VAT-registered</label>
               </div>
               <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">Turn on only if BIR-registered as VAT — receipts show a 12% VAT breakdown.</div>
+            </div>
+            <div class="mf-field" style="margin-bottom:0.9rem;">
+              <label class="mf-label">If not VAT-registered</label>
+              {{ form.non_vat_type }}
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">Most small businesses pay the 3% percentage tax. You file this with BIR on your total sales — it is not added to your prices and customers never see it on a receipt. Pick &quot;Exempt&quot; only if BIR exempts what you sell entirely, like rice, vegetables, fruit, livestock or poultry.</div>
             </div>
 
             {% if show_human_check %}

@@ -270,9 +270,49 @@ class BusinessProfile(models.Model):
                   "registered with BIR as VAT — receipts will then show a 12% VAT breakdown.",
     )
 
+    # Non-VAT is NOT one thing, and the invoice/reading print differently for each.
+    # RMO 24-2023 p.5: item (m) wants an SSPT vs Exempt split ONLY for MIXED taxpayers —
+    # percentage tax AND Sec 109(A)–(W) exempt sales. Item (l) wants the word "EXEMPT"
+    # shown prominently for those subject to NEITHER (the reg names rice, vegetable,
+    # fruit, livestock and poultry dealers). A plainly percentage-taxable business needs
+    # no tax block at all, which is why 'percentage' is the default — under ₱3M on 3% is
+    # the common case for our clients.
+    #
+    # Kept as a SEPARATE field rather than folding is_vat_registered into one enum: that
+    # boolean is wired into the profile form and the official invoice template, and a
+    # single source of truth isn't worth breaking working screens for. Only meaningful
+    # when is_vat_registered is False.
+    NON_VAT_PERCENTAGE = 'percentage'
+    NON_VAT_EXEMPT     = 'exempt'
+    NON_VAT_MIXED      = 'mixed'
+    NON_VAT_TYPE_CHOICES = [
+        (NON_VAT_PERCENTAGE, 'Percentage tax (3%)'),
+        (NON_VAT_EXEMPT,     'Exempt from VAT and percentage tax'),
+        (NON_VAT_MIXED,      'Percentage tax, with some exempt sales'),
+    ]
+    non_vat_type = models.CharField(
+        max_length=12, choices=NON_VAT_TYPE_CHOICES, default=NON_VAT_PERCENTAGE,
+        help_text="Only applies if you're NOT VAT-registered. Most small businesses pay "
+                  "the 3% percentage tax. Choose 'Exempt' only if you sell goods BIR "
+                  "exempts entirely, like rice, vegetables, fruit, livestock or poultry.",
+    )
+
     tin = models.CharField(
         max_length=20, null=True, blank=True,
         help_text="Your Tax Identification Number, shown on receipts (e.g. 123-456-789-000).",
+    )
+
+    # RMO 24-2023 p.4(a) requires BOTH the registered name AND the business name/style
+    # "if any". Annex D-2 prints them stacked — "NICOLE'S SUPERMARKET" over
+    # "Operated by: Facunla Enterprise Inc." `business_name` is the trade name used
+    # everywhere in the app; this is the legal entity behind it. For a sole proprietor
+    # they're usually different (the person's name vs the store's), and blank here just
+    # means "same as the business name".
+    registered_name = models.CharField(
+        max_length=255, null=True, blank=True,
+        help_text="The name your business is registered under with BIR, if different from "
+                  "the name above — e.g. your full name for a sole proprietorship. Printed "
+                  "on official invoices as 'Operated by'.",
     )
     
     # ── BIR accreditation (official invoice; OFF until accredited) ──
@@ -287,6 +327,14 @@ class BusinessProfile(models.Model):
                                help_text="Permit To Use (PTU) number.")
     bir_accreditation = models.CharField(max_length=40, null=True, blank=True,
                                          help_text="BIR Accreditation number.")
+    # RMO 24-2023 p.4(a): the machine's serial number if branded, or the HDD serial /
+    # SOFTWARE LICENCE NUMBER if cloned. We're subscription software, so it's the licence
+    # number. Annex D-2 prints it as "S/N:" directly under the MIN.
+    bir_serial_number = models.CharField(
+        max_length=60, null=True, blank=True,
+        help_text="Software licence number issued with your BIR accreditation. Printed as "
+                  "'S/N' on official invoices and sales readings.",
+    )
 
 
     class Meta:
