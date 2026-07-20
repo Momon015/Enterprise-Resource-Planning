@@ -443,6 +443,11 @@ def sale_list(request, business_slug):
     recv_period = recv_status = ''
     recv_filter_active = False
     recv_any_count = 0
+    # Must be initialised HERE, not only inside the block below — the context reads it
+    # unconditionally. It was assigned only under `can_view_receivables`, so any staff
+    # member WITHOUT can_handle_receivables (the default for new staff) 500'd on this
+    # page with UnboundLocalError. Fixed 2026-07-20.
+    pending_count = 0
 
     if can_view_receivables:
         recv_base = (
