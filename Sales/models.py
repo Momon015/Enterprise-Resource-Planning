@@ -69,7 +69,12 @@ class Sale(TimeStampModel):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
-    date = models.DateField(db_index=True)
+    # NULL until the sale is COMPLETED. A parked draft has no books date because it is
+    # not yet in the books — it is an intent (items + amount + payment method) and
+    # nothing more. Stamped in save() at the moment status becomes completed, so a
+    # draft parked Monday and confirmed Wednesday books to WEDNESDAY, the day it
+    # actually became a sale. See the reference note in save().
+    date = models.DateField(db_index=True, null=True, blank=True)
     total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
@@ -131,13 +136,44 @@ class Sale(TimeStampModel):
             if uf is None or not set(uf) <= allowed:
                 raise ValueError("Posted sale is immutable — append a void/return/adjust instead.")
 
-        if not self.date:
-            self.date = timezone.localdate()
-    
-        if not self.reference and self.business:
-            self.reference, _, _ = SaleSequence.issue(self.business, 'SI')
+        # ── Books date + accountable invoice number: COMPLETED sales only ──────
+        # Both are stamped here, together, at the instant the sale becomes real.
+        #
+        # A draft used to claim `SI-…` the moment it was parked, which produced two
+        # problems at once. (1) A cancelled draft left a number sitting in the
+        # accountable series that never became an invoice. (2) Worse, the series
+        # stopped being chronological — park draft A, sell B and C, then confirm A,
+        # and the customer receives SI-1 after SI-3 has already gone out.
+        #
+        # RMO 24-2023 p.4 note: "If the system generates transaction number, SI/OR
+        # number should be a different series." A number assigned before the sale
+        # exists IS a transaction number, so drawing it from the SI run collided
+        # with exactly that. Assigning at completion keeps the SI series
+        # chronological AND free of numbers that were never issued — correct under
+        # both the strict and lenient readings of "sequential series of accountable
+        # documents", which matters because the RMO never defines the term.
+        #
+        # A cancelled draft therefore keeps date=None and reference=None forever.
+        # It is a real record of an abandoned intent, not a gap: it never held a
+        # number, so none went missing.
+        stamped = []
+        if self.status == self.STATUS_COMPLETED:
+            if not self.date:
+                self.date = timezone.localdate()
+                stamped.append('date')
 
-        
+            if not self.reference and self.business:
+                self.reference, _, _ = SaleSequence.issue(self.business, 'SI')
+                stamped.append('reference')
+
+        # A caller passing update_fields cannot know we just stamped these — and
+        # confirm_sale_draft does exactly that. Without this, date/reference would be
+        # set on the instance and silently never written. Widen the list to match
+        # what actually changed rather than making every call site remember.
+        update_fields = kwargs.get('update_fields')
+        if stamped and update_fields is not None:
+            kwargs['update_fields'] = list(set(update_fields) | set(stamped))
+
         super().save(*args, **kwargs)
         
     @property
