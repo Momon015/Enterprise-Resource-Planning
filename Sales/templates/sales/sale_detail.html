@@ -310,6 +310,16 @@
               <dt>Status</dt>
               <dd><span class="sl-badge sl-badge-danger"><i class="bi bi-ban"></i> Voided</span></dd>
             </div>
+            {% comment %} The void is its own accountable document (RMO 24-2023 p.4(k) —
+            void papers are supplementary invoices), so it carries its own number from a
+            series separate to SI. First field in the block: it identifies the document
+            the rest of these details describe. {% endcomment %}
+            {% if sale.void_reference %}
+            <div>
+              <dt>Void no.</dt>
+              <dd>{{ sale.void_reference }}</dd>
+            </div>
+            {% endif %}
             {% if sale.voided_by %}
             <div>
               <dt>Voided by</dt>

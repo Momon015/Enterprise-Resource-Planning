@@ -39,6 +39,20 @@ class SaleQuerySet(models.QuerySet):
 class SaleSequence(AbstractDocumentSequence):
     """SI- series — one continuous run per business."""
     pass
+
+class VoidSequence(AbstractDocumentSequence):
+    """VD- series — voids are numbered documents, not just a flag.
+
+    RMO 24-2023 Annex D-2 prints "Beg. VOID #" and "End. VOID #" on every Z reading
+    alongside the SI and RETURN runs, so a void has to carry its own accountable
+    number. p.4(k) says the same thing from the other direction: void, cancellation
+    and refund papers are SUPPLEMENTARY INVOICES — which is also why they must print
+    "THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX".
+
+    Separate from the SI run on purpose. Voiding does not consume a sales invoice
+    number; it issues a different kind of document about one.
+    """
+    pass
  
 class Sale(TimeStampModel):
     
@@ -85,6 +99,10 @@ class Sale(TimeStampModel):
     
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
+    # The void's own accountable number (VD-0000000001), issued at void time from a
+    # series separate to SI. NULL on every sale that was never voided. Drives the
+    # "Beg./End. VOID #" pair on the Z reading.
+    void_reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     void_reason = models.CharField(max_length=255, blank=True)
     voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='voided_sales', null=True, blank=True)
     voided_at   = models.DateTimeField(null=True, blank=True)
@@ -131,7 +149,11 @@ class Sale(TimeStampModel):
     
     def save(self, *args, **kwargs):
         if not self._state.adding and self.is_locked:
-            allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at', 'is_locked'}
+            # void_reference belongs here for the same reason the rest do: a posted sale
+            # is immutable, but VOIDING it is an append, and the void carries its own
+            # document number. Omit it and stamping the number raises on every void.
+            allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at', 'is_locked',
+                       'void_reference'}
             uf = kwargs.get('update_fields')
             if uf is None or not set(uf) <= allowed:
                 raise ValueError("Posted sale is immutable — append a void/return/adjust instead.")

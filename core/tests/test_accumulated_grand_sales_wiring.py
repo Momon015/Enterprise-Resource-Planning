@@ -18,6 +18,7 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
+from Sales.models import Sale
 from activity.models import AccumulatedGrandSalesEntry
 from tests.factories import make_business, make_product, make_sale
 
@@ -106,6 +107,82 @@ def test_a_void_is_dated_by_when_it_happened_not_by_the_sale(client, owner):
         "an explicit business_date must win over source.date — otherwise the void "
         "files itself onto the day the sale was rung"
     )
+
+
+def test_the_odometer_records_gross_not_net_of_discount(client, owner):
+    """RMO 24-2023 Annex D-2 prints "Present Accumulated Sales" and "Gross Amount" as
+    the SAME figure, then deducts discount FROM it. So the odometer tracks gross and
+    the Z reading nets down afterwards.
+
+    Posting total_revenue instead would deduct the discount twice — once when the
+    sale is recorded, and again on the reading's "Less Discount" line.
+
+    Driven through the VOID view rather than by calling post() directly. Passing
+    sale.subtotal in by hand would only prove that subtotal is 1000 — it would pass
+    just as happily if the hook still used total_revenue. The void hook shares the
+    sales hook's basis, so this is the one gross/net path reachable end-to-end
+    without building a session cart.
+    """
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='100')
+    sale = make_sale(biz, [(product, 10)], discount_percent=20)   # 1000 gross, 200 off
+    client.force_login(owner)
+
+    assert sale.total_revenue == Decimal('800.000000'), "fixture isn't discounted"
+    assert sale.subtotal == Decimal('1000.000000')
+
+    client.post(
+        reverse('void-sale', kwargs={'business_slug': biz.slug, 'sale_id': sale.id}),
+        {'void_reason': 'wrong_item', 'action': 'void'},
+    )
+
+    assert AccumulatedGrandSalesEntry.total_for(
+        biz, AccumulatedGrandSalesEntry.CHANNEL_VOID) == Decimal('1000.00'), (
+        "the hook posted the NET figure — the discount would be deducted twice on "
+        "the Z reading, once here and again on its 'Less Discount' line"
+    )
+
+
+def test_a_void_is_issued_its_own_document_number(client, sale_to_void):
+    """Voids are numbered, not just flagged.
+
+    Annex D-2 prints "Beg. VOID #" / "End. VOID #" beside the SI and RETURN runs, and
+    p.4(k) classes void papers as supplementary invoices. The number comes from a
+    series SEPARATE to SI — voiding does not consume a sales invoice number, it issues
+    a different kind of document about one.
+    """
+    biz, sale = sale_to_void
+    assert sale.void_reference is None, "an unvoided sale must hold no void number"
+    sale_invoice = sale.reference
+
+    client.post(
+        reverse('void-sale', kwargs={'business_slug': biz.slug, 'sale_id': sale.id}),
+        {'void_reason': 'wrong_item', 'action': 'void'},
+    )
+    sale.refresh_from_db()
+
+    assert sale.void_reference == 'VD-0000000001'
+    assert sale.reference == sale_invoice, "voiding must not disturb the SI number"
+
+
+def test_void_numbers_run_independently_of_invoice_numbers(client, owner):
+    """Two series, two runs. Three sales and one void must leave SI at 3 and VD at 1 —
+    if they shared a counter the void would have burned an invoice number."""
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='50')
+    sales = [make_sale(biz, [(product, 1)]) for _ in range(3)]
+    client.force_login(owner)
+
+    client.post(
+        reverse('void-sale', kwargs={'business_slug': biz.slug, 'sale_id': sales[1].id}),
+        {'void_reason': 'wrong_item', 'action': 'void'},
+    )
+    sales[1].refresh_from_db()
+
+    assert [s.reference for s in Sale.objects.filter(business=biz).order_by('id')] == [
+        'SI-0000000001', 'SI-0000000002', 'SI-0000000003',
+    ]
+    assert sales[1].void_reference == 'VD-0000000001'
 
 
 def test_the_void_entry_names_the_invoice_it_reversed(client, sale_to_void):
