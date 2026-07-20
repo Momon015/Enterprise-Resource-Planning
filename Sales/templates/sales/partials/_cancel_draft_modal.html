@@ -7,7 +7,8 @@
         <div class="cm-thumb cm-thumb--muted"><i class="bi bi-x-circle"></i></div>
         <div>
           <div class="cm-title">Cancel this sale?</div>
-          <div class="cm-sub">{{ sale.reference }} · ₱{{ sale.total_revenue|floatformat:2 }}</div>
+          {% comment %} A draft has no SI number until it is confirmed — name it by its row. {% endcomment %}
+          <div class="cm-sub">Draft #{{ sale.id }} · ₱{{ sale.total_revenue|floatformat:2 }}</div>
         </div>
       </div>
 

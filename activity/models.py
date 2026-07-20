@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
@@ -263,6 +263,174 @@ class AuditLog(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("AuditLog is append-only — rows cannot be deleted.")
+
+class AccumulatedGrandSalesCounter(models.Model):
+    """The odometer head — one row per (business, channel), holding the live total.
+
+    Exists to be LOCKED, not just read. Two cashiers finalizing at the same instant
+    must not both read the same running total and write two entries claiming it, so
+    every post takes select_for_update() on this row first. Same reason
+    AbstractDocumentSequence keeps a counter row instead of doing MAX(number)+1.
+
+    It also makes "what is the grand total right now" O(1) instead of a SUM over
+    every sale the business has ever made. AccumulatedGrandSalesEntry stays the source of
+    truth — if these two ever disagree, the entries are right and this is the bug.
+    """
+    CHANNEL_SALE   = 'sale'
+    CHANNEL_VOID   = 'void'
+    CHANNEL_RETURN = 'return'
+    CHANNEL_CHOICES = [
+        (CHANNEL_SALE,   'Accumulated grand total — sales'),
+        (CHANNEL_VOID,   'Accumulated grand total — voids'),
+        (CHANNEL_RETURN, 'Accumulated grand total — returns'),
+    ]
+
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE,
+                                 related_name='accumulated_grand_sales_counters')
+    channel  = models.CharField(max_length=10, choices=CHANNEL_CHOICES, db_index=True)
+
+    # 16 digits because this NEVER resets — it is the lifetime of the business.
+    total       = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    entry_count = models.PositiveBigIntegerField(default=0)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'channel'],
+                                    name='uniq_grandtotal_business_channel'),
+        ]
+
+    def __str__(self):
+        return f"{self.business} {self.channel} — {self.total}"
+
+
+class AccumulatedGrandSalesEntry(models.Model):
+    """BIR Accumulated Grand Total — a perpetual, append-only sales odometer.
+
+    This is NOT your Total Revenue, and the difference is the entire point.
+    Every revenue figure in this app sums `.active()` sales, so it DROPS the moment
+    something is voided. RMO 24-2023 requires a grand total that only ever increases
+    — not even a same-day void may pull it back. So a void does not subtract here;
+    it posts its own entry to the VOID channel, and the two are reported side by side
+    on the Z reading. Expect sales-channel total > all-time revenue, forever. That
+    gap IS the void history, and an examiner reads it deliberately.
+
+    One row per accountable event, immutable once written. `running_total` is the
+    channel's odometer AFTER this entry, so any single row can be audited on its own
+    ("the total went 4,300 → 4,550 because SI-0000000019 rang 250").
+
+    Source is stored as model+id+ref rather than an FK because three different models
+    feed this (Sale, Sale-as-void, SalesReturn), and because `source_ref` must survive
+    as a text snapshot even if the row it names is ever unreachable — same reasoning
+    as AuditLog.target_ref above.
+    """
+    CHANNEL_SALE   = AccumulatedGrandSalesCounter.CHANNEL_SALE
+    CHANNEL_VOID   = AccumulatedGrandSalesCounter.CHANNEL_VOID
+    CHANNEL_RETURN = AccumulatedGrandSalesCounter.CHANNEL_RETURN
+
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE,
+                                 related_name='accumulated_grand_sales_entries')
+    channel  = models.CharField(max_length=10,
+                                choices=AccumulatedGrandSalesCounter.CHANNEL_CHOICES, db_index=True)
+
+    amount        = models.DecimalField(max_digits=12, decimal_places=2)
+    running_total = models.DecimalField(max_digits=16, decimal_places=2)
+
+    source_model = models.CharField(max_length=50, db_index=True)   # 'Sale', 'SalesReturn'
+    source_id    = models.PositiveIntegerField(null=True, blank=True)
+    source_ref   = models.CharField(max_length=100, blank=True)     # 'SI-0000000019' snapshot
+
+    # The books' date, not the wall clock — a sale rung at 00:10 that belongs to
+    # yesterday's business day must land on yesterday's Z reading.
+    business_date = models.DateField(db_index=True)
+    created_at    = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['business', 'channel', '-created_at']),
+            models.Index(fields=['business', 'business_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.channel} +{self.amount} → {self.running_total} ({self.source_ref})"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("AccumulatedGrandSalesEntry is append-only — the odometer cannot be edited.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("AccumulatedGrandSalesEntry is append-only — the odometer cannot be rewound.")
+
+    @classmethod
+    def post(cls, business, channel, amount, *, source=None, ref='', business_date=None):
+        """Advance one channel's odometer and write the entry. Returns the entry, or
+        None if there was nothing to post.
+
+        Zero is a no-op: a ₱0 sale is a real thing in this app (checkout renders it as
+        "Free") and it moves no money, so it earns no entry.
+
+        A NEGATIVE amount raises. It is never a legitimate input — the only way one
+        arrives is a caller trying to express a reversal by subtracting, which is
+        precisely the thing this model exists to prevent. Fail loudly at the call site
+        rather than silently un-ringing a sale.
+        """
+        from decimal import Decimal, ROUND_HALF_UP
+
+        amount = Decimal(amount or 0).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if amount < 0:
+            raise ValueError(
+                f"AccumulatedGrandSalesEntry.post got a negative amount ({amount}). The grand total "
+                f"only ever increases — post a reversal to the '{cls.CHANNEL_VOID}' or "
+                f"'{cls.CHANNEL_RETURN}' channel instead of subtracting from sales."
+            )
+        if amount == 0 or business is None:
+            return None
+
+        # ── The books date must be KNOWN, never invented ────────────────────
+        # This used to fall back to today. That was harmless while every Sale had a
+        # date, but a parked draft now carries date=None ([Sales/models.py]), so the
+        # fallback would quietly stamp an entry with today instead of refusing. A
+        # wrong business_date is the worst failure available here: it silently moves
+        # money onto the wrong Z reading, and the entry is append-only so it cannot
+        # be corrected afterwards. Refuse instead — the only way to arrive without a
+        # date is to be posting for something that is not a completed sale, which is
+        # a bug at the call site.
+        business_date = business_date or getattr(source, 'date', None)
+        if business_date is None:
+            raise ValueError(
+                f"AccumulatedGrandSalesEntry.post has no business_date for "
+                f"{type(source).__name__ if source else 'None'} — refusing to guess. "
+                f"Only COMPLETED sales carry a date; a draft must never reach the odometer."
+            )
+
+        with transaction.atomic():
+            counter, _ = AccumulatedGrandSalesCounter.objects.select_for_update().get_or_create(
+                business=business, channel=channel,
+            )
+            counter.total += amount
+            counter.entry_count += 1
+            counter.save(update_fields=['total', 'entry_count', 'updated_at'])
+
+            return cls.objects.create(
+                business=business,
+                channel=channel,
+                amount=amount,
+                running_total=counter.total,
+                source_model=type(source).__name__ if source is not None else '',
+                source_id=getattr(source, 'pk', None),
+                source_ref=ref or getattr(source, 'reference', '') or '',
+                business_date=business_date,
+            )
+
+    @classmethod
+    def total_for(cls, business, channel=CHANNEL_SALE):
+        """The odometer reading right now. O(1) — reads the counter head."""
+        from decimal import Decimal
+        row = AccumulatedGrandSalesCounter.objects.filter(business=business, channel=channel).first()
+        return row.total if row else Decimal('0.00')
+
 
 class DailyClose(models.Model):
     """BIR-style frozen accrual snapshot of one business-day's books.
