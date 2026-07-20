@@ -401,6 +401,21 @@
             </div>
             {% endif %}
 
+            {% comment %} Cash tendered → change. Historical here rather than actionable —
+            the money changed hands long ago — so it reads as a plain record, unlike the
+            emphasised Change on the post-checkout summary. Present only when the cashier
+            recorded a tender; NULL means unrecorded, not zero. {% endcomment %}
+            {% if sale.cash_tendered %}
+            <div>
+              <dt>Cash Received</dt>
+              <dd>₱{{ sale.cash_tendered|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>Change</dt>
+              <dd>₱{{ sale.cash_change|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+
             {% comment %} RETURNS — headline only. The per-return references, reasons and who
             recorded them live in the Returns CARD below Payments; a stacked column of bare
             reference links stopped being readable the moment there were two.

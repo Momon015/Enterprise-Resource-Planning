@@ -69,7 +69,7 @@ def test_where_a_parked_draft_lands_when_confirmed_later(client, owner, capsys):
     )
     assert draft.reference, "confirmation must stamp the SI number"
 
-    # ★ The update_fields trap: confirm_sale_draft saves with an explicit
+    # IMPORTANT: The update_fields trap: confirm_sale_draft saves with an explicit
     # update_fields list that does NOT mention date or reference. If save() didn't
     # widen that list, both would be set on the instance and never written — the
     # object in memory would look right and the database would hold NULL.

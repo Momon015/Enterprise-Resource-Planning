@@ -94,11 +94,84 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
 
+// The sale total, for the change readout. Rendered as a raw number on purpose —
+// floatformat/intcomma would inject a thousands comma that parseFloat truncates at,
+// turning a ₱1,250.00 sale into 1.
+const SALE_TOTAL = {{ total_revenue|default:0|stringformat:"s" }};
+
 function toggleSalesPaymentFields() {
   const status = document.querySelector('input[name="payment_status"]:checked').value;
+  const method = document.querySelector('select[name="payment_method"]').value;
   document.getElementById('payment_method_group').style.display = status === 'utang' ? 'none' : 'block';
   document.getElementById('amount_paid_group').style.display = status === 'partial' ? 'block' : 'none';
+
+  // Change only exists for cash actually handed over. Debt hands over nothing, and
+  // an e-payment is always exact.
+  const wantsCash = (method === 'cash' && status !== 'utang');
+  document.getElementById('cash_tendered_group').style.display = wantsCash ? 'block' : 'none';
+  if (!wantsCash) document.querySelector('input[name="cash_tendered"]').value = '';
+
+  // Reference is for e-payments only — cash has no reference number, and Debt records
+  // no payment for the note to attach to. Cleared on hide so a ref typed against GCash
+  // doesn't ride along after switching to Cash.
+  const wantsNote = (status !== 'utang' && (method === 'gcash' || method === 'bank'));
+  document.getElementById('payment_note_group').style.display = wantsNote ? 'block' : 'none';
+  if (!wantsNote) document.querySelector('input[name="payment_note"]').value = '';
+
+  updateChangeDue();
 }
+
+function pickTender(btn) {
+  const input = document.querySelector('input[name="cash_tendered"]');
+  const value = btn.dataset.tender;
+
+  // Tapping the selected note again clears it — the only way back to "no tender"
+  // without hunting for the box and deleting the digits.
+  if (btn.classList.contains('is-active')) {
+    input.value = '';
+  } else {
+    input.value = value;
+  }
+  updateChangeDue();
+}
+
+function updateChangeDue() {
+  const row = document.getElementById('change_due_row');
+  const status = document.querySelector('input[name="payment_status"]:checked').value;
+  const tendered = parseFloat(document.querySelector('input[name="cash_tendered"]').value);
+
+  // Change is measured against what's being PAID now, not the sale total — on a
+  // partial, a ₱500 note against a ₱200 down payment is ₱300 change and a separate
+  // balance still owed.
+  const partial = parseFloat(document.querySelector('input[name="amount_paid"]').value);
+  const due = (status === 'partial' && partial > 0) ? partial : SALE_TOTAL;
+
+  if (!isNaN(tendered) && tendered >= due) {
+    document.getElementById('change_due_value').textContent =
+      '₱' + (tendered - due).toLocaleString('en-PH', {minimumFractionDigits: 2,
+                                                      maximumFractionDigits: 2});
+    row.style.display = 'flex';
+  } else {
+    row.style.display = 'none';   // short tender is a shortfall, not change
+  }
+
+  // Grey out notes smaller than what's owed — tapping a ₱100 on a ₱575 sale could only
+  // ever produce a shortfall, which we drop anyway. Driven from the same `due` as the
+  // change maths so the two can't disagree.
+  document.querySelectorAll('.tender-quick').forEach(btn => {
+    const note = parseFloat(btn.dataset.tender);
+    btn.disabled = (note < due);
+    btn.classList.toggle('is-active', !btn.disabled && note === tendered);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const method = document.querySelector('select[name="payment_method"]');
+  if (method) method.addEventListener('change', toggleSalesPaymentFields);
+  const partial = document.querySelector('input[name="amount_paid"]');
+  if (partial) partial.addEventListener('input', updateChangeDue);
+  toggleSalesPaymentFields();
+});
 </script>
 
 <div class="container-fluid py-3 py-lg-4">
@@ -277,8 +350,34 @@ function toggleSalesPaymentFields() {
               <input type="number" name="amount_paid" step="0.01" min="0" placeholder="0.00">
             </div>
 
-            <!-- Reference -->
-            <div class="pay-field" style="margin-bottom:0;">
+            <!-- Cash received → change (cash only; hidden for debt and e-payments) -->
+            <div class="pay-field" id="cash_tendered_group" style="display:none;">
+              <label>Cash received (optional)</label>
+              {% comment %} Quick tender — the four notes a customer actually hands over.
+              type="button" is load-bearing: a bare <button> inside a form defaults to
+              submit, so every tap would post the sale. Anything odd (₱575) goes in the
+              box below, which is why these supplement the input rather than replace it.
+              {% endcomment %}
+              <div class="tender-quick-grid">
+                <button type="button" class="tender-quick" data-tender="100"  onclick="pickTender(this)">₱100</button>
+                <button type="button" class="tender-quick" data-tender="200"  onclick="pickTender(this)">₱200</button>
+                <button type="button" class="tender-quick" data-tender="500"  onclick="pickTender(this)">₱500</button>
+                <button type="button" class="tender-quick" data-tender="1000" onclick="pickTender(this)">₱1000</button>
+              </div>
+              <input type="number" name="cash_tendered" step="0.01" min="0"
+                     placeholder="0.00" oninput="updateChangeDue()">
+              <div id="change_due_row"
+                   style="display:none; justify-content:space-between;
+                          margin-top:.5rem; font-weight:600;">
+                <span>Change</span>
+                <span id="change_due_value">₱0.00</span>
+              </div>
+            </div>
+
+            {% comment %} Reference — e-payments only. Cash has no reference number to
+            record, and on Debt nothing is paid so no SalesPayment row exists to hang the
+            note on: it was being silently discarded. {% endcomment %}
+            <div class="pay-field" id="payment_note_group" style="margin-bottom:0;">
               <label>Reference / Note (optional)</label>
               <input type="text" name="payment_note" maxlength="255"
                      placeholder="e.g. GCash ref, customer name">

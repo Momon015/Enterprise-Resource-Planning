@@ -81,7 +81,7 @@ def test_a_50_peso_item_at_a_non_vat_seller(non_vat_business):
     (Sale.DISCOUNT_SC,          True),
     (Sale.DISCOUNT_PWD,         True),
     (Sale.DISCOUNT_SOLO_PARENT, True),
-    (Sale.DISCOUNT_NAAC,        False),   # ★ discount only — the odd one out
+    (Sale.DISCOUNT_NAAC,        False),   # IMPORTANT: discount only — the odd one out
     (Sale.DISCOUNT_REGULAR,     False),
 ])
 def test_vat_exemption_does_not_ride_along_with_every_discount(discount_type, exempt):
@@ -89,7 +89,7 @@ def test_vat_exemption_does_not_ride_along_with_every_discount(discount_type, ex
 
 
 def test_the_exemption_removes_the_vat_rather_than_relabelling_it(vat_business):
-    """★ The subtle one. A ₱50 VATable sticker is ₱44.64 + ₱5.36 VAT. Under an SC
+    """IMPORTANT: The subtle one. A ₱50 VATable sticker is ₱44.64 + ₱5.36 VAT. Under an SC
     exemption the EXEMPT figure must be 44.64 — if it reads 50.00 the VAT was kept and
     merely called exempt."""
     product = make_product(vat_business, selling_price='50')
@@ -157,7 +157,7 @@ def test_the_full_senior_computation_at_a_vat_seller(vat_business):
 # ── the three-line breakdown (Annex D-2) ────────────────────────────────────
 
 def test_the_breakdown_splits_gross_discount_and_vat_adjustment(vat_business):
-    """★ Annex D-2 deducts the discount and the VAT adjustment as SEPARATE lines:
+    """IMPORTANT: Annex D-2 deducts the discount and the VAT adjustment as SEPARATE lines:
 
         Gross Amount          ₱50.00
         Less Discount          -₱8.93
@@ -220,7 +220,7 @@ def test_subtotal_stays_the_true_gross_even_when_vat_was_stripped(vat_business):
 # ── the wiring: session → stored Sale ───────────────────────────────────────
 
 def test_a_statutory_type_works_even_when_ordinary_discounts_are_off(client, owner):
-    """★ The gate that must NOT apply. `enable_sale_discount` is the owner's preference
+    """IMPORTANT: The gate that must NOT apply. `enable_sale_discount` is the owner's preference
     about OPTIONAL discounts. SC and PWD are statutory — a business cannot decline them,
     so a shop with discounts switched off must still serve a senior correctly.
 
@@ -277,7 +277,7 @@ def test_an_invented_discount_type_is_refused(client, owner):
 
 
 def test_switching_back_to_regular_drops_the_statutory_rate(client, owner):
-    """★ User-reported 2026-07-20: pick PWD, change back to Regular, and the 20% stayed.
+    """IMPORTANT: User-reported 2026-07-20: pick PWD, change back to Regular, and the 20% stayed.
 
     The cart only sent `discount_type` when a statutory type was selected, so switching
     back sent NOTHING — and "absent" is not the same as "cleared". The session kept the
@@ -314,7 +314,7 @@ def test_switching_back_to_regular_drops_the_statutory_rate(client, owner):
 
 
 def test_edit_returns_to_a_cart_that_still_knows_the_customer(client, owner):
-    """★ Reported 2026-07-20: pick Senior Citizen, Confirm, then click Edit — the cart came
+    """IMPORTANT: Reported 2026-07-20: pick Senior Citizen, Confirm, then click Edit — the cart came
     back showing "Regular customer" with 20% sitting in the MANUAL discount box.
 
     Two faults compounding. The cart never restored the type on mount, and the summary view
@@ -382,7 +382,7 @@ def test_the_id_field_length_matches_end_to_end(client, owner):
 
 
 def test_clearing_the_cart_forgets_the_customer(client, owner):
-    """★ A leak worth guarding: the ID and rate are per-CUSTOMER, not per-session. If a
+    """IMPORTANT: A leak worth guarding: the ID and rate are per-CUSTOMER, not per-session. If a
     senior's details survived into the next sale, the following shopper would silently
     get 20% off under someone else's OSCA number."""
     from django.urls import reverse
@@ -431,7 +431,7 @@ def posted_sc_sale(vat_business, client):
 
 def test_the_detail_page_shows_the_vat_line_so_the_column_adds_up(client, owner,
                                                                   posted_sc_sale):
-    """★ Reported 2026-07-20: the screen read Subtotal 50.00, Discount −8.93, Total 35.71
+    """IMPORTANT: Reported 2026-07-20: the screen read Subtotal 50.00, Discount −8.93, Total 35.71
     and the ₱5.36 was nowhere. Anyone checking the maths sees an error, and an examiner
     sees an unexplained deduction."""
     from django.urls import reverse

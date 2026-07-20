@@ -67,7 +67,7 @@ def test_the_registered_name_is_omitted_when_it_matches_the_trade_name(client, o
 @pytest.mark.parametrize('as_modal', [True, False], ids=['modal', 'full page'])
 @pytest.mark.parametrize('flow', ['edit', 'create'])
 def test_the_new_fields_render_on_ALL_FOUR_form_surfaces(client, owner, flow, as_modal):
-    """★ A business profile form has FOUR renderings, and I shipped a field to none of
+    """IMPORTANT: A business profile form has FOUR renderings, and I shipped a field to none of
     the ones the owner uses on 2026-07-20 — twice in a row.
 
     Adding to Meta.fields does nothing here: every template writes its inputs by hand

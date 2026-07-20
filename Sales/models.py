@@ -165,7 +165,7 @@ class Sale(TimeStampModel):
         DISCOUNT_SOLO_PARENT: Decimal('10'),
     }
 
-    # ★ VAT exemption does NOT ride along with every statutory discount, so it is a
+    # IMPORTANT: VAT exemption does NOT ride along with every statutory discount, so it is a
     # SEPARATE set rather than "anything with a rate is exempt".
     #   SC  (RA 9994)  — 20% AND VAT-exempt
     #   PWD (RA 10754) — 20% AND VAT-exempt
@@ -358,12 +358,12 @@ class Sale(TimeStampModel):
         cents = Decimal('0.01')
         keep = (Decimal('100') - (self.discount_percent or 0)) / Decimal('100')
 
-        # ★ A statutory VAT exemption OVERRIDES every line's own vat_class. An SC or PWD
+        # IMPORTANT: A statutory VAT exemption OVERRIDES every line's own vat_class. An SC or PWD
         # sale is exempt in full — it does not matter that the product is ordinarily
         # VATable, because the exemption attaches to the BUYER, not the goods.
         # NAAC is deliberately absent from STATUTORY_VAT_EXEMPT — 20% off, VAT still due.
         #
-        # ★★ The VAT must be REMOVED, not merely relabelled. Our prices are VAT-INCLUSIVE,
+        # CRITICAL: The VAT must be REMOVED, not merely relabelled. Our prices are VAT-INCLUSIVE,
         # so a ₱50 VATable sticker is ₱44.64 + ₱5.36 VAT. Moving ₱50 into the exempt
         # bucket would hand the senior only the 20% and quietly keep the VAT — under-
         # relieving the customer AND overstating exempt sales to BIR. Divide it out.
@@ -413,6 +413,27 @@ class Sale(TimeStampModel):
         if paid <= 0:
             return 'unpaid'
         return 'partial' if paid < total else 'paid'
+
+    @property
+    def cash_tendered(self):
+        """Cash the customer handed over, or None when none was recorded.
+
+        None and zero mean different things here: None is "the cashier didn't record
+        a tender", zero would be "they handed over nothing". Only the first happens,
+        and the receipt must stay silent for it rather than print CASH 0.00.
+        """
+        tendered = [p.tendered for p in self.payments.all() if p.tendered is not None]
+        return sum(tendered) if tendered else None
+
+    @property
+    def cash_change(self):
+        """Change handed back, or None when no tender was recorded.
+
+        Summed across payments rather than taken from one: an installment sale can
+        have several cash payments, each with its own tender and its own change.
+        """
+        changes = [p.change_due for p in self.payments.all() if p.tendered is not None]
+        return sum(changes) if changes else None
 
     @property
     def settlement_display(self):
@@ -664,6 +685,21 @@ class SalesPayment(TimeStampModel):
     date = models.DateField(db_index=True)
     method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     note = models.CharField(max_length=255, blank=True)
+
+    # What the customer physically handed over, cash only. NULL everywhere else — an
+    # e-payment is always exact, and NULL (not 0) is what lets the receipt tell "no
+    # change line" apart from "handed over exactly the right money".
+    #
+    # IMPORTANT: Persisted rather than computed at checkout because receipts REPRINT. A reprint
+    # that quietly drops the CHANGE line is a different document from the one the
+    # customer was handed, which is exactly what an immutable receipt may not be.
+    #
+    # CRITICAL: This must never reach the drawer. `Shift.expected_cash` sums `amount`, and
+    # `amount` stays the sale value — the change went back out of the till, so the net
+    # drawer effect of a ₱1000 tender on a ₱474 sale is +₱474, not +₱1000. Keeping the
+    # two in separate columns makes that true by construction, not by remembering.
+    tendered = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True)
     business = models.ForeignKey(
         BusinessProfile, on_delete=models.SET_NULL,
         related_name='sales_payments', null=True, blank=True)
@@ -677,11 +713,44 @@ class SalesPayment(TimeStampModel):
         
     def __str__(self):
         return f"₱{self.amount} payment for sale {self.sale.reference}"
-    
+
+    @property
+    def change_due(self):
+        """Cash handed back to the customer, or None when there's no tender to report.
+
+        Derived, never stored — a stored change that disagreed with
+        `tendered - amount` would be unexplainable, and one of the two would be lying.
+
+        Works for partial payments too: a ₱500 note against a ₱200 down payment is
+        ₱300 change and a ₱300 balance, which are different numbers that happen to
+        match here. Clamped at zero because tendering LESS than the payment isn't
+        change, it's a shortfall the partial/utang path already models.
+        """
+        if self.tendered is None:
+            return None
+        return max(self.tendered - (self.amount or Decimal('0')), Decimal('0'))
+
     def save(self, *args, **kwargs):
+        stamped = []
+
         if not self.date:
             self.date = timezone.localdate()
-            
+            stamped.append('date')
+
+        # Tender only means something for cash. Clearing it on every other method
+        # stops a method switch from stranding a stale figure that would then print
+        # a CHANGE line on a GCash receipt.
+        if self.method != 'cash' and self.tendered is not None:
+            self.tendered = None
+            stamped.append('tendered')
+
+        # IMPORTANT: A field this method sets itself must be added to update_fields, or the
+        # caller's narrow list silently drops it: the value changes in memory and
+        # never reaches the database. Same trap as Sale.save() stamping date+reference.
+        update_fields = kwargs.get('update_fields')
+        if stamped and update_fields is not None:
+            kwargs['update_fields'] = list(set(update_fields) | set(stamped))
+
         super().save(*args, **kwargs)
 
 # ──────────────────────────────────────────────────────────────
