@@ -173,12 +173,12 @@
       number here that is an ACTION rather than a record. {% endcomment %}
       {% if sale.cash_tendered %}
       <div class="total-row" style="margin-top:.5rem;">
-        <span class="total-label"><i class="bi bi-cash"></i> Cash received</span>
+        <span class="total-label"><i class="bi bi-cash-stack"></i> Cash received</span>
         <span class="total-value">₱{{ sale.cash_tendered|floatformat:2|intcomma }}</span>
       </div>
       <div class="total-row" style="margin-bottom:0;">
         <span class="total-label" style="font-weight:600; color:var(--text);">
-          <i class="bi bi-arrow-return-left"></i> Change
+          <i class="bi bi-cash"></i> Change
         </span>
         <span class="total-value" style="font-weight:700; color:var(--accent);">
           ₱{{ sale.cash_change|floatformat:2|intcomma }}

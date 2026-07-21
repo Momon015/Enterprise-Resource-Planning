@@ -96,10 +96,12 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".toast-message").forEach(t => setTimeout(() => t.remove(), 3200));
 });
 
-// The sale total, for the change readout. Rendered as a raw number on purpose —
-// floatformat/intcomma would inject a thousands comma that parseFloat truncates at,
-// turning a ₱1,250.00 sale into 1.
-const SALE_TOTAL = {{ total_revenue|default:0|stringformat:"s" }};
+// The amount DUE, for the change readout — this is net_total (after any discount), the same
+// figure shown as "Total Revenue", NOT the pre-discount subtotal. Using total_revenue here
+// computed change against the gross, so a ₱100 sale at 5% off gave ₱5 too little change.
+// Rendered as a raw number on purpose — floatformat/intcomma would inject a thousands comma
+// that parseFloat truncates at, turning a ₱1,250.00 sale into 1.
+const SALE_TOTAL = {{ net_total|default:0|stringformat:"s" }};
 
 function toggleSalesPaymentFields() {
   const status = document.querySelector('input[name="payment_status"]:checked').value;

@@ -1,35 +1,39 @@
-<div class="center bold">{{ business.business_name }}</div>
-{% comment %} RMO 24-2023 p.4(a) requires BOTH the registered name and the business name/style.
-Annex D-2 stacks them — the trade name in bold, then "Operated by: <legal entity>". Only shown
-when they actually differ; for a business trading under its registered name, repeating it would
-just be noise. {% endcomment %}
-{% if business.registered_name and business.registered_name != business.business_name %}
-<div class="center">Operated by: {{ business.registered_name }}</div>
-{% endif %}
-{% if business.address %}<div class="center">{{ business.address }}</div>{% endif %}
-{% if business.business_phone_number %}<div class="center">Phone: {{ business.business_phone_number }}</div>{% endif %}
-{% if business.tin %}<div class="center">{% if business.is_vat_registered %}VAT Reg TIN{% else %}Non-VAT Reg TIN{% endif %}: {{ business.tin }}</div>{% endif %}
-{% if business.bir_min %}<div class="center">MIN: {{ business.bir_min }}</div>{% endif %}
-{% comment %} p.4(a): machine serial if branded, software licence number if cloned. We're
-subscription software, so it's the licence. D-2 prints it directly under the MIN. {% endcomment %}
-{% if business.bir_serial_number %}<div class="center">S/N: {{ business.bir_serial_number }}</div>{% endif %}
+{% comment %} OFFICIAL BIR INVOICE — renders only when is_bir_active. Layout mirrors real PH
+sales invoices (Puregold, 7-Eleven, Alfamart, Body Shop): centered registered header, the
+"SALES INVOICE" label, invoice number WITH its reset counter, per-line V/E/Z flags, a VAT block
+labelled (V)/(E)/(Z), a blank buyer block, then the statutory (SC/PWD) block when it applies.
+Isolated from the plain slip so a BIR-only field can never leak onto the everyday receipt. {% endcomment %}
+
+<div class="center">
+    <div class="hdr-name">{{ business.business_name }}</div>
+    {% comment %} RMO 24-2023 p.4(a): both the registered name and the trade name. Only shown
+    when they differ — repeating an identical name is just noise. {% endcomment %}
+    {% if business.registered_name and business.registered_name != business.business_name %}
+    <div>Operated by: {{ business.registered_name }}</div>
+    {% endif %}
+    {% if business.address %}<div>{{ business.address }}</div>{% endif %}
+    {% if business.business_phone_number %}<div>Tel: {{ business.business_phone_number }}</div>{% endif %}
+    {% if business.tin %}<div>{% if business.is_vat_registered %}VAT Reg TIN{% else %}Non-VAT Reg TIN{% endif %}: {{ business.tin }}</div>{% endif %}
+    {% if business.bir_min %}<div>MIN: {{ business.bir_min }}</div>{% endif %}
+    {% comment %} p.4(a): machine serial if branded, software licence number if cloned. We're
+    subscription software, so it's the licence, printed as S/N to match every reference. {% endcomment %}
+    {% if business.bir_serial_number %}<div>S/N: {{ business.bir_serial_number }}</div>{% endif %}
+    {% if business.bir_ptu %}<div>PTU: {{ business.bir_ptu }}</div>{% endif %}
+</div>
 
 <div class="divider"></div>
-<div class="center bold">INVOICE</div>
+<div class="doclabel">SALES INVOICE</div>
 <div class="divider"></div>
 
 <table>
+    {% comment %} Invoice number + RESET COUNTER, inline the way 7-Eleven ("RESET CNT0000") and
+    Puregold ("INVOICE RESET COUNT 000") print them — confirms RMO p.4(b). The counter is the
+    value frozen onto THIS sale at completion; 000 for older sales that predate the field. {% endcomment %}
     <tr><td>Invoice No:</td><td class="right">{{ sale.reference }}</td></tr>
+    <tr><td>Reset Count:</td><td class="right">{{ sale.books_reset_counter|default:0|stringformat:"03d" }}</td></tr>
     <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
     <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
     {% if sale.created_by %}<tr><td>Cashier:</td><td class="right">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td></tr>{% endif %}
-</table>
-
-<div class="divider"></div>
-<table>
-    <tr><td>Name:</td><td class="right">________________</td></tr>
-    <tr><td>Address:</td><td class="right">________________</td></tr>
-    <tr><td>TIN:</td><td class="right">________________</td></tr>
 </table>
 
 <div class="divider"></div>
@@ -38,61 +42,73 @@ subscription software, so it's the licence. D-2 prints it directly under the MIN
 
 <div class="divider"></div>
 
-{% comment %} Discount MUST be its own named line on an invoice. Items print at sticker
-price while TOTAL is the net, and the VAT block below is already discount-aware
-(vat_summary applies it to every bucket) — so without these rows the item lines sum to
-GROSS while the VAT lines sum to NET, and the invoice contradicts itself. {% endcomment %}
+{% comment %} Discount MUST be its own named line on an invoice. Items print at sticker price
+while TOTAL is the net, and the VAT block below is discount-aware (vat_summary spreads it across
+every bucket) — so without these rows the item lines sum to GROSS while the VAT lines sum to NET
+and the invoice contradicts itself. {% endcomment %}
 <table class="totals">
     {% if sale.discount_percent %}
     <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
     {% comment %} `subtotal` is the TRUE gross (it adds the VAT adjustment back), so when a
-    statutory exemption stripped VAT this line MUST print or the receipt cannot be reconciled:
-    50.00 - 8.93 would show a TOTAL of 35.71 with 5.36 unaccounted for. Zero for a non-VAT
-    seller, so most receipts never show it. Order per RMO 24-2023 Annex D-2. {% endcomment %}
+    statutory exemption stripped VAT this line MUST print or the receipt can't reconcile:
+    50.00 - 8.93 would show TOTAL 35.71 with 5.36 unaccounted for. Zero for a non-VAT seller.
+    Order per RMO 24-2023 Annex D-2. {% endcomment %}
     {% if sale.vat_adjustment %}
     <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2 }}</td></tr>
     {% endif %}
     <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
     {% endif %}
-    {% comment %} TOTAL is MANDATORY and is never replaced — BIR requires a stated total
-    amount due, so unlike the plain slip (which collapses to a single "UNPAID" line) this
-    document always prints TOTAL and adds UNPAID as a STAMP. Paid/Balance are supplementary:
-    under EOPT the Invoice documents the SALE; collection is a separate event. {% endcomment %}
-    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    {% comment %} TOTAL is MANDATORY and never replaced — BIR requires a stated total amount due,
+    so unlike the plain slip (which can collapse to one "UNPAID" line) this document always prints
+    TOTAL and adds UNPAID as a STAMP. Under EOPT the Invoice documents the SALE; collection is a
+    separate event, so Paid/Balance are supplementary. {% endcomment %}
+    <tr class="bold"><td>Total Amt Due</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
     {% if sale.is_fully_paid %}
-    {% if sale.payment_method_code %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
+    {% comment %} Suppressed when a cash tender was recorded — the CASH / CHANGE pair below already
+    shows it was cash, so "Payment  Cash" just repeats it. Still prints for GCash/Bank. {% endcomment %}
+    {% if sale.payment_method_code and not sale.cash_tendered %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
     {% elif sale.amount_paid %}
     <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>
     <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>
     {% else %}
     <tr class="bold"><td colspan="2" class="center">*** UNPAID ***</td></tr>
     {% endif %}
-    {% comment %} CASH / CHANGE — same pair as the plain slip, printed below the payment
-    lines so the invoice reads Total → how it was settled → what came back. These sit
-    ABOVE the VAT block deliberately: the VAT figures describe the SALE, and change is a
-    till movement that must not appear to modify them. {% endcomment %}
+    {% comment %} CASH / CHANGE, printed below the payment lines so the invoice reads Total → how
+    it was settled → what came back. Above the VAT block deliberately: the VAT figures describe the
+    SALE, and change is a till movement that must not look like it modifies them. {% endcomment %}
     {% if sale.cash_tendered %}
     <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
     <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
     {% endif %}
-    <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
+    <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
     {% if business.is_vat_registered %}
-    <tr><td colspan="2"><div class="divider"></div></td></tr>
-    <tr><td>VATable Sales</td><td class="right">P{{ vat_summary.vatable|floatformat:2 }}</td></tr>
-    <tr><td>VAT Amount</td><td class="right">P{{ vat_summary.vat|floatformat:2 }}</td></tr>
-    <tr><td>VAT-Exempt Sales</td><td class="right">P{{ vat_summary.exempt|floatformat:2 }}</td></tr>
-    <tr><td>Zero-Rated Sales</td><td class="right">P{{ vat_summary.zero|floatformat:2 }}</td></tr>
+    <tr class="rule-line"><td colspan="2"><div class="dotrule"></div></td></tr>
+    <tr><td>VATable Sale (V)</td><td class="right">P{{ vat_summary.vatable|floatformat:2 }}</td></tr>
+    <tr><td>VAT (12%)</td><td class="right">P{{ vat_summary.vat|floatformat:2 }}</td></tr>
+    <tr><td>VAT Exempt Sale (E)</td><td class="right">P{{ vat_summary.exempt|floatformat:2 }}</td></tr>
+    <tr><td>Zero Rated Sale (Z)</td><td class="right">P{{ vat_summary.zero|floatformat:2 }}</td></tr>
     {% endif %}
 </table>
 
+{% comment %} Blank BUYER block — for a customer who needs to claim the purchase (input VAT /
+expense substantiation). Below the VAT block, the way Puregold and 7-Eleven place it. Printed as
+ruled blanks because there is no Customer model yet (correct v1). "Business Style" stays absent —
+RR 7-2024 dropped it. This is the BUYER, distinct from the SC/PWD cardholder block below. {% endcomment %}
+<div class="divider"></div>
+<table>
+    <tr><td>Name:</td><td class="right">________________</td></tr>
+    <tr><td>Address:</td><td class="right">________________</td></tr>
+    <tr><td>TIN:</td><td class="right">________________</td></tr>
+</table>
+
 {% comment %} Statutory discount block — RMO 24-2023 p.5(n) requires ALL of this on the face of
-the invoice when the buyer is a Senior Citizen, PWD, National Athlete/Coach or Solo Parent:
-their TIN "if any", the OSCA / PWD / PNSTM / Solo Parent ID number, the discount shown with its
-breakdown (the rate line and the VAT exemption above cover that), AND the holder's SIGNATURE.
+the invoice for a Senior Citizen, PWD, National Athlete/Coach or Solo Parent: their TIN "if any",
+the OSCA / PWD / PNSTM / Solo Parent ID number, the discount with its breakdown (the rate line and
+the VAT exemption above cover that), AND the holder's SIGNATURE.
 
 The signature is a printed RULE, not data — the customer signs the paper copy. It is the one
-required element the system cannot capture, so it must at minimum be printed for them to sign,
-or the invoice is non-compliant however complete the rest of it looks. {% endcomment %}
+required element the system cannot capture, so it must at minimum be printed for them to sign, or
+the invoice is non-compliant however complete the rest looks. {% endcomment %}
 {% if sale.discount_type %}
 <div class="divider"></div>
 <table>
@@ -105,8 +121,7 @@ or the invoice is non-compliant however complete the rest of it looks. {% endcom
 {% endif %}
 
 <div class="divider"></div>
-{% if business.bir_ptu %}<div class="center">PTU No: {{ business.bir_ptu }}</div>{% endif %}
-{% if business.bir_accreditation %}<div class="center">BIR Accr No: {{ business.bir_accreditation }}</div>{% endif %}
-<div class="center bold">THIS IS AN INVOICE</div>
+{% if business.bir_accreditation %}<div class="center fine">BIR Accr No: {{ business.bir_accreditation }}</div>{% endif %}
+<div class="doclabel">THIS SERVES AS YOUR SALES INVOICE</div>
 <div class="divider"></div>
 <div class="center">Thank you!</div>
