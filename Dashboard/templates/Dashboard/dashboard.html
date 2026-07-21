@@ -64,17 +64,17 @@
     <p class="away-banner__sub">Here's a quick summary of what happened.</p>
     <div class="away-banner__tiles">
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--success"><i class="bi bi-cash-coin"></i></div>
-        <div><div class="away-tile__value">{{ away.sales_count }}</div><div class="away-tile__label">Sales completed</div></div></div>
+        <div><div class="away-tile__value">{{ away.sales_count }}</div><div class="away-tile__label">Sales Completed</div></div></div>
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--success"><i class="bi bi-graph-up-arrow"></i></div>
-        <div><div class="away-tile__value">₱{{ away.revenue|floatformat:2|intcomma }}</div><div class="away-tile__label">Revenue generated</div></div></div>
-      <div class="away-tile"><div class="away-tile__icon away-tile__icon--info"><i class="bi bi-box-seam"></i></div>
-        <div><div class="away-tile__value">{{ away.items_sold }}</div><div class="away-tile__label">Items sold</div></div></div>
+        <div><div class="away-tile__value">₱{{ away.revenue|floatformat:2|intcomma }}</div><div class="away-tile__label">Revenue Generated</div></div></div>
+      <div class="away-tile"><div class="away-tile__icon away-tile__icon--info"><i class="bi bi-basket"></i></div>
+        <div><div class="away-tile__value">{{ away.items_sold }}</div><div class="away-tile__label">Units Sold</div></div></div>
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--violet"><i class="bi bi-cart3"></i></div>
-        <div><div class="away-tile__value">{{ away.purchases_count }}</div><div class="away-tile__label">Purchases received</div></div></div>
+        <div><div class="away-tile__value">{{ away.purchases_count }}</div><div class="away-tile__label">Purchases Received</div></div></div>
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--warning"><i class="bi bi-wallet2"></i></div>
-        <div><div class="away-tile__value">{{ away.expenses_count }}</div><div class="away-tile__label">Expenses recorded</div></div></div>
+        <div><div class="away-tile__value">{{ away.expenses_count }}</div><div class="away-tile__label">Expenses Recorded</div></div></div>
       <div class="away-tile"><div class="away-tile__icon away-tile__icon--danger"><i class="bi bi-recycle"></i></div>
-        <div><div class="away-tile__value">{{ away.waste_count }}</div><div class="away-tile__label">Waste recorded</div></div></div>
+        <div><div class="away-tile__value">{{ away.waste_count }}</div><div class="away-tile__label">Waste Recorded</div></div></div>
     </div>
     {% comment %} Voids are an EXCEPTION, not throughput — so they don't sit in the tile row
         (where they'd read as "0 voids" most days and just add noise). They get their own amber
