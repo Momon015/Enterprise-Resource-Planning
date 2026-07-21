@@ -31,6 +31,35 @@ const URLS = {
   clear:  BASE + 'clear/',
 }
 
+// ── Statutory discount BANDS (SC / PWD / NAAC / Solo Parent) ───────────────────────
+// One entry per legal (type, rate) pair — MUST mirror Sale.STATUTORY_BANDS in
+// Sales/models.py. SC and PWD each carry TWO bands: 20% + VAT-exempt on most goods, and
+// 5% on DTI/DA basic necessities (groceries) where the VAT is KEPT and the 5% comes off
+// the gross. These exist only so the cashier sees the right number BEFORE committing; the
+// server recomputes everything on confirm via Sale.price_breakdown(). If the two drift the
+// server wins and the customer sees a different total than the screen promised — change
+// them together. Order here is the dropdown order (highest-relief band first).
+//
+// IMPORTANT: VAT exemption follows the BAND, not the rate alone: NAAC is 20% but keeps its
+// VAT, and SC/PWD at 5% keep it too. `note` distinguishes the two same-name bands.
+// Labels are the FULL name + abbreviation ("Senior Citizen (SC)") — the cart has room and the
+// cashier wants clarity. The RECEIPT prints the bare abbreviation instead (Sale.get_discount_
+// type_display → "SC"), where 58mm thermal width is tight; the two surfaces diverge on purpose.
+const STATUTORY_OPTIONS = [
+  { type: 'sc',          rate: 20, vatExempt: true,  label: 'Senior Citizen (SC)',          note: '' },
+  { type: 'sc',          rate: 5,  vatExempt: false, label: 'Senior Citizen (SC)',          note: 'basic necessities' },
+  { type: 'pwd',         rate: 20, vatExempt: true,  label: 'Person with Disability (PWD)', note: '' },
+  { type: 'pwd',         rate: 5,  vatExempt: false, label: 'Person with Disability (PWD)', note: 'basic necessities' },
+  { type: 'solo_parent', rate: 10, vatExempt: true,  label: 'Solo Parent (SP)',             note: '' },
+  { type: 'naac',        rate: 20, vatExempt: false, label: 'National Athlete (NAAC)',      note: '' },
+]
+// The default (first-listed, highest-relief) band for a type — the fallback when a stored
+// rate doesn't match a legal band.
+const defaultRateFor = type => {
+  const first = STATUTORY_OPTIONS.find(o => o.type === type)
+  return first ? first.rate : 0
+}
+
 // POST form-encoded data, get back the fresh cart JSON
 async function post(url, body) {
   const res = await fetch(url, {
@@ -158,6 +187,7 @@ function SaleCart() {
   const [cart, setCart] = useState(null)      // null = still loading
   const [discount, setDiscount] = useState(0)
   const [discountType, setDiscountType] = useState('')     // '' = regular customer
+  const [discountRate, setDiscountRate] = useState(0)      // which statutory BAND (20 vs 5)
   const [discountIdNo, setDiscountIdNo] = useState('')     // OSCA / PWD / PNSTM / SP no.
   const [discountName, setDiscountName] = useState('')     // the ID holder, not the payer
 
@@ -180,7 +210,13 @@ function SaleCart() {
         // component, and without restoring these the cart came back claiming "Regular
         // customer" while the session still held the senior. The screen and the pending
         // sale then disagreed about who was being served.
-        setDiscountType(data.discount_type || '')
+        const t = data.discount_type || ''
+        setDiscountType(t)
+        // Restore the exact BAND too, not just the type. An older/absent rate that doesn't
+        // match a legal band falls back to the type's default so the dropdown still selects.
+        let r = parseFloat(data.discount_rate) || 0
+        if (t && !STATUTORY_OPTIONS.some(o => o.type === t && o.rate === r)) r = defaultRateFor(t)
+        setDiscountRate(t ? r : 0)
         setDiscountIdNo(data.discount_id_no || '')
         setDiscountName(data.discount_name || '')
       })
@@ -244,25 +280,14 @@ function SaleCart() {
   const pageItems = cart.items.slice((current - 1) * PER_PAGE, current * PER_PAGE)
 
 
-  // ── Statutory discounts (SC / PWD / NAAC / Solo Parent) ───────────────────────────
-  // MUST mirror Sale.STATUTORY_RATES and Sale.STATUTORY_VAT_EXEMPT in Sales/models.py.
-  // The server recomputes everything on confirm via Sale.price_breakdown() — these exist
-  // only so the cashier sees the right number BEFORE committing. If the two ever drift,
-  // the server wins and the customer sees a different total than the screen promised, so
-  // change them together.
-  //
-  // IMPORTANT: VAT exemption does NOT follow the rate: NAAC gets 20% off but keeps its VAT.
-  const STATUTORY = {
-    sc:          { label: 'Senior Citizen',    rate: 20, vatExempt: true  },
-    pwd:         { label: 'PWD',               rate: 20, vatExempt: true  },
-    solo_parent: { label: 'Solo Parent',       rate: 10, vatExempt: true  },
-    naac:        { label: 'National Athlete',  rate: 20, vatExempt: false },
-  }
-
+  // ── Statutory discounts — the active BAND (see STATUTORY_OPTIONS at module scope) ──
   const subtotal    = parseFloat(cart.subtotal) || 0
   const discountOn  = CFG.discountEnabled === '1'
   const sellerVat   = CFG.vatRegistered === '1'
-  const statutory   = STATUTORY[discountType] || null
+  // The picked (type, rate) band, or null for a regular customer. Everything below reads
+  // `statutory` exactly as it did when it was keyed on type alone.
+  const statutory   = STATUTORY_OPTIONS.find(
+    o => o.type === discountType && o.rate === discountRate) || null
 
   // Statutory wins over the owner's manual discount — they never stack.
   const pct = statutory
@@ -382,12 +407,14 @@ function SaleCart() {
                                 color:'var(--muted)', marginBottom:'.35rem' }}>
                   <i className="bi bi-person-vcard"></i> Customer
                 </label>
-                <select value={discountType}
+                {/* Value encodes the BAND — "type:rate" — because SC and PWD each appear
+                    twice (20% vs 5%), so the type alone can't say which row is selected. */}
+                <select value={discountType ? `${discountType}:${discountRate}` : ''}
                         onChange={e => {
-                          const next = e.target.value
-                          setDiscountType(next)
+                          const v = e.target.value
                           // Back to Regular means a DIFFERENT customer, so everything the
-                          // previous one carried goes with them — ID, name AND the rate.
+                          // previous one carried goes with them — ID, name, band AND the
+                          // manual %.
                           //
                           // Resetting the manual % looks aggressive (the owner may have
                           // typed it themselves before picking a statutory type) but the
@@ -395,18 +422,26 @@ function SaleCart() {
                           // Regular for the next person, and a stale 20 sitting in the box
                           // silently discounts someone not entitled to it. Losing a typed
                           // rate is an annoyance; granting an unearned discount is money.
-                          if (!next) {
+                          if (!v) {
+                            setDiscountType('')
+                            setDiscountRate(0)
                             setDiscountIdNo('')
                             setDiscountName('')
                             setDiscount(0)
+                            return
                           }
+                          const [t, r] = v.split(':')
+                          setDiscountType(t)
+                          setDiscountRate(parseFloat(r))
                         }}
                         style={{ width:'100%', padding:'.5rem .65rem', fontWeight:600,
                                  border:'1px solid var(--border)', borderRadius:'8px',
                                  background:'var(--surface)', color:'var(--text)' }}>
                   <option value="">Regular customer</option>
-                  {Object.entries(STATUTORY).map(([key, s]) => (
-                    <option key={key} value={key}>{s.label} — {s.rate}% off</option>
+                  {STATUTORY_OPTIONS.map(o => (
+                    <option key={`${o.type}:${o.rate}`} value={`${o.type}:${o.rate}`}>
+                      {o.label} — {o.rate}%{o.note ? ` (${o.note})` : ''}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -217,6 +217,166 @@ def test_subtotal_stays_the_true_gross_even_when_vat_was_stripped(vat_business):
     assert sale.subtotal == Decimal('50.00')
 
 
+# ── the 5% basic-necessities band (SC / PWD on groceries) ───────────────────
+
+@pytest.mark.parametrize('discount_type,requested,expected', [
+    (Sale.DISCOUNT_SC,          '20', Decimal('20')),
+    (Sale.DISCOUNT_SC,          '5',  Decimal('5')),
+    (Sale.DISCOUNT_SC,          '3',  Decimal('20')),   # illegal band → default, not 3%
+    (Sale.DISCOUNT_SC,          None, Decimal('20')),   # unnamed → default (highest relief)
+    (Sale.DISCOUNT_PWD,         '5',  Decimal('5')),
+    (Sale.DISCOUNT_SOLO_PARENT, '5',  Decimal('10')),   # Solo Parent has no 5% band
+    (Sale.DISCOUNT_NAAC,        '5',  Decimal('20')),   # NAAC has no 5% band
+    (Sale.DISCOUNT_REGULAR,     '5',  Decimal('0')),
+    ('vip_friend_of_owner',     '5',  Decimal('0')),    # invented type mints nothing
+])
+def test_resolve_statutory_rate_only_allows_legal_bands(discount_type, requested, expected):
+    """The cashier picks a band; a hand-typed rate that isn't legal for the type snaps to
+    the type's default band rather than going through."""
+    assert Sale.resolve_statutory_rate(discount_type, requested) == expected
+
+
+@pytest.mark.parametrize('discount_type,rate,exempt', [
+    (Sale.DISCOUNT_SC,          Decimal('20'), True),
+    (Sale.DISCOUNT_SC,          Decimal('5'),  False),   # basic-necessities band KEEPS VAT
+    (Sale.DISCOUNT_PWD,         Decimal('5'),  False),
+    (Sale.DISCOUNT_PWD,         Decimal('20'), True),
+    (Sale.DISCOUNT_NAAC,        Decimal('20'), False),
+    (Sale.DISCOUNT_SOLO_PARENT, Decimal('10'), True),
+    (Sale.DISCOUNT_SC,          Decimal('0'),  True),    # unmatched rate → default band
+    (Sale.DISCOUNT_REGULAR,     Decimal('5'),  False),
+])
+def test_statutory_vat_exempt_follows_the_band_not_just_the_type(discount_type, rate, exempt):
+    """The 20% and 5% bands of the SAME type differ on VAT: 20% exempts, 5% retains. So the
+    exemption cannot key on the type alone — it must read the (type, rate) band."""
+    assert Sale.statutory_vat_exempt(discount_type, rate) is exempt
+
+
+def test_the_five_percent_band_comes_off_the_gross(vat_business):
+    """The 5% basic-necessities band is off the GROSS shelf price with NO VAT machinery.
+    ₱82 → ₱4.10 off → ₱77.90, and vat_adjustment stays 0 even at a VAT-registered seller —
+    the exact opposite of the 20% band, which strips the VAT first."""
+    parts = Sale.price_breakdown(Decimal('82'), Sale.DISCOUNT_SC,
+                                 seller_charges_vat=True, rate=Decimal('5'))
+
+    assert parts['vat_adjustment'] == Decimal('0.00'), "the 5% band must not strip VAT"
+    assert parts['discount_amount'] == Decimal('4.10'), "5% of the GROSS 82 is 4.10"
+    assert parts['total'] == Decimal('77.90')
+    assert (parts['total'] + parts['discount_amount']
+            + parts['vat_adjustment']) == parts['gross']
+
+
+def test_the_five_percent_band_retains_the_vat_in_the_summary(vat_business):
+    """VAT-Exempt Sales stays 0 and the VAT block is populated — a senior buying groceries
+    is still charged VAT, just 5% cheaper. If exempt ever reads non-zero here, the band was
+    wrongly treated like the 20% one."""
+    product = make_product(vat_business, selling_price='82')
+    sale = make_sale(vat_business, [(product, 1)], discount_percent=5)
+    sale.discount_type = Sale.DISCOUNT_SC
+    sale.save(update_fields=['discount_type'])
+
+    summary = sale.vat_summary()
+
+    assert summary['exempt'] == Decimal('0.00'), "the 5% band does not exempt VAT"
+    assert summary['vat'] > Decimal('0'), "VAT is retained in the 5% band"
+
+
+def test_the_five_percent_band_flows_through_the_summary(client, owner):
+    """End to end: the cart sends discount_percent=5 with type=sc, and the summary applies
+    5% off the gross (not 20%, not VAT-exempt). ₱100 basket → ₱95 due at a non-VAT seller."""
+    from django.urls import reverse
+
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='100')
+    client.force_login(owner)
+
+    session = client.session
+    session['sale'] = {str(product.id): {'quantity': 1, 'cost_price': '60',
+                                         'selling_price': '100'}}
+    session.save()
+
+    response = client.get(
+        reverse('view-session-summary', kwargs={'business_slug': biz.slug}),
+        {'discount_type': 'sc', 'discount_percent': '5',
+         'discount_id_no': '12-3456789', 'discount_name': 'Juan Cruz'},
+    )
+
+    assert response.status_code == 200
+    assert response.context['discount_percent'] == Decimal('5'), "the 5% band didn't stick"
+    assert response.context['discount_amount'] == Decimal('5.00')
+    assert response.context['net_total'] == Decimal('95.00')
+
+
+def test_the_change_readout_base_is_the_discounted_total(client, owner):
+    """Regression (2026-07-21): the summary's SALE_TOTAL — the base the cash-change readout
+    subtracts the tender from — must be the NET total after discount, not the gross subtotal.
+    A ₱100 sale at 5% off is ₱95 due, so ₱200 tendered is ₱105 change; reading the ₱100
+    subtotal showed ₱100 change and shortchanged the customer ₱5 on screen."""
+    from django.urls import reverse
+
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='100')
+    client.force_login(owner)
+
+    session = client.session
+    session['sale'] = {str(product.id): {'quantity': 1, 'cost_price': '60',
+                                         'selling_price': '100'}}
+    session.save()
+
+    html = client.get(
+        reverse('view-session-summary', kwargs={'business_slug': biz.slug}),
+        {'discount_type': 'sc', 'discount_percent': '5'},
+    ).content.decode()
+
+    assert 'SALE_TOTAL = 95' in html, "change is measured off the gross subtotal, not the net"
+    assert 'SALE_TOTAL = 100' not in html
+
+
+def test_a_hand_typed_illegal_band_snaps_to_the_default(client, owner):
+    """A poked URL asking for SC 3% must not go through — it falls back to the type's
+    default 20% band, the same way an invented TYPE is refused."""
+    from django.urls import reverse
+
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='100')
+    client.force_login(owner)
+
+    session = client.session
+    session['sale'] = {str(product.id): {'quantity': 1, 'cost_price': '60',
+                                         'selling_price': '100'}}
+    session.save()
+
+    response = client.get(
+        reverse('view-session-summary', kwargs={'business_slug': biz.slug}),
+        {'discount_type': 'sc', 'discount_percent': '3'},
+    )
+
+    assert response.context['discount_percent'] == Decimal('20'), "an illegal 3% was accepted"
+
+
+def test_edit_returns_to_the_exact_band(client, owner):
+    """Picking SC 5%, confirming, then Edit must come back to SC 5% — not SC 20%. The cart
+    reads discount_rate off the state to re-select the right dropdown row."""
+    from django.urls import reverse
+
+    biz, _plan = make_business(owner, plan='pro')
+    product = make_product(biz, selling_price='100')
+    client.force_login(owner)
+
+    session = client.session
+    session['sale'] = {str(product.id): {'quantity': 1, 'cost_price': '60',
+                                         'selling_price': '100'}}
+    session.save()
+
+    client.get(reverse('view-session-summary', kwargs={'business_slug': biz.slug}),
+               {'discount_type': 'sc', 'discount_percent': '5'})
+
+    state = client.get(reverse('cart-state', kwargs={'business_slug': biz.slug})).json()
+
+    assert state['discount_type'] == 'sc'
+    assert Decimal(state['discount_rate']) == Decimal('5'), "Edit would reopen at 20%, not 5%"
+
+
 # ── the wiring: session → stored Sale ───────────────────────────────────────
 
 def test_a_statutory_type_works_even_when_ordinary_discounts_are_off(client, owner):
@@ -444,7 +604,7 @@ def test_the_detail_page_shows_the_vat_line_so_the_column_adds_up(client, owner,
 
     assert 'VAT exempt' in html, "the VAT adjustment is invisible — the column won't add up"
     assert '5.36' in html
-    assert 'Senior Citizen' in html, "a bare 'Discount (20%)' doesn't say WHY"
+    assert 'SC (' in html, "a bare 'Discount (20%)' doesn't say WHY"
     assert '12-3456789' in html, "no ID means no audit trail for the deduction"
     assert 'Juan Cruz' in html
 
@@ -462,7 +622,7 @@ def test_the_official_invoice_carries_the_id_and_a_signature_line(client, owner,
     html = client.get(reverse('sale-receipt', kwargs={
         'business_slug': biz.slug, 'sale_id': sale.id})).content.decode()
 
-    assert 'SENIOR CITIZEN' in html
+    assert 'SC (' in html, "the SC discount line must name the customer type"
     assert '12-3456789' in html
     assert 'Signature:' in html, "p.5(n) requires a signature line on the invoice"
     assert 'Less VAT (exempt)' in html

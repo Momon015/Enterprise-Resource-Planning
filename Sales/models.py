@@ -150,35 +150,47 @@ class Sale(TimeStampModel):
     DISCOUNT_SOLO_PARENT = 'solo_parent'
     DISCOUNT_TYPE_CHOICES = [
         (DISCOUNT_REGULAR,     'Regular customer'),
-        (DISCOUNT_SC,          'Senior Citizen'),
-        (DISCOUNT_PWD,         'Person with Disability'),
-        (DISCOUNT_NAAC,        'National Athlete / Coach'),
-        (DISCOUNT_SOLO_PARENT, 'Solo Parent'),
+        # Abbreviated ON PURPOSE — this display drives the RECEIPT (58mm thermal), where a
+        # full name like "National Athlete / Coach (20%)" wraps. The cart dropdown keeps the
+        # friendly full names (its own labels in sale-cart.jsx), and these match how real PH
+        # receipts print them (Savemore prints "SC", "PWD").
+        (DISCOUNT_SC,          'SC'),
+        (DISCOUNT_PWD,         'PWD'),
+        (DISCOUNT_NAAC,        'NAAC'),
+        (DISCOUNT_SOLO_PARENT, 'SP'),
     ]
-    # RA 9994 (SC), RA 10754 (PWD), RA 10699 (NAAC) → 20%. RA 11861 (Solo Parent) → 10%,
-    # and only on specified child goods, which we do NOT enforce per-item: the cashier
-    # decides eligibility, the same way they do at every other PH counter.
-    STATUTORY_RATES = {
-        DISCOUNT_SC:          Decimal('20'),
-        DISCOUNT_PWD:         Decimal('20'),
-        DISCOUNT_NAAC:        Decimal('20'),
-        DISCOUNT_SOLO_PARENT: Decimal('10'),
-    }
-
-    # IMPORTANT: VAT exemption does NOT ride along with every statutory discount, so it is a
-    # SEPARATE set rather than "anything with a rate is exempt".
-    #   SC  (RA 9994)  — 20% AND VAT-exempt
-    #   PWD (RA 10754) — 20% AND VAT-exempt
-    #   Solo Parent (RA 11861) — 10%, VAT-exempt on the specified child goods
-    #   NAAC (RA 10699) — 20%, discount ONLY; no VAT exemption
-    # Evidence for NAAC being the odd one out: RMO 24-2023 Annex D-2's VAT ADJUSTMENT
-    # block lists SC TRANS and PWD TRANS but NOT NAAC, while its DISCOUNT SUMMARY lists
-    # all four. ⚠️ Solo Parent's VAT treatment is the least certain of the four — confirm
-    # with the accountant. Moving a type in or out of this set is a one-line change.
+    # STATUTORY BANDS — the legal (rate, VAT-exempt) pairs each type may carry. A type can
+    # have MORE THAN ONE band. SC and PWD are 20% AND VAT-exempt on most goods, but on the
+    # DTI/DA "basic necessities and prime commodities" list (groceries) the law grants only
+    # 5%, and that 5% KEEPS the VAT — it comes off the GROSS shelf price with no VAT
+    # machinery at all. The first band is the DEFAULT (highest-relief), used when a caller
+    # names no rate. RA 9994 (SC) / RA 10754 (PWD) → 20% or 5%; RA 10699 (NAAC) → 20%,
+    # discount ONLY, no exemption; RA 11861 (Solo Parent) → 10% on specified child goods.
     #
-    # Only bites for VAT-REGISTERED businesses. A non-VAT seller has no VAT to exempt,
-    # so for most of our clients this set never comes into play.
-    STATUTORY_VAT_EXEMPT = {DISCOUNT_SC, DISCOUNT_PWD, DISCOUNT_SOLO_PARENT}
+    # Eligibility per item (WHICH goods qualify for the 5%) is NOT enforced here: the cashier
+    # picks the band, the same way they judge eligibility at every PH counter. Whole-order for
+    # now — a mixed basket applies the chosen band to everything, which only ever OVER-relieves
+    # (costs the owner, never the customer). Per-line attribution is Phase 2.
+    #
+    # Why NAAC is the odd one out on VAT: RMO 24-2023 Annex D-2's VAT ADJUSTMENT block lists
+    # SC TRANS and PWD TRANS but NOT NAAC, while its DISCOUNT SUMMARY lists all four.
+    # ⚠️ Two things are accountant-pending: Solo Parent's exemption, and — for the 5% band on
+    # a VAT-REGISTERED seller — whether VAT reports on the gross or on the discounted amount.
+    # We compute VAT on the discounted amount (it reconciles). Only VAT-registered sellers ever
+    # feel any of this; a non-VAT seller has no VAT to exempt, and most of our clients are non-VAT.
+    STATUTORY_BANDS = {
+        DISCOUNT_SC:          [(Decimal('20'), True),  (Decimal('5'), False)],
+        DISCOUNT_PWD:         [(Decimal('20'), True),  (Decimal('5'), False)],
+        DISCOUNT_NAAC:        [(Decimal('20'), False)],
+        DISCOUNT_SOLO_PARENT: [(Decimal('10'), True)],
+    }
+    # Backward-compatible views of the bands (first = default, highest-relief band):
+    #   STATUTORY_RATES      — default rate per type (what statutory_rate() returns).
+    #   STATUTORY_VAT_EXEMPT — types whose DEFAULT band is VAT-exempt; answers only "does this
+    #     TYPE ever carry an exemption". The rate-aware exception (SC/PWD at 5% keep the VAT)
+    #     lives in statutory_vat_exempt(type, rate) — always prefer that for real arithmetic.
+    STATUTORY_RATES = {t: bands[0][0] for t, bands in STATUTORY_BANDS.items()}
+    STATUTORY_VAT_EXEMPT = {t for t, bands in STATUTORY_BANDS.items() if bands[0][1]}
 
     discount_type = models.CharField(
         max_length=12, choices=DISCOUNT_TYPE_CHOICES, blank=True,
@@ -202,6 +214,13 @@ class Sale(TimeStampModel):
     # each tie to their own total. Merging the two into one "discount" would make both
     # blocks unreportable. Always 0 for a non-VAT seller, which is most of our clients.
     vat_adjustment = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    # BIR "Invoice Reset Counter" (RMO 24-2023 p.4(b)) — printed on the invoice beside the
+    # number ("INVOICE RESET COUNT 000"). Captured from the SI sequence at COMPLETION, the
+    # same instant the number is stamped, so a later counter reset can never rewrite an old
+    # invoice's printed value (pen-not-pencil). Null on drafts and on sales rung before this
+    # field existed — the invoice template falls back to 000 for those.
+    books_reset_counter = models.PositiveIntegerField(null=True, blank=True)
 
     objects = SaleQuerySet.as_manager()
     
@@ -262,8 +281,11 @@ class Sale(TimeStampModel):
                 stamped.append('date')
 
             if not self.reference and self.business:
-                self.reference, _, _ = SaleSequence.issue(self.business, 'SI')
+                # Capture the reset counter alongside the number, in the same breath — both
+                # are stamped once, at completion, and then frozen.
+                self.reference, _, self.books_reset_counter = SaleSequence.issue(self.business, 'SI')
                 stamped.append('reference')
+                stamped.append('books_reset_counter')
 
         # A caller passing update_fields cannot know we just stamped these — and
         # confirm_sale_draft does exactly that. Without this, date/reference would be
@@ -313,8 +335,9 @@ class Sale(TimeStampModel):
         rate = Decimal(rate or 0)
 
         # VAT only comes off when the seller actually charges it AND the buyer's
-        # discount type carries an exemption. NAAC has a rate but no exemption.
-        if seller_charges_vat and discount_type in cls.STATUTORY_VAT_EXEMPT:
+        # (type, rate) BAND carries an exemption. NAAC has a rate but no exemption, and
+        # SC/PWD at the 5% basic-necessities band keep their VAT — hence rate-aware.
+        if seller_charges_vat and cls.statutory_vat_exempt(discount_type, rate):
             base = (gross / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
         else:
             base = gross
@@ -342,13 +365,53 @@ class Sale(TimeStampModel):
 
     @classmethod
     def statutory_rate(cls, discount_type):
-        """The legally fixed rate for a discount type, or 0 for a regular customer.
+        """The DEFAULT (highest-relief) rate for a discount type, or 0 for a regular
+        customer. A type with more than one band (SC/PWD: 20% or 5%) returns its 20%.
 
-        Used at checkout to SET discount_percent. Never used to re-derive the rate of
-        an existing sale — that one reads its own stored discount_percent, so a sale
-        rung before a rate change still prints the arithmetic it was rung with.
+        Used at checkout to SET discount_percent when no band is named. Never used to
+        re-derive the rate of an existing sale — that one reads its own stored
+        discount_percent, so a sale rung before a rate change still prints the
+        arithmetic it was rung with.
         """
         return cls.STATUTORY_RATES.get(discount_type or '', Decimal('0'))
+
+    @classmethod
+    def resolve_statutory_rate(cls, discount_type, rate):
+        """The rate to apply for a (type, requested-rate) pick, validated against the
+        type's legal bands. Falls back to the type's DEFAULT (first, highest) band when
+        the requested rate isn't a legal band — so a hand-typed query string can't invent
+        a rate like SC 3%. Returns 0 for a regular customer.
+        """
+        bands = cls.STATUTORY_BANDS.get(discount_type or '')
+        if not bands:
+            return Decimal('0')
+        allowed = [r for (r, _exempt) in bands]
+        try:
+            r = Decimal(str(rate))
+        except (ArithmeticError, TypeError, ValueError):
+            return allowed[0]
+        return r if r in allowed else allowed[0]
+
+    @classmethod
+    def statutory_vat_exempt(cls, discount_type, rate):
+        """Whether the (type, rate) BAND carries a VAT exemption.
+
+        Exemption follows the BAND, not just the type: SC/PWD at 20% are exempt, but their
+        5% basic-necessities band keeps the VAT (5% off the gross, VAT untouched). A rate
+        that matches no band falls back to the type's default band, so an older sale that
+        stored only its type (rate left at 0) still reads its default treatment.
+        """
+        bands = cls.STATUTORY_BANDS.get(discount_type or '')
+        if not bands:
+            return False
+        try:
+            r = Decimal(str(rate))
+        except (ArithmeticError, TypeError, ValueError):
+            r = None
+        for (band_rate, exempt) in bands:
+            if band_rate == r:
+                return exempt
+        return bands[0][1]   # default (highest-relief) band
     
     def vat_summary(self):
         """PH 12% VAT breakdown, VAT-inclusive, discount-aware.
@@ -371,7 +434,9 @@ class Sale(TimeStampModel):
         # Only VATable lines carry VAT to remove: an already-exempt or zero-rated line
         # has none. And a NON-VAT business never charged VAT in the first place, so its
         # prices are stripped of nothing — which is why this is gated on the business.
-        exempt_everything = self.discount_type in self.STATUTORY_VAT_EXEMPT
+        # Rate-aware: SC/PWD at 20% exempt the whole order, but their 5% basic-necessities
+        # band keeps the VAT (it's a plain 5% off, applied below via `keep`).
+        exempt_everything = self.statutory_vat_exempt(self.discount_type, self.discount_percent)
         seller_charges_vat = bool(getattr(self.business, 'is_vat_registered', False))
 
         buckets = {'vatable': Decimal('0'), 'exempt': Decimal('0'), 'zero': Decimal('0')}

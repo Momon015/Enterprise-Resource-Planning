@@ -226,7 +226,7 @@ def clear_sale(request, business_slug):
     request.session['sale'] = {}
     # Clearing the cart clears the CUSTOMER too. A senior's ID lingering into the next
     # customer's sale would silently apply a 20% discount to someone not entitled to it.
-    for key in ('sale_discount_percent', 'sale_discount_type',
+    for key in ('sale_discount_percent', 'sale_discount_type', 'sale_discount_rate',
                 'sale_discount_id_no', 'sale_discount_name'):
         request.session.pop(key, None)
     request.session.modified = True
@@ -829,13 +829,19 @@ def view_session_summary(request, business_slug):
     # Validated against the model's own choices — a hand-typed query string must not be
     # able to invent a discount category.
     raw_type = (request.GET.get('discount_type') or '').strip()
-    if raw_type in Sale.STATUTORY_RATES:
+    if raw_type in Sale.STATUTORY_BANDS:
         request.session['sale_discount_type']  = raw_type
+        # Which BAND the cashier picked — SC 20% vs SC 5% (basic necessities). Validated
+        # against the type's legal bands, so a hand-typed rate can't invent one; an unknown
+        # rate falls back to the type's default (highest-relief) band.
+        request.session['sale_discount_rate']  = str(
+            Sale.resolve_statutory_rate(raw_type, request.GET.get('discount_percent')))
         request.session['sale_discount_id_no'] = (request.GET.get('discount_id_no') or '').strip()[:60]
         request.session['sale_discount_name']  = (request.GET.get('discount_name') or '').strip()[:255]
     elif 'discount_type' in request.GET:
         # explicitly cleared — switching back to a regular customer must drop the ID too
-        for key in ('sale_discount_type', 'sale_discount_id_no', 'sale_discount_name'):
+        for key in ('sale_discount_type', 'sale_discount_rate',
+                    'sale_discount_id_no', 'sale_discount_name'):
             request.session.pop(key, None)
 
     discount_type = request.session.get('sale_discount_type', '')
@@ -855,7 +861,9 @@ def view_session_summary(request, business_slug):
 
     # A statutory rate overrides whatever the manual box held — they never stack.
     if discount_type:
-        discount_percent = Sale.statutory_rate(discount_type)
+        # The BAND the cashier picked (SC 20% vs SC 5%), re-validated from the session.
+        discount_percent = Sale.resolve_statutory_rate(
+            discount_type, request.session.get('sale_discount_rate'))
     else:
         discount_percent = Decimal(request.session.get('sale_discount_percent', '0') or '0')
 
@@ -1010,13 +1018,16 @@ def confirm_view_summary(request, business_slug):
             # Re-validated from the session rather than trusted: the value arrived via a
             # query string on the summary page, and this is where it becomes a record.
             statutory_type = request.session.get('sale_discount_type', '')
-            if statutory_type not in Sale.STATUTORY_RATES:
+            if statutory_type not in Sale.STATUTORY_BANDS:
                 statutory_type = ''
 
             if statutory_type:
-                # Fixed by law, and NOT subject to enable_sale_discount — a business
-                # cannot decline a senior's discount by switching a preference off.
-                discount_percent = Sale.statutory_rate(statutory_type)
+                # Fixed by law, and NOT subject to enable_sale_discount — a business cannot
+                # decline a senior's discount by switching a preference off. The BAND (SC 20%
+                # vs SC 5%) is re-validated from the session, defaulting to the type's
+                # highest-relief band if the stored rate isn't a legal one.
+                discount_percent = Sale.resolve_statutory_rate(
+                    statutory_type, request.session.get('sale_discount_rate'))
             else:
                 discount_percent = Decimal('0')
                 if business.enable_sale_discount:
@@ -1077,7 +1088,8 @@ def confirm_view_summary(request, business_slug):
     # leaving them set would apply the previous senior's discount — and their ID — to the
     # next person served.
     for key in ('total_salary_cost', 'line_count', 'sale_discount_percent',
-                'sale_discount_type', 'sale_discount_id_no', 'sale_discount_name'):
+                'sale_discount_type', 'sale_discount_rate',
+                'sale_discount_id_no', 'sale_discount_name'):
         request.session.pop(key, 0)
 
     request.session['sale'] = {}

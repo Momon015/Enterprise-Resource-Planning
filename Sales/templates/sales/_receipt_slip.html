@@ -1,6 +1,6 @@
-<div class="center bold">{{ business.business_name }}</div>
+<div class="center hdr-name">{{ business.business_name }}</div>
 {% for line in business.address_lines %}<div class="center">{{ line }}</div>{% endfor %}
-{% if business.business_phone_number %}<div class="center">Phone: {{ business.business_phone_number }}</div>{% endif %}
+{% if business.business_phone_number %}<div class="center">Tel: {{ business.business_phone_number }}</div>{% endif %}
 
 <div class="divider"></div>
 
@@ -38,7 +38,10 @@
     {% if sale.is_fully_paid %}
     {# Settled: the total says it all. Method instead of a redundant Paid line. #}
     <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
-    {% if sale.payment_method_code %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
+    {% comment %} The Payment method line is suppressed when a cash tender was recorded — the
+    CASH / CHANGE pair below already says it was cash, so "Payment  Cash" would just repeat it.
+    It still prints for GCash/Bank, and for a cash sale where no tender was keyed in. {% endcomment %}
+    {% if sale.payment_method_code and not sale.cash_tendered %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
 
     {% elif sale.amount_paid %}
     {# Partial: "Paid" is the customer's ONLY proof of the money they just handed over. #}
@@ -59,7 +62,7 @@
     <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
     <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
     {% endif %}
-    <tr><td>Items</td><td class="right">{{ sale.quantity_item }}</td></tr>
+    <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
 </table>
 
 <div class="divider"></div>

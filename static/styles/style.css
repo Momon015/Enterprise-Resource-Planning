@@ -6313,20 +6313,9 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 .activity-row:last-child { border-bottom: none; }
 .activity-row:hover { background: var(--surface-alt); }
 
-.activity-icon {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-}
-.activity-icon--success { background: var(--success-light); color: var(--success); }
-.activity-icon--purple  { background: var(--violet-light); color: var(--violet); }
-.activity-icon--danger  { background: var(--danger-light); color: var(--danger); }
-.activity-icon--warning { background: var(--warning-light); color: var(--warning); }
+/* `.activity-icon` (base + tone modifiers) is defined once, further down near
+   `.activity-link`. The earlier duplicate declared here was fully overridden by it,
+   so it was removed to leave a single source of truth. */
 
 .activity-body { flex: 1; min-width: 0; }
 .activity-title {
@@ -6458,10 +6447,10 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 .activity-full-link:hover { text-decoration: none; color: inherit; }
 .activity-full-link--static { cursor: default; }
 
-/* ICON CHIP — scoped class on purpose. `.activity-icon` is declared TWICE in this
-   file (34px, then 36px — the second wins), so reusing it would have added a third
-   voice to that argument. The .activity-icon--{tone} COLOUR modifiers are stable
-   and shared, so those are reused. */
+/* ICON CHIP — scoped class on purpose. This stays independent of `.activity-icon`
+   (defined once, above) so the two row components can size their chips without one
+   silently overriding the other. The .activity-icon--{tone} COLOUR modifiers are
+   stable and shared, so those are reused. */
 .activity-full-icon {
   flex-shrink: 0;
   width: 36px;

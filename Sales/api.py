@@ -57,6 +57,9 @@ def _serialize_cart(request, business):
         # customer" while the server still held the SC type, so the screen and the pending
         # sale disagreed about who was being served.
         'discount_type': request.session.get('sale_discount_type', '') or '',
+        # Which statutory BAND (SC 20% vs SC 5%). Comes back on Edit so the dropdown
+        # re-selects the exact band, not just the customer type.
+        'discount_rate': str(request.session.get('sale_discount_rate', '') or ''),
         'discount_id_no': request.session.get('sale_discount_id_no', '') or '',
         'discount_name': request.session.get('sale_discount_name', '') or '',
     }

@@ -44,13 +44,21 @@
     .center  { text-align: center; }
     .right   { text-align: right; }
     .bold    { font-weight: bold; }
-    .divider { border-top: 1px dashed #000; margin: 4px 0; }
+    .divider { border-top: 1px dashed #000; margin: 5px 0; }
+    .dotrule { border-top: 1px dotted #000; margin: 5px 0; }
     table    { width: 100%; border-collapse: collapse; }
     td       { padding: 1px 0; vertical-align: top; }
     .qty     { width: 18%; }
     .name    { width: 52%; }
-    .amt     { width: 30%; text-align: right; }
+    .amt     { width: 30%; text-align: right; white-space: nowrap; }
     .totals td { padding: 2px 0; }
+    /* header: the trade name a touch larger + tracked, the document label spaced out —
+       the two things a glance should catch first on a thermal slip. */
+    .hdr-name { font-weight: bold; font-size: 1.3em; letter-spacing: .02em; line-height: 1.15; }
+    .doclabel { text-align: center; font-weight: bold; letter-spacing: .12em; margin: 3px 0; }
+    .fine     { font-size: .86em; line-height: 1.25; }
+    .vmark    { padding-left: 4px; }        /* per-line V / E / Z VAT flag */
+    .rule-line td { padding-top: 1px; }     /* blank ruled customer fields */
 </style>
 </head>
 <body>
