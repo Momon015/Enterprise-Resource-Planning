@@ -13,6 +13,10 @@ urlpatterns = [
     path('api/cart/remove/', api.cart_remove, name='cart-remove'),
     path('api/cart/clear/', api.cart_clear, name='cart-clear'),
 
+    # JSON search API (React sale-search island)
+    path('api/sale/search/', api.sale_search, name='sale-search'),
+    path('api/sale/add/', api.sale_add, name='sale-add'),
+
     
     path('clear/session/', views.clear_sale, name='clear-sale'),
     # sessions

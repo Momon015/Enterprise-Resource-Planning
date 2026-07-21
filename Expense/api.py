@@ -1,14 +1,13 @@
 
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 
 from Supplier.models import Material
-from Product.models import Product
 from core.utils.owner import get_business_for_user
 from .views import _normalize_cart_discount_mode
 
@@ -79,42 +78,57 @@ def cart_state(request, business_slug):
 def cart_search(request, business_slug):
     """Typeahead for the purchase-search island.
 
-    Materials are the purchasable rows (they get the "+"); products are returned
-    for REFERENCE only — a purchase is materials-from-suppliers, so the island
-    shows the sell-side product but never lets you add it. Empty q lists the first
-    page of each so the dropdown has something on focus, mirroring the mock.
+    Materials only — a purchase is materials-from-suppliers, so only materials are
+    addable and there is nothing else worth showing here. (Sell-side products used to
+    ride along "for reference", but they only added noise to a materials-only action.)
+    Empty q lists the first page so the dropdown has something on focus.
+
+    On an EMPTY query (the cashier just clicked the box) we return the 5 MOST-PURCHASED
+    materials rather than the first 5 alphabetically — with 30–50 materials a full list
+    is a wall to scroll, and the things you buy most are the things you're most likely
+    restocking. A typed query searches the full catalogue (capped at 10).
+
+    "Most purchased" is ranked by how many non-void purchase lines reference the material,
+    i.e. how OFTEN it's been bought — a recurring weekly restock outranks a one-off bulk
+    buy. A business with no history just gets its materials name-ordered (all rank 0), so
+    the dropdown is never empty on focus.
+
+    Each row carries `in_cart`, the quantity already sitting in the purchase cart, so
+    the cashier can see what they've set without leaving the search. The island
+    re-fetches on `cart:changed`, so this stays live as items are added.
     """
     business = get_business_for_user(request.user, business_slug)
     q = (request.GET.get('q') or '').strip()
 
-    materials = Material.objects.filter(business=business)
+    # Session cart is keyed by material_id (as a string), same shape _serialize_cart reads.
+    cart = request.session.get('cart', {})
+
+    materials = Material.objects.filter(business=business).select_related('supplier')
     if q:
-        materials = materials.filter(Q(name__icontains=q) | Q(supplier__name__icontains=q))
-    materials = materials.select_related('supplier').prefetch_related('products')[:12]
+        materials = materials.filter(
+            Q(name__icontains=q) | Q(supplier__name__icontains=q)
+        ).order_by('name')[:10]
+    else:
+        # Rank by purchase frequency; voided purchases don't count as a real buy.
+        materials = materials.annotate(
+            purchase_count=Count('items', filter=Q(items__purchase__is_void=False)),
+        ).order_by('-purchase_count', 'name')[:5]
 
-    mats = []
-    for m in materials:
-        linked = m.products.first()
-        mats.append({
-            'id': m.id,
-            'name': m.name,
-            'supplier': m.supplier.name if m.supplier else 'No supplier',
-            'price': f'{m.price:.2f}',      # unit COST
-            'stock': m.quantity,
-            'image': linked.image.url if linked and linked.image else '',
-        })
+    mats = [{
+        'id': m.id,
+        'name': m.name,
+        'supplier': m.supplier.name if m.supplier else 'No supplier',
+        'price': f'{m.price:.2f}',      # unit COST
+        # `Material.quantity` is a REFERENCE quantity (how the item is defined — e.g. 24 per
+        # Box), NOT live inventory stock. Shown so the buyer has that reference while
+        # deciding how many to order. Never label it "in stock".
+        'qty': m.quantity,
+        'unit': m.get_unit_display(),
+        'in_cart': int(cart.get(str(m.id), {}).get('quantity', 0) or 0),
+    } for m in materials]
 
-    products = Product.objects.filter(business=business, is_active=True)
-    if q:
-        products = products.filter(name__icontains=q)
-    prods = [{
-        'id': p.id,
-        'name': p.name,
-        'price': f'{p.selling_price:.2f}',  # sell price (reference)
-        'image': p.image.url if p.image else '',
-    } for p in products[:12]]
-
-    return JsonResponse({'materials': mats, 'products': prods})
+    # `suggested` tells the island to label this a "Most purchased" shortlist, not a search.
+    return JsonResponse({'materials': mats, 'suggested': not q})
 
 
 @login_required(login_url='login')

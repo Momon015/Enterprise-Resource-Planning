@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         'sale-cart': resolve(__dirname, 'src/sale-cart.jsx'),
+        'sale-search': resolve(__dirname, 'src/sale-search.jsx'),
         'purchase-cart': resolve(__dirname, 'src/purchase-cart.jsx'),
         'purchase-search': resolve(__dirname, 'src/purchase-search.jsx'),
         'product-list': resolve(__dirname, 'src/product-list.jsx'),

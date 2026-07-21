@@ -6,17 +6,21 @@ function getCookie(name) {
   const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')
   return m ? m.pop() : ''
 }
-const peso = n =>
-  Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // First two letters of the name — the app-wide no-image avatar (see project_no_image_initials).
-// Materials never carry their own photo (only products do), so the search always uses initials
-// here rather than borrowing a linked product's image, which read as if the material had one.
+// Unlike materials, a product CAN carry its own photo; this is only the fallback when it doesn't.
 function initials(name) {
   const parts = (name || '').replace(/[^A-Za-z0-9\s-]/g, '').split(/[\s-]+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
+// Real product photo if we have one, else the initials avatar — the whole reason the sale
+// side keeps a Thumb the materials side dropped: products have images, materials don't.
+function Thumb({ image, name }) {
+  if (image) return <img className="ps-thumb ps-thumb--img" src={image} alt="" loading="lazy" />
+  return <div className="ps-thumb">{initials(name)}</div>
 }
 
 // Debounce the raw input so we hit the server only after typing settles.
@@ -43,27 +47,29 @@ function Highlight({ text, query }) {
   )
 }
 
-const el = document.getElementById('purchase-search-root')
+const el = document.getElementById('sale-search-root')
 const CFG = el ? el.dataset : {}
 
-async function postAdd(url, materialId) {
+async function postAdd(url, productId) {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'X-CSRFToken': getCookie('csrftoken'),
     },
-    body: new URLSearchParams({ material_id: materialId }).toString(),
+    body: new URLSearchParams({ product_id: productId }).toString(),
   })
   return res.json()
 }
 
-function PurchaseSearch() {
+function SaleSearch() {
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState(0)
-  const [data, setData] = useState({ materials: [], suggested: false })
+  // services MUST default to [] — the first render (before the mount fetch resolves) does
+  // `[...products, ...services]`, and spreading undefined throws, blanking the whole island.
+  const [data, setData] = useState({ products: [], services: [], suggested: false })
   const [toasts, setToasts] = useState([])
   // Bumped on every cart mutation to force a re-fetch, so each row's in-cart quantity
   // stays live while the dropdown is open — otherwise adding an item would leave its
@@ -83,7 +89,8 @@ function PurchaseSearch() {
       .then(r => r.json())
       .then(res => {
         if (id !== reqId.current) return
-        setData({ materials: res.materials || [], suggested: !!res.suggested })
+        setData({ products: res.products || [], services: res.services || [],
+                  suggested: !!res.suggested })
         setLoading(false)
       })
       .catch(() => { if (id === reqId.current) setLoading(false) })
@@ -110,12 +117,15 @@ function PurchaseSearch() {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
-  const { materials, suggested } = data
-  const total = materials.length
+  const { products, services, suggested } = data
+  // One flat order for keyboard nav — products first, then services — even though they
+  // render as two labelled sections. `active` indexes into this.
+  const flat = [...products, ...services]
+  const total = flat.length
 
   // Warnings only — the success case is confirmed by the "in cart" badge, not a toast.
   // ONE toast per message: hammering "+" on a stock-capped item fired the same "only N
-  // available" warning over and over and stacked them. Drop any existing copy first so the
+  // in stock" warning over and over and stacked them. Drop any existing copy first so the
   // repeat just refreshes the single toast instead of piling up. (Mirrors the cart island.)
   const showToast = (message) => {
     const id = Date.now() + Math.random()
@@ -123,10 +133,10 @@ function PurchaseSearch() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200)
   }
 
-  function addMaterial(m) {
-    postAdd(CFG.addUrl, m.id).then(res => {
+  function addProduct(p) {
+    postAdd(CFG.addUrl, p.id).then(res => {
       if (res.warning) { showToast(res.warning); return }
-      // Tell the sibling purchase-cart island to re-read — same signal the topbar "+" fires.
+      // Tell the sibling sale-cart island to re-read — same signal the topbar "+" fires.
       // No success toast: the row's "in cart" badge ticks up on the same cart:changed, so it
       // already confirms the add. Only warnings (e.g. stock caps) surface as a toast now.
       document.dispatchEvent(new CustomEvent('cart:changed'))
@@ -143,8 +153,8 @@ function PurchaseSearch() {
       setActive(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const item = materials[active]
-      if (item) addMaterial(item)
+      const item = flat[active]
+      if (item) addProduct(item)
     } else if (e.key === 'Escape') {
       setFocused(false)
       inputRef.current?.blur()
@@ -153,6 +163,44 @@ function PurchaseSearch() {
 
   const open = focused
   const hasResults = total > 0
+
+  // One row, shared by both sections. `idx` is the FLAT index so keyboard highlight lines
+  // up across products + services.
+  const renderRow = (p, idx) => (
+    <div key={`p${p.id}`}
+         className={`ps-row ${active === idx ? 'is-active' : ''}`}
+         onMouseEnter={() => setActive(idx)}
+         onClick={() => addProduct(p)}>
+      <Thumb image={p.image} name={p.name} />
+      <div className="ps-body">
+        <div className="ps-name"><Highlight text={p.name} query={debounced} /></div>
+        <div className="ps-sub">
+          {p.supplier && <>
+            <Highlight text={p.supplier} query={debounced} />
+            <span className="ps-dot">·</span>
+          </>}
+          <span className="ps-cost">₱{p.price}</span>
+          {/* Stock matters on the SELL side — a cashier needs to know what's left before
+              ringing it. Services have no stock. */}
+          {!p.is_service && <>
+            <span className="ps-dot">·</span>
+            <span className={`ps-stock${p.stock <= 0 ? ' ps-stock--out' : ''}`}>
+              {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
+            </span>
+          </>}
+        </div>
+      </div>
+      {p.in_cart > 0 && (
+        <span className="ps-incart" title={`${p.in_cart} in cart`}>
+          <i className="bi bi-cart-check-fill"></i> {p.in_cart} in cart
+        </span>
+      )}
+      <button className="ps-add" aria-label={`Add ${p.name}`}
+              onClick={e => { e.stopPropagation(); addProduct(p) }}>
+        <i className="bi bi-plus-lg"></i>
+      </button>
+    </div>
+  )
 
   return (
     <div ref={wrapRef} className="ps-wrap">
@@ -176,7 +224,7 @@ function PurchaseSearch() {
           onChange={e => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search materials..."
+          placeholder={CFG.services === '1' ? 'Search products and services…' : 'Search products…'}
           className="ps-input"
         />
         {query && (
@@ -206,52 +254,29 @@ function PurchaseSearch() {
             <div className="ps-empty">
               <div className="ps-empty-icon"><i className="bi bi-search"></i></div>
               <div className="ps-empty-title">No results{query && <> for “{query}”</>}</div>
-              <div className="ps-empty-sub">Try a different name, or check the supplier spelling.</div>
+              <div className="ps-empty-sub">Try a different product name.</div>
             </div>
           ) : (
             <>
-              {materials.length > 0 && (
+              {products.length > 0 && (
                 <div className="ps-section">
                   <div className="ps-section-head">
                     {suggested
-                      ? <><i className="bi bi-star-fill"></i> Most purchased</>
-                      : <><i className="bi bi-box-seam"></i> Materials</>}
-                    <span className="ps-section-count">· {materials.length}</span>
+                      ? <><i className="bi bi-star-fill"></i> Best sellers</>
+                      : <><i className="bi bi-box-seam"></i> Products</>}
+                    <span className="ps-section-count">· {products.length}</span>
                   </div>
-                  {materials.map((m, i) => {
-                    const isActive = active === i
-                    return (
-                      <div key={`m${m.id}`}
-                           className={`ps-row ${isActive ? 'is-active' : ''}`}
-                           onMouseEnter={() => setActive(i)}
-                           onClick={() => addMaterial(m)}>
-                        <div className="ps-thumb">{initials(m.name)}</div>
-                        <div className="ps-body">
-                          <div className="ps-name"><Highlight text={m.name} query={debounced} /></div>
-                          <div className="ps-sub">
-                            Supplier: <Highlight text={m.supplier} query={debounced} />
-                            <span className="ps-dot">·</span>
-                            <span className="ps-cost">₱{m.price}</span>
-                            {/* Reference quantity (Material.quantity + unit) — how the item is
-                                defined, NOT stock. A hint for how many to order. */}
-                            {m.qty ? <>
-                              <span className="ps-dot">·</span>
-                              <span className="ps-refqty">Ref: {m.qty} {m.unit}</span>
-                            </> : null}
-                          </div>
-                        </div>
-                        {m.in_cart > 0 && (
-                          <span className="ps-incart" title={`${m.in_cart} in cart`}>
-                            <i className="bi bi-cart-check-fill"></i> {m.in_cart} in cart
-                          </span>
-                        )}
-                        <button className="ps-add" aria-label={`Add ${m.name}`}
-                                onClick={e => { e.stopPropagation(); addMaterial(m) }}>
-                          <i className="bi bi-plus-lg"></i>
-                        </button>
-                      </div>
-                    )
-                  })}
+                  {products.map((p, i) => renderRow(p, i))}
+                </div>
+              )}
+
+              {services.length > 0 && (
+                <div className="ps-section">
+                  <div className="ps-section-head">
+                    <i className="bi bi-ticket-perforated"></i> Top services
+                    <span className="ps-section-count">· {services.length}</span>
+                  </div>
+                  {services.map((p, i) => renderRow(p, products.length + i))}
                 </div>
               )}
             </>
@@ -263,5 +288,5 @@ function PurchaseSearch() {
 }
 
 if (el) {
-  createRoot(el).render(<StrictMode><PurchaseSearch /></StrictMode>)
+  createRoot(el).render(<StrictMode><SaleSearch /></StrictMode>)
 }

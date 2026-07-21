@@ -29,6 +29,14 @@
     </div>
   </div>
 
+  <!-- React Sale Search island — feeds the cart below (fires cart:changed on add) -->
+  <div id="sale-search-root"
+       class="mb-3 mb-lg-4"
+       data-search-url="{% url 'sale-search' business_slug=current_business.slug %}"
+       data-add-url="{% url 'sale-add' business_slug=current_business.slug %}"
+       data-services="{{ current_business.offers_services|yesno:'1,' }}"></div>
+  <script type="module" src="{% static 'react/sale-search.js' %}"></script>
+
   <!-- React Sale Cart island — owns the product lines + order summary -->
   <div id="sale-cart-root"
       data-business="{{ current_business.slug }}"

@@ -527,6 +527,18 @@
   flex-shrink: 0;
   background: var(--surface);
 }
+/* Initials fallback when a cart line has no photo — a lettered avatar, not the grey
+   no-image placeholder. Same 56px box as the img so rows never shift. */
+.sale-row-thumb--initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-alt, var(--surface));
+}
 
 .sale-row-body {
   flex: 1;
@@ -7978,6 +7990,21 @@ button.topbar-account__item {
    out; a class on the thing being replaced would be replaced along with it. */
 .topbar--hide-sale-cart .topbar-cart--sale,
 .topbar--hide-purchase-cart .topbar-cart--purchase { display: none; }
+
+/* On the cart pages the dedicated in-page search island replaces the global topbar
+   search, so the topbar field (and its mobile trigger) are redundant — hide both. The
+   two-class selector outscores the mobile `.topbar-search-btn { display:flex }` inside
+   the media query, so it stays hidden at every breakpoint. Sale and purchase are the
+   same story; the sale rule also covers the Sale Summary review page (on_sale_cart_page). */
+.topbar--hide-purchase-cart .topbar-search,
+.topbar--hide-purchase-cart .topbar-search-btn,
+.topbar--hide-sale-cart .topbar-search,
+.topbar--hide-sale-cart .topbar-search-btn { display: none; }
+/* The search normally carries `margin-inline:auto`, and that auto margin is what shoved
+   the action cluster to the right edge. With the search gone the cluster would pack left
+   against the toggles, so push it right itself. */
+.topbar--hide-purchase-cart .topbar-cluster,
+.topbar--hide-sale-cart .topbar-cluster { margin-left: auto; }
 .topbar-cart__badge {
   position: absolute;
   top: -4px; right: -4px;
@@ -9127,6 +9154,26 @@ label:has(+ select[name$="_year"]) {
   border: 1px solid var(--border); color: var(--muted); background: var(--surface);
 }
 .ps-pill--product { color: var(--accent); border-color: var(--accent-border); background: var(--accent-light); }
+
+/* "N in cart" — shows the quantity already set for this material so the cashier can see
+   what they've added without leaving the search. Accent-toned so it reads as an at-a-glance
+   status, not another action button. */
+.ps-incart {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+  padding: 0.2rem 0.5rem; border-radius: 999px;
+  color: var(--accent); border: 1px solid var(--accent-border); background: var(--accent-light);
+}
+.ps-incart i { font-size: 0.78rem; }
+
+/* Stock left, in the sale search sub-line. Muted like the rest of the line, but turns
+   danger when there's nothing to sell so it reads before the cashier taps add. */
+.ps-stock { color: var(--muted); }
+.ps-stock--out { color: var(--danger); font-weight: 600; }
+/* Purchase-side reference quantity (Material.quantity + unit). Muted — it's a hint, not
+   inventory; deliberately NOT the danger-at-zero treatment stock gets. */
+.ps-refqty { color: var(--muted); }
+
 
 .ps-add {
   flex-shrink: 0; width: 32px; height: 32px;
