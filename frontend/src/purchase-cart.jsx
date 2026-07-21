@@ -9,6 +9,16 @@ function getCookie(name) {
 const peso = n =>
   Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// First two letters of the name — the app-wide no-image avatar (see project_no_image_initials).
+// Materials rarely carry a photo, so the cart row falls back to initials rather than the grey
+// no-image placeholder, matching the purchase search.
+function initials(name) {
+  const parts = (name || '').replace(/[^A-Za-z0-9\s-]/g, '').split(/[\s-]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
 const el = document.getElementById('purchase-cart-root')
 const CFG = el ? el.dataset : {}
 const BASE = CFG.apiBase || ''
@@ -90,7 +100,9 @@ function CartRow({ item, mode, onQty, onLine, onRemove, onToast }) {
 
   return (
     <div className="sale-row">
-      <img className="sale-row-thumb" src={item.image || CFG.noImage} alt="" />
+      {item.image
+        ? <img className="sale-row-thumb" src={item.image} alt="" />
+        : <div className="sale-row-thumb sale-row-thumb--initials">{initials(item.material)}</div>}
       <div className="sale-row-body">
         <div className="sale-row-head">
           <div className="sale-row-info">
@@ -184,9 +196,14 @@ function PurchaseCart() {
         setDiscount(parseFloat(data.purchase_discount_percent) || 0)
       })
 
+    // React only to EXTERNAL cart changes (topbar "+", the search island's add). Our own
+    // mutations mark the event `internal` — apply() has already set the fresh state, so
+    // re-fetching here would be a redundant round trip and could race an in-flight POST.
+    const onChanged = e => { if (!e.detail?.internal) load() }
+
     load()
-    document.addEventListener('cart:changed', load)
-    return () => document.removeEventListener('cart:changed', load)
+    document.addEventListener('cart:changed', onChanged)
+    return () => document.removeEventListener('cart:changed', onChanged)
   }, [])
 
   if (!cart) return <div style={{ padding:'2rem', color:'var(--muted)' }}>Loading cart…</div>
@@ -201,7 +218,14 @@ function PurchaseCart() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200)
   }
 
-  const apply    = data => { setCart(data); if (data.warning) showToast(data.warning, 'warning', 'stock') }
+  const apply    = data => {
+    setCart(data)
+    if (data.warning) showToast(data.warning, 'warning', 'stock')
+    // Broadcast so the search island refreshes its "in cart" badges after a remove, qty
+    // change, line edit or clear. Marked internal so our own listener above skips the
+    // redundant re-fetch — we already hold this fresh state.
+    document.dispatchEvent(new CustomEvent('cart:changed', { detail: { internal: true } }))
+  }
   const onQty    = (id, q)    => post(URLS.qty,  { material_id: id, quantity: Math.max(1, q) }).then(apply)
   const onLine   = (id, body) => post(URLS.line, { material_id: id, ...body }).then(apply)
   const onRemove = id         => post(URLS.remove, { material_id: id }).then(apply)
@@ -265,7 +289,7 @@ function PurchaseCart() {
         <div className="pos-card">
           <div className="pos-card-header">
             <span className="pos-card-title"><i className="bi bi-list-ul"></i> Order lines</span>
-            <a href={CFG.materialListUrl} className="btn-browse"><i className="bi bi-search"></i> Browse supplier</a>
+            {/* <a href={CFG.materialListUrl} className="btn-browse"><i className="bi bi-search"></i> Browse supplier</a> */}
           </div>
           <div>
             {pageItems.map(item => (

@@ -162,6 +162,8 @@ def stocked_business(owner):
     If you add a page to CONVERTED_LISTS, add whatever it needs to render ROWS.
     """
     biz, _plan = make_business(owner)
+    biz.offers_services = True               # service_list is gated on this; the row below needs it
+    biz.save(update_fields=['offers_services'])
     product = make_product(biz, selling_price="100", cost_price="60", stock=25)
     make_service(biz, selling_price="20")   # Product.services -> service_list has a row
     make_sale(biz, [(product, 2)])          # unpaid -> a receivable
@@ -201,6 +203,8 @@ def test_empty_state_ctas_are_guarded_too(client, owner):
     ever presses, and it would open an empty modal.
     """
     bare, _plan = make_business(owner)          # no services at all
+    bare.offers_services = True                 # feature ON, just no rows yet (gates the URL)
+    bare.save(update_fields=['offers_services'])
     client.force_login(owner)
     response = client.get(reverse("service-list", kwargs={"business_slug": bare.slug}))
     assert response.status_code == 200

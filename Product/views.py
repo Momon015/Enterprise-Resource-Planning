@@ -890,6 +890,16 @@ def restore_product(request, business_slug, product_id):
     return redirect('archived-products', business_slug=business.slug)
 
 # ── Service Fees ──────────────────────────────────────────────
+def _require_services_enabled(business):
+    """Service Fees is opt-in (`offers_services`). When it's off the sidebar link is gone,
+    but the URLs must be closed too — the sale search already excludes services, yet the
+    management pages stayed reachable by pasting an old link (or flipping the toggle on,
+    copying the URL, and flipping it off again). 404, not a redirect: the only visitor to a
+    hidden URL is someone poking at it — same convention as the product-create gate above."""
+    if not business.offers_services:
+        raise Http404("Service Fees are turned off for this business.")
+
+
 @login_required(login_url='login')
 def service_list(request, business_slug):
     cart_count = 0
@@ -897,6 +907,7 @@ def service_list(request, business_slug):
     if sale:
         cart_count = sum(item['quantity'] for item in sale.values())
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     request.session['catalog_return'] = request.path
 
     services = get_queryset_for_user(request.user, Product.services.all()) \
@@ -934,6 +945,7 @@ def service_list(request, business_slug):
 @login_required(login_url='login')
 def service_session_picker(request, business_slug, product_id):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     service = get_object_or_404(Product.services, business=business, id=product_id, is_session_based=True)
     return render(request, 'core/partials/_session_picker.html', {'service': service})
 
@@ -942,6 +954,7 @@ def service_session_picker(request, business_slug, product_id):
 @permission_required('add')  # dev
 def service_create(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     form_error = None
 
     if request.method == 'POST':
@@ -999,6 +1012,7 @@ def service_create(request, business_slug):
 @permission_required('read_only')  # dev
 def service_update(request, business_slug, service_slug, service_id):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
     form_error = None
 
@@ -1057,6 +1071,7 @@ def service_update(request, business_slug, service_slug, service_id):
 @permission_required('staff_delete')
 def service_archive(request, business_slug, service_slug, service_id):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     service = get_object_or_404(Product.services, business=business, slug=service_slug, id=service_id)
 
     if request.method == 'POST':
@@ -1089,6 +1104,7 @@ def service_archive(request, business_slug, service_slug, service_id):
 @permission_required('add')  # dev
 def archived_services(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     services = Product.all_objects.filter(
         business=business, is_active=False, is_service=True
     ).order_by('-id')
@@ -1109,6 +1125,7 @@ def archived_services(request, business_slug):
 @permission_required('add')  # dev
 def restore_service(request, business_slug, service_id):
     business = get_business_for_user(request.user, business_slug)
+    _require_services_enabled(business)
     service = get_object_or_404(
         Product.all_objects, business=business, id=service_id,
         is_active=False, is_service=True,

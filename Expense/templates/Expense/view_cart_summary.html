@@ -3,7 +3,9 @@
 {% load pagination_tags %}
 
 {% block content %}
-{% block topbar %}{% endblock %}
+{% comment %} Topbar shows here (default from main.html), but the global search is hidden:
+this page is `on_purchase_cart_page`, so _topbar.html carries `topbar--hide-purchase-cart`,
+which hides the search field the same way it does on the cart itself. {% endcomment %}
 <!-- FLASH MESSAGES -->
 <div class="toast-container" aria-live="polite" aria-atomic="true">
 {% if messages %}
