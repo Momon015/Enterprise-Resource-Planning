@@ -1,10 +1,12 @@
 {% load humanize %}
 {% comment %} Line items, shared by the plain slip and the official invoice.
 
-Per-line V / E / Z VAT flags (vatable / exempt / zero-rated) print ONLY for a VAT-registered
-seller — the same convention on Puregold, Body Shop and Starbucks receipts. They read off each
-item's SNAPSHOT vat_class (SaleItem.vat_class, frozen at sale time), so a later product re-class
-never rewrites an old receipt. A non-VAT seller — most of our clients — shows no flags at all.
+Per-line V / E / Z VAT flags (vatable / exempt / zero-rated) print ONLY on the OFFICIAL invoice of
+a VAT-registered seller — the same convention on Puregold, Body Shop and Starbucks receipts. They
+are a BIR tax classification, so they must NOT appear on the unofficial billing statement (gated on
+`is_official`). They read off each item's SNAPSHOT vat_class (SaleItem.vat_class, frozen at sale
+time), so a later product re-class never rewrites an old receipt. A non-VAT seller — most of our
+clients — shows no flags at all.
 {% endcomment %}
 <table>
     {% for item in goods_items %}
@@ -12,7 +14,7 @@ never rewrites an old receipt. A non-VAT seller — most of our clients — show
     <tr>
         <td class="qty">{{ item.quantity }} x</td>
         <td class="name">{{ item.price_at_sale|floatformat:2|intcomma}}</td>
-        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if is_official and business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
 </table>
@@ -26,7 +28,7 @@ never rewrites an old receipt. A non-VAT seller — most of our clients — show
     <tr>
         <td class="qty">{{ item.quantity }} x</td>
         <td class="name">{{ item.price_at_sale|floatformat:2|intcomma}}</td>
-        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if is_official and business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
 </table>
