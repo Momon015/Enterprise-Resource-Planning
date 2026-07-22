@@ -1,0 +1,109 @@
+{% extends "main.html" %}
+{% load humanize %}
+{% load pagination_tags %}
+
+{% block extra_css %}
+<style>
+  .zrl-actions{ display:flex; gap:.6rem; }
+  .zrl-open-today{ display:inline-flex; align-items:center; gap:.45rem; height:38px; padding:0 1rem;
+    border-radius:9px; font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer;
+    border:1px solid var(--accent); background:var(--accent); color:#fff; }
+  .zrl-open-today:hover{ background:var(--accent-hover); border-color:var(--accent-hover); color:#fff; }
+
+  .zrl-table{ width:100%; border-collapse:collapse; }
+  .zrl-table th{ text-align:left; font-size:.72rem; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--muted); padding:.6rem .9rem; border-bottom:1px solid var(--border); }
+  .zrl-table th.num, .zrl-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .zrl-table td{ padding:.7rem .9rem; border-bottom:1px solid var(--border); font-size:.9rem; color:var(--text); }
+  .zrl-table tbody tr:hover{ background:var(--surface-2, var(--hover, rgba(0,0,0,.02))); }
+  .zrl-date{ font-weight:600; }
+  .zrl-today-pill{ display:inline-block; margin-left:.5rem; font-size:.68rem; font-weight:700;
+    color:var(--success); background:var(--success-light, rgba(16,185,129,.12)); border-radius:999px;
+    padding:.05rem .5rem; vertical-align:middle; }
+
+  .zrl-empty{ text-align:center; color:var(--muted); padding:2.4rem 1rem; }
+  .zrl-empty i{ font-size:1.8rem; display:block; margin-bottom:.5rem; opacity:.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">Z Reading</h1>
+      <p class="page-subtitle">End-of-Day readings, one per trading day. Live preview &mdash; sealing comes later.</p>
+    </div>
+    <div class="zrl-actions">
+      <button type="button" class="zrl-open-today"
+              hx-get="{% url 'z-reading-modal' business_slug=current_business.slug %}?date={{ today|date:'Y-m-d' }}"
+              hx-target="#confirmBody" hx-swap="innerHTML">
+        <i class="bi bi-calendar-check"></i> Today's reading
+      </button>
+    </div>
+  </div>
+
+  <div class="left-panel">
+    {% comment %} Paginate via htmx like the other lists: hx-boost turns the pagination <a>
+        links into partial swaps that fetch this same URL and lift #z-reading-results out,
+        no full reload. The tbody's View buttons live inside this region, so they'd INHERIT
+        hx-select="#z-reading-results" (and hx-push-url) and try to lift that absent node out
+        of the MODAL response → empty swap → blank modal. Each button clears the inherited
+        values with hx-select="unset" / hx-push-url="false" (hx-disinherit belongs on the
+        PARENT and would have killed pagination inheritance too — wrong tool here). {% endcomment %}
+    <div id="z-reading-results"
+         hx-boost="true"
+         hx-target="#z-reading-results"
+         hx-select="#z-reading-results"
+         hx-swap="outerHTML"
+         hx-push-url="true">
+    {% if days %}
+    <div style="overflow-x:auto;">
+      <table class="zrl-table">
+        <thead>
+          <tr>
+            <th>Business day</th>
+            <th class="num">Transactions</th>
+            <th class="num">Net sales</th>
+            <th class="num">Reading</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in days %}
+          <tr>
+            <td>
+              <span class="zrl-date">{{ d.date|date:"M d, Y" }}</span>
+              {% if d.is_today %}<span class="zrl-today-pill">Today</span>{% endif %}
+            </td>
+            <td class="num">{{ d.count }}</td>
+            <td class="num">&#8369;{{ d.net|floatformat:2|intcomma }}</td>
+            <td class="num">
+              <div class="btn-group">
+                <button type="button" class="row-chevron"
+                        hx-get="{% url 'z-reading-modal' business_slug=current_business.slug %}?date={{ d.date|date:'Y-m-d' }}"
+                        hx-target="#confirmBody" hx-swap="innerHTML"
+                        hx-select="unset" hx-push-url="false"
+                        title="View reading" style="background:transparent;border:0;cursor:pointer;">
+                  View
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% pagination page_obj %}
+
+    {% else %}
+    <div class="zrl-empty">
+      <i class="bi bi-file-earmark-ruled"></i>
+      No trading days yet. Once you record a sale, its day's reading appears here.
+    </div>
+    {% endif %}
+    </div>{# ── end #z-reading-results ── #}
+  </div>
+
+</div>
+{% endblock %}
