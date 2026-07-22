@@ -1,3 +1,4 @@
+{% load humanize %}
 {% comment %} Line items, shared by the plain slip and the official invoice.
 
 Per-line V / E / Z VAT flags (vatable / exempt / zero-rated) print ONLY for a VAT-registered
@@ -10,8 +11,8 @@ never rewrites an old receipt. A non-VAT seller — most of our clients — show
     <tr><td colspan="3">{{ item.name }}</td></tr>
     <tr>
         <td class="qty">{{ item.quantity }} x</td>
-        <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
-        <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
+        <td class="name">{{ item.price_at_sale|floatformat:2|intcomma}}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
 </table>
@@ -24,8 +25,8 @@ never rewrites an old receipt. A non-VAT seller — most of our clients — show
     <tr><td colspan="3">{{ item.name }}</td></tr>
     <tr>
         <td class="qty">{{ item.quantity }} x</td>
-        <td class="name">{{ item.price_at_sale|floatformat:2 }}</td>
-        <td class="amt">{{ item.total_sold_per_item|floatformat:2 }}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
+        <td class="name">{{ item.price_at_sale|floatformat:2|intcomma}}</td>
+        <td class="amt">{{ item.total_sold_per_item|floatformat:2|intcomma}}{% if business.is_vat_registered %}<span class="vmark">{{ item.vat_class|default:'vatable'|slice:':1'|upper }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
 </table>

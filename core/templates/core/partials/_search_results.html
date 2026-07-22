@@ -70,7 +70,9 @@
     {% if products %}<div class="search-group__label">Products <span class="search-group__count">• {{ products|length }}</span></div>{% endif %}
     {% for p in products %}
     <div class="search-prod">
-      <span class="search-prod__img">{% if p.image %}<img src="{{ p.image.url }}">{% else %}<i class="bi bi-image"></i>{% endif %}</span>
+      {% comment %} No image → first-2-letter initials avatar, the app-wide fallback (see the
+      product list). Was a generic bi-image icon, which is the one place it wasn't used. {% endcomment %}
+      <span class="search-prod__img{% if not p.image %} search-prod__img--initials{% endif %}">{% if p.image %}<img src="{{ p.image.url }}">{% else %}{{ p.name|slice:":2"|upper }}{% endif %}</span>
       <a class="search-prod__info" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.id product_slug=p.slug %}">
         <span class="search-prod__name">{{ p.name }}</span>
         <span class="search-prod__meta">₱{{ p.selling_price|floatformat:2|intcomma }} · {{ p.prepared_quantity }} in stock</span>

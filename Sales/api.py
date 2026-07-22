@@ -16,18 +16,24 @@ def _serialize_cart(request, business):
     sale = request.session.get('sale', {})
     items = []
     subtotal = Decimal('0')
-    
+    vatable_subtotal = Decimal('0')   # gross of VATable lines only — see price_breakdown()
+
     for product_id, data in sale.items():
         try:
             product = Product.objects.get(business=business, id=product_id)
         except Product.DoesNotExist:
             continue # stale id in session — skip it
-        
+
         quantity = int(data.get('quantity' or 1) or 1)
         selling_price = Decimal(str(data.get('selling_price') or '0'))
         cost_price = Decimal(str(data.get('cost_price') or '0'))
         line_total = selling_price * quantity
         subtotal += line_total
+        # A statutory VAT exemption removes VAT from VATable lines only; the React preview
+        # needs their subtotal so it doesn't strip phantom VAT off exempt/zero lines
+        # (unknown class buckets as VATable, matching vat_summary / price_breakdown).
+        if product.vat_class not in ('exempt', 'zero'):
+            vatable_subtotal += line_total
         
         supplier = ''
         if product.material and product.material.supplier:
@@ -50,6 +56,7 @@ def _serialize_cart(request, business):
         'items': items,
         'item_count': len(items),
         'subtotal': f'{subtotal:.2f}',
+        'vatable_subtotal': f'{vatable_subtotal:.2f}',
         'discount_percent': str(request.session.get('sale_discount_percent', 0) or 0),
         'discount_enabled': bool(business.enable_sale_discount),
         # The statutory customer has to come back too. Without these, clicking Edit on the

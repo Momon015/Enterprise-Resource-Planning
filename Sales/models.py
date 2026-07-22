@@ -89,7 +89,7 @@ class Sale(TimeStampModel):
     # draft parked Monday and confirmed Wednesday books to WEDNESDAY, the day it
     # actually became a sale. See the reference note in save().
     date = models.DateField(db_index=True, null=True, blank=True)
-    total_revenue = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    total_revenue = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
     total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
     reference = models.CharField(max_length=255, null=True, blank=True)
@@ -119,12 +119,12 @@ class Sale(TimeStampModel):
     # ── Intended payment for a PENDING draft (consumed by finalize on confirm) ──
     pending_method = models.CharField(max_length=20, blank=True)   # gcash / bank
     pending_status = models.CharField(max_length=10, blank=True)   # full / partial
-    pending_amount = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    pending_amount = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
     pending_note   = models.CharField(max_length=255, blank=True)
 
 
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (sales are %-only)
-    discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
+    discount_amount  = models.DecimalField(max_digits=16, decimal_places=6, default=0)  # computed peso, stored for the receipt
 
     # ── Statutory discounts (SC / PWD / NAAC / Solo Parent) ──────────────────
     # NOT an ordinary discount, and the difference drives most of the design:
@@ -213,7 +213,7 @@ class Sale(TimeStampModel):
     # and the Z reading reports a DISCOUNT SUMMARY and a VAT ADJUSTMENT block that must
     # each tie to their own total. Merging the two into one "discount" would make both
     # blocks unreportable. Always 0 for a non-VAT seller, which is most of our clients.
-    vat_adjustment = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    vat_adjustment = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     # BIR "Invoice Reset Counter" (RMO 24-2023 p.4(b)) — printed on the invoice beside the
     # number ("INVOICE RESET COUNT 000"). Captured from the SI sequence at COMPLETION, the
@@ -314,7 +314,7 @@ class Sale(TimeStampModel):
 
     @classmethod
     def price_breakdown(cls, gross, discount_type, *, seller_charges_vat,
-                        rate=None):
+                        rate=None, vatable_gross=None):
         """Split a gross amount into the three lines Annex D-2 prints.
 
         Order matters for PRESENTATION, not arithmetic: VAT comes off first, then the
@@ -323,6 +323,15 @@ class Sale(TimeStampModel):
         discount figure differs depending on which base it was taken from.)
 
         `rate` overrides the statutory rate, for ordinary owner-set discounts.
+
+        `vatable_gross` is how much of the gross actually carries VAT. It matters ONLY for
+        a statutory VAT exemption on a MIXED cart: exempt/zero-rated lines never had VAT,
+        so dividing the whole gross by 1.12 strips phantom VAT off them — over-stating the
+        exemption and understating the sale (the bug that made the Z reading's VAT
+        breakdown disagree with its Net line by the VAT of the exempt lines). It defaults
+        to the whole gross, so an all-VATable cart — and every non-exempt path — is
+        unchanged. This mirrors vat_summary(), which already buckets VAT removal per line.
+
         Returns Decimals quantized to centavos, with
         total + discount_amount + vat_adjustment == gross always holding.
         """
@@ -330,6 +339,7 @@ class Sale(TimeStampModel):
         cents = Decimal('0.01')
 
         gross = Decimal(gross or 0).quantize(cents, ROUND_HALF_UP)
+        vg = gross if vatable_gross is None else Decimal(vatable_gross or 0).quantize(cents, ROUND_HALF_UP)
         if rate is None:
             rate = cls.statutory_rate(discount_type)
         rate = Decimal(rate or 0)
@@ -338,7 +348,9 @@ class Sale(TimeStampModel):
         # (type, rate) BAND carries an exemption. NAAC has a rate but no exemption, and
         # SC/PWD at the 5% basic-necessities band keep their VAT — hence rate-aware.
         if seller_charges_vat and cls.statutory_vat_exempt(discount_type, rate):
-            base = (gross / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
+            # Remove VAT only from the VATable portion; exempt/zero lines pass through.
+            vatable_base = (vg / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
+            base = vatable_base + (gross - vg)
         else:
             base = gross
         vat_adjustment = gross - base
@@ -416,7 +428,43 @@ class Sale(TimeStampModel):
     def vat_summary(self):
         """PH 12% VAT breakdown, VAT-inclusive, discount-aware.
         Buckets each line by its snapshot vat_class, applies the whole-order
-        discount proportionally, then extracts 12% from the VATable bucket."""
+        discount proportionally, then extracts 12% from the VATable bucket.
+
+        ┌─ HOW THE FOUR RECEIPT LINES WORK (worked example, VAT-registered seller) ──────┐
+        │ A cart of 8 items:                                                             │
+        │   VATable (V):  Item01 500 + Item02 12 + Item03 25          =   537.00         │
+        │   Exempt  (E):  Item35 50 + Item36 500 + Item37 500 + I38 250 = 1,300.00       │
+        │   Zero    (Z):  Item39 150                                  =   150.00         │
+        │   Subtotal (gross, VAT-INCLUSIVE)                           = 1,987.00         │
+        │                                                                                │
+        │ ── REGULAR customer (no statutory exemption) — each class stays put ──         │
+        │   VATable Sale (V) = 537 / 1.12        =   479.46   (VAT-EXCLUSIVE base)       │
+        │   VAT (12%)        = 537 − 479.46      =    57.54                              │
+        │   VAT-Exempt (E)   =                       1,300.00                            │
+        │   Zero-Rated (Z)   =                         150.00                            │
+        │   check: (V+VAT) + E + Z = 479.46+57.54+1300+150 = 1,987.00 = net              │
+        │                                                                                │
+        │ ── SENIOR / PWD 20% (statutory VAT EXEMPTION) ──                               │
+        │ The exemption attaches to the BUYER, so VATABLE goods are RECLASSIFIED to      │
+        │ Exempt (their VAT stripped out); zero-rated STAYS zero-rated; then the 20%     │
+        │ comes off every bucket (keep = 80%). VAT actually DUE becomes 0.               │
+        │   VATable 537 → strip VAT → 479.46 → moved into the Exempt bucket              │
+        │   Exempt before discount = 479.46 + 1,300 = 1,779.46 ;  Zero = 150             │
+        │   VATable Sale (V) = 0.00           ← nothing was sold AS a VATable sale       │
+        │   VAT (12%)        = 0.00           ← an exempt sale owes no output VAT        │
+        │   VAT-Exempt (E)   = 1,779.46 × 0.80 = 1,423.57                                │
+        │   Zero-Rated (Z)   =   150.00 × 0.80 =   120.00                                │
+        │   check: E + Z = 1,543.57 = Total (net)                                        │
+        │                                                                                │
+        │   IMPORTANT So V=0 / VAT=0 on a senior/PWD sale is CORRECT, not a bug —        │ 
+        │   the 537 of vatable goods is INSIDE the Exempt line                           │
+        │   (479.46, less the 20%). The receipt's separate                               │
+        │   `Less VAT (exempt)` line is that 57.54, and it is computed by                │
+        │   price_breakdown() from the VATABLE portion ONLY (mixed carts: 537, not the   │
+        │   whole 1,987). The 5% "basic-necessities" band does NOT exempt VAT — there V  │
+        │   and VAT(12%) stay populated and only the plain 5% comes off.                 │
+        └────────────────────────────────────────────────────────────────────────────────┘
+        """
         from decimal import Decimal, ROUND_HALF_UP
         cents = Decimal('0.01')
         keep = (Decimal('100') - (self.discount_percent or 0)) / Decimal('100')
@@ -444,8 +492,14 @@ class Sale(TimeStampModel):
             line = (item.price_at_sale or Decimal('0')) * item.quantity
             cls = item.vat_class if item.vat_class in buckets else 'vatable'
 
-            if exempt_everything:
-                if cls == 'vatable' and seller_charges_vat:
+            if exempt_everything and cls == 'vatable':
+                # A statutory exemption converts VATABLE sales to VAT-exempt (removing the VAT
+                # the sticker carried). Already-exempt lines are exempt regardless; ZERO-RATED
+                # lines STAY zero-rated — a 0% sale doesn't become "exempt" because the buyer
+                # is a senior/PWD, and BIR reports VAT-exempt and zero-rated sales separately.
+                # (Previously every class was forced to 'exempt', so a zero-rated line showed
+                # a 'Z' per-line flag yet landed in the Exempt total with Zero-Rated at 0.00.)
+                if seller_charges_vat:
                     line = (line / Decimal('1.12')).quantize(cents, ROUND_HALF_UP)
                 cls = 'exempt'
 
@@ -641,8 +695,8 @@ class SaleItem(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, related_name='sale_items', null=True, blank=True)
-    price_at_sale = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=1.00)
+    price_at_sale = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=16, decimal_places=6, default=1.00)
     quantity = models.PositiveIntegerField(default=1)
     unsold_quantity = models.PositiveIntegerField(default=0) # will not be used, I didnt remove it due to migrations
     supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
@@ -746,7 +800,7 @@ class SalesPayment(TimeStampModel):
     ]
 
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='payments')
-    amount = models.DecimalField(max_digits=10, decimal_places=6)
+    amount = models.DecimalField(max_digits=16, decimal_places=6)
     date = models.DateField(db_index=True)
     method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     note = models.CharField(max_length=255, blank=True)
@@ -857,14 +911,14 @@ class SalesReturn(TimeStampModel):
     date = models.DateField(db_index=True)
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='customer_changed_mind')
     reason_note = models.CharField(max_length=255, blank=True)
-    refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_total = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     # The actual split — refund_total = refund_cash + refund_credit, always.
     #   refund_credit = knocked off what the customer still owes (no money moves)
     #   refund_cash   = money physically handed back
     # A cash figure can only be non-zero once the balance is settled. See split_refund().
-    refund_cash   = models.DecimalField(max_digits=10, decimal_places=6, default=0)
-    refund_credit = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_cash   = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    refund_credit = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     # Derived from the split above — for badges only. Never trust it for money.
     refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
@@ -900,7 +954,7 @@ class SalesReturnItem(models.Model):
     
     name = models.CharField(max_length=255)  # snapshot
     quantity = models.PositiveIntegerField(default=1)
-    unit_refund = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    unit_refund = models.DecimalField(max_digits=16, decimal_places=6, default=0)
     resellable = models.BooleanField(default=True)  # True → Stock; False → Waste
 
     def __str__(self):

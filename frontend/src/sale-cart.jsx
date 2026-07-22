@@ -15,8 +15,9 @@ const peso = n =>
 function initials(name) {
   const parts = (name || '').replace(/[^A-Za-z0-9\s-]/g, '').split(/[\s-]+/).filter(Boolean)
   if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
+  // First TWO CHARACTERS ("Item 05" → "IT"), matching the Django avatar — NOT word-initials
+  // (which turned "Item 05" into "I0").
+  return (parts.join('').slice(0, 2) || '?').toUpperCase()
 }
 
 // config the Django template handed us via data-* attributes
@@ -282,6 +283,10 @@ function SaleCart() {
 
   // ── Statutory discounts — the active BAND (see STATUTORY_OPTIONS at module scope) ──
   const subtotal    = parseFloat(cart.subtotal) || 0
+  // Gross of VATable lines only (server-computed from each product's vat_class). A statutory
+  // exemption removes VAT from THIS, not the whole subtotal — otherwise exempt/zero lines get
+  // phantom VAT stripped. Falls back to the whole subtotal for an all-VATable cart.
+  const vatableSub  = cart.vatable_subtotal != null ? (parseFloat(cart.vatable_subtotal) || 0) : subtotal
   const discountOn  = CFG.discountEnabled === '1'
   const sellerVat   = CFG.vatRegistered === '1'
   // The picked (type, rate) band, or null for a regular customer. Everything below reads
@@ -298,7 +303,7 @@ function SaleCart() {
   // multiplications so the total is the same either way, but the DISCOUNT figure differs
   // by which base it came off — and that is the number printed on the receipt.
   const vatAdj  = (statutory && statutory.vatExempt && sellerVat)
-    ? subtotal - (subtotal / 1.12)
+    ? vatableSub - (vatableSub / 1.12)
     : 0
   const base    = subtotal - vatAdj
   const discAmt = base * pct / 100

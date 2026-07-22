@@ -1,3 +1,4 @@
+{% load humanize %}
 {% comment %} OFFICIAL BIR INVOICE — renders only when is_bir_active. Layout mirrors real PH
 sales invoices (Puregold, 7-Eleven, Alfamart, Body Shop): centered registered header, the
 "SALES INVOICE" label, invoice number WITH its reset counter, per-line V/E/Z flags, a VAT block
@@ -48,28 +49,28 @@ every bucket) — so without these rows the item lines sum to GROSS while the VA
 and the invoice contradicts itself. {% endcomment %}
 <table class="totals">
     {% if sale.discount_percent %}
-    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
+    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2|intcomma}}</td></tr>
     {% comment %} `subtotal` is the TRUE gross (it adds the VAT adjustment back), so when a
     statutory exemption stripped VAT this line MUST print or the receipt can't reconcile:
     50.00 - 8.93 would show TOTAL 35.71 with 5.36 unaccounted for. Zero for a non-VAT seller.
     Order per RMO 24-2023 Annex D-2. {% endcomment %}
     {% if sale.vat_adjustment %}
-    <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2 }}</td></tr>
+    <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2|intcomma}}</td></tr>
     {% endif %}
-    <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
+    <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     {% comment %} TOTAL is MANDATORY and never replaced — BIR requires a stated total amount due,
     so unlike the plain slip (which can collapse to one "UNPAID" line) this document always prints
     TOTAL and adds UNPAID as a STAMP. Under EOPT the Invoice documents the SALE; collection is a
     separate event, so Paid/Balance are supplementary. {% endcomment %}
-    <tr class="bold"><td>Total Amt Due</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>Total</td><td class="right">P{{ sale.total_revenue|floatformat:2|intcomma}}</td></tr>
     {% if sale.is_fully_paid %}
     {% comment %} Suppressed when a cash tender was recorded — the CASH / CHANGE pair below already
     shows it was cash, so "Payment  Cash" just repeats it. Still prints for GCash/Bank. {% endcomment %}
     {% if sale.payment_method_code and not sale.cash_tendered %}<tr><td>Payment</td><td class="right">{{ sale.settlement_display }}</td></tr>{% endif %}
     {% elif sale.amount_paid %}
-    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>
-    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>
+    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2|intcomma}}</td></tr>
+    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2|intcomma}}</td></tr>
     {% else %}
     <tr class="bold"><td colspan="2" class="center">*** UNPAID ***</td></tr>
     {% endif %}
@@ -77,16 +78,16 @@ and the invoice contradicts itself. {% endcomment %}
     it was settled → what came back. Above the VAT block deliberately: the VAT figures describe the
     SALE, and change is a till movement that must not look like it modifies them. {% endcomment %}
     {% if sale.cash_tendered %}
-    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
-    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
+    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2|intcomma}}</td></tr>
+    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
     {% if business.is_vat_registered %}
     <tr class="rule-line"><td colspan="2"><div class="dotrule"></div></td></tr>
-    <tr><td>VATable Sale (V)</td><td class="right">P{{ vat_summary.vatable|floatformat:2 }}</td></tr>
-    <tr><td>VAT (12%)</td><td class="right">P{{ vat_summary.vat|floatformat:2 }}</td></tr>
-    <tr><td>VAT Exempt Sale (E)</td><td class="right">P{{ vat_summary.exempt|floatformat:2 }}</td></tr>
-    <tr><td>Zero Rated Sale (Z)</td><td class="right">P{{ vat_summary.zero|floatformat:2 }}</td></tr>
+    <tr><td>VATable Sale (V)</td><td class="right">P{{ vat_summary.vatable|floatformat:2|intcomma}}</td></tr>
+    <tr><td>VAT (12%)</td><td class="right">P{{ vat_summary.vat|floatformat:2|intcomma}}</td></tr>
+    <tr><td>VAT Exempt Sale (E)</td><td class="right">P{{ vat_summary.exempt|floatformat:2|intcomma}}</td></tr>
+    <tr><td>Zero Rated Sale (Z)</td><td class="right">P{{ vat_summary.zero|floatformat:2|intcomma}}</td></tr>
     {% endif %}
 </table>
 

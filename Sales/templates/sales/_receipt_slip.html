@@ -1,3 +1,4 @@
+{% load humanize %}
 <div class="center hdr-name">{{ business.business_name }}</div>
 {% for line in business.address_lines %}<div class="center">{{ line }}</div>{% endfor %}
 {% if business.business_phone_number %}<div class="center">Tel: {{ business.business_phone_number }}</div>{% endif %}
@@ -22,22 +23,22 @@
 ₱10 + ₱50 of items, TOTAL ₱54, and nothing on paper explains the missing ₱6. {% endcomment %}
 <table class="totals">
     {% if sale.discount_percent %}
-    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2 }}</td></tr>
+    <tr><td>Subtotal</td><td class="right">P{{ sale.subtotal|floatformat:2|intcomma}}</td></tr>
     {% comment %} `subtotal` is the TRUE gross (it adds the VAT adjustment back), so when a
     statutory exemption stripped VAT this line MUST print or the receipt cannot be reconciled:
     50.00 - 8.93 would show a TOTAL of 35.71 with 5.36 unaccounted for. Zero for a non-VAT
     seller, so most receipts never show it. Order per RMO 24-2023 Annex D-2. {% endcomment %}
     {% if sale.vat_adjustment %}
-    <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2 }}</td></tr>
+    <tr><td>Less VAT (exempt)</td><td class="right">-P{{ sale.vat_adjustment|floatformat:2|intcomma}}</td></tr>
     {% endif %}
-    <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2 }}</td></tr>
+    <tr><td>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</td><td class="right">-P{{ sale.discount_amount|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     {% comment %} Payment lines only appear when they SAY something. A settled counter sale
     printed "TOTAL 47.00 / Paid 47.00" — the same number twice. The system owns the debt
     ledger (receivables); this slip only reports what happened AT THE COUNTER. {% endcomment %}
     {% if sale.is_fully_paid %}
     {# Settled: the total says it all. Method instead of a redundant Paid line. #}
-    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2|intcomma}}</td></tr>
     {% comment %} The Payment method line is suppressed when a cash tender was recorded — the
     CASH / CHANGE pair below already says it was cash, so "Payment  Cash" would just repeat it.
     It still prints for GCash/Bank, and for a cash sale where no tender was keyed in. {% endcomment %}
@@ -45,13 +46,13 @@
 
     {% elif sale.amount_paid %}
     {# Partial: "Paid" is the customer's ONLY proof of the money they just handed over. #}
-    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
-    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2 }}</td></tr>
-    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>TOTAL</td><td class="right">P{{ sale.total_revenue|floatformat:2|intcomma}}</td></tr>
+    <tr><td>Paid</td><td class="right">P{{ sale.amount_paid|floatformat:2|intcomma}}</td></tr>
+    <tr class="bold"><td>Balance</td><td class="right">P{{ sale.outstanding|floatformat:2|intcomma}}</td></tr>
 
     {% else %}
     {# Pure utang: no money moved, so no payment lines. One line states amount AND status. #}
-    <tr class="bold"><td>UNPAID</td><td class="right">P{{ sale.total_revenue|floatformat:2 }}</td></tr>
+    <tr class="bold"><td>UNPAID</td><td class="right">P{{ sale.total_revenue|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     {% comment %} CASH / CHANGE, the standard PH POS pair (7-Eleven prints them directly
     under Total Amount Due). Gated on cash_tendered being non-NULL, not on the sale being
@@ -59,8 +60,8 @@
     on every exact-change sale is noise. Both rows or neither — CASH alone reads like a
     second total. {% endcomment %}
     {% if sale.cash_tendered %}
-    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2 }}</td></tr>
-    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2 }}</td></tr>
+    <tr><td>CASH</td><td class="right">P{{ sale.cash_tendered|floatformat:2|intcomma}}</td></tr>
+    <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
 </table>
