@@ -315,11 +315,25 @@ class BusinessProfile(models.Model):
                   "on official invoices as 'Operated by'.",
     )
     
-    # ── BIR accreditation (official invoice; OFF until accredited) ──
+    # ── BIR / POS MODE SWITCH (OFF until accredited) ──────────────────────────────
+    # This is a MODE, NOT "is the business BIR-registered" — every business is registered
+    # (has a registered name + TIN). Do not conflate the two; that confusion is exactly how
+    # an owner would flip this irreversible switch by mistake.
+    #   OFF (default) = Internal mode: prints an ORD- "Billing Statement" (not official),
+    #     no Z reading, records stay editable (audit-logged), ledger is NOT locked.
+    #   ON = BIR-Official mode: this system IS the accredited POS — official SI- invoices,
+    #     daily Z readings, hard-locked/immutable ledger, invoice serial resets to #1.
+    # Requires a POS Permit to Use (PTU) + Machine ID (MIN) — accreditation, not mere
+    # registration — and is a ONE-WAY latch: once on, the owner cannot switch it back off
+    # (reversing requires contacting us AND BIR to de-register the machine).
     is_bir_active = models.BooleanField(
         default=False,
-        help_text="Turn on only after BIR accredits this system to issue your official invoices. "
-                  "While off, the app prints a plain sales slip and you issue your own official receipt.",
+        help_text="Enable only when this system is BIR-ACCREDITED to issue your official invoices "
+                  "— it requires a POS Permit to Use (PTU) and Machine ID (MIN); being BIR-registered "
+                  "is not enough. Turning it on issues official invoices, starts daily Z readings, "
+                  "locks the ledger, and resets the invoice serial to #1. It is permanent and cannot "
+                  "be turned back off. While off, the app stays internal-only: it prints a non-official "
+                  "billing statement and you issue your own official receipt by hand.",
     )
     bir_min = models.CharField(max_length=30, null=True, blank=True,
                                help_text="Machine Identification Number (from BIR accreditation).")
