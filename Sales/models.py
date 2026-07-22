@@ -37,7 +37,17 @@ class SaleQuerySet(models.QuerySet):
         return self.active().aggregate(average_total_revenue=Avg('total_revenue'))['average_total_revenue']
 
 class SaleSequence(AbstractDocumentSequence):
-    """SI- series — one continuous run per business."""
+    """SI- series — one continuous run per business. BIR-accountable; advances ONLY in
+    official mode (is_bir_active=True), so it can begin at 1 the day a business is accredited."""
+    pass
+
+class OrderSequence(AbstractDocumentSequence):
+    """ORD- series — INTERNAL-mode order numbers (is_bir_active=False).
+
+    NOT a BIR accountable document — an ordinary order/billing reference for the unofficial
+    slip. Kept SEPARATE from SaleSequence on purpose: while a business runs in internal mode
+    its sales draw ORD- numbers and the SI- accountable run never advances, so SI- can start
+    fresh at 1 the day the business is accredited and flips to official mode."""
     pass
 
 class VoidSequence(AbstractDocumentSequence):
@@ -281,11 +291,19 @@ class Sale(TimeStampModel):
                 stamped.append('date')
 
             if not self.reference and self.business:
-                # Capture the reset counter alongside the number, in the same breath — both
-                # are stamped once, at completion, and then frozen.
-                self.reference, _, self.books_reset_counter = SaleSequence.issue(self.business, 'SI')
-                stamped.append('reference')
-                stamped.append('books_reset_counter')
+                # The reference SERIES depends on the BIR mode (is_bir_active):
+                #   Official mode -> SI- accountable invoice series, and the reset counter is
+                #     captured alongside the number in the same breath (both stamped once at
+                #     completion, then frozen).
+                #   Internal mode -> a plain ORD- order number; NOT a BIR document, so no reset
+                #     counter, and crucially the SI- run is left untouched so it can start at 1
+                #     the day this business is accredited.
+                if self.business.is_bir_active:
+                    self.reference, _, self.books_reset_counter = SaleSequence.issue(self.business, 'SI')
+                    stamped += ['reference', 'books_reset_counter']
+                else:
+                    self.reference, _, _ = OrderSequence.issue(self.business, 'ORD')
+                    stamped.append('reference')
 
         # A caller passing update_fields cannot know we just stamped these — and
         # confirm_sale_draft does exactly that. Without this, date/reference would be
