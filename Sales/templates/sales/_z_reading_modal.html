@@ -1,9 +1,16 @@
 {% comment %} Z-reading modal — loaded into #confirmBody via htmx, which auto-opens the global
 confirm modal (see main.html). The reading itself is an iframe (z_reading_doc, embed=1) so Print
-emits ONLY the tape, exactly like the receipt modal. Date picker + chevrons repoint the iframe
-client-side — no full reload — the way the receipt's width buttons do. {% endcomment %}
+emits ONLY the tape, exactly like the receipt modal.
+
+Day-nav RELOADS the whole modal (htmx → #confirmBody) rather than just repointing the iframe:
+each day carries its own sealed/unsealed state (note + Seal button), so the shell must be
+re-rendered per day or the Seal button could act on a different day than the one shown.
+
+`reload_on_close` (set only right after a successful seal) drops a data-reload-on-close marker;
+main.html reloads the page when the modal closes, so the list row picks up its new Z counter. {% endcomment %}
 <div class="quickview__panel cm-panel zr-panel">
   <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  {% if reload_on_close %}<span data-reload-on-close hidden></span>{% endif %}
   <div class="card cm-card">
     <div class="card-body">
 
@@ -17,10 +24,29 @@ client-side — no full reload — the way the receipt's width buttons do. {% en
         </div>
       </div>
 
+      {% if zreading %}
+      <div class="zr-note zr-note--sealed">
+        <i class="bi bi-shield-lock-fill"></i>
+        <span>Sealed as <strong>{{ zreading.reference }}</strong> &middot; Z&nbsp;#{{ zreading.z_counter }}
+          on {{ zreading.sealed_at|date:"M d, Y g:i A" }}{% if zreading.sealed_by %} by {{ zreading.sealed_by.get_full_name|default:zreading.sealed_by.username }}{% endif %}.
+          These figures are locked.</span>
+      </div>
+      {% elif can_seal %}
       <div class="zr-note">
         <i class="bi bi-info-circle-fill"></i>
-        <span>Live preview &mdash; recomputes from the day's records and seals nothing.</span>
+        <span>Live preview &mdash; not yet sealed. Review the day, then seal it to lock the figures as an official Z.</span>
       </div>
+      {% elif earliest_unsealed %}
+      <div class="zr-note">
+        <i class="bi bi-info-circle-fill"></i>
+        <span>Live preview. Seal <strong>{{ earliest_unsealed|date:"M d, Y" }}</strong> first &mdash; Z readings are sealed in date order so the Z counter stays chronological.</span>
+      </div>
+      {% else %}
+      <div class="zr-note">
+        <i class="bi bi-info-circle-fill"></i>
+        <span>Live preview &mdash; recomputes from the day's records and seals nothing{% if day == today %} (today is still trading — seal it after close){% endif %}.</span>
+      </div>
+      {% endif %}
 
       <div class="zr-frame">
         <iframe id="zrFrame"
@@ -30,7 +56,27 @@ client-side — no full reload — the way the receipt's width buttons do. {% en
 
       <div class="cm-actions" style="margin-top:.85rem;">
         <button type="button" class="btn cm-btn cm-btn--success" id="zrPrint"><i class="bi bi-printer"></i> Print</button>
+        {% if can_seal %}
+        <button type="button" class="btn cm-btn cm-btn--warning" id="zrSealStart"><i class="bi bi-shield-lock"></i> Seal this day&rsquo;s Z</button>
+        {% endif %}
       </div>
+
+      {% if can_seal %}
+      <div id="zrSealConfirm" class="zr-seal-confirm" hidden>
+        <div class="zr-seal-warn">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span>Sealing is <strong>permanent</strong>. It locks {{ day|date:"M d, Y" }}&rsquo;s figures as an official Z reading and burns the Z counter &mdash; there is no undo.</span>
+        </div>
+        <div class="zr-seal-actions">
+          <button type="button" class="btn btn-outline-secondary" id="zrSealCancel">Cancel</button>
+          <button type="button" class="btn cm-btn cm-btn--danger"
+                  hx-post="{% url 'z-reading-seal' business_slug=current_business.slug %}?date={{ day|date:'Y-m-d' }}"
+                  hx-target="#confirmBody" hx-swap="innerHTML">
+            <i class="bi bi-shield-lock-fill"></i> Yes, seal permanently
+          </button>
+        </div>
+      </div>
+      {% endif %}
 
     </div>
   </div>
@@ -53,8 +99,16 @@ client-side — no full reload — the way the receipt's width buttons do. {% en
   .zr-note{ display:flex; align-items:center; gap:.5rem; font-size:.78rem; color:var(--warning);
     background:var(--warning-light); border:1px solid var(--warning-border); border-radius:8px;
     padding:.45rem .7rem; margin-bottom:.7rem; }
+  .zr-note--sealed{ color:var(--success); background:var(--success-light, rgba(16,185,129,.10));
+    border-color:var(--success-border, rgba(16,185,129,.35)); }
   .zr-frame{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); }
   .zr-frame iframe{ width:100%; height:min(62vh, 640px); border:0; display:block; }
+  .zr-seal-confirm{ margin-top:.75rem; border:1px solid var(--warning-border); border-radius:10px;
+    background:var(--warning-light); padding:.75rem .85rem; }
+  .zr-seal-warn{ display:flex; align-items:flex-start; gap:.55rem; font-size:.82rem; color:var(--text);
+    line-height:1.45; }
+  .zr-seal-warn i{ color:var(--warning); margin-top:.1rem; }
+  .zr-seal-actions{ display:flex; justify-content:flex-end; gap:.5rem; margin-top:.7rem; }
 </style>
 
 <script>
@@ -63,31 +117,56 @@ client-side — no full reload — the way the receipt's width buttons do. {% en
   var input = document.getElementById('zrDate');
   var prev  = document.getElementById('zrPrev');
   var next  = document.getElementById('zrNext');
-  var base  = "{% url 'z-reading' business_slug=current_business.slug %}";
+  var modalBase = "{% url 'z-reading-modal' business_slug=current_business.slug %}";
   var minD  = input.min, maxD = input.max;
 
-  function shift(dateStr, days){
-    var d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+  // Format a Date as YYYY-MM-DD in LOCAL time. NOT toISOString() — that converts to UTC,
+  // and east-of-Greenwich (PH is UTC+8) local midnight is the day BEFORE in UTC, so the
+  // string would roll back a day: "next" then lands on the same date and the guard below
+  // swallows the click (the "chevron does nothing" bug).
+  function fmt(d){
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
   }
-  function apply(){
-    var d = input.value;
+  function shift(dateStr, days){
+    var d = new Date(dateStr + 'T00:00:00');   // local midnight
+    d.setDate(d.getDate() + days);
+    return fmt(d);
+  }
+  // Reload the WHOLE modal for the chosen day (not just the iframe) so its sealed/unsealed
+  // state and Seal button always match the day on screen.
+  function go(dateStr){
+    var d = dateStr;
     if (minD && d < minD) d = minD;
     if (maxD && d > maxD) d = maxD;
-    input.value = d;
-    frame.src = base + '?date=' + d + '&embed=1';
-    prev.disabled = (minD && d <= minD);
-    next.disabled = (maxD && d >= maxD);
+    if (d === "{{ day|date:'Y-m-d' }}") { return; }   // same day — nothing to reload
+    window.htmx.ajax('GET', modalBase + '?date=' + d, {target:'#confirmBody', swap:'innerHTML'});
   }
-  input.addEventListener('change', apply);
-  prev.addEventListener('click', function(){ input.value = shift(input.value, -1); apply(); });
-  next.addEventListener('click', function(){ input.value = shift(input.value,  1); apply(); });
-  apply();   // set initial disabled states
+  input.addEventListener('change', function(){ go(input.value); });
+  prev.addEventListener('click', function(){ go(shift(input.value, -1)); });
+  next.addEventListener('click', function(){ go(shift(input.value,  1)); });
+  // Disable the edges for the CURRENT day (state is server-rendered, so this is static here).
+  prev.disabled = (minD && input.value <= minD);
+  next.disabled = (maxD && input.value >= maxD);
 
   document.getElementById('zrPrint').addEventListener('click', function () {
     frame.contentWindow.focus();
     frame.contentWindow.print();   // prints ONLY the iframe = just the reading tape
   });
+
+  var sealStart = document.getElementById('zrSealStart');
+  if (sealStart) {
+    var confirmBox = document.getElementById('zrSealConfirm');
+    var sealCancel = document.getElementById('zrSealCancel');
+    sealStart.addEventListener('click', function(){
+      sealStart.hidden = true;
+      confirmBox.hidden = false;
+    });
+    sealCancel.addEventListener('click', function(){
+      confirmBox.hidden = true;
+      sealStart.hidden = false;
+    });
+  }
 })();
 </script>

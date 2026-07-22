@@ -23,6 +23,15 @@
 
   .zrl-empty{ text-align:center; color:var(--muted); padding:2.4rem 1rem; }
   .zrl-empty i{ font-size:1.8rem; display:block; margin-bottom:.5rem; opacity:.5; }
+
+  .zrl-sealed{ display:inline-flex; align-items:center; gap:.35rem; font-size:.74rem; font-weight:700;
+    color:var(--success); background:var(--success-light, rgba(16,185,129,.12));
+    border:1px solid var(--success-border, rgba(16,185,129,.3)); border-radius:999px; padding:.1rem .55rem;
+    font-variant-numeric:tabular-nums; }
+  .zrl-preview{ font-size:.74rem; font-weight:600; color:var(--muted); }
+  .zrl-ready{ display:inline-flex; align-items:center; gap:.35rem; font-size:.74rem; font-weight:700;
+    color:var(--accent); background:var(--accent-light, rgba(37,99,235,.1));
+    border:1px solid var(--accent); border-radius:999px; padding:.1rem .55rem; }
 </style>
 {% endblock %}
 
@@ -32,7 +41,7 @@
   <div class="page-header">
     <div class="page-header-left">
       <h1 class="page-title">Z Reading</h1>
-      <p class="page-subtitle">End-of-Day readings, one per trading day. Live preview &mdash; sealing comes later.</p>
+      <p class="page-subtitle">End-of-Day readings, one per trading day. Open a past day to seal it &mdash; today stays a live preview until close.</p>
     </div>
     <div class="zrl-actions">
       <button type="button" class="zrl-open-today"
@@ -65,6 +74,7 @@
             <th>Business day</th>
             <th class="num">Transactions</th>
             <th class="num">Net sales</th>
+            <th class="num">Status</th>
             <th class="num">Reading</th>
           </tr>
         </thead>
@@ -77,6 +87,17 @@
             </td>
             <td class="num">{{ d.count }}</td>
             <td class="num">&#8369;{{ d.net|floatformat:2|intcomma }}</td>
+            <td class="num">
+              {% if d.sealed %}
+                <span class="zrl-sealed"><i class="bi bi-shield-lock-fill"></i> Sealed &middot; Z#{{ d.sealed.z_counter }}</span>
+              {% elif d.ready_to_seal %}
+                <span class="zrl-ready"><i class="bi bi-shield-check"></i> Ready to seal</span>
+              {% elif d.is_today %}
+                <span class="zrl-preview">Live &middot; today</span>
+              {% else %}
+                <span class="zrl-preview">Preview</span>
+              {% endif %}
+            </td>
             <td class="num">
               <div class="btn-group">
                 <button type="button" class="row-chevron"

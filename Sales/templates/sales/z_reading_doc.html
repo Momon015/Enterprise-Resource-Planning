@@ -27,6 +27,8 @@ so it must own its own neutral, paper-ready styling the way the receipt slip doe
     .name{ font-size:1.15rem; font-weight:700; }
     .id{ font-size:.8rem; color:var(--muted); line-height:1.55; }
     .label{ text-align:center; font-weight:700; letter-spacing:.04em; margin:.35rem 0; }
+    .preview-tag{ text-align:center; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase;
+      color:var(--neg); margin:-.15rem 0 .1rem; }
 
     hr{ border:0; border-top:1px solid var(--line); margin:.9rem 0; }
     hr.dot{ border-top:1px dashed var(--line); }
@@ -72,11 +74,16 @@ so it must own its own neutral, paper-ready styling the way the receipt slip doe
     </div>
 
     <hr>
-    <div class="label">Z READING</div>
+    <div class="label">{% if zreading %}Z READING{% else %}Z READING &mdash; PREVIEW{% endif %}</div>
+    {% if not zreading %}<div class="preview-tag">Not an official Z &middot; not yet sealed</div>{% endif %}
     <hr>
 
     <div class="row"><span class="k">Report Date</span><span class="v">{% now "m/d/Y h:i A" %}</span></div>
     <div class="row"><span class="k">Business Day</span><span class="v">{{ day|date:"m/d/Y" }}</span></div>
+    {% if zreading %}
+    <div class="row"><span class="k">Z Counter</span><span class="v mono">{{ zreading.reference }}</span></div>
+    <div class="row"><span class="k">Sealed</span><span class="v">{{ zreading.sealed_at|date:"m/d/Y h:i A" }}</span></div>
+    {% endif %}
     <div class="row"><span class="k">Reset Counter</span><span class="v">{{ reading.reset_counter|stringformat:"03d" }}</span></div>
 
     <div class="sec">Document numbers</div>
@@ -134,7 +141,7 @@ so it must own its own neutral, paper-ready styling the way the receipt slip doe
     <div class="row"><span class="k">Returns</span><span class="v">{{ reading.return_count }}</span></div>
 
     <hr>
-    <div class="label">End of Z READING</div>
+    <div class="label">End of {% if zreading %}Z READING{% else %}PREVIEW{% endif %}</div>
   </div>
 </body>
 </html>
