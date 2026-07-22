@@ -46,7 +46,7 @@ from django.core.paginator import Paginator
 
 from datetime import date, datetime, timezone as dt_timezone
 import calendar
-from django.db.models import Sum, Avg, Max, Q, F
+from django.db.models import Sum, Avg, Max, Min, Q, F
 from django.db.models.functions import Coalesce
 
 from decimal import Decimal, InvalidOperation
@@ -574,6 +574,107 @@ def sale_list(request, business_slug):
 
     return render(request, 'Sales/sale_list.html', context)
 
+
+def _resolve_reading_day(request):
+    """The business day a reading request is for: ?date=YYYY-MM-DD, clamped to today,
+    defaulting to today. Shared by the list, the modal and the printable doc so all
+    three agree on which day they're showing."""
+    from django.utils.dateparse import parse_date
+    today = timezone.localdate()
+    day = parse_date(request.GET.get('date') or '') or today
+    return min(day, today), today
+
+
+def _first_trading_day(business):
+    """Earliest completed-sale date — the floor for the date picker."""
+    return (Sale.objects.filter(business=business, status='completed')
+            .aggregate(d=Min('date'))['d'])
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')   # owner-only — a Z reading is a BIR/financial surface
+def z_reading_list(request, business_slug):
+    """Owner-facing landing: one row per trading day, newest first, each opening that
+    day's reading in a modal. These are COMPUTED (X-style) readings — every trading day
+    is re-computable — not sealed Z records; when sealing lands each row becomes a real
+    sealed Z with a burned counter."""
+    from django.db.models import Count
+    business = get_business_for_user(request.user, business_slug)
+    today = timezone.localdate()
+
+    # Trading days + that day's net revenue (active) and transaction count, in one pass.
+    # Net here == the reading's Net Amount for the day (Σ active revenue − returns), so the
+    # list figure and the reading it opens never disagree.
+    day_rows = (Sale.objects.filter(business=business, status='completed', is_void=False)
+                .values('date')
+                .annotate(net=Sum('total_revenue'), count=Count('id'))
+                .order_by('-date'))
+
+    paginator = Paginator(day_rows, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    page_dates = [r['date'] for r in page_obj if r['date']]
+    ret_map = {
+        r['date']: (r['t'] or Decimal('0'))
+        for r in (SalesReturn.objects.filter(business=business, date__in=page_dates)
+                  .values('date').annotate(t=Sum('refund_total')))
+    }
+    days = [{
+        'date':    r['date'],
+        'count':   r['count'],
+        'net':     (r['net'] or Decimal('0')) - ret_map.get(r['date'], Decimal('0')),
+        'is_today': r['date'] == today,
+    } for r in page_obj]
+
+    return render(request, 'Sales/z_reading_list.html', {
+        'business': business,
+        'page_obj': page_obj,
+        'days': days,
+        'today': today,
+        'section': 'z-reading',
+    })
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+def z_reading_modal(request, business_slug):
+    """The modal shell (htmx → #confirmBody): frames the printable doc and carries the
+    date-picker bounds. The reading itself lives in the iframe (z_reading below)."""
+    business = get_business_for_user(request.user, business_slug)
+    day, today = _resolve_reading_day(request)
+    return render(request, 'Sales/_z_reading_modal.html', {
+        'business': business,
+        'day': day,
+        'today': today,
+        'first_day': _first_trading_day(business) or today,
+        'section': 'z-reading',
+    })
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+@xframe_options_sameorigin              # loaded in the modal's same-origin iframe
+def z_reading(request, business_slug):
+    """The printable Z-reading DOCUMENT for one business day (the iframe target).
+
+    Computed live from the shared core.utils.reading.compute_reading() — it seals nothing
+    and burns no counter, so it doubles as the mid-day X reading. When the append-only
+    sealed ZReading (with its own z_counter) lands it will render THIS SAME dict, so the
+    numbers an owner previews here are exactly what a sealed Z will show."""
+    from core.utils.reading import compute_reading
+
+    business = get_business_for_user(request.user, business_slug)
+    day, _today = _resolve_reading_day(request)
+    reading = compute_reading(business, day)
+
+    return render(request, 'Sales/z_reading_doc.html', {
+        'business': business,
+        'reading': reading,
+        'day': day,
+        'section': 'z-reading',
+    })
+
+
 @login_required(login_url='login')
 # @permission_required('staff_view')
 @permission_required('read_only') # dev
@@ -586,12 +687,15 @@ def sale_detail(request, sale_id, business_slug):
     payments = sale.payments.select_related('created_by').order_by('created_at')
     
     context = {
-        'sale': sale, 
-        'sale_items': sale_items, 
-        'sale_employees': sale_employees, 
+        'sale': sale,
+        'sale_items': sale_items,
+        'sale_employees': sale_employees,
         'total_salary_cost': total_salary_cost,
         'payments': payments,
         'can_void': can_void_sale(sale, request.user),
+        # VAT class breakdown (V / VAT / Exempt / Zero) — VAT-registered sellers only, same
+        # switch the receipt uses. None for non-VAT so the detail template hides the block.
+        'vat_summary': sale.vat_summary() if getattr(business, 'is_vat_registered', False) else None,
         'section': 'sale',
     }
     return render(request, 'Sales/sale_detail.html', context)
@@ -784,25 +888,30 @@ def view_session_summary(request, business_slug):
     sale = prune_stale_cart_lines(request, business, 'sale', Product)
     total_revenue = 0
     total_cost_price = 0
+    vatable_revenue = Decimal('0')   # gross of VATable lines only — see price_breakdown
 
     total_salary_cost = Decimal(request.session.get('total_salary_cost', 0))
     print('total_salary_cost', total_salary_cost)
-    
+
     items = []
-        
+
     if sale:
         for product_id, data in sale.items():
             product = get_object_or_404(Product, business=business, id=product_id)
             quantity = data.get('quantity', 1)
             cost_price = data.get('cost_price', 0)
             selling_price = data.get('selling_price', 0)
-            
+
             # computations
             total_cost_price_per_line = Decimal(cost_price) * quantity
             total_cost_price += total_cost_price_per_line
-            
+
             total_selling_price = Decimal(selling_price) * quantity
             total_revenue += total_selling_price
+            # A statutory VAT exemption removes VAT from VATable lines only, so track their
+            # gross separately (unknown vat_class buckets as VATable, matching vat_summary).
+            if product.vat_class not in ('exempt', 'zero'):
+                vatable_revenue += total_selling_price
 
             items.append({
                 'supplier_name': product.material.supplier.name if product.material else '',
@@ -872,7 +981,7 @@ def view_session_summary(request, business_slug):
     parts = Sale.price_breakdown(
         total_revenue, discount_type,
         seller_charges_vat=bool(business.is_vat_registered),
-        rate=discount_percent,
+        rate=discount_percent, vatable_gross=vatable_revenue,
     )
     discount_amount = parts['discount_amount']
     vat_adjustment  = parts['vat_adjustment']
@@ -987,6 +1096,7 @@ def confirm_view_summary(request, business_slug):
 
     total_revenue = 0
     total_cost_price = 0
+    vatable_revenue = Decimal('0')   # gross of VATable lines only — see price_breakdown
 
     try:
         with transaction.atomic():
@@ -1003,7 +1113,10 @@ def confirm_view_summary(request, business_slug):
                 session_id = data.get('session_id')
 
                 total_cost_price += Decimal(cost_price) * quantity
-                total_revenue    += Decimal(selling_price) * quantity
+                line_total = Decimal(selling_price) * quantity
+                total_revenue += line_total
+                if product.vat_class not in ('exempt', 'zero'):
+                    vatable_revenue += line_total
 
                 SaleItem.objects.create(
                     sale=sale_obj, product=product, price_at_sale=selling_price,
@@ -1043,7 +1156,7 @@ def confirm_view_summary(request, business_slug):
             parts = Sale.price_breakdown(
                 gross, statutory_type,
                 seller_charges_vat=bool(business.is_vat_registered),
-                rate=discount_percent,
+                rate=discount_percent, vatable_gross=min(vatable_revenue, gross),
             )
 
             sale_obj.discount_percent  = discount_percent
@@ -1297,18 +1410,18 @@ def view_sale_summary(request, sale_id, business_slug):
     blank_rows = range(paginator.per_page - len(page_obj.object_list))
 
     context = {
-        'items': items, 
+        'items': items,
         'sale': sale,
         'page_obj': page_obj,
         'blank_rows': blank_rows,
-        'total_cost_price': total_cost_price, 
-        'total_revenue': total_revenue, 
-        'total_salary_cost': total_salary_cost, 
+        'total_cost_price': total_cost_price,
+        'total_revenue': total_revenue,
+        'total_salary_cost': total_salary_cost,
         'can_void': can_void_sale(sale, request.user),
         'section': 'sale'
         }
 
-    
+
     return render(request, 'Sales/view_sale_summary.html', context)
 
 @login_required(login_url='login')

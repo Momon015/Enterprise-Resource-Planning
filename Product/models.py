@@ -72,10 +72,10 @@ class Product(SlugModel, TimeStampModel):
     barcode = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     description = models.TextField(null=True, blank=True, max_length=500)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name='products', null=True, blank=True)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
+    cost_price = models.DecimalField(max_digits=16, decimal_places=6, default=0.00)
     prepared_quantity = models.PositiveIntegerField()
     default_quantity = models.PositiveIntegerField(default=0) # preset
-    selling_price = models.DecimalField(max_digits=10, decimal_places=6)
+    selling_price = models.DecimalField(max_digits=16, decimal_places=6)
 
     vat_class = models.CharField(
         max_length=8, choices=VAT_CLASS_CHOICES, default='vatable',
@@ -273,7 +273,7 @@ class ProductPreset(TimeStampModel, SlugModel):
 class ProductPresetItem(models.Model):
     preset = models.ForeignKey(ProductPreset, on_delete=models.CASCADE, related_name='product_preset_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_preset_items', null=True, blank=True)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=6)
+    cost_price = models.DecimalField(max_digits=16, decimal_places=6)
     quantity = models.PositiveIntegerField(default=0)
     supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
     
@@ -300,7 +300,7 @@ class ProductPresetItem(models.Model):
 #     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='recipe', null=True, blank=True)
 #     name = models.CharField(max_length=255)
 #     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='recipes', null=True, blank=True)
-#     cost = models.DecimalField(max_digits=10, decimal_places=6)
+#     cost = models.DecimalField(max_digits=16, decimal_places=6)
 #     unit = models.CharField(max_length=255)
     
 #     def __str__(self):

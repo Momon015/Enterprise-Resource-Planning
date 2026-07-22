@@ -109,6 +109,9 @@ document.addEventListener("DOMContentLoaded", () =>
           <div class="pd-chips">
             <span class="pd-chip">{{ product.category.name|default:"No category" }}</span>
             {% if product.unit %}<span class="pd-chip">{{ product.unit }}</span>{% endif %}
+            {% comment %} VAT class — only meaningful (and only editable) when the business is
+            VAT-registered, so show it on the same condition the product form uses. {% endcomment %}
+            {% if current_business.is_vat_registered %}<span class="pd-chip"><i class="bi bi-percent"></i> {{ product.get_vat_class_display }}</span>{% endif %}
             {% if product.barcode %}<span class="pd-chip pd-chip--code">{{ product.barcode }}</span>{% endif %}
             <span class="pd-chip pd-chip--muted"><i class="bi bi-person-fill"></i> {{ product.created_by.username|capfirst|default:"—" }}</span>
           </div>

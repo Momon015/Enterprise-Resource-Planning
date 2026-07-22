@@ -53,7 +53,7 @@ class Purchase(TimeStampModel):
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
-    total_cost = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    total_cost = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
     status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
     is_paid = models.BooleanField(default=False)
     line_count = models.PositiveIntegerField(default=0)
@@ -72,7 +72,7 @@ class Purchase(TimeStampModel):
     voided_at   = models.DateTimeField(null=True, blank=True)
     
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # whole-order % (bulk supplier deal)
-    discount_amount  = models.DecimalField(max_digits=10, decimal_places=6, default=0)  # computed peso, stored for the receipt
+    discount_amount  = models.DecimalField(max_digits=16, decimal_places=6, default=0)  # computed peso, stored for the receipt
 
     
     # save the custom queryset as_manager()
@@ -270,7 +270,7 @@ class PurchaseItem(TimeStampModel):
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='items', null=True, blank=True)
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     quantity = models.PositiveIntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=6, default=0.00)
+    price = models.DecimalField(max_digits=16, decimal_places=6, default=0.00)
     supplier = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
@@ -361,7 +361,7 @@ class PurchasePayment(TimeStampModel):
     purchase = models.ForeignKey(
         Purchase, on_delete=models.CASCADE, related_name='payments')
     
-    amount = models.DecimalField(max_digits=10, decimal_places=6)
+    amount = models.DecimalField(max_digits=16, decimal_places=6)
     date = models.DateField(db_index=True)
     method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
     note = models.CharField(max_length=255, blank=True)
@@ -422,14 +422,14 @@ class PurchaseReturn(TimeStampModel):
     date = models.DateField(db_index=True)
     reason = models.CharField(max_length=30, choices=REASON_CHOICES, default='defective')
     reason_note = models.CharField(max_length=255, blank=True)
-    refund_total = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_total = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     # The actual split — refund_total = refund_cash + refund_credit, always.
     #   refund_credit = knocked off what we still owe the supplier (no money moves)
     #   refund_cash   = money the supplier physically handed back
     # Cash can only be non-zero once the balance is settled. See split_refund().
-    refund_cash   = models.DecimalField(max_digits=10, decimal_places=6, default=0)
-    refund_credit = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    refund_cash   = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    refund_credit = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     # Derived from the split above — for badges only. Never trust it for money.
     refund_method = models.CharField(max_length=20, choices=REFUND_METHOD_CHOICES, default='cash')
@@ -465,7 +465,7 @@ class PurchaseReturnItem(models.Model):
     
     name = models.CharField(max_length=255) # snasphot
     quantity = models.PositiveIntegerField(default=1)
-    unit_refund = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    unit_refund = models.DecimalField(max_digits=16, decimal_places=6, default=0)
 
     def __str__(self):
         return f"{self.name} × {self.quantity}"
@@ -494,7 +494,7 @@ class Waste(TimeStampModel):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wastes')
     date = models.DateField(db_index=True)
-    total_cost = models.DecimalField(max_digits=10, decimal_places=6)
+    total_cost = models.DecimalField(max_digits=16, decimal_places=6)
     reason = models.CharField(max_length=20, choices=REASON_CHOICES, default='other', db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_wastes')
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='wastes', null=True, blank=True)
@@ -527,7 +527,7 @@ class WasteItem(models.Model):
     waste = models.ForeignKey(Waste, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
     material = models.ForeignKey(Material, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, related_name='waste_items', null=True, blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=6)
+    price = models.DecimalField(max_digits=16, decimal_places=6)
     quantity = models.PositiveBigIntegerField(default=0)
     supplier = models.CharField(max_length=255, null=True, blank=True)
     

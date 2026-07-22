@@ -329,6 +329,30 @@
             {% endif %}
             {% endif %}
 
+            {% comment %} VAT class breakdown (VATable / VAT / Exempt / Zero) — mirrors the
+            receipt's V/E/Z block so the detail page and the receipt agree. `vat_summary` is
+            passed only for a VAT-registered seller (None otherwise, so this whole block is
+            skipped). On a senior/PWD 20% sale VATable collapses into Exempt (V and VAT read
+            0.00) BY DESIGN — see Sale.vat_summary() for the worked example. {% endcomment %}
+            {% if vat_summary %}
+            <div>
+              <dt>VATable Sale (V)</dt>
+              <dd>₱{{ vat_summary.vatable|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>VAT (12%)</dt>
+              <dd>₱{{ vat_summary.vat|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>VAT-Exempt (E)</dt>
+              <dd>₱{{ vat_summary.exempt|floatformat:2|intcomma }}</dd>
+            </div>
+            <div>
+              <dt>Zero-Rated (Z)</dt>
+              <dd>₱{{ vat_summary.zero|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+
             {% if sale.is_void %}
             <div>
               <dt>Status</dt>

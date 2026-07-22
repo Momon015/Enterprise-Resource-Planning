@@ -15,8 +15,9 @@ const peso = n =>
 function initials(name) {
   const parts = (name || '').replace(/[^A-Za-z0-9\s-]/g, '').split(/[\s-]+/).filter(Boolean)
   if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
+  // First TWO CHARACTERS ("Item 05" → "IT"), matching the Django avatar — NOT word-initials
+  // (which turned "Item 05" into "I0").
+  return (parts.join('').slice(0, 2) || '?').toUpperCase()
 }
 
 const el = document.getElementById('purchase-cart-root')
@@ -102,7 +103,7 @@ function CartRow({ item, mode, onQty, onLine, onRemove, onToast }) {
     <div className="sale-row">
       {item.image
         ? <img className="sale-row-thumb" src={item.image} alt="" />
-        : <div className="sale-row-thumb sale-row-thumb--initials">{initials(item.material)}</div>}
+        : <div className="sale-row-thumb sale-row-thumb--initials"><i className="bi bi-box-seam"></i></div>}
       <div className="sale-row-body">
         <div className="sale-row-head">
           <div className="sale-row-info">

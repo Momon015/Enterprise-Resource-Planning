@@ -35,6 +35,7 @@ testing_some_logic.py
 prices.py
 updated_prices.py
 seed_test_data.py
+seed_zreading_demo.py
 
 *.local.json
 old_style.css

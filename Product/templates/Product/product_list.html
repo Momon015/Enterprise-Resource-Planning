@@ -530,6 +530,14 @@
                     {% if product.material.supplier %}
                   <small class="text-muted">{{ product.material.supplier.name}}</small>
                     {% endif %}
+                    {% comment %} VAT class on the list — EXCEPTIONS ONLY. Plain VATable is the
+                    default and stays unbadged (badging all 40 rows "VATable" is noise); we
+                    surface just the ones an owner would audit — Exempt / Zero-Rated — and only
+                    for a VAT-registered seller. Full V/VAT/E/Z figures live on the detail page. {% endcomment %}
+                    {% if current_business.is_vat_registered %}
+                      {% if product.vat_class == 'exempt' %}<div style="margin-top:.25rem;"><span class="sl-badge sl-badge-info">VAT-Exempt</span></div>
+                      {% elif product.vat_class == 'zero' %}<div style="margin-top:.25rem;"><span class="sl-badge sl-badge-light">Zero-Rated</span></div>{% endif %}
+                    {% endif %}
                 </div>
 
                   {% if product.is_locked %}

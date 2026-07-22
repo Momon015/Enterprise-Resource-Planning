@@ -252,6 +252,15 @@
               {% endif %}
             </a>
           </li>
+          <li>
+            {% comment %} BIR End-of-Day (Z) reading — owner-only, computed. Sits in Financial
+                Overview (exact statutory numbers), not Analytics (trends). {% endcomment %}
+            <a class="sidebar-nav__link {% if section == 'z-reading' %}is-active{% endif %}"
+              href="{% url 'z-reading-list' business_slug=current_business.slug %}">
+              <i class="bi bi-file-earmark-ruled"></i>
+              <span>Z Reading</span>
+            </a>
+          </li>
 
           {% comment %} <li>
             <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"

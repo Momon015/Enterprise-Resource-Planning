@@ -12,8 +12,9 @@ function getCookie(name) {
 function initials(name) {
   const parts = (name || '').replace(/[^A-Za-z0-9\s-]/g, '').split(/[\s-]+/).filter(Boolean)
   if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
+  // First TWO CHARACTERS ("Item 05" → "IT"), matching the Django avatar — NOT word-initials
+  // (which turned "Item 05" into "I0").
+  return (parts.join('').slice(0, 2) || '?').toUpperCase()
 }
 
 // Real product photo if we have one, else the initials avatar — the whole reason the sale

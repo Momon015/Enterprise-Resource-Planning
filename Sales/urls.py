@@ -19,6 +19,11 @@ urlpatterns = [
 
     
     path('clear/session/', views.clear_sale, name='clear-sale'),
+    # BIR End-of-Day (Z) reading — owner-only, computed. List (landing) → modal → doc.
+    path('z-reading/', views.z_reading_list, name='z-reading-list'),
+    path('z-reading/modal/', views.z_reading_modal, name='z-reading-modal'),
+    path('z-reading/view/', views.z_reading, name='z-reading'),          # printable doc (iframe target)
+
     # sessions
     path('view/list/', views.sale_list, name='sale-list'),
     path('view/list/<int:sale_id>/detail/', views.sale_detail, name='sale-detail'),
