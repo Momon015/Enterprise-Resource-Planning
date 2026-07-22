@@ -26,7 +26,7 @@ PLAN_LIMITS = {
         'max_expenses':         5,
         'max_product_presets':  2,
         'max_material_presets': 2,
-        'receipt_print':        False,
+        'receipt_print':        True,
         'timecards':            False,
         'cash_reconciliation':  False,
         'dashboard':            False,
@@ -44,7 +44,7 @@ PLAN_LIMITS = {
         'max_expenses':         30,
         'max_product_presets':  5,
         'max_material_presets': 5,
-        'receipt_print':        False,
+        'receipt_print':        True,
         'timecards':            True,
         'cash_reconciliation':  True,
         'dashboard':            False,
@@ -87,6 +87,24 @@ PLAN_LIMITS = {
         'analytics':            True,
         'analytics_access':        'daily + monthly + weekly',
     },
+    'enterprise': {
+        'max_staff':            15,
+        'max_products':         None,
+        'max_materials':        None,
+        'max_suppliers':        None,
+        'max_sales':            None,
+        'max_purchases':        None,
+        'max_waste':            None,
+        'max_expenses':         None,
+        'max_product_presets':  None,
+        'max_material_presets': None,
+        'receipt_print':        True,
+        'timecards':            True,
+        'cash_reconciliation':  True,
+        'dashboard':            True,
+        'analytics':            True,
+        'analytics_access':        'daily + monthly + weekly',
+    },
 }
 
 
@@ -101,10 +119,11 @@ LOCKABLE_LIMIT_KEYS = {
 
 
 PLAN_CHOICES = [
-    ('free',     'Free'),
-    ('standard', 'Standard'),
-    ('premium',  'Premium'),
-    ('pro',      'Pro'),
+    ('free',       'Free'),
+    ('standard',   'Standard'),
+    ('premium',    'Premium'),
+    ('pro',        'Pro'),
+    ('enterprise', 'Enterprise'),
 ]
 
 BUNDLE_CHOICES = [
@@ -123,33 +142,37 @@ BUNDLE_COUNT = {'single': 1, 'dual': 2, 'triple': 3}
 FOUNDER_SLOTS_TOTAL = 10
 
 FOUNDER_BASE = {
-    'free':     Decimal('0'),
-    'standard': Decimal('300'),
-    'premium':  Decimal('800'),
-    'pro':      Decimal('1000'),
+    'free':       Decimal('0'),
+    'standard':   Decimal('300'),
+    'premium':    Decimal('800'),
+    'pro':        Decimal('1000'),
+    'enterprise': Decimal('2000'),
 }
 
 REGULAR_BASE = {
-    'free':     Decimal('0'),
-    'standard': Decimal('300'),
-    'premium':  Decimal('1299'),
-    'pro':      Decimal('1499'),
+    'free':       Decimal('0'),
+    'standard':   Decimal('300'),
+    'premium':    Decimal('1299'),
+    'pro':        Decimal('1499'),
+    'enterprise': Decimal('2499'),
 }
 
 REGULAR_YEARLY_DISCOUNT = {
-    'free':     Decimal('0'),
-    'standard': Decimal('0'),
-    'premium':  Decimal('0.15'),
-    'pro':      Decimal('0.17'),
+    'free':            Decimal('0'),
+    'standard':        Decimal('0'),
+    'premium':         Decimal('0.15'),
+    'pro':             Decimal('0.17'),
+    'enterprise':      Decimal('0.17'),
 }
 
 REGULAR_EXTRA_FLAT = {
-    'standard': Decimal('150'),
-    'premium':  Decimal('600'),
-    'pro':      Decimal('700'),
+    'standard':        Decimal('150'),
+    'premium':         Decimal('650'),
+    'pro':             Decimal('750'),
+    'enterprise':      Decimal('1250'),
 }
 
-PLAN_RANK = {'free': 0, 'standard': 1, 'premium': 2, 'pro': 3}
+PLAN_RANK = {'free': 0, 'standard': 1, 'premium': 2, 'pro': 3, 'enterprise': 4}
 
 def _floor_peso(value):
     """Round down to whole peso (customer-friendly)."""

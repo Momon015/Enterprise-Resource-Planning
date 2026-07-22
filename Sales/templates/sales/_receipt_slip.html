@@ -6,7 +6,11 @@
 <div class="divider"></div>
 
 <table>
-    <tr><td>Ref:</td><td class="right">{{ sale.reference }}</td></tr>
+    {% comment %} Internal mode prints an ORD- ORDER number, NEVER the SI- BIR serial — a BIR
+    accountable number must not appear on a document that says "not an official receipt". Interim:
+    derived from the sale id; once the bir_active mode split gives internal sales their own
+    per-business ORD- sequence, this becomes {{ sale.reference }}. {% endcomment %}
+    <tr><td>Order No:</td><td class="right">ORD-{{ sale.id|stringformat:"010d" }}</td></tr>
     <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
     <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
     {% if sale.created_by %}<tr><td>Cashier:</td><td class="right">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td></tr>{% endif %}
@@ -70,4 +74,8 @@
 <div class="center">Thank you!</div>
 <div class="center">Please come again.</div>
 <div class="divider"></div>
-<div class="center" style="font-size:.9em;">This is not an official receipt.<br></div>
+{% comment %} Internal-mode disclaimer. This slip is a commercial BILLING STATEMENT, not a BIR
+accountable document — it must tell the customer to ask for the manual BIR receipt. Strengthened
+from the old one-line "not an official receipt" per the bir_active mode design. {% endcomment %}
+<div class="center bold" style="letter-spacing:.08em;">*** BILLING STATEMENT ***</div>
+<div class="center" style="font-size:.9em; line-height:1.35;">THIS IS NOT AN OFFICIAL INVOICE.<br>PLEASE ASK FOR A MANUAL BIR RECEIPT.</div>
