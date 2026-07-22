@@ -1,0 +1,140 @@
+{% load humanize %}
+{% comment %} STANDALONE Z-reading document — the printable tape. Loaded inside the modal's
+iframe (embed=1) and also directly reachable for print. Self-contained CSS on purpose: an
+iframe is its own document and inherits none of the app theme, and this is what @print emits,
+so it must own its own neutral, paper-ready styling the way the receipt slip does. {% endcomment %}
+<!doctype html>
+<html lang="en" data-theme="{{ request.user.theme|default:'light' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Z Reading — {{ day|date:"M d, Y" }}</title>
+  <style>
+    /* Theme-aware so the reading blends into the app instead of sitting on a white slab
+       (data-theme is server-set from request.user.theme, same as the rest of the app). Paints
+       its OWN solid surface that MATCHES the app tokens — light-on-dark in dark mode — rather
+       than going transparent, which left light text stranded on the iframe's white canvas and
+       made it unreadable. Print forces the light palette on white paper below. */
+    :root{ --ink:#1a1a18; --muted:#6b7280; --line:#e5e7eb; --neg:#b91c1c; --paper:#ffffff; }
+    :root[data-theme="dark"]{ --ink:#e7e9ee; --muted:#8b93a3; --line:#262c3a; --neg:#f87171; --paper:#161a24; }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; background:var(--paper); color:var(--ink);
+      font-family:"Segoe UI", system-ui, -apple-system, sans-serif; }
+    .doc{ max-width:560px; margin:0 auto; padding:1.4rem 1.6rem 2rem;
+      font-variant-numeric:tabular-nums; }
+
+    .center{ text-align:center; }
+    .name{ font-size:1.15rem; font-weight:700; }
+    .id{ font-size:.8rem; color:var(--muted); line-height:1.55; }
+    .label{ text-align:center; font-weight:700; letter-spacing:.04em; margin:.35rem 0; }
+
+    hr{ border:0; border-top:1px solid var(--line); margin:.9rem 0; }
+    hr.dot{ border-top:1px dashed var(--line); }
+
+    .sec{ font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--muted); margin:1.05rem 0 .45rem; }
+
+    .row{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+      padding:.15rem 0; font-size:.88rem; }
+    .row .k{ color:var(--muted); }
+    .row .v{ font-weight:600; white-space:nowrap; }
+    .row.strong .k, .row.strong .v{ color:var(--ink); font-weight:700; }
+    .row.total{ border-top:1px solid var(--line); margin-top:.35rem; padding-top:.45rem;
+      font-size:.98rem; font-weight:700; }
+    .row.total .k{ color:var(--ink); }
+    .neg{ color:var(--neg); }
+    .mono{ font-family:ui-monospace, "Cascadia Mono", Menlo, monospace; font-size:.82rem; }
+    .empty{ text-align:center; color:var(--muted); font-size:.85rem; padding:.35rem 0; }
+
+    @media print{
+      @page{ margin:12mm; }
+      /* paper is always white — force the light palette regardless of the on-screen theme */
+      :root, :root[data-theme="dark"]{ --ink:#1a1a18; --muted:#6b7280; --line:#e5e7eb; --neg:#b91c1c; --paper:#ffffff; }
+      html,body{ background:#fff; color:var(--ink); }
+      .doc{ max-width:none; padding:0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc">
+
+    <div class="center">
+      <div class="name">{{ business.business_name }}</div>
+      <div class="id">
+        {% if business.registered_name and business.registered_name != business.business_name %}
+          <div>Operated by: {{ business.registered_name }}</div>{% endif %}
+        {% if business.address %}<div>{{ business.address }}</div>{% endif %}
+        {% if business.tin %}<div>{% if reading.is_vat_registered %}VAT Reg TIN{% else %}Non-VAT Reg TIN{% endif %}: {{ business.tin }}</div>{% endif %}
+        {% if business.bir_min %}<div>MIN: {{ business.bir_min }}</div>{% endif %}
+        {% if business.bir_serial_number %}<div>S/N: {{ business.bir_serial_number }}</div>{% endif %}
+        {% if business.bir_ptu %}<div>PTU: {{ business.bir_ptu }}</div>{% endif %}
+      </div>
+    </div>
+
+    <hr>
+    <div class="label">Z READING</div>
+    <hr>
+
+    <div class="row"><span class="k">Report Date</span><span class="v">{% now "m/d/Y h:i A" %}</span></div>
+    <div class="row"><span class="k">Business Day</span><span class="v">{{ day|date:"m/d/Y" }}</span></div>
+    <div class="row"><span class="k">Reset Counter</span><span class="v">{{ reading.reset_counter|stringformat:"03d" }}</span></div>
+
+    <div class="sec">Document numbers</div>
+    <div class="row"><span class="k">SI (Beg / End)</span><span class="v mono">{{ reading.si_beg }} / {{ reading.si_end }}</span></div>
+    <div class="row"><span class="k">Void (Beg / End)</span><span class="v mono">{{ reading.void_beg }} / {{ reading.void_end }}</span></div>
+    <div class="row"><span class="k">Return (Beg / End)</span><span class="v mono">{{ reading.return_beg }} / {{ reading.return_end }}</span></div>
+
+    <div class="sec">Accumulated grand total</div>
+    <div class="row"><span class="k">Present Accumulated Sales</span><span class="v">&#8369;{{ reading.present_accumulated|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">Previous Accumulated Sales</span><span class="v">&#8369;{{ reading.previous_accumulated|floatformat:2|intcomma }}</span></div>
+    <div class="row strong"><span class="k">Sales for the Day</span><span class="v">&#8369;{{ reading.sales_for_day|floatformat:2|intcomma }}</span></div>
+
+    {% if reading.vat_block %}
+    <div class="sec">Sales breakdown</div>
+    <div class="row"><span class="k">VATable Sale (V)</span><span class="v">&#8369;{{ reading.vat_block.vatable|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">VAT (12%)</span><span class="v">&#8369;{{ reading.vat_block.vat|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">VAT-Exempt Sale (E)</span><span class="v">&#8369;{{ reading.vat_block.exempt|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">Zero-Rated Sale (Z)</span><span class="v">&#8369;{{ reading.vat_block.zero|floatformat:2|intcomma }}</span></div>
+    {% endif %}
+
+    <div class="sec">Deductions</div>
+    <div class="row"><span class="k">Gross Amount</span><span class="v">&#8369;{{ reading.gross|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">Less: Discount</span><span class="v neg">&minus;&#8369;{{ reading.less_discount|floatformat:2|intcomma }}</span></div>
+    {% if reading.is_vat_registered %}
+    <div class="row"><span class="k">Less: VAT Adjustment</span><span class="v neg">&minus;&#8369;{{ reading.less_vat_adjustment|floatformat:2|intcomma }}</span></div>
+    {% endif %}
+    <div class="row"><span class="k">Less: Void</span><span class="v neg">&minus;&#8369;{{ reading.less_void|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">Less: Return</span><span class="v neg">&minus;&#8369;{{ reading.less_return|floatformat:2|intcomma }}</span></div>
+    <div class="row total"><span class="k">Net Amount</span><span class="v">&#8369;{{ reading.net_amount|floatformat:2|intcomma }}</span></div>
+
+    <div class="sec">Discount summary</div>
+    {% for line in reading.discount_lines %}
+    <div class="row"><span class="k">{{ line.label }}</span><span class="v">&#8369;{{ line.amount|floatformat:2|intcomma }}</span></div>
+    {% endfor %}
+
+    <div class="sec">Tender</div>
+    {% if reading.tender.payments %}
+      {% for p in reading.tender.payments %}
+      <div class="row"><span class="k">{{ p.label }}</span><span class="v">&#8369;{{ p.amount|floatformat:2|intcomma }}</span></div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No payments recorded this day.</div>
+    {% endif %}
+    <div class="row strong"><span class="k">Payments Received</span><span class="v">&#8369;{{ reading.tender.payments_received|floatformat:2|intcomma }}</span></div>
+    {% if reading.tender.has_drawer %}
+    <hr class="dot">
+    <div class="row"><span class="k">Opening Fund</span><span class="v">&#8369;{{ reading.tender.opening_fund|floatformat:2|intcomma }}</span></div>
+    <div class="row"><span class="k">Less: Withdrawal</span><span class="v neg">&minus;&#8369;{{ reading.tender.withdrawals|floatformat:2|intcomma }}</span></div>
+    <div class="row strong"><span class="k">SHORT / OVER</span><span class="v">&#8369;{{ reading.tender.short_over|floatformat:2|intcomma }}</span></div>
+    {% endif %}
+
+    <hr>
+    <div class="row"><span class="k">Transactions</span><span class="v">{{ reading.transaction_count }}</span></div>
+    <div class="row"><span class="k">Voided</span><span class="v">{{ reading.void_count }}</span></div>
+    <div class="row"><span class="k">Returns</span><span class="v">{{ reading.return_count }}</span></div>
+
+    <hr>
+    <div class="label">End of Z READING</div>
+  </div>
+</body>
+</html>
