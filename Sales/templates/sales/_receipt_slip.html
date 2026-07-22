@@ -6,11 +6,10 @@
 <div class="divider"></div>
 
 <table>
-    {% comment %} Internal mode prints an ORD- ORDER number, NEVER the SI- BIR serial — a BIR
-    accountable number must not appear on a document that says "not an official receipt". Interim:
-    derived from the sale id; once the bir_active mode split gives internal sales their own
-    per-business ORD- sequence, this becomes {{ sale.reference }}. {% endcomment %}
-    <tr><td>Order No:</td><td class="right">ORD-{{ sale.id|stringformat:"010d" }}</td></tr>
+    {% comment %} Internal mode prints an ORD- ORDER number — Sale.save() issues it from
+    OrderSequence when is_bir_active is off — NEVER the SI- BIR serial, which must not appear on a
+    document that says "not an official receipt". {% endcomment %}
+    <tr><td>Order No:</td><td class="right">{{ sale.reference }}</td></tr>
     <tr><td>Date:</td><td class="right">{{ sale.date|date:"m/d/Y" }}</td></tr>
     <tr><td>Time:</td><td class="right">{{ sale.created_at|date:"h:i A" }}</td></tr>
     {% if sale.created_by %}<tr><td>Cashier:</td><td class="right">{{ sale.created_by.get_full_name|default:sale.created_by.username }}</td></tr>{% endif %}

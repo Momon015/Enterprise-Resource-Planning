@@ -169,6 +169,8 @@ def test_void_numbers_run_independently_of_invoice_numbers(client, owner):
     """Two series, two runs. Three sales and one void must leave SI at 3 and VD at 1 —
     if they shared a counter the void would have burned an invoice number."""
     biz, _plan = make_business(owner, plan='pro')
+    biz.is_bir_active = True   # the SI- accountable series only runs in official (BIR) mode
+    biz.save(update_fields=['is_bir_active'])
     product = make_product(biz, selling_price='50')
     sales = [make_sale(biz, [(product, 1)]) for _ in range(3)]
     client.force_login(owner)

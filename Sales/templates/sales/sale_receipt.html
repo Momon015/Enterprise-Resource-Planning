@@ -3,7 +3,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{% if is_official %}Invoice — {{ sale.reference }}{% else %}Billing Statement — ORD-{{ sale.id|stringformat:"010d" }}{% endif %}</title>
+    <title>{% if is_official %}Invoice — {{ sale.reference }}{% else %}Billing Statement — {{ sale.reference }}{% endif %}</title>
 <style>
     @page { size: {{ width }}mm auto; margin: 0; }
 
