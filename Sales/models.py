@@ -987,3 +987,178 @@ class SaleEmployee(TimeStampModel):
             self.name = self.employee.name
 
         super().save(*args, **kwargs)
+
+
+# ──────────────────────────────────────────────────────────────
+# Z READING — the sealed End-of-Day (BIR) record.
+# The computed reading (core.utils.reading.compute_reading) is the X — read-only,
+# recomputable, seals nothing. Sealing FREEZES one past business day into an
+# append-only ZReading with a burned Z counter, so it can never restate.
+# ──────────────────────────────────────────────────────────────
+
+class ZReadingSequence(AbstractDocumentSequence):
+    """Z- series — the Z counter. One continuous, per-business run of sealed Z readings.
+
+    Annex D-2 prints a "Z Counter" on every reading; this is it. Separate from the SI /
+    VOID / RETURN runs — a Z consumes none of those, it is its own kind of accountable
+    document (the end-of-day seal)."""
+    pass
+
+
+def _jsonable(value):
+    """Recursively convert a compute_reading() dict into JSON-storable primitives.
+
+    Decimals become strings (never floats — money must survive the round-trip exactly),
+    dicts/lists recurse, everything else passes through. The frozen snapshot is rendered
+    straight back through the same template, where `floatformat`/`intcomma` accept the
+    numeric strings unchanged — so a sealed Z and a live X render identically."""
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    return value
+
+
+class ZReading(TimeStampModel):
+    """An append-only sealed Z reading for ONE business day. Pen, not pencil.
+
+    Freezes the ENTIRE compute_reading() output as a JSON snapshot, so a sealed day
+    renders exactly as it was sealed even if a product's cost, a discount, or anything
+    else is edited afterwards — same guarantee, same reasoning, as DailyClose. The
+    scalar columns are denormalized copies of the snapshot's headline figures so the
+    list can show them without deserializing JSON per row.
+
+    ONE Z per business day (unique business+date). A Z is sealed only AFTER the day is
+    over (`date < today`): sealing freezes the accumulated-total odometer at `Present`,
+    and a sale rung into an already-sealed day would push the next day's `Previous` past
+    it, tearing the Z-to-Z continuity an examiner checks. Today stays a live X preview.
+    """
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE,
+                                 related_name='z_readings')
+    date     = models.DateField(db_index=True)
+
+    z_counter = models.PositiveBigIntegerField()             # the Annex "Z Counter"
+    reference = models.CharField(max_length=100)             # 'Z-0000000001' snapshot
+
+    # Denormalized headline figures (authoritative copy lives in `snapshot`).
+    gross                = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    net_amount           = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    present_accumulated  = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    previous_accumulated = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    sales_for_day        = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    transaction_count    = models.PositiveIntegerField(default=0)
+    void_count           = models.PositiveIntegerField(default=0)
+    return_count         = models.PositiveIntegerField(default=0)
+    is_vat_registered    = models.BooleanField(default=False)
+
+    # The frozen full reading (Decimals stored as strings — see _jsonable).
+    snapshot = models.JSONField(default=dict)
+
+    sealed_at = models.DateTimeField(auto_now_add=True)
+    sealed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name='z_readings_sealed')
+
+    class Meta:
+        ordering = ['-date']
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'date'],
+                                    name='uniq_zreading_business_date'),
+        ]
+        indexes = [models.Index(fields=['business', '-date'])]
+
+    def __str__(self):
+        return f"Z-{self.z_counter} {self.business} {self.date} — net {self.net_amount}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("ZReading is append-only — a sealed Z cannot be modified.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("ZReading is append-only — a sealed Z cannot be un-sealed.")
+
+    def reading_context(self):
+        """The frozen snapshot as the template's `reading` dict (strings render fine)."""
+        return self.snapshot
+
+    @classmethod
+    def for_day(cls, business, day):
+        """The sealed Z for this business-day, or None if the day is still a live X."""
+        if day is None:
+            return None
+        return cls.objects.filter(business=business, date=day).first()
+
+    @classmethod
+    def earliest_unsealed_day(cls, business):
+        """The oldest FINISHED trading day (has a real sale, before today) not yet sealed,
+        or None if every finished trading day is sealed.
+
+        Trading days are defined exactly as the Z-reading LIST defines them — a day with at
+        least one completed, non-void sale — so the guard never points at a day the owner
+        can't actually reach and seal (e.g. a day whose only sales were all voided)."""
+        today = timezone.localdate()
+        trading_days = set(
+            Sale.objects.filter(business=business, status='completed', is_void=False,
+                                 date__lt=today)
+            .values_list('date', flat=True).distinct()
+        )
+        sealed = set(cls.objects.filter(business=business).values_list('date', flat=True))
+        unsealed = trading_days - sealed
+        return min(unsealed) if unsealed else None
+
+    @classmethod
+    def seal(cls, business, day, *, user=None):
+        """Seal `day` into an append-only Z. Returns (zreading, created); idempotent.
+
+        Raises ValueError if `day` is today/future (only a finished day can be sealed) or if
+        an OLDER trading day is still unsealed — Z readings must be sealed in date order so
+        the Z counter runs chronologically, the way an examiner expects. Race-safe: the
+        unique (business, date) constraint is the real guard, and a lost race rolls back
+        inside the atomic block so no Z counter is burned."""
+        from django.db import transaction, IntegrityError
+        from core.utils.reading import compute_reading
+
+        today = timezone.localdate()
+        if day >= today:
+            raise ValueError(
+                "A Z reading can only be sealed after the business day is over — "
+                "today is still trading, so its reading is an X, not a Z."
+            )
+
+        existing = cls.for_day(business, day)
+        if existing:
+            return existing, False
+
+        earliest = cls.earliest_unsealed_day(business)
+        if earliest is not None and day != earliest:
+            raise ValueError(
+                f"Z readings must be sealed in date order — seal "
+                f"{earliest:%b %d, %Y} first."
+            )
+
+        reading = compute_reading(business, day)
+        snapshot = _jsonable({k: v for k, v in reading.items()
+                              if k not in ('business', 'day')})
+        try:
+            with transaction.atomic():
+                reference, z_counter, _ = ZReadingSequence.issue(business, 'Z')
+                zr = cls.objects.create(
+                    business=business, date=day,
+                    z_counter=z_counter, reference=reference,
+                    gross=reading['gross'], net_amount=reading['net_amount'],
+                    present_accumulated=reading['present_accumulated'],
+                    previous_accumulated=reading['previous_accumulated'],
+                    sales_for_day=reading['sales_for_day'],
+                    transaction_count=reading['transaction_count'],
+                    void_count=reading['void_count'],
+                    return_count=reading['return_count'],
+                    is_vat_registered=reading['is_vat_registered'],
+                    snapshot=snapshot, sealed_by=user,
+                )
+            return zr, True
+        except IntegrityError:
+            # Lost the race — the other seal's numbers are authoritative; our counter
+            # burn was rolled back with the failed create, so no gap in the Z run.
+            return cls.for_day(business, day), False

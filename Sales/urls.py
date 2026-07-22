@@ -23,6 +23,7 @@ urlpatterns = [
     path('z-reading/', views.z_reading_list, name='z-reading-list'),
     path('z-reading/modal/', views.z_reading_modal, name='z-reading-modal'),
     path('z-reading/view/', views.z_reading, name='z-reading'),          # printable doc (iframe target)
+    path('z-reading/seal/', views.z_reading_seal, name='z-reading-seal'),  # POST — burn the Z counter
 
     # sessions
     path('view/list/', views.sale_list, name='sale-list'),

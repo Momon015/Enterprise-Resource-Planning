@@ -19,7 +19,7 @@ from django.contrib.auth import update_session_auth_hash
 
 from Sales.models import (
     Sale, SaleItem, SaleEmployee, SalesPayment, SalesReturn, SalesReturnItem,
-    VoidSequence)
+    VoidSequence, ZReading)
 from Sales.forms import SaleForm, SaleFilterForm, SalesReturnFilterForm
 
 from Product.models import Product
@@ -619,11 +619,20 @@ def z_reading_list(request, business_slug):
         for r in (SalesReturn.objects.filter(business=business, date__in=page_dates)
                   .values('date').annotate(t=Sum('refund_total')))
     }
+    # Which of these days are already sealed → show the Z counter instead of "Preview".
+    seal_map = {
+        z.date: z for z in ZReading.objects.filter(business=business, date__in=page_dates)
+    }
+    # The one finished day that's next in line to seal (order guard) — flagged distinctly
+    # so the owner isn't hunting for which "Preview" row is actually sealable.
+    earliest_unsealed = ZReading.earliest_unsealed_day(business)
     days = [{
         'date':    r['date'],
         'count':   r['count'],
         'net':     (r['net'] or Decimal('0')) - ret_map.get(r['date'], Decimal('0')),
         'is_today': r['date'] == today,
+        'sealed':  seal_map.get(r['date']),
+        'ready_to_seal': r['date'] == earliest_unsealed,
     } for r in page_obj]
 
     return render(request, 'Sales/z_reading_list.html', {
@@ -635,6 +644,31 @@ def z_reading_list(request, business_slug):
     })
 
 
+def _z_modal_context(business, day, today, *, reload_on_close=False):
+    """Shared render context for the Z-reading modal (opened AND re-rendered after a seal).
+
+    can_seal is deliberately strict: a day is sealable only if it is finished (< today),
+    not already sealed, AND is the OLDEST unsealed trading day — Z readings seal in date
+    order so the counter stays chronological. When an older day is still open, we surface
+    which one so the owner knows what to seal first."""
+    zreading = ZReading.for_day(business, day)
+    earliest_unsealed = None
+    if zreading is None and day < today:
+        earliest_unsealed = ZReading.earliest_unsealed_day(business)
+    can_seal = zreading is None and day < today and earliest_unsealed == day
+    return {
+        'business': business,
+        'day': day,
+        'today': today,
+        'first_day': _first_trading_day(business) or today,
+        'zreading': zreading,                    # the sealed Z, or None (still a live X)
+        'can_seal': can_seal,
+        'earliest_unsealed': earliest_unsealed,  # the day to seal first, if blocked
+        'reload_on_close': reload_on_close,
+        'section': 'z-reading',
+    }
+
+
 @login_required(login_url='login')
 @permission_required('staff_view')
 def z_reading_modal(request, business_slug):
@@ -642,13 +676,8 @@ def z_reading_modal(request, business_slug):
     date-picker bounds. The reading itself lives in the iframe (z_reading below)."""
     business = get_business_for_user(request.user, business_slug)
     day, today = _resolve_reading_day(request)
-    return render(request, 'Sales/_z_reading_modal.html', {
-        'business': business,
-        'day': day,
-        'today': today,
-        'first_day': _first_trading_day(business) or today,
-        'section': 'z-reading',
-    })
+    return render(request, 'Sales/_z_reading_modal.html',
+                  _z_modal_context(business, day, today))
 
 
 @login_required(login_url='login')
@@ -657,22 +686,48 @@ def z_reading_modal(request, business_slug):
 def z_reading(request, business_slug):
     """The printable Z-reading DOCUMENT for one business day (the iframe target).
 
-    Computed live from the shared core.utils.reading.compute_reading() — it seals nothing
-    and burns no counter, so it doubles as the mid-day X reading. When the append-only
-    sealed ZReading (with its own z_counter) lands it will render THIS SAME dict, so the
-    numbers an owner previews here are exactly what a sealed Z will show."""
+    A SEALED day renders its frozen snapshot (immune to any later edit); an unsealed day
+    is computed live from the shared core.utils.reading.compute_reading() — which seals
+    nothing and burns no counter, so it doubles as the mid-day X reading. Both paths feed
+    the SAME template, so a sealed Z looks exactly like the X preview it was sealed from."""
     from core.utils.reading import compute_reading
 
     business = get_business_for_user(request.user, business_slug)
     day, _today = _resolve_reading_day(request)
-    reading = compute_reading(business, day)
+    zreading = ZReading.for_day(business, day)
+    reading = zreading.reading_context() if zreading else compute_reading(business, day)
 
     return render(request, 'Sales/z_reading_doc.html', {
         'business': business,
         'reading': reading,
         'day': day,
+        'zreading': zreading,
         'section': 'z-reading',
     })
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')          # owner-only — sealing is a BIR-accountable act
+def z_reading_seal(request, business_slug):
+    """POST: seal `?date=` into an append-only Z, then re-render the modal in its sealed
+    state. `data-reload-on-close` (set below) makes closing the modal refresh the list so
+    the newly-sealed row shows its Z counter. Idempotent — re-posting a sealed day is a
+    no-op that simply re-renders the sealed modal."""
+    business = get_business_for_user(request.user, business_slug)
+    day, today = _resolve_reading_day(request)
+
+    sealed_now = False
+    if request.method == 'POST':
+        try:
+            _zr, sealed_now = ZReading.seal(business, day, user=request.user)
+        except ValueError:
+            # today/future, or an older day still unsealed — re-render shows why.
+            sealed_now = False
+
+    # Recompute the modal context from scratch so a blocked attempt shows the real state
+    # (e.g. "seal <earlier day> first") rather than a stale can_seal.
+    return render(request, 'Sales/_z_reading_modal.html',
+                  _z_modal_context(business, day, today, reload_on_close=sealed_now))
 
 
 @login_required(login_url='login')

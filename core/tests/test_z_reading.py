@@ -381,3 +381,282 @@ def test_staff_cannot_open_the_z_reading_list(client, business):
 
     resp = client.get(reverse('z-reading-list', kwargs={'business_slug': business.slug}))
     assert resp.status_code in (302, 403, 404)
+
+
+# ── sealing: the Z becomes a pen-not-pencil record ───────────────────────────
+#
+# What makes a Z a Z (vs the re-computable X preview): it FREEZES a finished day into an
+# append-only record with a burned Z counter, and that snapshot never restates afterwards.
+
+def _yesterday():
+    return timezone.localdate() - timedelta(days=1)
+
+
+def test_seal_freezes_a_finished_day_into_a_z(business, owner):
+    from Sales.models import ZReading
+    day = _yesterday()
+    p = make_product(business, selling_price='100')
+    ring(business, make_sale(business, [(p, 1)], date=day))
+    ring(business, make_sale(business, [(p, 2)], date=day))
+
+    zr, created = ZReading.seal(business, day, user=owner)
+    assert created is True
+    assert zr.z_counter == 1
+    assert zr.reference == 'Z-0000000001'
+    # The sealed figure equals the live reading it was sealed from.
+    assert zr.net_amount == compute_reading(business, day)['net_amount'] == Decimal('300.00')
+    # The whole reading is frozen in the snapshot, money kept exact as strings.
+    assert zr.snapshot['net_amount'] == '300.00'
+    assert zr.snapshot['present_accumulated'] == '300.00'
+
+
+def test_seal_is_idempotent(business, owner):
+    """Re-sealing the same day is a no-op — one Z per day, no second counter burned."""
+    from Sales.models import ZReading
+    day = _yesterday()
+    p = make_product(business, selling_price='100')
+    ring(business, make_sale(business, [(p, 1)], date=day))
+
+    zr1, created1 = ZReading.seal(business, day, user=owner)
+    zr2, created2 = ZReading.seal(business, day, user=owner)
+    assert created1 is True and created2 is False
+    assert zr1.pk == zr2.pk
+    assert ZReading.objects.filter(business=business, date=day).count() == 1
+
+
+def test_a_sealed_day_never_restates(client, business, owner):
+    """Pen, not pencil: a sale rung into a day AFTER it was sealed must not change the
+    sealed Z — the frozen snapshot renders, not a live recompute."""
+    from Sales.models import ZReading
+    day = _yesterday()
+    p = make_product(business, selling_price='100')
+    ring(business, make_sale(business, [(p, 1)], date=day))     # net 100
+
+    zr, _ = ZReading.seal(business, day, user=owner)
+    assert zr.net_amount == Decimal('100.00')
+
+    # Something changes on that day afterwards (a late-posted sale).
+    ring(business, make_sale(business, [(p, 5)], date=day))     # would push net to 600 live
+    assert compute_reading(business, day)['net_amount'] == Decimal('600.00')  # live moved
+    assert ZReading.for_day(business, day).net_amount == Decimal('100.00')    # sealed did not
+
+    # The rendered document shows the FROZEN figure, not the recomputed one.
+    client.force_login(owner)
+    resp = client.get(reverse('z-reading', kwargs={'business_slug': business.slug}),
+                      {'date': day.isoformat()})
+    html = resp.content.decode()
+    assert 'Z-0000000001' in html                # sealed → prints the Z counter
+    assert 'PREVIEW' not in html                 # sealed → not a preview
+    assert '100.00' in html and '600.00' not in html
+
+
+def test_cannot_seal_today_or_the_future(business, owner):
+    from Sales.models import ZReading
+    p = make_product(business, selling_price='100')
+    ring(business, make_sale(business, [(p, 1)], date=timezone.localdate()))
+    with pytest.raises(ValueError):
+        ZReading.seal(business, timezone.localdate(), user=owner)
+    with pytest.raises(ValueError):
+        ZReading.seal(business, timezone.localdate() + timedelta(days=1), user=owner)
+
+
+def test_z_counter_increments_across_days(business, owner):
+    from Sales.models import ZReading
+    p = make_product(business, selling_price='100')
+    d1, d2 = _yesterday() - timedelta(days=1), _yesterday()
+    ring(business, make_sale(business, [(p, 1)], date=d1))
+    ring(business, make_sale(business, [(p, 1)], date=d2))
+
+    z1, _ = ZReading.seal(business, d1, user=owner)
+    z2, _ = ZReading.seal(business, d2, user=owner)
+    assert z1.z_counter == 1 and z2.z_counter == 2
+
+
+# ── chronological seal guard — days must seal oldest-first ────────────────────
+
+def test_cannot_seal_out_of_order(business, owner):
+    """Sealing a newer day while an older one is still open is refused, so the Z counter
+    can never run out of calendar order."""
+    from Sales.models import ZReading
+    p = make_product(business, selling_price='100')
+    older, newer = _yesterday() - timedelta(days=1), _yesterday()
+    ring(business, make_sale(business, [(p, 1)], date=older))
+    ring(business, make_sale(business, [(p, 1)], date=newer))
+
+    with pytest.raises(ValueError):
+        ZReading.seal(business, newer, user=owner)          # older still open → blocked
+
+    # Sealing in order works, and unblocks the next day.
+    ZReading.seal(business, older, user=owner)
+    zr, created = ZReading.seal(business, newer, user=owner)
+    assert created is True and zr.z_counter == 2
+
+
+def test_earliest_unsealed_day_ignores_voided_only_days(business, owner):
+    """A day whose only sale was voided isn't a reachable trading day (it never shows on the
+    list), so it must not become an un-sealable blocker for every later day."""
+    from Sales.models import ZReading
+    p = make_product(business, selling_price='100')
+    void_only = _yesterday() - timedelta(days=1)
+    good = _yesterday()
+
+    bad = make_sale(business, [(p, 1)], date=void_only)
+    ring(business, bad)
+    bad.is_void = True
+    bad.void_reason = 'test'
+    bad.save(update_fields=['is_void', 'void_reason'])
+    void_on_odometer(business, bad)
+
+    ring(business, make_sale(business, [(p, 1)], date=good))
+
+    # The all-void day is skipped; the good day is the earliest sealable one.
+    assert ZReading.earliest_unsealed_day(business) == good
+    zr, created = ZReading.seal(business, good, user=owner)   # not blocked by the void day
+    assert created is True
+
+
+def test_modal_only_offers_seal_on_the_earliest_open_day(client, owner):
+    from Sales.models import ZReading
+    biz, _ = make_business(owner)
+    p = make_product(biz, selling_price='100')
+    older, newer = _yesterday() - timedelta(days=1), _yesterday()
+    ring(biz, make_sale(biz, [(p, 1)], date=older))
+    ring(biz, make_sale(biz, [(p, 1)], date=newer))
+    client.force_login(owner)
+
+    url = reverse('z-reading-modal', kwargs={'business_slug': biz.slug})
+    newer_resp = client.get(url, {'date': newer.isoformat()})
+    assert newer_resp.context['can_seal'] is False
+    assert newer_resp.context['earliest_unsealed'] == older
+    assert b'id="zrSealStart"' not in newer_resp.content
+    assert b'sealed in date order' in newer_resp.content     # tells them what to seal first
+
+    older_resp = client.get(url, {'date': older.isoformat()})
+    assert older_resp.context['can_seal'] is True
+    assert b'id="zrSealStart"' in older_resp.content
+
+
+def test_seal_view_refuses_out_of_order_post(client, owner):
+    """Even a hand-crafted POST to a newer day is refused while an older day is open."""
+    from Sales.models import ZReading
+    biz, _ = make_business(owner)
+    p = make_product(biz, selling_price='100')
+    older, newer = _yesterday() - timedelta(days=1), _yesterday()
+    ring(biz, make_sale(biz, [(p, 1)], date=older))
+    ring(biz, make_sale(biz, [(p, 1)], date=newer))
+    client.force_login(owner)
+
+    seal_newer = f"{reverse('z-reading-seal', kwargs={'business_slug': biz.slug})}?date={newer.isoformat()}"
+    resp = client.post(seal_newer)
+    assert resp.status_code == 200
+    assert not ZReading.objects.filter(business=biz, date=newer).exists()   # nothing sealed
+    assert b'sealed in date order' in resp.content
+
+
+def test_list_flags_the_ready_to_seal_day(client, owner):
+    biz, _ = make_business(owner)
+    p = make_product(biz, selling_price='100')
+    older, newer = _yesterday() - timedelta(days=1), _yesterday()
+    ring(biz, make_sale(biz, [(p, 1)], date=older))
+    ring(biz, make_sale(biz, [(p, 1)], date=newer))
+    client.force_login(owner)
+
+    resp = client.get(reverse('z-reading-list', kwargs={'business_slug': biz.slug}))
+    rows = {d['date']: d for d in resp.context['days']}
+    assert rows[older]['ready_to_seal'] is True
+    assert rows[newer]['ready_to_seal'] is False
+    assert b'Ready to seal' in resp.content
+
+
+def test_a_sealed_z_is_append_only(business, owner):
+    from Sales.models import ZReading
+    day = _yesterday()
+    p = make_product(business, selling_price='100')
+    ring(business, make_sale(business, [(p, 1)], date=day))
+    zr, _ = ZReading.seal(business, day, user=owner)
+
+    with pytest.raises(ValueError):
+        zr.net_amount = Decimal('999')
+        zr.save()
+    with pytest.raises(ValueError):
+        zr.delete()
+
+
+# ── the seal flow through the views ──────────────────────────────────────────
+
+def test_modal_offers_seal_for_a_past_unsealed_day(client, owner):
+    biz, _ = make_business(owner)
+    day = _yesterday()
+    p = make_product(biz, selling_price='100')
+    ring(biz, make_sale(biz, [(p, 1)], date=day))
+    client.force_login(owner)
+
+    resp = client.get(reverse('z-reading-modal', kwargs={'business_slug': biz.slug}),
+                      {'date': day.isoformat()})
+    assert resp.status_code == 200
+    assert resp.context['can_seal'] is True
+    assert b'id="zrSealStart"' in resp.content        # the Seal button is offered
+
+
+def test_modal_offers_no_seal_for_today(client, owner):
+    biz, _ = make_business(owner)
+    p = make_product(biz, selling_price='100')
+    ring(biz, make_sale(biz, [(p, 1)], date=timezone.localdate()))
+    client.force_login(owner)
+
+    resp = client.get(reverse('z-reading-modal', kwargs={'business_slug': biz.slug}),
+                      {'date': timezone.localdate().isoformat()})
+    assert resp.context['can_seal'] is False
+    assert b'id="zrSealStart"' not in resp.content   # no Seal button (the JS ref stays)
+
+
+def test_seal_view_seals_and_flags_the_list_to_refresh(client, owner):
+    from Sales.models import ZReading
+    biz, _ = make_business(owner)
+    day = _yesterday()
+    p = make_product(biz, selling_price='100')
+    ring(biz, make_sale(biz, [(p, 1)], date=day))
+    client.force_login(owner)
+
+    # date rides the query string (that's how the hx-post URL supplies it).
+    seal_url = f"{reverse('z-reading-seal', kwargs={'business_slug': biz.slug})}?date={day.isoformat()}"
+    resp = client.post(seal_url)
+    assert resp.status_code == 200
+    assert ZReading.objects.filter(business=biz, date=day).exists()
+    html = resp.content.decode()
+    assert 'Sealed as' in html                       # modal re-rendered in sealed state
+    assert 'data-reload-on-close' in html            # closing refreshes the list
+    assert 'id="zrSealStart"' not in html            # no seal button once sealed
+
+    # Re-posting is idempotent and no longer asks the list to reload.
+    resp2 = client.post(seal_url)
+    assert 'Sealed as' in resp2.content.decode()
+    assert 'data-reload-on-close' not in resp2.content.decode()
+    assert ZReading.objects.filter(business=biz, date=day).count() == 1
+
+
+def test_staff_cannot_seal(client, business):
+    from Sales.models import ZReading
+    staff_user, _emp = make_staff(business)
+    day = _yesterday()
+    client.force_login(staff_user)
+
+    seal_url = f"{reverse('z-reading-seal', kwargs={'business_slug': business.slug})}?date={day.isoformat()}"
+    resp = client.post(seal_url)
+    assert resp.status_code in (302, 403, 404)
+    assert not ZReading.objects.filter(business=business, date=day).exists()
+
+
+def test_list_shows_the_sealed_chip(client, owner):
+    from Sales.models import ZReading
+    biz, _ = make_business(owner)
+    day = _yesterday()
+    p = make_product(biz, selling_price='100')
+    ring(biz, make_sale(biz, [(p, 1)], date=day))
+    ZReading.seal(biz, day, user=owner)
+    client.force_login(owner)
+
+    resp = client.get(reverse('z-reading-list', kwargs={'business_slug': biz.slug}))
+    row = next(d for d in resp.context['days'] if d['date'] == day)
+    assert row['sealed'] is not None
+    assert b'Sealed' in resp.content
