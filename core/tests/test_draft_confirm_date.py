@@ -27,6 +27,8 @@ WEDNESDAY = date(2026, 7, 15)
 
 def test_where_a_parked_draft_lands_when_confirmed_later(client, owner, capsys):
     biz, _plan = make_business(owner, plan='pro')
+    biz.is_bir_active = True          # SI numbering + odometer only run in official mode
+    biz.save(update_fields=['is_bir_active'])
     product = make_product(biz, selling_price='100', stock=50)
     client.force_login(owner)
 

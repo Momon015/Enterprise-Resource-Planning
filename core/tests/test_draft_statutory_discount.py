@@ -31,8 +31,13 @@ def cart_with_a_pwd_customer(client, owner):
     """A ₱50 item in the cart, customer flagged PWD, at a non-VAT seller.
 
     Non-VAT because that is the common case: ₱50 → 20% off → ₱40, no VAT anywhere.
+
+    is_bir_active=True: these drafts stamp SI numbers and post to the odometer on
+    confirm, which only happens in official mode.
     """
     biz, _plan = make_business(owner, plan='pro')
+    biz.is_bir_active = True
+    biz.save(update_fields=['is_bir_active'])
     product = make_product(biz, selling_price='50', stock=10)
     client.force_login(owner)
 

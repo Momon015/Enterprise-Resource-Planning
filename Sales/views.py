@@ -191,10 +191,17 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
     # "Gross Amount" as the SAME figure and then deducts discount from it. So the
     # odometer tracks gross and the Z reading subtracts discounts, returns and voids
     # afterwards to reach net. Posting net here would double-deduct the discount.
-    AccumulatedGrandSalesEntry.post(
-        business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.subtotal,
-        source=sale_obj, ref=sale_obj.reference,
-    )
+    #
+    # MODE GATE: the odometer is BIR machinery — it only runs for a business that issues
+    # official invoices through paKITA (is_bir_active). An internal-tracking business
+    # (ORD- slips, manual booklets) records NO accumulated grand total, which is exactly
+    # what lets the SI-/Z run begin cleanly at accreditation with nothing to backfill.
+    # Keyed on is_bir_active alone to match Sale.save()'s reference split.
+    if business.is_bir_active:
+        AccumulatedGrandSalesEntry.post(
+            business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.subtotal,
+            source=sale_obj, ref=sale_obj.reference,
+        )
 
     sale_obj.is_locked = True
     sale_obj.save(update_fields=['is_locked'])
@@ -591,6 +598,21 @@ def _first_trading_day(business):
             .aggregate(d=Min('date'))['d'])
 
 
+def _require_bir_active(business):
+    """A Z reading only exists for a business that ISSUES official BIR invoices through
+    paKITA (`is_bir_active`). In internal mode nothing feeds one: no accumulated grand
+    total is recorded and sales draw ORD- order numbers, not the SI- accountable run —
+    so the reading would render a page of zeroes that LOOKS like a statutory document.
+    That is worse than absent, hence closed rather than empty.
+
+    404, not a redirect — same convention as the services/product-create gates: the nav
+    link is hidden, so the only visitor is someone poking at a pasted URL (or who flipped
+    the mode off after bookmarking it). Internal businesses use the Daily Summary instead.
+    """
+    if not business.is_bir_active:
+        raise Http404("Z readings are only issued in BIR-official mode.")
+
+
 @login_required(login_url='login')
 @permission_required('staff_view')   # owner-only — a Z reading is a BIR/financial surface
 def z_reading_list(request, business_slug):
@@ -600,6 +622,7 @@ def z_reading_list(request, business_slug):
     sealed Z with a burned counter."""
     from django.db.models import Count
     business = get_business_for_user(request.user, business_slug)
+    _require_bir_active(business)
     today = timezone.localdate()
 
     # Trading days + that day's net revenue (active) and transaction count, in one pass.
@@ -675,6 +698,7 @@ def z_reading_modal(request, business_slug):
     """The modal shell (htmx → #confirmBody): frames the printable doc and carries the
     date-picker bounds. The reading itself lives in the iframe (z_reading below)."""
     business = get_business_for_user(request.user, business_slug)
+    _require_bir_active(business)
     day, today = _resolve_reading_day(request)
     return render(request, 'Sales/_z_reading_modal.html',
                   _z_modal_context(business, day, today))
@@ -693,6 +717,7 @@ def z_reading(request, business_slug):
     from core.utils.reading import compute_reading
 
     business = get_business_for_user(request.user, business_slug)
+    _require_bir_active(business)
     day, _today = _resolve_reading_day(request)
     zreading = ZReading.for_day(business, day)
     reading = zreading.reading_context() if zreading else compute_reading(business, day)
@@ -714,6 +739,7 @@ def z_reading_seal(request, business_slug):
     the newly-sealed row shows its Z counter. Idempotent — re-posting a sealed day is a
     no-op that simply re-renders the sealed modal."""
     business = get_business_for_user(request.user, business_slug)
+    _require_bir_active(business)
     day, today = _resolve_reading_day(request)
 
     sealed_now = False
@@ -1618,11 +1644,17 @@ def void_sale(request, business_slug, sale_id):
         # source_ref stays the SI, not the VD: the useful audit question is "which
         # invoice did this reverse". The void's own number is on sale.void_reference,
         # one hop away via source_id, and that is what "Beg./End. VOID #" reads.
-        AccumulatedGrandSalesEntry.post(
-            business, AccumulatedGrandSalesEntry.CHANNEL_VOID, sale.subtotal,
-            source=sale, ref=sale.reference,
-            business_date=timezone.localdate(),
-        )
+        #
+        # MODE GATE (see _finalize_sale): a void only posts to the odometer when the
+        # business runs in official mode. An internal sale was never posted in the first
+        # place, so voiding it must not post either — or the VOID channel would carry a
+        # reversal with no matching SALE and the Z reading would under-report.
+        if business.is_bir_active:
+            AccumulatedGrandSalesEntry.post(
+                business, AccumulatedGrandSalesEntry.CHANNEL_VOID, sale.subtotal,
+                source=sale, ref=sale.reference,
+                business_date=timezone.localdate(),
+            )
 
 
     # 3) re-ring → reload items into the cart and jump to it
@@ -1984,10 +2016,14 @@ def sales_return_create(request, business_slug, sale_id):
             # rather than subtracting from the sales odometer. The original sale
             # really was rung and really was invoiced; the refund is a second
             # accountable event, not an erasure of the first.
-            AccumulatedGrandSalesEntry.post(
-                business, AccumulatedGrandSalesEntry.CHANNEL_RETURN, total_refund,
-                source=return_obj, ref=return_obj.reference,
-            )
+            #
+            # MODE GATE (see _finalize_sale): only official-mode returns post. An
+            # internal sale never hit the odometer, so its return must not either.
+            if business.is_bir_active:
+                AccumulatedGrandSalesEntry.post(
+                    business, AccumulatedGrandSalesEntry.CHANNEL_RETURN, total_refund,
+                    source=return_obj, ref=return_obj.reference,
+                )
 
         messages.success(request, f"Return {return_obj.reference} recorded.")
         return redirect('sales-return-success', business_slug=business.slug, return_id=return_obj.id)

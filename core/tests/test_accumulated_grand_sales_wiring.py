@@ -32,12 +32,46 @@ def sale_to_void(client, owner):
 
     can_void_sale() gates on the drawer, not the calendar — a business with no shift
     today has nothing to disturb, so a same-day sale stays voidable.
+
+    is_bir_active=True because the odometer is official-mode machinery: an internal
+    business (the default) records nothing, so a wiring test measuring the odometer
+    has to run in the mode where the odometer exists.
     """
     biz, _plan = make_business(owner, plan='pro')
+    biz.is_bir_active = True
+    biz.save(update_fields=['is_bir_active'])
     product = make_product(biz, selling_price='125')
     sale = make_sale(biz, [(product, 2)])       # 250.00
     client.force_login(owner)
     return biz, sale
+
+
+def test_an_internal_business_records_nothing_to_the_odometer(client, owner):
+    """The mirror of the wiring tests: in internal mode (is_bir_active=False, the default)
+    the odometer is not just correct, it is SILENT. No sale, void or return may post.
+
+    This is what lets an SI-/Z run begin cleanly the day a business is accredited — with
+    an internal history behind it, there is no accumulated grand total to reconcile or
+    backfill, because none was ever kept. A void here is the sharpest case: it must not
+    post a reversal to a channel whose matching sale was never recorded.
+    """
+    biz, _plan = make_business(owner, plan='pro')     # is_bir_active defaults to False
+    assert biz.is_bir_active is False, "fixture drifted — this test needs internal mode"
+    product = make_product(biz, selling_price='125')
+    sale = make_sale(biz, [(product, 2)])
+    client.force_login(owner)
+
+    client.post(
+        reverse('void-sale', kwargs={'business_slug': biz.slug, 'sale_id': sale.id}),
+        {'void_reason': 'wrong_item', 'action': 'void'},
+    )
+    sale.refresh_from_db()
+    assert sale.is_void is True, "the void didn't happen — test is measuring nothing"
+
+    assert AccumulatedGrandSalesEntry.objects.filter(business=biz).count() == 0, (
+        "an internal-mode business posted to the BIR odometer — the accreditation-day "
+        "fresh start depends on internal history leaving no accumulated total behind"
+    )
 
 
 def test_voiding_through_the_view_records_to_the_void_channel(client, sale_to_void):
@@ -124,6 +158,8 @@ def test_the_odometer_records_gross_not_net_of_discount(client, owner):
     without building a session cart.
     """
     biz, _plan = make_business(owner, plan='pro')
+    biz.is_bir_active = True                     # odometer only runs in official mode
+    biz.save(update_fields=['is_bir_active'])
     product = make_product(biz, selling_price='100')
     sale = make_sale(biz, [(product, 10)], discount_percent=20)   # 1000 gross, 200 off
     client.force_login(owner)
