@@ -252,15 +252,20 @@
               {% endif %}
             </a>
           </li>
+          {% comment %} BIR End-of-Day (Z) reading — owner-only, computed. Sits in Financial
+              Overview (exact statutory numbers), not Analytics (trends). Only a business that
+              ISSUES official BIR invoices through paKITA (is_bir_active) needs a Z reading; an
+              internal-tracking business on manual booklets has no accountable run to read, so
+              the nav is hidden for it. Mode switch, not a receipt toggle — see BIR mode design. {% endcomment %}
+          {% if current_business.is_bir_active %}
           <li>
-            {% comment %} BIR End-of-Day (Z) reading — owner-only, computed. Sits in Financial
-                Overview (exact statutory numbers), not Analytics (trends). {% endcomment %}
             <a class="sidebar-nav__link {% if section == 'z-reading' %}is-active{% endif %}"
               href="{% url 'z-reading-list' business_slug=current_business.slug %}">
               <i class="bi bi-file-earmark-ruled"></i>
               <span>Z Reading</span>
             </a>
           </li>
+          {% endif %}
 
           {% comment %} <li>
             <a class="sidebar-nav__link {% if section == 'receivable' %}is-active{% endif %}"

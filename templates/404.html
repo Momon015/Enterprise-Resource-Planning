@@ -1,0 +1,95 @@
+{% load static %}
+{% comment %} 404 — page not found.
+
+  STANDALONE on purpose: this template does NOT extend main.html, so it pulls in
+  neither navbar.html nor the topbar. A 404 can be raised from anywhere — including
+  a business-scoped URL whose slug doesn't belong to the signed-in user — and the
+  chrome assumes a resolved current_business. If any of it raised while rendering
+  the 404, Django would swallow the 404 and serve a 500 instead. A bad link should
+  never be able to escalate into a server error, so the error screen carries its own
+  <head> and only depends on tokens.
+
+  Every {% url %} below sits inside a branch that has already proved its argument
+  exists: NoReverseMatch here would be that same 404-becomes-500 failure.
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ request.user.theme|default:'light' }}" data-bs-theme="{{ request.user.theme|default:'light' }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found &middot; paKITA</title>
+
+    <link rel="icon" href="{% static 'favicon.ico' %}" sizes="48x48">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/brand/favicon-32.png' %}">
+
+    <link href="{% static 'vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet" />
+    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=186" />
+  </head>
+
+  <body class="err-body">
+    <main class="err-page">
+
+      {% comment %} Brand only — no nav links. Half of them would 404 for a staff account
+        and none of them are the answer to "I'm on the wrong page". {% endcomment %}
+      <span class="err-topline">
+        {% comment %} The real lockup, same as the landing nav: Λ tile + the gold recraft
+          wordmark. Both halves swap by theme — the light tile is white and the dark one
+          black so only the Λ reads against the page, and the wordmark has a matching
+          pair. Never set the name in live type: the wordmark is an asset, and a typed
+          "paKITA" beside it is a second version of the brand. {% endcomment %}
+        <img class="err-brand__mark err-brand__mark--light" src="{% static 'images/brand/mark-light-48.png' %}" alt="" aria-hidden="true">
+        <img class="err-brand__mark err-brand__mark--dark" src="{% static 'images/brand/favicon-48.png' %}" alt="" aria-hidden="true">
+        <img class="err-brand__word err-brand__word--light" src="{% static 'images/brand/pakita-recraft-light.png' %}" alt="paKITA">
+        <img class="err-brand__word err-brand__word--dark" src="{% static 'images/brand/pakita-recraft-transparent.png' %}" alt="paKITA">
+      </span>
+
+      <div class="err-stack">
+        {% comment %} Scenery, not a heading — the <h1> underneath carries the message.
+          aria-hidden so a screen reader doesn't open with "four zero four". {% endcomment %}
+        <p class="err-code" aria-hidden="true">404</p>
+
+        <h1 class="err-title">The page can't be found</h1>
+        <p class="err-lead">
+          This page may no longer exist, or you may not have access to it.
+        </p>
+
+        {% comment %} No path echo here on purpose. django.views.defaults.page_not_found does
+          pass request_path, but showing the URL back to someone who already knows they
+          mistyped it adds a line of noise and no next step. {% endcomment %}
+        <div class="err-actions">
+          {% if user.is_authenticated and current_business %}
+            {% if current_business.plan.has_dashboard %}
+              <a class="btn err-cta" href="{% url 'dashboard' business_slug=current_business.slug %}">
+                Go to dashboard
+              </a>
+            {% else %}
+              {% comment %} Plans without a dashboard land on products — the same fallback
+                the sidebar brand link uses. {% endcomment %}
+              <a class="btn err-cta" href="{% url 'product-list' business_slug=current_business.slug %}">
+                Go to products
+              </a>
+            {% endif %}
+          {% elif user.is_authenticated %}
+            {% comment %} Signed in but no business yet (fresh account, or every business
+              archived) — no slug exists to reverse with, so send them home. {% endcomment %}
+            <a class="btn err-cta" href="{% url 'landing' %}">Go to home</a>
+          {% else %}
+            <a class="btn err-cta" href="{% url 'login' %}">Sign in</a>
+          {% endif %}
+
+          <button type="button" class="err-back" onclick="history.back()">
+            <i class="bi bi-arrow-left"></i> Go back
+          </button>
+        </div>
+      </div>
+
+      <p class="err-note">If a link inside paKITA brought you here, tell us so we can fix it.</p>
+    </main>
+  </body>
+</html>

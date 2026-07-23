@@ -23,6 +23,28 @@ from tests.factories import (make_business, make_product, make_sale, make_paymen
 DAY = date(2026, 7, 21)
 
 
+def make_official_business(owner, **kwargs):
+    """make_business() in BIR-OFFICIAL mode — the only mode where a Z reading exists.
+
+    A Z reading is for a business that ISSUES official invoices through paKITA
+    (`is_bir_active`). Internal-mode businesses keep no accumulated grand total, draw
+    ORD- order numbers instead of the SI- accountable run, and their reading views 404 —
+    so official mode isn't decoration on these tests, it is the only mode in which the
+    subject under test exists at all.
+    """
+    biz, bp = make_business(owner, **kwargs)
+    biz.is_bir_active = True
+    biz.save(update_fields=['is_bir_active'])
+    return biz, bp
+
+
+@pytest.fixture
+def business(owner):
+    """Shadows the global `business` fixture so this whole file runs in official mode."""
+    biz, _bp = make_official_business(owner)
+    return biz
+
+
 def ring(business, sale):
     """Mirror checkout: post the sale's GROSS subtotal to the sales odometer."""
     return AG.post(business, AG.CHANNEL_SALE, sale.subtotal, source=sale)
@@ -195,7 +217,7 @@ def test_statutory_exemption_keeps_zero_rated_lines_zero_rated(business):
 def test_product_list_badges_only_exempt_and_zero_for_vat_seller(client, owner):
     """The list badges the EXCEPTIONS only — VAT-Exempt / Zero-Rated — not plain VATable
     (which is the default and would be noise on every row), and only for a VAT seller."""
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     biz.is_vat_registered = True
     biz.save()
     make_product(biz, name='Plain Item', selling_price='100')          # VATable (default)
@@ -215,7 +237,7 @@ def test_product_list_badges_only_exempt_and_zero_for_vat_seller(client, owner):
 
 
 def test_product_list_hides_vat_badges_for_non_vat_seller(client, owner):
-    biz, _ = make_business(owner)   # non-VAT
+    biz, _ = make_official_business(owner)   # non-VAT
     ex = make_product(biz, name='Medicine', selling_price='50')
     ex.vat_class = 'exempt'
     ex.save()
@@ -229,7 +251,7 @@ def test_product_list_hides_vat_badges_for_non_vat_seller(client, owner):
 def test_sale_detail_shows_vat_breakdown_for_vat_seller(client, owner):
     """The detail page mirrors the receipt's V / VAT / Exempt / Zero block — including the
     Zero-Rated line that was previously missing there — for a VAT-registered seller."""
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     biz.is_vat_registered = True
     biz.save()
     vatable = make_product(biz, selling_price='112')
@@ -249,7 +271,7 @@ def test_sale_detail_shows_vat_breakdown_for_vat_seller(client, owner):
 
 def test_sale_detail_hides_vat_breakdown_for_non_vat_seller(client, owner):
     """Non-VAT sellers (the common case) don't see the block — vat_summary is None."""
-    biz, _ = make_business(owner)   # non-VAT by default
+    biz, _ = make_official_business(owner)   # non-VAT by default
     p = make_product(biz, selling_price='100')
     sale = make_sale(biz, [(p, 1)], date=timezone.localdate())
     client.force_login(owner)
@@ -265,7 +287,7 @@ def test_mixed_statutory_cart_preview_and_summary_agree(client, owner):
     ₱57.54 on the live screen): a PWD 20% cart with a VATable + VAT-exempt item must relieve
     VAT on the VATable line only. ₱112 vatable + ₱50 exempt → net ₱120, not ₱115.71."""
     from django.urls import reverse
-    biz, _ = make_business(owner, plan='pro')
+    biz, _ = make_official_business(owner, plan='pro')
     biz.is_vat_registered = True
     biz.save()
     vatable = make_product(biz, selling_price='112')
@@ -305,7 +327,7 @@ def test_an_empty_day_reads_all_zeros(business):
 # ── the owner-only page renders (guards against a template 500) ──────────────
 
 def test_owner_can_open_the_z_reading_page(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     ring(biz, make_sale(biz, [(p, 1)], date=timezone.localdate()))
     client.force_login(owner)
@@ -325,10 +347,40 @@ def test_staff_cannot_open_the_z_reading_page(client, business):
     assert b'END OF Z READING' not in resp.content
 
 
+@pytest.mark.parametrize('route', ['z-reading', 'z-reading-list', 'z-reading-modal',
+                                   'z-reading-seal'])
+def test_an_internal_business_gets_a_404_from_every_z_reading_url(client, owner, route):
+    """Hiding the nav link is not the gate — the URLs are.
+
+    An internal-mode business (the default) keeps no accumulated grand total, so every
+    reading it could render would be a page of ZEROES wearing the layout of a statutory
+    document. Serving that is worse than serving nothing: it looks like a filed Z. The
+    owner is the one person who could paste an old link or flip the mode off after
+    bookmarking, so the close has to be server-side on all four routes, not cosmetic.
+    """
+    biz, _ = make_business(owner)                 # is_bir_active defaults to False
+    assert biz.is_bir_active is False, "factory drifted — this test needs internal mode"
+    p = make_product(biz, selling_price='100')
+    make_sale(biz, [(p, 1)], date=_yesterday())   # real trading data, still no reading
+    client.force_login(owner)
+
+    resp = client.get(reverse(route, kwargs={'business_slug': biz.slug}))
+    assert resp.status_code == 404, f"{route} stayed reachable in internal mode"
+
+    # Tests run with DEBUG=False, so this really did render templates/404.html — and by
+    # the hardest path: signed in WITH a resolved current_business, the branch that
+    # reverses {% url 'dashboard' %}. That template is standalone precisely so a bad tag
+    # inside it can't turn a 404 into a 500, and this is what holds it to that.
+    assert b"The page can't be found" in resp.content, (
+        "the 404 handler didn't render the custom page — a raising 404 template "
+        "escalates every dead link in the app into a server error"
+    )
+
+
 # ── the list landing + modal ─────────────────────────────────────────────────
 
 def test_the_list_shows_a_row_per_trading_day(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     make_sale(biz, [(p, 1)], date=DAY)
     make_sale(biz, [(p, 1)], date=DAY - timedelta(days=2))
@@ -350,7 +402,7 @@ def test_the_list_shows_a_row_per_trading_day(client, owner):
 def test_the_list_net_matches_the_reading_it_opens(client, owner):
     """The figure on the list row must equal the Net Amount inside the reading — one
     number, computed one way, so the row and the document never disagree."""
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     s = make_sale(biz, [(p, 1)], date=DAY, discount_percent=20)   # net 80
     s.discount_type = 'sc'
@@ -364,7 +416,7 @@ def test_the_list_net_matches_the_reading_it_opens(client, owner):
 
 
 def test_the_modal_frames_the_reading(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     make_sale(biz, [(p, 1)], date=timezone.localdate())
     client.force_login(owner)
@@ -517,7 +569,7 @@ def test_earliest_unsealed_day_ignores_voided_only_days(business, owner):
 
 def test_modal_only_offers_seal_on_the_earliest_open_day(client, owner):
     from Sales.models import ZReading
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     older, newer = _yesterday() - timedelta(days=1), _yesterday()
     ring(biz, make_sale(biz, [(p, 1)], date=older))
@@ -539,7 +591,7 @@ def test_modal_only_offers_seal_on_the_earliest_open_day(client, owner):
 def test_seal_view_refuses_out_of_order_post(client, owner):
     """Even a hand-crafted POST to a newer day is refused while an older day is open."""
     from Sales.models import ZReading
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     older, newer = _yesterday() - timedelta(days=1), _yesterday()
     ring(biz, make_sale(biz, [(p, 1)], date=older))
@@ -554,7 +606,7 @@ def test_seal_view_refuses_out_of_order_post(client, owner):
 
 
 def test_list_flags_the_ready_to_seal_day(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     older, newer = _yesterday() - timedelta(days=1), _yesterday()
     ring(biz, make_sale(biz, [(p, 1)], date=older))
@@ -585,7 +637,7 @@ def test_a_sealed_z_is_append_only(business, owner):
 # ── the seal flow through the views ──────────────────────────────────────────
 
 def test_modal_offers_seal_for_a_past_unsealed_day(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     day = _yesterday()
     p = make_product(biz, selling_price='100')
     ring(biz, make_sale(biz, [(p, 1)], date=day))
@@ -599,7 +651,7 @@ def test_modal_offers_seal_for_a_past_unsealed_day(client, owner):
 
 
 def test_modal_offers_no_seal_for_today(client, owner):
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     p = make_product(biz, selling_price='100')
     ring(biz, make_sale(biz, [(p, 1)], date=timezone.localdate()))
     client.force_login(owner)
@@ -612,7 +664,7 @@ def test_modal_offers_no_seal_for_today(client, owner):
 
 def test_seal_view_seals_and_flags_the_list_to_refresh(client, owner):
     from Sales.models import ZReading
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     day = _yesterday()
     p = make_product(biz, selling_price='100')
     ring(biz, make_sale(biz, [(p, 1)], date=day))
@@ -649,7 +701,7 @@ def test_staff_cannot_seal(client, business):
 
 def test_list_shows_the_sealed_chip(client, owner):
     from Sales.models import ZReading
-    biz, _ = make_business(owner)
+    biz, _ = make_official_business(owner)
     day = _yesterday()
     p = make_product(biz, selling_price='100')
     ring(biz, make_sale(biz, [(p, 1)], date=day))

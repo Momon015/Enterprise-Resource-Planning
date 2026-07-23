@@ -9197,3 +9197,225 @@ label:has(+ select[name$="_year"]) {
 }
 .ps-empty-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .ps-empty-sub { margin-top: 0.2rem; font-size: 0.8rem; color: var(--muted); }
+
+
+/* ══════════════════════════════════════════
+   ERROR SCREENS — templates/404.html
+   Full-bleed hero, NOT a card. A boxed panel floating mid-screen reads as a modal
+   that lost its backdrop; this is a whole page and should occupy one. Structure is
+   the one every good 404 converges on — oversized numeral, one line of plain
+   English, one obvious way out.
+
+   Light and dark are the SAME rules re-valued by [data-theme]: the numeral is a
+   gradient of --border-strong that fades out before it lands, and the bloom behind
+   it is --accent-light. The only theme-specific rule is the brand tile swap, which
+   can't be a token because it's two different image files.
+══════════════════════════════════════════ */
+
+/* Undo the app shell. The global element rules further up style bare <main> and
+   <footer> for the sidebar layout — margin-left: var(--sidebar-w) on both, plus a
+   near-black --ink-2 fill on the footer. This page has no sidebar, so left alone
+   the content sits 240px off-centre. Reset on the class rather than swapping the
+   tag for a <div>: the landmark is worth keeping, and any future standalone page
+   hits this same trap. Class beats element, so this wins without !important. */
+.err-page {
+  margin-left: 0;
+  background: none;
+}
+
+.err-body {
+  min-height: 100dvh;
+  background: var(--bg);
+  font-family: var(--font-sans);
+}
+
+.err-page {
+  position: relative;
+  overflow: hidden;             /* the bloom is oversized on purpose — never let it scroll */
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+}
+
+/* Bloom behind the numeral. One soft light source instead of decoration: it gives
+   the empty page a centre of gravity and is the only thing on screen carrying the
+   brand green. Drawn in --accent-light, which is a solid mint on light and a
+   translucent glaze on dark, so one rule reads correctly in both. */
+.err-page::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: min(130vw, 1180px);
+  aspect-ratio: 2 / 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, var(--accent-light), transparent 68%);
+  pointer-events: none;
+}
+
+/* ── Brand, top-left. No nav: there is nothing to navigate to from here, and a
+      dead menu on an error page is worse than no menu. ── */
+.err-topline {
+  position: relative;
+  z-index: var(--z-base);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;              /* the wordmark carries its own side bearing */
+}
+
+/* Sizes match the landing nav's lockup exactly (.lp-brand-mark / .lp-brand-wordmark)
+   so the two public-facing pages wear the brand at the same scale. No radius on the
+   tile: it is meant to disappear into the page, and rounding it turns the Λ into a
+   chip — which is a component, not a logo. */
+.err-brand__mark { display: block; width: 40px; height: 40px; flex-shrink: 0; }
+.err-brand__word { display: block; width: auto; height: 30px; }
+
+.err-brand__mark--dark,
+.err-brand__word--dark { display: none; }
+[data-theme="dark"] .err-brand__mark--light,
+[data-theme="dark"] .err-brand__word--light { display: none; }
+[data-theme="dark"] .err-brand__mark--dark,
+[data-theme="dark"] .err-brand__word--dark  { display: block; }
+
+/* ── The centred stack ── */
+.err-stack {
+  position: relative;
+  z-index: var(--z-base);
+  place-self: center;
+  width: 100%;
+  max-width: 34rem;
+  text-align: center;
+}
+
+/* The numeral is scenery, not a heading — the <h1> below carries the message, and
+   a screen reader announcing "four zero four" before it is noise. Hence aria-hidden
+   in the markup and a <p> rather than a heading tag.
+   800 is deliberate and outside the weight tokens: the scale tops out at 700, which
+   is a body-copy bold and goes limp at this size. Inter ships 800 (see the font link). */
+.err-code {
+  margin: 0;
+  font-size: clamp(7rem, 20vw, 13.5rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.82;
+  user-select: none;
+  background-image: linear-gradient(180deg, var(--border-strong) 6%, transparent 94%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* Without background-clip the numeral would be invisible, not merely unstyled. */
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .err-code {
+    color: var(--border-strong);
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+.err-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.1rem);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
+  line-height: 1.15;
+  color: var(--text-strong);
+}
+
+.err-lead {
+  max-width: 30rem;
+  margin: var(--space-3) auto 0;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── One way out, plus a quiet second. Two equal buttons would make the user pick;
+      the primary is the answer for almost everyone, so "Go back" recedes to a link. ── */
+.err-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.err-actions .err-cta {
+  padding: 0.62rem 1.35rem;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semi);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.err-actions .err-cta:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.err-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.62rem 0.25rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--muted);
+  transition: color var(--transition-fast);
+}
+.err-back:hover { color: var(--text); }
+/* The arrow leads the eye the way the click goes. */
+.err-back i { transition: transform var(--transition-fast); }
+.err-back:hover i { transform: translateX(-3px); }
+
+.err-actions .err-cta:focus-visible,
+.err-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-md);
+}
+
+.err-note {
+  position: relative;
+  z-index: var(--z-base);
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+/* ── Motion: one settle, staggered so the numeral lands before the message.
+      Distances stay small — this is an error page, it should not perform. ── */
+@keyframes err-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.err-code  { animation: err-rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.err-title { animation: err-rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.06s both; }
+.err-lead  { animation: err-rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.10s both; }
+.err-actions { animation: err-rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.14s both; }
+
+/* Motion off: everything is already where it belongs, it just doesn't travel there. */
+@media (prefers-reduced-motion: reduce) {
+  .err-code,
+  .err-title,
+  .err-lead,
+  .err-actions { animation: none; }
+  .err-back:hover i { transform: none; }
+}
+
+@media (max-width: 575px) {
+  .err-page { padding: var(--space-5) var(--space-4) var(--space-4); gap: var(--space-5); }
+  .err-lead { font-size: var(--text-sm); }
+  .err-actions { flex-direction: column; gap: var(--space-2); }
+  .err-actions .err-cta { width: 100%; }
+}
