@@ -228,9 +228,15 @@ function SaleSearch() {
           placeholder={CFG.services === '1' ? 'Search products and services…' : 'Search products…'}
           className="ps-input"
         />
-        {query && (
-          <button className="ps-clear" aria-label="Clear"
-                  onClick={() => { setQuery(''); inputRef.current?.focus() }}>
+        {/* Shows whenever the dropdown is open, not only when text is typed: the panel can
+            be open on an empty query (the best-sellers shortlist), and touch users have no
+            Esc key to dismiss it. Clears the text AND closes the panel — "remove the
+            search". onMouseDown-preventDefault so the press doesn't blur the input first
+            and let the outside-click handler race this onClick. */}
+        {(open || query) && (
+          <button className="ps-clear" aria-label="Close search"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { setQuery(''); setFocused(false); inputRef.current?.blur() }}>
             <i className="bi bi-x-lg"></i>
           </button>
         )}

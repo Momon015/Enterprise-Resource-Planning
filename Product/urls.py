@@ -10,6 +10,11 @@ urlpatterns = [
     path('view/<str:product_id>/<slug:product_slug>/detail/', views.product_detail, name='product-detail'),
     path('view/<str:product_id>/<slug:product_slug>/update/', views.product_update, name='product-update'),
     path('view/<str:product_id>/<slug:product_slug>/archive/', views.product_archive, name='product-archive'),
+
+    # Short edit modals for an EXISTING product. No slug in the URL on purpose — the
+    # Details modal can rename (and therefore re-slug) the product while it is open.
+    path('view/<int:product_id>/edit/pricing/', views.product_pricing_edit, name='product-edit-pricing'),
+    path('view/<int:product_id>/edit/details/', views.product_details_edit, name='product-edit-details'),
     
     path('add/product/preset/', views.add_product_to_preset, name='product-add-to-preset'),
     path('view/preset-list/', views.list_product_preset, name='product-preset-list'),

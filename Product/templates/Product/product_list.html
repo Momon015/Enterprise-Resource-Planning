@@ -635,7 +635,7 @@
                     </a>
 
                     <button type="button" class="action-btn action-btn--edit" title="Edit product"
-                            hx-get="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+                            hx-get="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
                             hx-target="#confirmBody" hx-swap="innerHTML">
                       <i class="bi bi-pencil"></i>
                     </button>

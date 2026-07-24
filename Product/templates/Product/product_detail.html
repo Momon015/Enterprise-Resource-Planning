@@ -74,8 +74,11 @@ document.addEventListener("DOMContentLoaded", () =>
 
   <div class="pd-card card">
     <div class="pd-toolbar">
+      {% comment %} Edit opens the SHORT pricing modal, not the 12-field long form — the edit
+      people actually make on an existing product is a price or a stock level. Photo, name
+      and catalog info are one click further in, from that modal's header. {% endcomment %}
       <button type="button" class="pd-btn"
-              hx-get="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}"
+              hx-get="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
               hx-target="#confirmBody" hx-swap="innerHTML"><i class="bi bi-pencil"></i> Edit</button>
       {% if request.user.role == 'owner' %}
       <button type="button" class="pd-btn pd-btn--danger"
@@ -93,8 +96,11 @@ document.addEventListener("DOMContentLoaded", () =>
         {% if product.image %}
           <img src="{{ product.image.url }}" alt="{{ product.name }}">
         {% else %}
+          {% comment %} Straight to the Details modal — the photo lives there. {% endcomment %}
           <a class="pd-media__empty" title="Add a photo"
-             href="{% url 'product-update' product_id=product.id product_slug=product.slug business_slug=current_business.slug %}">
+             href="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+             hx-get="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+             hx-target="#confirmBody" hx-swap="innerHTML">
             <img src="{% static 'images/no-image.svg' %}" alt="No image yet">
           </a>
         {% endif %}

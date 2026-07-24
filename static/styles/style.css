@@ -9084,8 +9084,13 @@ label:has(+ select[name$="_year"]) {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
   letter-spacing: .04em; color: var(--muted);
 }
+/* The hints describe KEYBOARD actions (↑↓ / ↵ / esc), so they earn their space only on a
+   device that has one. Hidden below 640px, and hidden on any coarse-pointer (touch) device
+   regardless of width — a wide tablet still can't press esc. The coarse rule comes AFTER
+   the width rule so it wins on a touch device that is also ≥640px. */
 .ps-hints { display: none; gap: 0.75rem; }
 @media (min-width: 640px) { .ps-hints { display: flex; } }
+@media (pointer: coarse) { .ps-hints { display: none; } }
 .ps-hints span { display: inline-flex; align-items: center; gap: 0.3rem; text-transform: none; letter-spacing: 0; }
 .ps-hints kbd {
   font-size: 0.65rem; padding: 0.05rem 0.3rem;

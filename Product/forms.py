@@ -101,55 +101,64 @@ class ProductForm(ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
+        # ── Every field access below is guarded by `in self.fields` ──────────────────
+        # The narrow edit forms (ProductPricingForm / ProductDetailsForm) subclass this
+        # one and drop Meta.fields to a subset, so they reach here with most of these
+        # missing. Guarding keeps ONE definition of the widgets, labels and cleaning for
+        # all three forms — the alternative was hand-copied field configs that drift
+        # (Product and Material already drifted that way once).
+        f = self.fields
+
         # Owner-only target margin (del for staff → not rendered AND not accepted on POST)
         if getattr(user, 'role', None) != 'owner':
-            self.fields.pop('target_margin', None)
-        else:
-            self.fields['target_margin'].required = False
-            self.fields['target_margin'].label = 'Target margin %'
-            self.fields['target_margin'].widget.attrs['placeholder'] = str(self.instance.effective_target_margin)
-            
-        self.fields['cost_price'].label = 'Unit Cost'
-        self.fields['cost_price'].required = False
-        if not self.instance.cost_price:
-            self.initial['cost_price'] = '0.00'
-        else:
-            self.initial['cost_price'] = f"{self.instance.cost_price:.2f}"
+            f.pop('target_margin', None)
+        elif 'target_margin' in f:
+            f['target_margin'].required = False
+            f['target_margin'].label = 'Target margin %'
+            f['target_margin'].widget.attrs['placeholder'] = str(self.instance.effective_target_margin)
 
-        # Material-linked products: cost is managed by the material's stock → lock it
-        if self.instance and self.instance.pk and self.instance.material:
-            self.fields['cost_price'].disabled = True
+        if 'cost_price' in f:
+            f['cost_price'].label = 'Unit Cost'
+            f['cost_price'].required = False
+            if not self.instance.cost_price:
+                self.initial['cost_price'] = '0.00'
+            else:
+                self.initial['cost_price'] = f"{self.instance.cost_price:.2f}"
+
+            # Material-linked products: cost is managed by the material's stock → lock it
+            if self.instance and self.instance.pk and self.instance.material:
+                f['cost_price'].disabled = True
 
         # Default selling price to 0.00 on create, preserve format on edit
-        if not self.instance.selling_price:
-            self.initial['selling_price'] = '0.00'
-        else:
-            self.initial['selling_price'] = f"{self.instance.selling_price:.2f}"
+        if 'selling_price' in f:
+            if not self.instance.selling_price:
+                self.initial['selling_price'] = '0.00'
+            else:
+                self.initial['selling_price'] = f"{self.instance.selling_price:.2f}"
+            f['selling_price'].label = 'Unit Price'
 
         # Default quantity to 1 on create
-        if not self.instance.pk:
-            self.initial['prepared_quantity'] = 1
+        if 'prepared_quantity' in f:
+            if not self.instance.pk:
+                self.initial['prepared_quantity'] = 1
+            f['prepared_quantity'].label = 'Quantity'
 
         # Category dropdown scoped to this business
-        self.fields['category'].queryset = Category.objects.filter(
-            category_type='product', business=business
-        )
-        self.fields['category'].empty_label = None
-        self.fields['category'].label_from_instance = lambda obj: obj.name.title()
+        if 'category' in f:
+            f['category'].queryset = Category.objects.filter(
+                category_type='product', business=business
+            )
+            f['category'].empty_label = None
+            f['category'].label_from_instance = lambda obj: obj.name.title()
 
-        # Friendlier labels
-        self.fields['selling_price'].label = 'Unit Price'
-        self.fields['prepared_quantity'].label = 'Quantity'
-        self.fields['cost_price'].label = 'Unit Cost'
-        
-        # self.fields['sku'].label = 'SKU'
-        # self.fields['sku'].required = False
-        
-        self.fields['barcode'].label = 'Barcode'
-        self.fields['barcode'].required = False
-        
-        self.fields['low_stock_threshold'].label = 'Low stock at'
-        self.fields['high_stock_threshold'].label = 'High stock at'
+        if 'barcode' in f:
+            f['barcode'].label = 'Barcode'
+            f['barcode'].required = False
+
+        if 'low_stock_threshold' in f:
+            f['low_stock_threshold'].label = 'Low stock at'
+        if 'high_stock_threshold' in f:
+            f['high_stock_threshold'].label = 'High stock at'
 
         # Apply form-control class without nuking existing widget attrs
         for field in self.fields.values():
@@ -157,6 +166,44 @@ class ProductForm(ModelForm):
             field.widget.attrs['class'] = (existing + ' form-control').strip()
 
         mark_required(self)
+
+
+# ── The two narrow edit forms for an EXISTING product ────────────────────────────────
+# An existing product already HAS an identity — a photo, a name, a category — so the long
+# 12-field form is the wrong shape for the edit people actually make, which is almost
+# always a price or a stock threshold. Split in two:
+#
+#   Pricing  — what changes often (price, margin, stock levels)
+#   Details  — what changes rarely (photo, name, category, VAT, barcode, notes)
+#
+# Together they cover ALL 12 fields of ProductForm, deliberately: the long form is now
+# create-only, so anything left out of both would become permanently uneditable. If you
+# add a field to ProductForm.Meta.fields, it MUST land in one of these two as well.
+#
+# Both subclass ProductForm rather than redeclaring anything, so widgets, labels,
+# clean_image / clean_cost_price / clean_prepared_quantity and the duplicate-name flow
+# behave identically to the long form.
+
+class ProductPricingForm(ProductForm):
+    """Modal A — the numbers. Cost stays here (not just as a read-only readout) because
+    the margin bar and the ▲ target-margin stepper compute price = cost ÷ (1 − margin);
+    without cost in the DOM the readout sits at 0% and the stepper does nothing. It is
+    still locked for material-linked products by ProductForm.__init__."""
+
+    class Meta(ProductForm.Meta):
+        fields = ['cost_price', 'target_margin', 'selling_price',
+                  'prepared_quantity', 'low_stock_threshold', 'high_stock_threshold']
+
+
+class ProductDetailsForm(ProductForm):
+    """Modal B — the identity, opened from modal A's header.
+
+    ★ Editing `name` re-slugs the product, and the product URLs carry that slug, so the
+    view must hand back the NEW url after saving or the next request 404s."""
+
+    class Meta(ProductForm.Meta):
+        fields = ['image', 'name', 'category', 'vat_class', 'barcode', 'description']
+
 
 class ProductFilterForm(forms.Form):
     search = forms.CharField(required=False)

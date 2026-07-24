@@ -1,0 +1,55 @@
+{% comment %} Modal B — Details (photo, name, catalog info). Opened from modal A's header and
+rendered into the SAME #confirmBody, so it replaces A rather than stacking on it.
+
+Back and Save both return to A: "fix the name, then carry on with the price" is one flow,
+and A re-renders from the saved row so its header shows the new photo/name immediately.
+
+hx-encoding is REQUIRED here and absent from A — this is the only one of the two carrying
+a file input, and without it htmx posts urlencoded and the image is silently dropped. {% endcomment %}
+<div class="quickview__panel cm-panel cm-panel--form cm-panel--scroll">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+
+    <div class="cm-card__head">
+      <div class="cm-head" style="margin-bottom:0;">
+        <div class="cm-thumb cm-thumb--muted">
+          {% if product.image %}
+            <img src="{{ product.image.url }}" alt="" class="pe-identity__img" id="pd-thumb">
+          {% else %}
+            <span class="cm-thumb__ph" id="pd-initials">{{ product.name|slice:":2"|upper }}</span>
+          {% endif %}
+        </div>
+        <div>
+          <div class="cm-title">Product details</div>
+          <div class="cm-sub">SKU {{ product.sku }}</div>
+        </div>
+      </div>
+    </div>
+
+    <form id="productDetailsForm" method="POST"
+          action="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+          hx-post="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+          hx-target="#confirmBody" hx-swap="innerHTML"
+          hx-encoding="multipart/form-data"
+          enctype="multipart/form-data" autocomplete="off" novalidate>
+      {% csrf_token %}
+
+      <div class="cm-card__body">
+        {% include 'Product/_product_details_fields.html' %}
+      </div>
+
+      <div class="cm-card__foot">
+        <a href="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
+           hx-get="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
+           hx-target="#confirmBody" hx-swap="innerHTML"
+           class="btn btn-outline-secondary"> Back</a>
+        <button type="submit" class="btn cm-btn cm-btn--success">
+          <i class="bi bi-check-circle sl-me-1"></i> Save
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+{% include 'partials/_required_guard.html' with form_id='productDetailsForm' %}

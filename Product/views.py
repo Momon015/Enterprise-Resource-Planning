@@ -17,7 +17,8 @@ from django.urls import reverse
 from django.core.paginator import Paginator
 
 from Product.models import Product, ProductPreset, ProductPresetItem
-from Product.forms import ProductForm, ProductFilterForm, ProductPresetFilterForm, ServiceForm, ServiceSessionFormSet
+from Product.forms import (ProductForm, ProductFilterForm, ProductPresetFilterForm, ServiceForm,
+                           ServiceSessionFormSet, ProductPricingForm, ProductDetailsForm)
 
 from Sales.models import Sale, SaleItem, SalesReturnItem
 from Expense.models import Purchase, PurchaseItem
@@ -441,6 +442,108 @@ def product_update(request, business_slug, product_slug, product_id):
         return render(request, 'Product/_product_update_modal.html', context)
 
     return render(request, 'Product/product_update.html', context)
+
+
+def _product_edit_modal(request, business_slug, product_id, *, form_class, template):
+    """Shared engine for the two short edit modals (Pricing / Details).
+
+    An existing product already HAS an identity, so the 12-field long form is the wrong
+    shape for the edit people actually make — nearly always a price or a stock level. The
+    long form is now CREATE-only; these two modals own editing, and between them they
+    cover every field it had.
+
+    ★ Looked up by ID ALONE, never by slug. Renaming a product re-slugs it, and modal B
+    can do exactly that while the modal is open — a slug in the lookup would 404 the very
+    next request against a URL this modal itself just invalidated.
+
+    Modal-only, gated on the HEADER not the method: these render bare partials with no
+    page around them, so a direct visit bounces to the product list.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    product = get_object_or_404(
+        get_queryset_for_user(request.user, Product.all_objects.all()),
+        business=business, id=product_id,
+    )
+
+    if not request.headers.get('HX-Request'):
+        return redirect('product-list', business_slug=business.slug)
+
+    if request.method == 'POST':
+        form = form_class(request.POST, request.FILES, instance=product,
+                          business=business, user=request.user)
+        if form.is_valid():
+            obj = form.save(commit=False)
+
+            # Only the Details form carries `name`; the Pricing form must not re-run the
+            # duplicate check against a name it never offered to change.
+            if 'name' in form.fields:
+                obj.name = obj.name.title()
+                existing = Product.all_objects.filter(
+                    business=business, name__iexact=obj.name,
+                ).exclude(id=product.id).first()
+                if existing:
+                    add_duplicate_name_error(form, existing, archived=not existing.is_active)
+                    return render(request, template, _edit_modal_ctx(form, product))
+
+            obj.save()
+            log_activity(business, request.user, 'product.updated',
+                         target=obj, description=f"{obj.name} updated")
+            return _after_short_edit(request, business, obj, saved_details='name' in form.fields)
+    else:
+        form = form_class(instance=product, business=business, user=request.user)
+
+    return render(request, template, _edit_modal_ctx(form, product))
+
+
+def _edit_modal_ctx(form, product):
+    return {'form': form, 'product': product, 'section': 'product'}
+
+
+def _after_short_edit(request, business, product, *, saved_details):
+    """Where each modal goes after a successful save.
+
+    Details (B) was opened FROM Pricing (A), so it hands control back to A rather than
+    closing — "fix the name, then carry on with the price" is one flow, and A re-renders
+    from the freshly-saved row so its header shows the new photo/name and its URLs carry
+    the new slug.
+
+    Pricing (A) is the end of the flow, so it closes and reloads whatever page opened it.
+    `back_url` is the page the USER is on (HX-Current-URL); request.path here is the
+    modal's own address. ★ It is rebuilt for a product detail rather than reused verbatim,
+    because a rename in B leaves the caller sitting on a URL whose slug no longer exists.
+    """
+    if saved_details:
+        form = ProductPricingForm(instance=product, business=business, user=request.user)
+        return render(request, 'Product/_product_pricing_modal.html',
+                      _edit_modal_ctx(form, product))
+
+    messages.success(request, f"{product.name} has been updated.")
+    dest = back_url(request)
+    if f'/{product.id}/' in dest and '/update/' not in dest:
+        dest = reverse('product-detail', kwargs={
+            'business_slug': business.slug, 'product_slug': product.slug,
+            'product_id': product.id})
+    resp = HttpResponse(status=204)
+    resp['HX-Redirect'] = dest
+    return resp
+
+
+@login_required(login_url='login')
+@permission_required('update')
+def product_pricing_edit(request, business_slug, product_id):
+    """Modal A — price, margin and stock levels: the edit that actually recurs."""
+    return _product_edit_modal(request, business_slug, product_id,
+                               form_class=ProductPricingForm,
+                               template='Product/_product_pricing_modal.html')
+
+
+@login_required(login_url='login')
+@permission_required('update')
+def product_details_edit(request, business_slug, product_id):
+    """Modal B — photo, name and catalog info. Opened from modal A's header."""
+    return _product_edit_modal(request, business_slug, product_id,
+                               form_class=ProductDetailsForm,
+                               template='Product/_product_details_modal.html')
 
 
 def product_archive(request, business_slug, product_slug, product_id):

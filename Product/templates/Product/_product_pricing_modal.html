@@ -1,0 +1,71 @@
+{% comment %} Modal A — Pricing & Stock. Loaded into #confirmBody via htmx, which auto-opens
+the global confirm modal (see main.html).
+
+The header is a BUTTON, not decoration: clicking the photo/name opens modal B (Details) in
+this same #confirmBody, replacing this panel rather than stacking a second overlay. Saving
+B re-renders this modal from the freshly-saved row, so the header picks up the new photo,
+name and slug without a page load. {% endcomment %}
+<div class="quickview__panel cm-panel cm-panel--form cm-panel--scroll">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+
+    <div class="cm-card__head">
+      <a href="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+         hx-get="{% url 'product-edit-details' business_slug=current_business.slug product_id=product.id %}"
+         hx-target="#confirmBody" hx-swap="innerHTML"
+         class="pe-identity" title="Edit photo, name and catalog info">
+        <div class="cm-thumb cm-thumb--muted">
+          {% if product.image %}
+            <img src="{{ product.image.url }}" alt="" class="pe-identity__img">
+          {% else %}
+            <span class="cm-thumb__ph">{{ product.name|slice:":2"|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="pe-identity__text">
+          <div class="cm-title">{{ product.name }}</div>
+          <div class="cm-sub">{{ product.category.name|default:"No category" }} · SKU {{ product.sku }}</div>
+        </div>
+        <span class="pe-identity__edit"><i class="bi bi-pencil"></i> Edit</span>
+      </a>
+    </div>
+
+    <form id="productPricingForm" method="POST"
+          action="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
+          hx-post="{% url 'product-edit-pricing' business_slug=current_business.slug product_id=product.id %}"
+          hx-target="#confirmBody" hx-swap="innerHTML"
+          autocomplete="off" novalidate>
+      {% csrf_token %}
+
+      <div class="cm-card__body">
+        {% include 'Product/_product_pricing_fields.html' %}
+      </div>
+
+      <div class="cm-card__foot">
+        <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+        <button type="submit" class="btn cm-btn cm-btn--success">
+          <i class="bi bi-check-circle sl-me-1"></i> Save
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<style>
+  /* Header-as-button. Kept here rather than in style.css because it exists only for these
+     two modals — promote it if a third screen ever wants the same affordance. */
+  /* padding-right reserves room for the absolutely-positioned quickview close (✕) so the
+     Edit chip can't sit directly under it. Same guard the z-reading modal header uses. */
+  .pe-identity{ display:flex; align-items:center; gap:.7rem; width:100%; text-decoration:none;
+    color:inherit; border-radius:10px; padding:.35rem; margin:-.35rem;
+    padding-right:2.4rem; transition:background .12s; }
+  .pe-identity:hover{ background:var(--surface-alt); color:inherit; }
+  .pe-identity__text{ flex:1 1 auto; min-width:0; }
+  .pe-identity__text .cm-title,
+  .pe-identity__text .cm-sub{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pe-identity__img{ width:100%; height:100%; object-fit:contain; border-radius:8px; }
+  .pe-identity__edit{ flex:0 0 auto; display:inline-flex; align-items:center; gap:.3rem;
+    font-size:.78rem; font-weight:600; color:var(--accent); }
+</style>
+
+{% include 'partials/_required_guard.html' with form_id='productPricingForm' %}

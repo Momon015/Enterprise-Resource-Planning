@@ -1,0 +1,241 @@
+{% comment %} Modal A fields — Pricing & Stock.
+
+Lifted from _product_form_fields.html (the create form) so the two stay recognisably the
+same controls. The JS is a trimmed copy of that file's: margin bar, target→price linkage
+and the stock-zone preview. It is NOT shared with the long form because the long form
+renders these fields alongside six others and hangs its own listeners on them — one
+script serving both would have to guard every element it touches, which is how the
+original grew the null checks it already has. {% endcomment %}
+
+<div class="mf-fields-grid">
+
+  {# Cost — locked when the product is fed by a material #}
+  <div class="mf-field-group">
+    <label for="{{ form.cost_price.id_for_label }}" class="mf-form-label">{{ form.cost_price.label }}</label>
+    <div class="mf-peso-wrap">
+      <span class="mf-peso-prefix">₱</span>
+      {{ form.cost_price }}
+    </div>
+    {% if form.instance.material %}
+    <div class="mf-help">Cost comes from the linked material — <strong>{{ form.instance.material.name }}</strong>.</div>
+    {% else %}
+    <div class="mf-help">Your buying cost per unit — used to compute margin.</div>
+    {% endif %}
+    {% if form.cost_price.errors %}<div class="mf-error">{{ form.cost_price.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {# Selling Price #}
+  <div class="mf-field-group">
+    <label for="{{ form.selling_price.id_for_label }}" class="mf-form-label">
+      {{ form.selling_price.label }}
+      {% if form.selling_price.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+    <div class="mf-peso-wrap">
+      <span class="mf-peso-prefix">₱</span>
+      <div class="mf-stepper">
+        <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', -1, false)">−</button>
+        {{ form.selling_price }}
+        <button class="qty-btn" type="button" onclick="changeValue('{{ form.selling_price.id_for_label }}', 1, false)">+</button>
+      </div>
+    </div>
+    {% if form.selling_price.errors %}<div class="mf-error">{{ form.selling_price.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {# Live margin bar + target margin spinner (owner only — the field is popped for staff) #}
+  {% if form.target_margin %}
+  <div style="grid-column: 1 / -1;" class="pd-margin" id="lm-wrap">
+    <div class="pd-margin__head">
+      <span class="pd-margin__label"><i class="bi bi-bar-chart-line"></i> Live Gross Margin</span>
+      <span class="pd-margin__meta"><span class="pd-margin__badge" id="lm-badge"><span id="lm-current">0</span>%</span></span>
+    </div>
+    <div class="pd-margin__track">
+      <div class="pd-margin__fill" id="lm-fill" style="width:0%;"></div>
+      <div class="pd-margin__target" id="lm-mark" style="left:30%;"></div>
+    </div>
+    <div class="pd-margin__note" id="lm-note"></div>
+  </div>
+
+  <div class="mf-field-group">
+    <label for="{{ form.target_margin.id_for_label }}" class="mf-form-label">Target margin %</label>
+    <div class="mf-margin-field">
+      {{ form.target_margin }}
+      <span class="mf-margin-pct">%</span>
+      <span class="mf-spin">
+        <button type="button" class="mf-spin__btn" data-margin-step="1" aria-label="Increase target margin"><i class="bi bi-chevron-up"></i></button>
+        <button type="button" class="mf-spin__btn" data-margin-step="-1" aria-label="Decrease target margin"><i class="bi bi-chevron-down"></i></button>
+      </span>
+    </div>
+    <div class="mf-help">Click ▲ to price up from your cost. Blank = category default (30%). Minimum 10%.</div>
+    {% if form.target_margin.errors %}<div class="mf-error">{{ form.target_margin.errors|striptags }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {# Quantity — editable standalone, read-only when material-linked #}
+  <div class="mf-field-group">
+    <label for="{{ form.prepared_quantity.id_for_label }}" class="mf-form-label">
+      {{ form.prepared_quantity.label }}
+      {% if form.prepared_quantity.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+
+    {% if not form.instance.material %}
+      <div class="mf-stepper">
+        <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', -1, true)">−</button>
+        {{ form.prepared_quantity }}
+        <button class="qty-btn" type="button" onclick="changeValue('{{ form.prepared_quantity.id_for_label }}', 1, true)">+</button>
+      </div>
+      <div class="mf-help">Stock on hand. Updates from purchases &amp; sales automatically.</div>
+    {% else %}
+      <div class="readonly-chip">
+        <i class="bi bi-link-45deg"></i>
+        <span class="sl-badge sl-badge-light">{{ form.instance.prepared_quantity }} units</span>
+        <span>Managed via material stock</span>
+      </div>
+      <div class="mf-help">
+        Linked to material
+        <a href="{% url 'material-detail' business_slug=current_business.slug id=form.instance.material.id slug=form.instance.material.slug %}">{{ form.instance.material.name }}</a>.
+        Manage stock from <a href="{% url 'view-inventory-stock' business_slug=current_business.slug %}">Inventory</a> to keep them in sync.
+      </div>
+      <input type="hidden" name="{{ form.prepared_quantity.name }}" value="{{ form.instance.prepared_quantity }}">
+    {% endif %}
+
+    {% if form.prepared_quantity.errors %}<div class="mf-error">{{ form.prepared_quantity.errors|striptags }}</div>{% endif %}
+  </div>
+
+  <div style="grid-column: 1 / -1;" class="sd-section-label">
+    <i class="bi bi-bell sl-me-1"></i> Stock Alerts
+  </div>
+
+  <div class="mf-field-group">
+    <label for="{{ form.low_stock_threshold.id_for_label }}" class="mf-form-label">{{ form.low_stock_threshold.label }}</label>
+    <div class="mf-stepper">
+      <button class="qty-btn" type="button" onclick="changeValue('{{ form.low_stock_threshold.id_for_label }}', -1, true)">−</button>
+      {{ form.low_stock_threshold }}
+      <button class="qty-btn" type="button" onclick="changeValue('{{ form.low_stock_threshold.id_for_label }}', 1, true)">+</button>
+    </div>
+    <div class="mf-help">Shows "Low stock" when on-hand drops to or below this.</div>
+    {% if form.low_stock_threshold.errors %}<div class="mf-error">{{ form.low_stock_threshold.errors|striptags }}</div>{% endif %}
+  </div>
+
+  <div class="mf-field-group">
+    <label for="{{ form.high_stock_threshold.id_for_label }}" class="mf-form-label">{{ form.high_stock_threshold.label }}</label>
+    <div class="mf-stepper">
+      <button class="qty-btn" type="button" onclick="changeValue('{{ form.high_stock_threshold.id_for_label }}', -1, true)">−</button>
+      {{ form.high_stock_threshold }}
+      <button class="qty-btn" type="button" onclick="changeValue('{{ form.high_stock_threshold.id_for_label }}', 1, true)">+</button>
+    </div>
+    <div class="mf-help">Considered "In stock" at or above this.</div>
+    {% if form.high_stock_threshold.errors %}<div class="mf-error">{{ form.high_stock_threshold.errors|striptags }}</div>{% endif %}
+  </div>
+
+  <div style="grid-column: 1 / -1;" class="mf-zones">
+    <div class="mf-zone mf-zone--out">
+      <div class="mf-zone__label">Out of Stock</div>
+      <div class="mf-zone__val">0 units</div>
+    </div>
+    <div class="mf-zone mf-zone--low">
+      <div class="mf-zone__label">Low Stock Zone</div>
+      <div class="mf-zone__val" id="zone-low">1–25</div>
+    </div>
+    <div class="mf-zone mf-zone--in">
+      <div class="mf-zone__label">In Stock Zone</div>
+      <div class="mf-zone__val" id="zone-in">50+</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function changeValue(fieldId, delta, isInteger = false) {
+  const input = document.getElementById(fieldId);
+  if (!input || input.disabled) return;
+  let value = parseFloat(input.value) || 0;
+  value += delta;
+  if (value < 0) value = 0;
+  input.value = isInteger ? Math.round(value) : value.toFixed(2);
+  // let the live margin / stock-zone listeners react to +/- clicks too
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+(function () {
+  const $ = id => document.getElementById(id);
+  const cost   = $('{{ form.cost_price.id_for_label }}');
+  const price  = $('{{ form.selling_price.id_for_label }}');
+  const target = $('{{ form.target_margin.id_for_label }}');
+  const low    = $('{{ form.low_stock_threshold.id_for_label }}');
+  const high   = $('{{ form.high_stock_threshold.id_for_label }}');
+
+  const wrap = $('lm-wrap'), fill = $('lm-fill'), mark = $('lm-mark');
+  const curEl = $('lm-current'), note = $('lm-note'), badge = $('lm-badge');
+  const zLow = $('zone-low'), zIn = $('zone-in');
+  const num = el => parseFloat(el && el.value) || 0;
+
+  function renderMargin() {
+    if (!wrap) return;
+    const c = num(cost), p = num(price);
+    const m = p > 0 ? (p - c) / p * 100 : 0;
+    const t = num(target) || 30;
+    fill.style.width = Math.max(0, Math.min(m, 100)) + '%';
+    mark.style.left  = Math.max(0, Math.min(t, 100)) + '%';
+    const shown = Math.round(m);
+    curEl.textContent = shown;
+    wrap.classList.remove('pd-margin--warning', 'pd-margin--critical');
+    // Colour from the DISPLAYED %, never the raw one — the price is rounded to centavos,
+    // so the recomputed margin lands a hair either side of target (46.98 vs 47) and
+    // comparing raw made the number say 47 while the colour said orange.
+    let status = 'green';
+    if (shown < t / 3)   status = 'red';
+    else if (shown < t)  status = 'orange';
+    if (status === 'red')    wrap.classList.add('pd-margin--critical');
+    if (status === 'orange') wrap.classList.add('pd-margin--warning');
+    if (badge) badge.className = 'pd-margin__badge pd-margin__badge--' + status;
+    note.textContent = status !== 'green'
+      ? 'Below ' + Math.round(t) + '% target — raise the price.'
+      : '✓ ' + (shown > t ? 'Above' : 'Meets') + ' the ' + Math.round(t) + '% target.';
+  }
+
+  // Target margin DRIVES the selling price: price = cost ÷ (1 − margin). Rounded UP to the
+  // centavo so the achieved margin is always ≥ target (rounding DOWN showed "below target"
+  // the instant you priced up).
+  function applyTargetToPrice() {
+    const c = num(cost), t = num(target);
+    if (c > 0 && t > 0 && t < 100) price.value = (Math.ceil(c / (1 - t / 100) * 100) / 100).toFixed(2);
+    renderMargin();
+  }
+
+  function renderZones() {
+    if (!zLow) return;
+    zLow.textContent = '1–' + (parseInt(low && low.value, 10) || 0);
+    zIn.textContent  = (parseInt(high && high.value, 10) || 0) + '+';
+  }
+
+  // The margin the price ALREADY implies — what the bar shows, rounded the same way.
+  function currentMargin() {
+    const c = num(cost), p = num(price);
+    return p > 0 ? Math.round((p - c) / p * 100) : 0;
+  }
+
+  document.querySelectorAll('.mf-spin__btn[data-margin-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!target) return;
+      // Seed from where the margin ACTUALLY is, not from the empty input. The field is
+      // blank by default (blank = "use the category default"), so a price that already
+      // yields 30% still leaves target.value === "" — and num("") is 0, which made the
+      // first click jump to 1 instead of nudging the real 30% to 31/29.
+      const base = target.value.trim() !== '' ? num(target) : currentMargin();
+      let t = base + parseInt(btn.dataset.marginStep, 10);
+      t = Math.max(0, Math.min(t, 99));
+      target.value = t;
+      applyTargetToPrice();
+    });
+  });
+
+  if (cost)   cost.addEventListener('input', renderMargin);
+  if (price)  price.addEventListener('input', renderMargin);
+  if (target) target.addEventListener('input', applyTargetToPrice);
+  if (low)    low.addEventListener('input', renderZones);
+  if (high)   high.addEventListener('input', renderZones);
+
+  renderMargin();
+  renderZones();
+})();
+</script>
