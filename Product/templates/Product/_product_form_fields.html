@@ -325,10 +325,21 @@ function changeValue(fieldId, delta, isInteger = false) {
     zIn.textContent  = (parseInt(high && high.value, 10) || 0) + '+';
   }
 
+  // The margin the price ALREADY implies — what the bar shows, rounded the same way.
+  function currentMargin() {
+    const c = num(cost), p = num(price);
+    return p > 0 ? Math.round((p - c) / p * 100) : 0;
+  }
+
   document.querySelectorAll('.mf-spin__btn[data-margin-step]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!target) return;
-      let t = num(target) + parseInt(btn.dataset.marginStep, 10);
+      // Seed from where the margin ACTUALLY is, not from the empty input. The field is
+      // blank by default (blank = "use the category default"), so a price that already
+      // yields 30% still leaves target.value === "" — and num("") is 0, which made the
+      // first click jump to 1 instead of nudging the real 30% to 31/29.
+      const base = target.value.trim() !== '' ? num(target) : currentMargin();
+      let t = base + parseInt(btn.dataset.marginStep, 10);
       t = Math.max(0, Math.min(t, 99));
       target.value = t;
       applyTargetToPrice();

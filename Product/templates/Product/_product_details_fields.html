@@ -1,0 +1,104 @@
+{% comment %} Modal B fields — the product's identity and catalog info. Rarely edited, which
+is exactly why it sits one step behind the pricing modal rather than in front of it.
+
+Image first: this modal is reached by clicking the photo/initials in modal A's header, so
+the thing you clicked should be the thing at the top of what opens. {% endcomment %}
+
+<div class="mf-fields-grid">
+
+  {# Product Image #}
+  <div class="form-group" style="grid-column: 1 / -1;">
+    <label class="mf-form-label">Product Image</label>
+    <div class="file-input-wrapper">
+      <label for="{{ form.image.id_for_label }}" class="file-input-button">
+        <i class="bi bi-cloud-arrow-up"></i>
+        <span id="image-label-{{ form.image.id_for_label }}">
+          {% if form.instance.image %}Replace image{% else %}Choose image{% endif %}
+        </span>
+      </label>
+      {{ form.image }}
+      <span id="image-filename-{{ form.image.id_for_label }}" class="file-input-filename">
+        {% if form.instance.image %}Image uploaded{% else %}No file chosen{% endif %}
+      </span>
+      <small class="form-text text-muted">JPG, PNG, or WEBP. Max 5MB. We'll resize automatically. Tip: a PNG with a transparent background looks best — no white box around the photo.</small>
+      {% if form.image.errors %}<div class="text-danger">{{ form.image.errors }}</div>{% endif %}
+    </div>
+  </div>
+
+  {# Name #}
+  <div class="mf-field-group">
+    <label for="{{ form.name.id_for_label }}" class="mf-form-label">
+      {{ form.name.label }}
+      {% if form.name.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+    {{ form.name }}
+    <div class="mf-help">Include variants in the name (e.g. "Coke 1L", "Coke 500ml") for easier tracking.</div>
+    {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {# Category #}
+  <div class="mf-field-group">
+    <label for="{{ form.category.id_for_label }}" class="mf-form-label">
+      {{ form.category.label }}
+      {% if form.category.field.required %}<span class="mf-required">*</span>{% endif %}
+    </label>
+    {{ form.category }}
+    {% if form.category.errors %}<div class="mf-error">{{ form.category.errors|striptags }}</div>{% endif %}
+  </div>
+
+  {% comment %} VAT — only meaningful for a VAT-registered seller; hidden (not dropped)
+     otherwise so the field still round-trips its current value on save. {% endcomment %}
+  {% if current_business.is_vat_registered %}
+  <div class="mf-form-group">
+    <label for="{{ form.vat_class.id_for_label }}" class="mf-form-label">VAT Class</label>
+    {{ form.vat_class }}
+    <div class="mf-help">Most items are VATable — mark VAT-Exempt for maintenance medicines and basic goods.</div>
+    {% if form.vat_class.errors %}<div class="mf-error">{{ form.vat_class.errors|striptags }}</div>{% endif %}
+  </div>
+  {% else %}
+  {{ form.vat_class.as_hidden }}
+  {% endif %}
+
+  {# Barcode #}
+  <div class="form-group">
+    <label for="{{ form.barcode.id_for_label }}">Barcode (optional)</label>
+    {{ form.barcode }}
+    <small class="form-text text-muted">For scanner-based checkout. Skip if you don't use one.</small>
+    {% if form.barcode.errors %}<div class="text-danger">{{ form.barcode.errors }}</div>{% endif %}
+  </div>
+
+  {# Description — full width #}
+  <div class="mf-field-group" style="grid-column: 1 / -1;">
+    <label for="{{ form.description.id_for_label }}" class="mf-form-label">{{ form.description.label }}</label>
+    {{ form.description }}
+    <div class="mf-help">Internal notes only — not shown on receipts or to customers.</div>
+    {% if form.description.errors %}<div class="mf-error">{{ form.description.errors|striptags }}</div>{% endif %}
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // Live initials + filename feedback. Both are scoped to this modal's own ids, so the
+  // pricing modal's script (which owns different ids) can never collide with them.
+  var name = document.getElementById('{{ form.name.id_for_label }}');
+  var ph = document.getElementById('pd-initials');
+  if (name && ph) {
+    name.addEventListener('input', function () {
+      var v = name.value.trim();
+      ph.textContent = v ? v.slice(0, 2).toUpperCase() : '??';
+    });
+  }
+
+  var fileInput = document.getElementById('{{ form.image.id_for_label }}');
+  if (!fileInput) return;
+  var label = document.getElementById('image-label-{{ form.image.id_for_label }}');
+  var filename = document.getElementById('image-filename-{{ form.image.id_for_label }}');
+  fileInput.addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) { filename.textContent = 'No file chosen'; return; }
+    label.textContent = 'Change image';
+    filename.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+  });
+})();
+</script>

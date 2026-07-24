@@ -180,9 +180,13 @@ function PurchaseSearch() {
           placeholder="Search materials..."
           className="ps-input"
         />
-        {query && (
-          <button className="ps-clear" aria-label="Clear"
-                  onClick={() => { setQuery(''); inputRef.current?.focus() }}>
+        {/* Shows whenever the dropdown is open, not only when text is typed: the panel can
+            be open on an empty query, and touch users have no Esc key to dismiss it. Clears
+            the text AND closes the panel. Mirror of the sale-search island. */}
+        {(open || query) && (
+          <button className="ps-clear" aria-label="Close search"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { setQuery(''); setFocused(false); inputRef.current?.blur() }}>
             <i className="bi bi-x-lg"></i>
           </button>
         )}
