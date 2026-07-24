@@ -248,7 +248,7 @@
                 {% comment %} The method is DERIVED from the cash/credit split, never chosen — a
                 supplier can't hand back cash we never paid them. See split_refund(). {% endcomment %}
                 <td class="sl-text-center">
-                  <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
+                  {% refund_method_badge r.refund_method %}
                 </td>
                 <td class="sl-text-end sl-fw-semibold text-success">
                   +₱{{ r.refund_total|floatformat:2|intcomma }}

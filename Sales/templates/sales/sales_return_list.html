@@ -1,6 +1,7 @@
 {% extends 'main.html' %}
 {% load humanize %}
 {% load pagination_tags %}
+{% load payment_tags %}
 
 {% block content %}
 
@@ -262,8 +263,20 @@ document.addEventListener("change", function (e) {
                   <div class="cell-primary">{{ r.reference }}</div>
                 </td>
 
+                {% comment %} The sale this reverses — a return is only ever read against its
+                original, so make it reachable instead of a reference to go hunt for.
+
+                stopPropagation is REQUIRED, not defensive: the <tr> carries an onclick that
+                sets window.location to the RETURN detail, so without it the row's handler
+                bubbles up and wins, and this link silently goes to the wrong page. Same
+                pattern as the Daily Summary detail rows. Plain link-accent + ↗, identical to
+                the receivables/payables panels — accent colour with neither affordance read
+                as ordinary coloured text, not something clickable. {% endcomment %}
                 <td class="col-mobile-hidden">
-                  <span class="cell-primary">{{ r.original_sale.reference }}</span>
+                  <a href="{% url 'sale-detail' business_slug=current_business.slug sale_id=r.original_sale.id %}"
+                     class="link-accent cell-primary"
+                     onclick="event.stopPropagation();"
+                     title="View the sale this was returned from">{{ r.original_sale.reference }} <i class="bi bi-box-arrow-up-right"></i></a>
                 </td>
 
                 <td class="col-mobile-hidden">
@@ -274,18 +287,12 @@ document.addEventListener("change", function (e) {
                   ₱{{ r.refund_total|floatformat:2|intcomma }}
                 </td>
 
+                {% comment %} Same pill component as the Payment column on sale_list, so a cash
+                refund is emerald here exactly as the cash that paid for the sale is there.
+                It used to be amber — same money, different colour, purely because this list
+                hand-rolled its own chips. {% endcomment %}
                 <td class="sl-text-center">
-                  {% if r.refund_method == 'cash' %}
-                    <span class="sl-badge sl-badge-warning">
-                      <i class="bi bi-cash-stack"></i> Cash
-                    </span>
-                  {% elif r.refund_method == 'credit' or r.refund_method == 'store_credit' %}
-                    <span class="sl-badge sl-badge-info">
-                      <i class="bi bi-credit-card-2-back"></i> Credit
-                    </span>
-                  {% else %}
-                    <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
-                  {% endif %}
+                  {% refund_method_badge r.refund_method %}
                 </td>
 
                 <td>

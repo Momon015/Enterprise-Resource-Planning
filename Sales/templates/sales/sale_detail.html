@@ -36,14 +36,21 @@
       <i class="bi bi-arrow-left"></i> Back to Sales
     </a>
     <span class="page-crumb__sep">/</span>
-    <span class="page-crumb__current">{{ sale.reference }}</span>
+    {% comment %} A pending or canceled sale has NO reference — the accountable number is
+    only stamped at confirmation — so this printed the literal "None". {% endcomment %}
+    <span class="page-crumb__current">{{ sale.reference|default:"—" }}</span>
   </nav>
 
   <!-- RECORD MASTHEAD — the doc's vitals (number is in the breadcrumb above) -->
   <div class="record-masthead col-mobile-hidden">
     <span class="record-masthead__meta">
       <i class="bi bi-calendar3 record-masthead__icon"></i>
-      <span class="record-masthead__date">{{ sale.date|date:"D, M d, Y" }}</span>
+      {% comment %} `sale.date` is the TRANSACTION date and is stamped at confirmation, so a
+      draft that was canceled has none and the masthead rendered a bare "· 08:57 AM" with no
+      day against it. Fall back to when it was rung up, which is the only date such a row
+      ever had. created_at is auto_now_add so it is never null — safe as a default ARGUMENT
+      (a null argument would raise rather than fall back). {% endcomment %}
+      <span class="record-masthead__date">{{ sale.date|default:sale.created_at|date:"D, M d, Y" }}</span>
       <span class="record-masthead__dot">·</span>
       <span class="record-masthead__time">{{ sale.created_at|date:"h:i A" }}</span>
     </span>
@@ -241,7 +248,7 @@
                 {% comment %} Derived from the cash/credit split, never chosen — you can't hand a
                 customer cash for a sale they never paid for. See split_refund(). {% endcomment %}
                 <td class="sl-text-center">
-                  <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
+                  {% refund_method_badge r.refund_method %}
                 </td>
                 <td class="sl-text-end sl-fw-semibold text-danger">
                   −₱{{ r.refund_total|floatformat:2|intcomma }}
