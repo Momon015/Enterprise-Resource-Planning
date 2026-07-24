@@ -1719,6 +1719,43 @@ def sale_draft_list(request, business_slug):
     })
 
 @login_required(login_url='login')
+@permission_required('read_only')
+def sale_draft_review(request, business_slug, sale_id):
+    """Read-only look INSIDE a parked sale — the step before Confirm.
+
+    The queue used to confirm blind: the row showed a reference, a line count and a total,
+    and Confirm posted stock + payment straight from it. That is fine for a sale rung up a
+    minute ago and useless for one parked three days ago with 25 lines on it — nobody
+    remembers what was in it, and confirming is the LAST reversible moment (afterwards the
+    row locks and the only correction is a return).
+
+    So Confirm and Cancel moved OFF the row and INTO this modal: a parked sale can no longer
+    be posted without the poster being shown what they are posting.
+
+    Scoped exactly like the list that opens it (`get_queryset_for_user` +
+    `filter_to_own_if_staff`) — otherwise a staff member restricted to their OWN drafts could
+    still read someone else's by typing a different id into the URL. `read_only` because this
+    view itself changes nothing; the buttons it renders carry their own `update` gates.
+    """
+    business = get_business_for_user(request.user, business_slug)
+
+    # Modal-only, gated on the HEADER not the method: this renders a bare partial with no
+    # <html> around it, so a direct visit (or htmx disabled) would paint an unstyled fragment.
+    # Same fallback as cancel_sale_draft — bounce to the list the modal belongs to.
+    if not request.headers.get('HX-Request'):
+        return redirect('sale-draft-list', business_slug=business.slug)
+
+    base = get_queryset_for_user(request.user, Sale.objects.all()).filter(business=business)
+    base = filter_to_own_if_staff(request.user, base)
+    sale = get_object_or_404(base, id=sale_id, status='pending')
+
+    return render(request, 'sales/partials/_pending_review_modal.html', {
+        'sale': sale,
+        # Same ordering as the detail page: services after goods, then insertion order.
+        'sale_items': sale.sale_items.select_related('product').order_by('product__is_service', 'id'),
+    })
+
+@login_required(login_url='login')
 @capacity_required('sale')
 @permission_required('update')
 def confirm_sale_draft(request, business_slug, sale_id):

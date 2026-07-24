@@ -61,6 +61,8 @@ urlpatterns = [
 
     # DRAFT sale
     path('drafts/', views.sale_draft_list, name='sale-draft-list'),
+    # Review modal — the mandatory look inside a parked sale before Confirm/Cancel act on it.
+    path('draft/<int:sale_id>/review/', views.sale_draft_review, name='sale-draft-review'),
     path('draft/<int:sale_id>/confirm/', views.confirm_sale_draft, name='sale-draft-confirm'),
     path('draft/<int:sale_id>/cancel/', views.cancel_sale_draft, name='sale-draft-cancel'),
 

@@ -2,6 +2,7 @@
 {% load humanize %}
 {% load payment_tags %}
 {% load pagination_tags %}
+{% load date_tags %}
 
 {% block extra_css %}
 <style>
@@ -116,6 +117,9 @@ document.addEventListener("DOMContentLoaded", function () {
             <th class="sl-text-center">Action</th>
           {% else %}
             <th class="sl-text-center col-mobile-hidden">Reason</th>
+            {% comment %} The Canceled tab renders a View cell too — without this header the
+            body ran one column wider than the head. {% endcomment %}
+            <th class="sl-text-center">Action</th>
           {% endif %}
         </tr>
       </thead>
@@ -126,8 +130,18 @@ document.addEventListener("DOMContentLoaded", function () {
             {{ sale.created_at|date:"M d" }}<span class="col-mobile-hidden">, {{ sale.created_at|date:"Y" }}</span>
             <div class="cell-sub">{{ sale.created_at|date:"g:i A" }}</div>
           </td>
+          {% comment %} The statutory ID rides under the reference because the verify queue is
+          where a wrong SC/PWD discount is still cheap to catch — once confirmed the sale locks
+          and the only fix is a return. Shown on Canceled too: the discount is part of the
+          record either way. {% endcomment %}
           <td class="sl-text-center">
             <div class="cell-primary">{{ sale.reference|default:"—" }}</div>
+            {% if sale.discount_type %}
+            <div class="cell-sub">
+              {{ sale.get_discount_type_display }}{% if sale.discount_id_no %} · {{ sale.discount_id_no }}{% endif %}
+            </div>
+            {% if sale.discount_name %}<div class="cell-sub">{{ sale.discount_name }}</div>{% endif %}
+            {% endif %}
           </td>
           <td class="sl-text-end col-mobile-hidden">
             <span class="sl-badge sl-badge-light">{{ sale.line_count }}</span>
@@ -138,23 +152,17 @@ document.addEventListener("DOMContentLoaded", function () {
           <td class="sl-text-center col-mobile-hidden">
             {% payment_method_badge sale.pending_method %}
           </td>
+          {% comment %} ONE action, not two. Confirm and Cancel moved to the bottom of the review
+          modal so a parked sale can't be posted from the row without its lines being shown first
+          — the whole point of the review step. See sales/partials/_pending_review_modal.html. {% endcomment %}
           <td class="sl-text-center">
             <div class="draft-actions">
-              <form method="post"
-                    action="{% url 'sale-draft-confirm' business_slug=current_business.slug sale_id=sale.id %}"
-                    style="display:inline;">
-                {% csrf_token %}
-              <a href="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
-                 hx-get="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+              <a href="{% url 'sale-draft-review' business_slug=current_business.slug sale_id=sale.id %}"
+                 hx-get="{% url 'sale-draft-review' business_slug=current_business.slug sale_id=sale.id %}"
                  hx-target="#confirmBody" hx-swap="innerHTML"
-                 class="draft-btn draft-btn--cancel">
-                Cancel
+                 class="draft-btn draft-btn--confirm">
+                <i class="bi bi-zoom-in"></i> Review
               </a>
-                <button type="submit" class="draft-btn draft-btn--confirm">
-                  <i class="bi bi-check2-circle"></i> Confirm
-                </button>
-              </form>
-
             </div>
           </td>
           {% else %}
@@ -162,7 +170,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <span class="cell-primary">{{ sale.canceled_reason|default:"—" }}</span>
             <div class="cell-sub">
               {% if sale.canceled_by %}<i class="bi bi-person"></i> {{ sale.canceled_by.name|default:sale.canceled_by.username }}{% endif %}
-              {% if sale.canceled_at %}{% if sale.canceled_by %} · {% endif %}{{ sale.canceled_at|date:"M d, g:i A" }}{% endif %}
+              {% comment %} Compared against the RUNG-UP time in this same row, not against
+              today: the "Rung up" column already carries that date, so repeating it here
+              says nothing. The date appears only when the sale was killed on a LATER day
+              than it was rung up — which is the thing worth noticing. {% endcomment %}
+              {% if sale.canceled_at %}{% if sale.canceled_by %} · {% endif %}{{ sale.canceled_at|when:sale.created_at }}{% endif %}
             </div>
           </td>
           <td class="sl-text-center">

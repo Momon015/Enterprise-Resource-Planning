@@ -18,6 +18,21 @@ _METHOD_META = {
 # Methods that use a brand logo image instead of a Bootstrap icon.
 _LOGO_METHODS = {'gcash': 'images/gcash.svg'}
 
+# Refund method code -> (icon, label, colour slot). Kept SEPARATE from _METHOD_META on
+# purpose: a return's 'credit' is the customer's or supplier's BALANCE, not a credit card,
+# so it must not inherit the card icon and the bare word "Credit" from the payment pill.
+# The COLOUR slot is shared, which is the whole point — cash reads emerald on a return
+# exactly as it does on the sale it reverses.
+#
+# 'store_credit' is a legacy code that predates REFUND_METHOD_CHOICES (which is only
+# cash/credit/mixed); it maps onto the credit slot so old rows don't render unstyled.
+_REFUND_META = {
+    'cash':         ('bi-cash-stack', 'Cash',           'cash'),
+    'credit':       ('bi-wallet2',    'Balance',        'credit'),
+    'store_credit': ('bi-wallet2',    'Balance',        'credit'),
+    'mixed':        ('bi-collection', 'Balance + cash', 'mixed'),
+}
+
 
 @register.simple_tag
 def payment_method_badge(code, muted=False):
@@ -41,6 +56,28 @@ def payment_method_badge(code, muted=False):
     return format_html(
         '<span class="pay-method pay-method--{}">{} {}</span>',
         modifier, mark, label,
+    )
+
+
+@register.simple_tag
+def refund_method_badge(code):
+    """Render a return's refund method as a payment-method pill.
+
+    Both return lists used to hand-roll their own chips, and picked different colours from
+    the lists they mirror: a CASH refund came out amber (`sl-badge-warning`) while the cash
+    that paid for the sale came out emerald. Same money, two colours, depending only on
+    which list you were standing in. This reuses the `.pay-method` component so the colour
+    language is shared — no new CSS, so no `?v=` bump.
+
+    Labels stay the return's own (see _REFUND_META): the colour is what mirrors, not the
+    wording.
+    """
+    if not code:
+        return format_html('<span class="pay-method-empty">{}</span>', '—')
+    icon, label, slot = _REFUND_META.get(code, ('bi-cash-stack', code.title(), 'mixed'))
+    return format_html(
+        '<span class="pay-method pay-method--{}"><i class="bi {}"></i> {}</span>',
+        slot, icon, label,
     )
 
 

@@ -1,6 +1,7 @@
 {% extends 'main.html' %}
 {% load humanize %}
 {% load pagination_tags %}
+{% load payment_tags %}
 
 {% block content %}
 
@@ -259,8 +260,14 @@ document.addEventListener("change", function (e) {
                   <div class="cell-primary">{{ r.reference }}</div>
                 </td>
 
+                {% comment %} Twin of the link on sales_return_list. stopPropagation is REQUIRED:
+                the <tr> onclick sends the browser to the RETURN detail, so without it the row
+                handler bubbles up and this link lands on the wrong page. {% endcomment %}
                 <td class="col-mobile-hidden">
-                  <span class="cell-primary">{{ r.original_purchase.reference }}</span>
+                  <a href="{% url 'purchase-detail' business_slug=current_business.slug purchase_id=r.original_purchase.id %}"
+                     class="link-accent cell-primary"
+                     onclick="event.stopPropagation();"
+                     title="View the purchase this was returned from">{{ r.original_purchase.reference }} <i class="bi bi-box-arrow-up-right"></i></a>
                 </td>
 
                 <td class="col-mobile-hidden">
@@ -271,18 +278,12 @@ document.addEventListener("change", function (e) {
                   ₱{{ r.refund_total|floatformat:2|intcomma }}
                 </td>
 
+                {% comment %} Same pill component as the Payment column on purchase_history —
+                twin of the change on sales_return_list. `credit` here is the supplier's
+                outstanding BALANCE, not a credit card, so it keeps the colour slot but not
+                the payment pill's card icon and wording. {% endcomment %}
                 <td class="sl-text-center">
-                  {% if r.refund_method == 'cash' %}
-                    <span class="sl-badge sl-badge-warning">
-                      <i class="bi bi-cash-stack"></i> Cash
-                    </span>
-                  {% elif r.refund_method == 'credit' %}
-                    <span class="sl-badge sl-badge-info">
-                      <i class="bi bi-credit-card-2-back"></i> Credit
-                    </span>
-                  {% else %}
-                    <span class="sl-badge sl-badge-light">{{ r.get_refund_method_display }}</span>
-                  {% endif %}
+                  {% refund_method_badge r.refund_method %}
                 </td>
 
                 <td>

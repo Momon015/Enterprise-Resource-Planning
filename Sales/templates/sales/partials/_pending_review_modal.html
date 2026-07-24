@@ -1,0 +1,182 @@
+{% load humanize %}
+{% load payment_tags %}
+{% comment %} Pending-sale review modal — loaded into #confirmBody via htmx, which auto-opens the
+global confirm modal (see main.html).
+
+WHY this exists: Confirm and Cancel used to sit on the list row, so a parked sale was posted
+blind — the row only showed a reference, a line count and a total. That is fine for a sale rung
+up a minute ago and useless for one parked three days ago with 25 lines on it. Confirming is the
+LAST reversible moment (afterwards the row locks and the only correction is a return), so the
+buttons moved here: you cannot post the sale without first being shown what you are posting.
+
+Cancel drills DOWN into the existing cancel modal by re-targeting #confirmBody — the same
+element this modal lives in, so it replaces this panel rather than stacking a second overlay. {% endcomment %}
+<div class="quickview__panel cm-panel pr-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="pr-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-hourglass-split"></i></div>
+        <div>
+          <div class="cm-title">Review before confirming</div>
+          <div class="cm-sub">
+            {{ sale.created_at|date:"M d, Y" }} at {{ sale.created_at|date:"g:i A" }}
+          </div>
+        </div>
+      </div>
+
+      {% comment %} Meta strip — the three things that decide whether this sale is the one the
+      payment actually belongs to. `created_by` is NULLABLE on every sale, so it is guarded by
+      {% if %} rather than |default: (a null ARGUMENT to default: raises, it doesn't fall back). {% endcomment %}
+      <div class="pr-meta">
+        <div class="pr-meta-item">
+          <span class="pr-meta-label">Expected via</span>
+          <span class="pr-meta-value">{% payment_method_badge sale.pending_method %}</span>
+        </div>
+        {% if sale.pending_status %}
+        <div class="pr-meta-item">
+          <span class="pr-meta-label">Payment</span>
+          <span class="pr-meta-value">{{ sale.pending_status|title }}{% if sale.pending_amount %} · ₱{{ sale.pending_amount|floatformat:2|intcomma }}{% endif %}</span>
+        </div>
+        {% endif %}
+        {% if sale.created_by %}
+        <div class="pr-meta-item">
+          <span class="pr-meta-label">Rung up by</span>
+          <span class="pr-meta-value">{{ sale.created_by.name|default:sale.created_by.username }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% comment %} The statutory ID gets its own row, not a line in the totals: an SC/PWD
+      discount granted against the wrong ID is the expensive mistake to catch here, because
+      after confirmation the record is locked and the fix is a return. {% endcomment %}
+      {% if sale.discount_type %}
+      <div class="pr-statutory">
+        <i class="bi bi-person-vcard"></i>
+        <span>
+          <strong>{{ sale.get_discount_type_display }}</strong>
+          {% if sale.discount_id_no %} · ID {{ sale.discount_id_no }}{% else %} · <span class="pr-missing">no ID recorded</span>{% endif %}
+          {% if sale.discount_name %} · {{ sale.discount_name }}{% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      {% comment %} Scrolls INSIDE its own box — a 30-line sale must not push the Confirm
+      button off the bottom of the modal, which would recreate the blind confirm this
+      screen exists to prevent. {% endcomment %}
+      <div class="pr-items">
+        <table class="pr-table">
+          <tbody>
+            {% for item in sale_items %}
+            <tr>
+              <td class="pr-qty">{{ item.quantity }}&times;</td>
+              <td class="pr-name">
+                {{ item.name|default:"—" }}
+                {% if item.product.is_service %}<span class="pr-tag">Service</span>{% endif %}
+              </td>
+              <td class="pr-unit">₱{{ item.price_at_sale|floatformat:2|intcomma }}</td>
+              <td class="pr-line">₱{{ item.total_sold_per_item|floatformat:2|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="pr-empty">This sale has no line items.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <dl class="pr-totals">
+        {% comment %} Subtotal only shows when something is deducted below it — with no discount
+        and no VAT adjustment it would just repeat the total. `subtotal` is the TRUE gross (it
+        adds the VAT adjustment back), same figure the detail page reconciles against. {% endcomment %}
+        {% if sale.discount_percent or sale.vat_adjustment %}
+        <div>
+          <dt>Subtotal</dt>
+          <dd>₱{{ sale.subtotal|floatformat:2|intcomma }}</dd>
+        </div>
+        {% endif %}
+        {% if sale.vat_adjustment %}
+        <div>
+          <dt>VAT exempt</dt>
+          <dd class="pr-deduct">&minus;₱{{ sale.vat_adjustment|floatformat:2|intcomma }}</dd>
+        </div>
+        {% endif %}
+        {% if sale.discount_percent %}
+        <div>
+          <dt>{% if sale.discount_type %}{{ sale.get_discount_type_display }}{% else %}Discount{% endif %} ({{ sale.discount_percent|floatformat:0 }}%)</dt>
+          <dd class="pr-deduct">&minus;₱{{ sale.discount_amount|floatformat:2|intcomma }}</dd>
+        </div>
+        {% endif %}
+        <div class="pr-total-row">
+          <dt>Total</dt>
+          <dd>₱{{ sale.total_revenue|floatformat:2|intcomma }}</dd>
+        </div>
+      </dl>
+
+      <div class="pr-warn">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>Confirming deducts stock, records the payment and <strong>locks this sale</strong>. After that the only correction is a return.</span>
+      </div>
+
+      <div class="cm-actions">
+        <a href="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+           hx-get="{% url 'sale-draft-cancel' business_slug=current_business.slug sale_id=sale.id %}"
+           hx-target="#confirmBody" hx-swap="innerHTML"
+           class="btn btn-outline-danger">Cancel sale</a>
+        <form method="post" action="{% url 'sale-draft-confirm' business_slug=current_business.slug sale_id=sale.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check2-circle"></i> Confirm payment</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .pr-panel .cm-card{ max-width:540px; }
+  .pr-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.8rem; padding-right:2.4rem; }
+
+  .pr-meta{ display:flex; flex-wrap:wrap; gap:.5rem 1.4rem; padding:.6rem .75rem; margin-bottom:.6rem;
+    border:1px solid var(--border); border-radius:10px; background:var(--surface-alt); }
+  .pr-meta-item{ display:flex; flex-direction:column; gap:.15rem; }
+  .pr-meta-label{ font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; }
+  .pr-meta-value{ font-size:.85rem; color:var(--text); font-weight:600; }
+
+  .pr-statutory{ display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:var(--text);
+    background:var(--accent-light); border:1px solid var(--accent); border-radius:8px;
+    padding:.45rem .7rem; margin-bottom:.6rem; }
+  .pr-statutory i{ color:var(--accent); }
+  .pr-missing{ color:var(--danger); font-weight:600; }
+
+  .pr-items{ border:1px solid var(--border); border-radius:10px; overflow:auto;
+    max-height:min(38vh, 300px); background:var(--surface); }
+  .pr-table{ width:100%; border-collapse:collapse; font-size:.84rem; }
+  .pr-table td{ padding:.45rem .6rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  .pr-table tr:last-child td{ border-bottom:none; }
+  .pr-qty{ width:2.6rem; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pr-name{ color:var(--text); }
+  .pr-tag{ display:inline-block; margin-left:.35rem; padding:0 .35rem; border-radius:999px;
+    background:var(--surface-alt); color:var(--muted); font-size:.68rem; font-weight:700; }
+  .pr-unit{ text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pr-line{ text-align:right; color:var(--text); font-weight:600;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pr-empty{ text-align:center; color:var(--muted); padding:1rem; }
+
+  .pr-totals{ margin:.7rem 0 0; }
+  .pr-totals > div{ display:flex; justify-content:space-between; align-items:baseline;
+    padding:.25rem 0; font-size:.85rem; }
+  .pr-totals dt{ color:var(--muted); font-weight:500; }
+  .pr-totals dd{ margin:0; color:var(--text); font-variant-numeric:tabular-nums; }
+  .pr-deduct{ color:var(--success); }
+  .pr-total-row{ border-top:1px solid var(--border); margin-top:.25rem; padding-top:.5rem !important; }
+  .pr-total-row dt{ color:var(--text); font-weight:700; }
+  .pr-total-row dd{ font-size:1.05rem; font-weight:700; }
+
+  .pr-warn{ display:flex; align-items:flex-start; gap:.5rem; font-size:.78rem; color:var(--text);
+    background:var(--warning-light); border:1px solid var(--warning-border); border-radius:8px;
+    padding:.5rem .7rem; margin:.7rem 0 0; line-height:1.45; }
+  .pr-warn i{ color:var(--warning); margin-top:.1rem; }
+
+  .pr-panel .cm-actions{ margin-top:.85rem; }
+</style>
