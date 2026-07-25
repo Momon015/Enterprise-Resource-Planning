@@ -8049,6 +8049,20 @@ button.topbar-account__item {
   box-shadow: 0 0 0 1.5px var(--surface);
 }
 
+/* Archive dot — a "there's ≥1 archived item" mark on a list's Archive button,
+   same idea as the bell's dot above. Anchored to the ICON (via .archive-ico) not
+   the button corner, so it sits identically on a slim btn-sm and a full-width
+   btn-block. Red because the owner asked for red; kept 5px with a surface ring so it
+   stays a quiet pin, not an alarm. Only rendered when the count is >0 — an always-on
+   dot would be wallpaper. */
+.archive-ico { position: relative; display: inline-block; line-height: 1; }
+.archive-dot {
+  position: absolute; top: -2px; right: -3px;
+  width: 5px; height: 5px;
+  border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+
 .topbar-notif__menu {
   position: absolute; top: calc(100% + 8px); right: 0;
   width: 330px; max-height: 440px;

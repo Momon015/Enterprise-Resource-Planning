@@ -67,14 +67,25 @@
     <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
+    {% comment %} VAT figures print here too when the seller is VAT-registered — even though this
+    is the unofficial ORD- billing statement (is_bir_active=False). VAT presentation follows VAT
+    registration, not accreditation; only the SI-/PTU/official chrome is gated on is_bir_active.
+    Non-VAT sellers render nothing. {% endcomment %}
+    {% include 'sales/_receipt_vat_block.html' %}
 </table>
 
 <div class="divider"></div>
 <div class="center">Thank you!</div>
 <div class="center">Please come again.</div>
 <div class="divider"></div>
-{% comment %} Internal-mode disclaimer. This slip is a commercial BILLING STATEMENT, not a BIR
-accountable document — it must tell the customer to ask for the manual BIR receipt. Strengthened
-from the old one-line "not an official receipt" per the bir_active mode design. {% endcomment %}
+{% comment %} Internal-mode disclaimer. This slip is a BILLING STATEMENT — a BIR "supplementary
+document" (RR 18-2012), the same class as an order slip or statement of account, NOT a principal
+tax document. A supplementary document can carry amounts (including the VAT breakdown above when
+the seller is VAT-registered) but is NEVER valid proof of input tax for the buyer, regardless of
+what it shows — so it MUST bear that exact marking. The "NOT VALID FOR CLAIM OF INPUT TAX" line is
+the BIR-standard phrase and applies to every supplementary doc (VAT or not); it matters most once
+VAT figures print, since that's exactly who might try to claim it. The principal document is the
+seller's BIR Sales Invoice (their manual booklet in internal mode; the SI- invoice once accredited).
+{% endcomment %}
 <div class="center bold" style="letter-spacing:.08em;">*** BILLING STATEMENT ***</div>
-<div class="center" style="font-size:.9em; line-height:1.35;">THIS IS NOT AN OFFICIAL INVOICE.<br>PLEASE ASK FOR A MANUAL BIR RECEIPT.</div>
+<div class="center" style="font-size:.9em; line-height:1.35;">THIS IS NOT AN OFFICIAL INVOICE.<br>THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX.<br>Please ask for your BIR Sales Invoice.</div>

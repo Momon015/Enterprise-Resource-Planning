@@ -669,11 +669,14 @@ def supplier_list(request, business_slug):
     from core.utils.kpis import get_supplier_kpis
     kpis = get_supplier_kpis(business)
 
+    archived_count = Supplier.all_objects.filter(business=business, status='inactive').count()
+
     context = {
-        'page_obj': page_obj, 
+        'page_obj': page_obj,
         'section': 'supplier',
         'recent_events': recent_events,
         'kpis': kpis,
+        'archived_count': archived_count,
         }
     return render(request, 'Supplier/supplier_list.html', context)
 

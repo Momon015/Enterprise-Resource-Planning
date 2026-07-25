@@ -73,6 +73,12 @@ def test_an_internal_business_records_nothing_to_the_odometer(client, owner):
         "fresh start depends on internal history leaving no accumulated total behind"
     )
 
+    assert sale.void_reference is None, (
+        "an internal-mode void minted a VD- accountable number — it must not. The sale "
+        "carries only an ORD- slip (not a tax doc) and never posted to the void channel, "
+        "so numbering its reversal produces the stray 'ORD-… VD-…' pairing the owner saw"
+    )
+
 
 def test_voiding_through_the_view_records_to_the_void_channel(client, sale_to_void):
     biz, sale = sale_to_void

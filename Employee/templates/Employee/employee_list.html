@@ -276,7 +276,6 @@
             </div>
           </div>
 
-          {% if archive_count %}
           <div class="sd-summary-block">
             <div class="sd-summary-block-label">Quick links</div>
             <div class="btn-grid">
@@ -290,12 +289,11 @@
                  hx-get="{% url 'archived-employees' business_slug=current_business.slug %}"
                  hx-target="#confirmBody" hx-swap="innerHTML"
                  class="btn btn-outline-secondary btn-sm btn-block">
-                <i class="bi bi-archive"></i> Archive
+                <span class="archive-ico"><i class="bi bi-archive"></i>{% if archive_count %}<span class="archive-dot" aria-hidden="true"></span>{% endif %}</span> Archive
               </a>
 
             </div>
           </div>
-          {% endif %}
 
           <div class="sd-note-box">
             <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>

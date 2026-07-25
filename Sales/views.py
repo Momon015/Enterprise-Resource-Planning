@@ -1595,7 +1595,16 @@ def void_sale(request, business_slug, sale_id):
         # A void is a supplementary invoice (RMO p.4(k)) and the Z reading prints
         # "Beg./End. VOID #", so it cannot just be a boolean. Issued once — re-voiding
         # is impossible anyway, since can_void_sale() rejects an already-void sale.
-        sale.void_reference, _, _ = VoidSequence.issue(business, 'VD')
+        #
+        # MODE GATE: only official mode mints a VD- number. A VD- is a BIR-accountable
+        # supplementary document; in internal mode the sale itself only carries an ORD-
+        # slip (not a tax doc) and never posts to the void channel (see the odometer gate
+        # below), so numbering its reversal would be an accountable document with nothing
+        # to account for — and it's what produced the stray "ORD-… VD-…" pairing. Both
+        # display spots already guard on `void_reference`, so leaving it null just hides
+        # the "Void no." row.
+        if business.is_bir_active:
+            sale.void_reference, _, _ = VoidSequence.issue(business, 'VD')
         sale.is_void = True
         sale.void_reason = reason
         sale.voided_by = request.user

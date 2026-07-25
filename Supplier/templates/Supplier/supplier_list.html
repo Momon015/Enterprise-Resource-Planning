@@ -304,7 +304,7 @@
                hx-get="{% url 'archived-suppliers' business_slug=current_business.slug %}"
                hx-target="#confirmBody" hx-swap="innerHTML"
                class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-archive-fill"></i> Archive
+              <span class="archive-ico"><i class="bi bi-archive-fill"></i>{% if archived_count > 0 %}<span class="archive-dot" aria-hidden="true"></span>{% endif %}</span> Archive
             </a>
           </div>
         </div>

@@ -1,0 +1,21 @@
+{% load humanize %}
+{% comment %} VAT breakdown (V / VAT / E / Z), shared by the plain slip AND the official invoice.
+
+Gated on is_vat_registered ALONE — NOT is_official. VAT treatment follows the seller's VAT
+registration, not whether paKITA issues their official invoices: a VAT-registered pharmacy that
+runs internally (ORD- slips, manual BIR booklets — is_bir_active=False) still wants these figures
+on its billing statement. The two switches are deliberately separate:
+
+  is_vat_registered → THESE VAT figures (here + the per-line V/E/Z flags in _receipt_items.html)
+  is_bir_active     → the SI- number, PTU/MIN/serial, official header + buyer/signature blocks
+
+Figures are VAT-INCLUSIVE and discount-aware (Sale.vat_summary buckets each line by its snapshot
+vat_class and spreads the whole-order discount). A non-VAT seller — most of our clients — renders
+nothing. The view always passes `vat_summary`, so no view branch is needed. {% endcomment %}
+{% if business.is_vat_registered %}
+<tr class="rule-line"><td colspan="2"><div class="dotrule"></div></td></tr>
+<tr><td>VATable Sale (V)</td><td class="right">P{{ vat_summary.vatable|floatformat:2|intcomma}}</td></tr>
+<tr><td>VAT (12%)</td><td class="right">P{{ vat_summary.vat|floatformat:2|intcomma}}</td></tr>
+<tr><td>VAT Exempt Sale (E)</td><td class="right">P{{ vat_summary.exempt|floatformat:2|intcomma}}</td></tr>
+<tr><td>Zero Rated Sale (Z)</td><td class="right">P{{ vat_summary.zero|floatformat:2|intcomma}}</td></tr>
+{% endif %}

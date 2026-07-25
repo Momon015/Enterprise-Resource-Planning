@@ -82,13 +82,7 @@ and the invoice contradicts itself. {% endcomment %}
     <tr><td>CHANGE</td><td class="right">P{{ sale.cash_change|floatformat:2|intcomma}}</td></tr>
     {% endif %}
     <tr><td>Item/s Purchased</td><td class="right">{{ sale.quantity_item }}</td></tr>
-    {% if business.is_vat_registered %}
-    <tr class="rule-line"><td colspan="2"><div class="dotrule"></div></td></tr>
-    <tr><td>VATable Sale (V)</td><td class="right">P{{ vat_summary.vatable|floatformat:2|intcomma}}</td></tr>
-    <tr><td>VAT (12%)</td><td class="right">P{{ vat_summary.vat|floatformat:2|intcomma}}</td></tr>
-    <tr><td>VAT Exempt Sale (E)</td><td class="right">P{{ vat_summary.exempt|floatformat:2|intcomma}}</td></tr>
-    <tr><td>Zero Rated Sale (Z)</td><td class="right">P{{ vat_summary.zero|floatformat:2|intcomma}}</td></tr>
-    {% endif %}
+    {% include 'sales/_receipt_vat_block.html' %}
 </table>
 
 {% comment %} Blank BUYER block — for a customer who needs to claim the purchase (input VAT /

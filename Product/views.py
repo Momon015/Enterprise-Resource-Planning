@@ -166,7 +166,8 @@ def product_list(request, business_slug):
     from core.utils.kpis import get_product_kpis
     kpis = get_product_kpis(business)
     
-    archived_count = Product.all_objects.filter(business=business, is_active=False).count()
+    # Non-service only — archived services have their own list + dot on service_list.
+    archived_count = Product.all_objects.filter(business=business, is_active=False, is_service=False).count()
         
     context = {
         "page_obj": page_obj, # keep this as the Page object
@@ -1024,6 +1025,8 @@ def service_list(request, business_slug):
         )
 
     all_services = services.count()
+    archived_count = Product.all_objects.filter(
+        business=business, is_active=False, is_service=True).count()
 
     from core.utils.kpis import get_service_kpis
     kpis = get_service_kpis(business)
@@ -1036,6 +1039,7 @@ def service_list(request, business_slug):
         'services': page_obj.object_list,
         'search': search,
         'all_services': all_services,
+        'archived_count': archived_count,
         'cart_count': cart_count,
         'section': 'service',
         
