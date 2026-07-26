@@ -4677,7 +4677,7 @@ details.filter-card summary:hover {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.09);
 }
 
 /* Left: steps */
@@ -5194,7 +5194,7 @@ details.filter-card summary:hover {
   --surface-alt:      #1b202c;
   --border:           #262c3a;
   --border-light:     #202634;
-  --thumb-ring:       rgba(255, 255, 255, 0.14);
+  --thumb-ring:       rgba(255, 255, 255, 0.18);
 
   /* text */
   --text:             #e7e9ee;
@@ -5277,7 +5277,7 @@ html[data-sidebar="dark"] {
   --sidebar-text:      rgba(255, 255, 255, 0.85);
   --sidebar-text-muted:rgba(255, 255, 255, 0.7);
   --sidebar-border:    rgba(255, 255, 255, 0.08);
-  --sidebar-hover:     rgba(255, 255, 255, 0.06);
+  --sidebar-hover:     rgba(255, 255, 255, 0.12);
   --sidebar-active-bg: rgba(45, 106, 79, 0.22);
   --sidebar-active-fg: #6ee7b7;
   --sidebar-strong:    #ffffff;
@@ -8985,6 +8985,83 @@ label:has(+ select[name$="_year"]) {
 .an-link { text-decoration: none; color: var(--text); }
 .an-link:hover { color: var(--accent); text-decoration: underline; }
 
+/* ── Supplier drill-down modal (Supplier Spend row → one vendor's orders) ──────────
+   Native <details> accordion inside the quickview: each order is a summary row, its body
+   lists this vendor's items. No JS — the chevron rotates via [open], which survives the
+   htmx swap that a scripted toggle would miss. */
+.ssm-list {
+  margin-top: 1rem; max-height: min(55vh, 460px); overflow-y: auto;
+  border: 1px solid var(--border-light); border-radius: 8px;
+}
+.ssm-order { border-bottom: 1px solid var(--border-light); }
+.ssm-order:last-child { border-bottom: 0; }
+.ssm-order__head {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 0.85rem; cursor: pointer; font-size: 0.88rem;
+  list-style: none;                       /* kill the native disclosure triangle */
+}
+.ssm-order__head::-webkit-details-marker { display: none; }
+.ssm-order__date {
+  flex: 1 1 auto; min-width: 0; color: var(--text);
+  display: flex; flex-direction: column; gap: 0.1rem;
+}
+.ssm-order__ref { font-size: 0.72rem; color: var(--text-faint); }
+.ssm-order__amt { flex: 0 0 auto; font-weight: 600; color: var(--text); }
+.ssm-order__chev {
+  flex: 0 0 auto; color: var(--muted); font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+.ssm-order[open] .ssm-order__chev { transform: rotate(180deg); }
+.ssm-order[open] .ssm-order__head { background: var(--surface-alt); }
+.ssm-order__body { padding: 0.2rem 0.85rem 0.7rem; }
+.ssm-item {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  padding: 0.3rem 0; font-size: 0.83rem;
+}
+.ssm-item__name { flex: 1 1 auto; min-width: 0; color: var(--text); }
+.ssm-item__units { flex: 0 0 5.5rem; text-align: right; color: var(--muted); font-size: 0.78rem; }
+.ssm-item__amt { flex: 0 0 6rem; text-align: right; color: var(--text); }
+.ssm-order__note {
+  margin-top: 0.35rem; font-size: 0.75rem; color: var(--text-faint);
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.ssm-order__link {
+  display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem;
+  margin-top: 0.5rem; font-size: 0.78rem; font-weight: 600;
+  color: var(--accent); text-decoration: none;
+}
+.ssm-order__link:hover { text-decoration: underline; }
+
+/* ── "View all" affordance under a top-seller board ───────────────────────────────
+   A centred, ruled footer link — reads as "there is more below the cut", distinct from
+   the right-aligned per-row links elsewhere. */
+.an-viewall {
+  display: flex; justify-content: center; align-items: center; gap: 0.35rem;
+  padding: 0.6rem; border-top: 1px solid var(--border-light);
+  font-size: 0.8rem; font-weight: 600; color: var(--accent); text-decoration: none;
+}
+.an-viewall:hover { text-decoration: underline; }
+
+/* ── Top-sellers "View all" modal: search box + scrollable ranked list ────────────
+   The search filters the rendered rows client-side (delegated handler on the page), which
+   is what keeps a 100-row list usable. */
+.tsm-search-wrap { position: relative; margin-top: 1rem; }
+.tsm-search {
+  width: 100%; padding: 0.5rem 0.75rem 0.5rem 2rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: 0.85rem;
+}
+.tsm-search:focus { outline: none; border-color: var(--accent); }
+.tsm-search-ico {
+  position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.85rem; pointer-events: none;
+}
+.tsm-scroll {
+  margin-top: 0.75rem; max-height: min(55vh, 460px); overflow-y: auto;
+  border: 1px solid var(--border-light); border-radius: 8px;
+}
+.tsm-empty { padding: 1.25rem; text-align: center; color: var(--muted); font-size: 0.85rem; }
+
 /* ============================================================================
    PRODUCT CREATE — live margin bar, target-margin spinner, stock-zone preview
    ========================================================================== */
@@ -9194,6 +9271,89 @@ label:has(+ select[name$="_year"]) {
 @keyframes spin { to { transform: rotate(360deg); } }
 /* Motion off: the "Sending"/"Searching" label beside it still says what's happening. */
 @media (prefers-reduced-motion: reduce) { .spin, .ps-spin { animation: none; } }
+
+/* ── GLOBAL NAV LOADER ─────────────────────────────────────────────────────────
+   Full-screen overlay shown the instant a slow full-page navigation starts. The
+   analytics pages aggregate a whole sales history live on every load — a few
+   seconds on a large dataset, during which the browser otherwise just sits on the
+   OLD page with no feedback (a spinner inside the DESTINATION template can't help,
+   the server holds the entire response until it's done computing). Cleared
+   automatically when the new document loads. Click/submit wiring lives in main.html;
+   the spinner rides the shared `spin` keyframes above. */
+.nav-loader {
+  position: fixed; inset: 0; z-index: 3000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(3px);
+}
+.nav-loader.is-active { display: flex; }
+.nav-loader__box {
+  display: flex; flex-direction: column; align-items: center; gap: 1.05rem;
+  padding: 1.9rem 2.25rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  animation: nav-loader-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Two-tone brand ring built from a conic gradient masked to a ring — NOT the default
+   border-top-color spinner. It sweeps from the deep brand emerald through the brighter
+   emerald and back, so the light arc travels as it spins (a flat single colour reads as
+   static). Both stops are existing brand greens, so it recolours itself in dark mode. */
+.nav-loader__spinner {
+  --ring: 4px;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--emerald), var(--accent) 50%, var(--emerald));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring)), #000 calc(100% - var(--ring)));
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring)), #000 calc(100% - var(--ring)));
+  animation: spin 0.8s linear infinite;
+}
+.nav-loader__text {
+  font-size: 0.85rem; color: var(--muted); font-weight: 600; letter-spacing: 0.01em;
+}
+@keyframes nav-loader-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+/* Motion off: the ring holds its two-tone gradient statically and the text still explains. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-loader__spinner { animation: none; }
+  .nav-loader__box     { animation: none; }
+}
+
+/* ── SKELETON PLACEHOLDERS ─────────────────────────────────────────────────────
+   The IG/Facebook shimmer shown while a lazy-loaded analytics section (the heavy half of
+   Sales/Profit) streams in behind the instant shell. Pure CSS — the shell paints these the
+   moment it renders, htmx swaps the real cards over them when the aggregates finish. See
+   analytics/partials/_sales_body_skeleton.html and the nav-loader note above. */
+.skel {
+  /* Dedicated block colour — NOT var(--surface-alt): on the light theme that token is #f9fafb,
+     which is ~white and vanished against the white card (that was the whole "why isn't it the same
+     as the prototype" mismatch). These are the same visible greys the preview uses. Glint swept
+     across by translateX, exactly the prototype's technique; flipped to a dark sweep on light. */
+  --skel-bg:    #e9edf3;
+  --skel-glint: rgba(15, 23, 42, 0.09);
+  position: relative; overflow: hidden;
+  background: var(--skel-bg); border-radius: 6px;
+}
+@media (prefers-color-scheme: dark) { .skel { --skel-bg: #1d222e; --skel-glint: rgba(255, 255, 255, 0.12); } }
+:root[data-theme="light"] .skel { --skel-bg: #e9edf3; --skel-glint: rgba(15, 23, 42, 0.09); }
+:root[data-theme="dark"]  .skel { --skel-bg: #1d222e; --skel-glint: rgba(255, 255, 255, 0.12); }
+.skel::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--skel-glint), transparent);
+  transform: translateX(-100%);
+  animation: skel-shimmer 1.3s infinite;
+}
+@keyframes skel-shimmer { 100% { transform: translateX(100%); } }
+.skel--line { height: 12px; margin: 0.5rem 0; }
+.skel--row  { height: 34px; margin: 0.6rem 0; border-radius: 7px; }
+.skel--fill { width: 100%; height: 100%; min-height: 120px; }
+/* Reduced motion: hold the block, pulse gently instead of sweeping. */
+@media (prefers-reduced-motion: reduce) {
+  .skel::after { display: none; }
+  .skel { animation: skel-pulse 1.5s ease-in-out infinite; }
+}
+@keyframes skel-pulse { 50% { opacity: 0.6; } }
+
 .ps-empty { text-align: center; padding: 2.5rem 1rem; }
 .ps-empty-icon {
   width: 44px; height: 44px; margin: 0 auto 0.6rem;

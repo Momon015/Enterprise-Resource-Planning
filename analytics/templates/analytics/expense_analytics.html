@@ -57,6 +57,17 @@
   .an-reason__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
   .an-reason__name { color: var(--text); font-size: 0.85rem; }
   .an-reason__n { color: var(--text-faint); font-size: 0.72rem; }
+
+  /* ── Row 1 equal-height ──────────────────────────────────────────────────────────
+     Spend Trend and the donut share a grid row whose columns already stretch equal, but
+     each card only takes its CONTENT height — and the donut card is the taller of the two
+     (short chart + a 4-row legend), so Spend Trend floated with empty space beneath it.
+     Make the single card in each column fill the row height and let the chart area take up
+     the slack (the trend chart grows taller; the donut just centres in more room, its
+     legend pinned to the bottom). Scoped to .an-row-match so Row 2's tables are untouched. */
+  .an-row-match > .left-panel > .card,
+  .an-row-match > .right-panel > .card { height: 100%; display: flex; flex-direction: column; }
+  .an-row-match .an-chart { flex: 1 1 auto; }
 </style>
 {% endblock %}
 
@@ -272,7 +283,7 @@
   {% if has_data %}
 
   <!-- ROW 1 — the shape of the spending over time, and its composition right now -->
-  <div class="two-col-layout" style="margin-bottom: 0.85rem;">
+  <div class="two-col-layout an-row-match" style="margin-bottom: 0.85rem;">
 
     <div class="left-panel">
       {% comment %} STACKED, not a single total line: a flat total can hide waste quietly
@@ -320,6 +331,68 @@
         </ul>
       </div>
     </div>
+  </div>
+
+  {% comment %} SUPPLIER SPEND — who the stock money went to, and when you last ordered.
+  Full width because it's a vendor ranking that benefits from the room. Spend is per the
+  chosen window; "Last order" is all-time (a standing fact about the vendor, not the range).
+  Gross of the whole-order discount + returns — it ranks vendors, it doesn't reconcile to
+  the Stock Purchases card, so Share is of the supplier spend shown, not of that number. {% endcomment %}
+  <div class="card" style="margin-bottom: 0.85rem;">
+    <div class="card-header">
+      <div class="card-header-left-group">
+        <span class="card-header-title">
+          <i class="bi bi-truck"></i> Supplier Spend
+        </span>
+      </div>
+      <span class="card-header-sub">Stock purchases by vendor · {{ period.label }}</span>
+    </div>
+
+    {% if supplier_spend %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:2.5rem;"></th>
+            <th>Supplier</th>
+            <th class="sl-text-center col-mobile-hidden">Last order</th>
+            <th class="sl-text-end col-mobile-hidden">Orders</th>
+            <th class="sl-text-end">Share</th>
+            <th class="sl-text-end">Spend</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in supplier_spend %}
+          <tr>
+            <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+            <td>
+              {% comment %} Carry the page's current period so the modal matches the range on
+              screen (custom dates included). {% endcomment %}
+              <a href="{% url 'supplier-spend-detail' business_slug=current_business.slug supplier_id=s.material__supplier %}?range={{ period.key }}{% if period.key == 'custom' %}&start={{ period.start|date:'Y-m-d' }}&end={{ period.end|date:'Y-m-d' }}{% endif %}"
+                 hx-get="{% url 'supplier-spend-detail' business_slug=current_business.slug supplier_id=s.material__supplier %}?range={{ period.key }}{% if period.key == 'custom' %}&start={{ period.start|date:'Y-m-d' }}&end={{ period.end|date:'Y-m-d' }}{% endif %}"
+                 hx-target="#confirmBody" hx-swap="innerHTML" class="link-accent">{{ s.label }}</a>
+            </td>
+            <td class="sl-text-center col-mobile-hidden an-num">
+              {% if s.last_order %}{{ s.last_order|date:"M d, Y" }}{% else %}—{% endif %}
+            </td>
+            <td class="sl-text-end col-mobile-hidden an-num">{{ s.orders|intcomma }}</td>
+            <td class="sl-text-end an-num">{{ s.share|floatformat:0 }}%</td>
+            <td class="sl-text-end an-num an-figure--lead">₱{{ s.spent|floatformat:2|intcomma }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-truck"></i></div>
+      <h3 class="empty-title">No supplier purchases</h3>
+      <p class="empty-text">
+        No stock was bought from a listed supplier in this window.
+        <a href="{% url 'purchase-list' business_slug=current_business.slug %}" class="link-accent">View purchases</a>.
+      </p>
+    </div>
+    {% endif %}
   </div>
 
   <!-- ROW 2 — the two breakdowns you can actually act on -->
@@ -444,7 +517,7 @@
 
 {% block extra_js %}
 {% if has_data %}
-{# Vendored, not CDN — a silently-failing chart library is a blank page. #}
+{% comment %} Vendored, not CDN — a silently-failing chart library is a blank page. {% endcomment %}
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {

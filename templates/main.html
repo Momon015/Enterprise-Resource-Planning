@@ -28,7 +28,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=187" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=203" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -287,5 +287,11 @@ document.body.addEventListener('htmx:beforeSwap', function (evt) {
     });
   })();
 </script>
+
+{% comment %} The global nav-loader overlay that used to fire here on analytics navigation was
+retired once Sales/Profit Analytics moved to an instant shell + skeleton (the skeleton is the
+loading state now, so the overlay was a redundant spinner-then-skeleton flash). The .nav-loader*
+styles + the emerald spinner stay in style.css, ready to be reused for the login "please wait"
+overlay — wire the markup + a trigger into the login flow when you build it. {% endcomment %}
 
 </html>

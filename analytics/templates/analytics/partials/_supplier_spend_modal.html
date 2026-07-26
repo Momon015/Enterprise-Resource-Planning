@@ -1,0 +1,75 @@
+{% load humanize %}
+{% comment %} Supplier drill-down, opened from a Supplier Spend row. Orders newest-first, each a
+native <details> (no JS — survives the htmx swap, chevron rotates via CSS). Auto-open the most
+recent (and the only one, when there's just one). Per-order total is THIS supplier's slice, so the
+running total in the header ties to the panel row; the "+N other supplier" note explains an order
+whose slice is smaller than the whole receipt. {% endcomment %}
+<div class="quickview__panel cm-panel cm-panel--form">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-truck"></i></div>
+        <div>
+          <div class="cm-title">{{ supplier.name }}</div>
+          <div class="cm-sub">
+            {{ period.label }} · {{ order_count }} order{{ order_count|pluralize }} · ₱{{ total|floatformat:2|intcomma }}
+          </div>
+        </div>
+      </div>
+
+      {% if orders %}
+      <div class="ssm-list">
+        {% for o in orders %}
+        <details class="ssm-order"{% if order_count == 1 or forloop.first %} open{% endif %}>
+          <summary class="ssm-order__head">
+            <span class="ssm-order__date">
+              {{ o.date|date:"M d, Y"|default:"—" }}
+              {% if o.reference %}<span class="ssm-order__ref">{{ o.reference }}</span>{% endif %}
+            </span>
+            <span class="ssm-order__amt an-num">₱{{ o.subtotal|floatformat:2|intcomma }}</span>
+            <i class="bi bi-chevron-down ssm-order__chev"></i>
+          </summary>
+          <div class="ssm-order__body">
+            {% for it in o.items %}
+            <div class="ssm-item">
+              <span class="ssm-item__name">{{ it.name }}</span>
+              <span class="ssm-item__units an-num">{{ it.units|intcomma }} unit{{ it.units|pluralize }}</span>
+              <span class="ssm-item__amt an-num">₱{{ it.amount|floatformat:2|intcomma }}</span>
+            </div>
+            {% endfor %}
+            {% if o.other_suppliers %}
+            <div class="ssm-order__note">
+              <i class="bi bi-info-circle"></i>
+              + {{ o.other_suppliers }} other supplier{{ o.other_suppliers|pluralize }} in this order
+            </div>
+            {% endif %}
+            {% comment %} Straight to the whole PO record (all suppliers, payments, the lot) — saves
+            hunting for the reference in Purchases. Lives in the body, NOT the summary: a link inside
+            a <details> summary would fire the accordion toggle on the same click. {% endcomment %}
+            <a class="ssm-order__link" href="{% url 'purchase-detail' business_slug=business.slug purchase_id=o.id %}">
+              View {% if o.reference %}{{ o.reference }}{% else %}full purchase{% endif %} <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+
+      {% if truncated %}
+      <div class="mf-help" style="margin-top:0.75rem;">
+        Showing the {{ cap }} most recent orders — narrow the date range on the page to see older ones.
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="empty-state" style="padding: 2rem 1rem;">
+        <div class="empty-icon"><i class="bi bi-truck"></i></div>
+        <h3 class="empty-title">No purchases in this period</h3>
+        <p class="empty-text">Nothing was bought from {{ supplier.name }} in {{ period.label|lower }}.</p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>

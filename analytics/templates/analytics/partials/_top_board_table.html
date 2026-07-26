@@ -1,0 +1,42 @@
+{% load humanize %}
+{% comment %} One revenue-sorted board table (Services or Rentals) + a "View all N →" link when the
+full ranking exceeds what's shown. `rows`, `count`, `kind` come from the caller; current_business /
+period / top_sellers_n from the page context. Goods (Top Products) keeps its own markup because it
+carries the by-revenue/by-units toggle; this is the single-sort twin the caller wraps in a
+data-sr-panel div for the Services⇄Rentals switch. {% endcomment %}
+<div class="table-responsive">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:2.5rem;"></th>
+        <th>Item</th>
+        <th class="sl-text-end">Units</th>
+        <th class="sl-text-end">Revenue</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+        <td>
+          {% if row.product__slug %}
+          <a class="an-link" href="{% url 'product-detail' business_slug=current_business.slug product_id=row.product_id product_slug=row.product__slug %}">{{ row.product__name }}</a>
+          {% else %}{{ row.product__name|default:"(removed item)" }}{% endif %}
+        </td>
+        <td class="sl-text-end an-num">{{ row.units|intcomma }}</td>
+        <td class="sl-text-end an-num an-figure--lead">₱{{ row.revenue|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="top-item-empty">No sales in this period.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if count > cap|default:top_sellers_n %}
+<a class="an-viewall"
+   href="{% url 'top-sellers-detail' business_slug=current_business.slug %}?kind={{ kind }}&range={{ period.key }}{% if period.key == 'custom' %}&start={{ period.start|date:'Y-m-d' }}&end={{ period.end|date:'Y-m-d' }}{% endif %}"
+   hx-get="{% url 'top-sellers-detail' business_slug=current_business.slug %}?kind={{ kind }}&range={{ period.key }}{% if period.key == 'custom' %}&start={{ period.start|date:'Y-m-d' }}&end={{ period.end|date:'Y-m-d' }}{% endif %}"
+   hx-target="#confirmBody" hx-swap="innerHTML">
+  View all {{ count }} <i class="bi bi-arrow-right"></i>
+</a>
+{% endif %}
