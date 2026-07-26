@@ -1,17 +1,19 @@
 import json
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import groupby
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DecimalField, ExpressionWrapper, F, Min, Sum, Value
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Min, Sum, Value
 from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncMonth, TruncWeek
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from Employee.models import Shift
-from Expense.models import (Expense, ExpenseItem, Purchase, PurchasePayment,
-                            PurchaseReturn, Waste)
+from Expense.models import (Expense, ExpenseItem, Purchase, PurchaseItem,
+                            PurchasePayment, PurchaseReturn, Waste)
 from Product.models import Product
 from Sales.models import Sale, SaleItem, SalesPayment, SalesReturn, SalesReturnItem
+from Supplier.models import Supplier
 
 from core.utils.metrics import pct_delta
 from core.utils.owner import get_business_for_user, permission_required
@@ -189,31 +191,50 @@ def _trend(sales, returns, period):
     return labels, [round(s - r, 2) for s, r in zip(sold, refunded)]
 
 
-def _top_products(sales, returns):
-    """Ranked twice — owners think in money, but a cheap fast-mover is the thing you
-    run out of. Grouped by product_id (not the name snapshot) so renaming a product
-    doesn't split it into two rows.
+# Top Products shows 10; the Services/Rentals boards show 5 because they sit in the narrow right
+# column under Busiest Days, where a shorter cut keeps that column level with the left. Both spill
+# the rest into the same "View all" modal.
+TOP_SELLERS_N = 10
+SR_TOP_N = 5
 
-    NET of returns, per product. This column has to SUM to the headline Revenue, and the
-    headline is now net — so if the refunds weren't backed out here too, the table would
-    quietly exceed the number printed above it and stop being trustable. (Same reason
-    NET_LINE exists at all: a table that doesn't add up is a table nobody believes.)
+# One board per product TYPE. Filters are applied on the SaleItem side and MIRRORED on the
+# return side so a board stays net-of-returns. Rentals are the session-based SUBSET of
+# services, so 'services' must exclude them — otherwise a rental lands on two boards and the
+# three subtotals over-count past the Revenue KPI. Every product is exactly one of the three
+# (goods = not a service; services = service, not session; rentals = session), so the
+# subtotals partition Revenue with no overlap and no gap.
+_BOARD_FILTERS = {
+    'goods':    ({'product__is_service': False},
+                 {'original_sale_item__product__is_service': False}),
+    'services': ({'product__is_service': True, 'product__is_session_based': False},
+                 {'original_sale_item__product__is_service': True,
+                  'original_sale_item__product__is_session_based': False}),
+    'rentals':  ({'product__is_session_based': True},
+                 {'original_sale_item__product__is_session_based': True}),
+}
 
-    A product returned in this window but sold in an earlier one can go NEGATIVE here.
-    That's correct — money left the till for it during this period — and it sorts to the
-    bottom where it belongs.
+
+def _rank_products(sales, returns, board):
+    """NET-of-returns rows for one board, UNsorted, plus the board's revenue subtotal.
+
+    Grouped by product_id (not the name snapshot) so renaming a product doesn't split it.
+    NET because the headline Revenue is net — a board that didn't back out refunds would
+    exceed the number above it and stop being trustable. A product returned this window but
+    sold in an earlier one still appears, and can go NEGATIVE (money did leave the till for
+    it this period); it sorts to the bottom where it belongs.
     """
+    sold_f, refund_f = _BOARD_FILTERS[board]
     sold = {
         r['product_id']: r
         for r in SaleItem.objects
-        .filter(sale__in=sales)
+        .filter(sale__in=sales, **sold_f)
         .values('product_id', 'product__name', 'product__slug')
         .annotate(units=Sum('quantity'), revenue=Sum(NET_LINE))
     }
 
     refunded = (
         SalesReturnItem.objects
-        .filter(sales_return__in=returns, original_sale_item__isnull=False)
+        .filter(sales_return__in=returns, original_sale_item__isnull=False, **refund_f)
         .values('original_sale_item__product_id',
                 'original_sale_item__product__name',
                 'original_sale_item__product__slug')
@@ -224,7 +245,6 @@ def _top_products(sales, returns):
         pid = r['original_sale_item__product_id']
         row = sold.get(pid)
         if row is None:
-            # Returned this period, sold in an earlier one — it still belongs on the board.
             row = sold[pid] = {
                 'product_id':    pid,
                 'product__name': r['original_sale_item__product__name'],
@@ -236,10 +256,21 @@ def _top_products(sales, returns):
         row['revenue'] -= r['refund']
 
     rows = list(sold.values())
-    return (
-        sorted(rows, key=lambda r: r['revenue'], reverse=True)[:TOP_N],
-        sorted(rows, key=lambda r: r['units'],   reverse=True)[:TOP_N],
-    )
+    subtotal = sum((r['revenue'] for r in rows), Decimal('0'))
+    return rows, subtotal
+
+
+def _top_board(sales, returns, board, *, limit=TOP_SELLERS_N):
+    """A board ready for a panel: top `limit` by revenue AND by units, the full row count
+    (so the panel knows whether to offer 'View all'), and the revenue subtotal that ties
+    the three boards back to the Revenue KPI."""
+    rows, subtotal = _rank_products(sales, returns, board)
+    return {
+        'by_revenue': sorted(rows, key=lambda r: r['revenue'], reverse=True)[:limit],
+        'by_units':   sorted(rows, key=lambda r: r['units'],   reverse=True)[:limit],
+        'count':      len(rows),
+        'subtotal':   subtotal,
+    }
 
 
 def _unsold(business, sales):
@@ -304,7 +335,35 @@ def _peaks(sales):
 @permission_required('staff_view')          # owner-only — analytics is not a staff surface
 @feature_required('has_analytics')          # Pro-only — the one hard gate
 def sales_analytics(request, business_slug):
+    """The instant SHELL: header, period bar and a full skeleton — NO aggregate work at all. Even
+    the KPI strip is part of the deferred body now, so the whole page is one cohesive skeleton that
+    fills in when sales_analytics_body lands (rather than a half-real / half-ghost page). The only
+    query here is the earliest-sale lookup the period bar's 'All time' start needs."""
     business = get_business_for_user(request.user, business_slug)
+
+    first_sale = (
+        Sale.objects.active().filter(business=business).aggregate(d=Min('date'))['d']
+    )
+    period = resolve_period(request, earliest=first_sale)
+
+    return render(request, 'analytics/sales_analytics.html', {
+        'section': 'sales-analytics',
+        'business': business,
+        'period': period,
+        'range_choices': RANGE_CHOICES,
+    })
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')          # owner-only — analytics is not a staff surface
+@feature_required('has_analytics')          # Pro-only — the one hard gate
+def sales_analytics_body(request, business_slug):
+    """The heavy half of Sales Analytics, lazy-loaded by the shell via hx-trigger="load".
+    Partial-only — a bare visit bounces to the full page. Recomputes the period from the same
+    query string the shell passed on, so the range stays in sync."""
+    business = get_business_for_user(request.user, business_slug)
+    if not request.headers.get('HX-Request'):
+        return redirect('sales-analytics', business_slug=business.slug)
 
     # 'All time' starts at the first sale ever posted, not at the business's creation
     # date — a shop that registered in January and started selling in March should not
@@ -334,7 +393,20 @@ def sales_analytics(request, business_slug):
         }
 
     trend_labels, trend_data = _trend(sales, returns, period)
-    top_by_revenue, top_by_units = _top_products(sales, returns)
+
+    # Three boards split by product type. Top Products is goods-only now; Services and
+    # Rentals get their own, but only when the CATALOG has that type — gated on existence,
+    # not on this window's sales, so a board doesn't vanish on a quiet week (it shows an
+    # empty row instead). offers_services is the master switch: off = neither board.
+    top_products = _top_board(sales, returns, 'goods')
+    has_services = bool(
+        business.offers_services
+        and Product.services.filter(business=business, is_session_based=False).exists())
+    has_rentals = bool(
+        business.offers_services
+        and Product.services.filter(business=business, is_session_based=True).exists())
+    top_services = _top_board(sales, returns, 'services', limit=SR_TOP_N) if has_services else None
+    top_rentals  = _top_board(sales, returns, 'rentals',  limit=SR_TOP_N) if has_rentals  else None
 
     # Deliberately NOT cached. The dashboard's KPI cache is keyed on business+day
     # because it always asks the same question; here the question changes with every
@@ -358,7 +430,18 @@ def sales_analytics(request, business_slug):
         # Revenue card dropdown: billed → collected → receivables, plus the refund line.
         'settle': _settlement(sales, returns),
 
-        'top_tabs': [('revenue', top_by_revenue), ('units', top_by_units)],
+        # Top Products keeps its by-revenue / by-units tab pair; the count + subtotal ride
+        # alongside for the 'View all' link and the sub-header.
+        'top_tabs': [('revenue', top_products['by_revenue']),
+                     ('units',   top_products['by_units'])],
+        'top_products_count':    top_products['count'],
+        'top_products_subtotal': top_products['subtotal'],
+        'top_services': top_services,   # dict or None (None hides the panel entirely)
+        'top_rentals':  top_rentals,
+        'has_services': has_services,
+        'has_rentals':  has_rentals,
+        'top_sellers_n': TOP_SELLERS_N,
+        'sr_top_n':      SR_TOP_N,
         'unsold': _unsold(business, sales),
 
         'peaks': _peaks(sales),
@@ -371,7 +454,46 @@ def sales_analytics(request, business_slug):
     context['dow_labels']  = json.dumps(context['peaks']['dow_labels'])
     context['dow_data']    = json.dumps(context['peaks']['dow_data'])
 
-    return render(request, 'analytics/sales_analytics.html', context)
+    return render(request, 'analytics/partials/_sales_body.html', context)
+
+
+_BOARD_LABELS = {'goods': 'Products', 'services': 'Services', 'rentals': 'Rentals'}
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+@feature_required('has_analytics')
+def top_sellers_detail(request, business_slug):
+    """The full ranking behind a 'View all' link — every product on that board that sold in
+    the window, not just the top 10. Sorted by revenue; the modal's own search box filters
+    it client-side, which is what makes a 100-row list usable. Modal-only (bounces a bare
+    visit to the page); carries the page's period via the query string it was opened with.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    if not request.headers.get('HX-Request'):
+        return redirect('sales-analytics', business_slug=business.slug)
+
+    board = request.GET.get('kind', 'goods')
+    if board not in _BOARD_FILTERS:
+        board = 'goods'
+
+    first_sale = Sale.objects.active().filter(business=business).aggregate(d=Min('date'))['d']
+    period = resolve_period(request, earliest=first_sale)
+    sales   = _sales_in(business, period.start, period.end)
+    returns = _returns_in(business, period.start, period.end)
+
+    rows, subtotal = _rank_products(sales, returns, board)
+    rows = sorted(rows, key=lambda r: r['revenue'], reverse=True)
+
+    return render(request, 'analytics/partials/_top_sellers_modal.html', {
+        'business': business,
+        'period': period,
+        'rows': rows,
+        'subtotal': subtotal,
+        'board': board,
+        'board_label': _BOARD_LABELS[board],
+        'count': len(rows),
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -588,6 +710,62 @@ def _waste_by_reason(business, start, end, waste_total):
     return rows
 
 
+def _supplier_spend(business, start, end):
+    """Stock spend per supplier for the window, each with the vendor's LAST order date.
+
+    Grouped by the material's supplier — the SAME path the Supplier list annotates
+    (`Supplier.materials.items`), so this ranking agrees with what that page shows. The
+    line figure is `price*quantity − discount`, mirroring the Supplier list exactly.
+
+    Two deliberate scoping choices:
+      • Spend is GROSS of the whole-order purchase discount (stored on Purchase, not the
+        line) and gross of returns. This RANKS vendors; it does not reconcile to the Stock
+        Purchases KPI, which is net. `share` is therefore of the supplier spend shown here,
+        never of that card — an honest internal denominator (all suppliers in the window,
+        not just the top N, so shares don't force to 100).
+      • `last_order` is ALL-TIME, not clipped to the window. "When did we last buy from
+        them" is a standing fact about the vendor, not a property of the chosen range —
+        window-clipping it would make it trivially equal to the window's end.
+
+    Materials with no supplier are left out: their spend isn't attributable to a vendor.
+    """
+    line_total = ExpressionWrapper(
+        F('price') * F('quantity') - F('discount'),
+        output_field=DecimalField(max_digits=20, decimal_places=6),
+    )
+    all_rows = list(
+        PurchaseItem.objects
+        .filter(purchase__business=business,
+                purchase__is_void=False,
+                purchase__purchase_date__gte=start,
+                purchase__purchase_date__lte=end,
+                material__supplier__isnull=False)
+        .values('material__supplier', 'material__supplier__name')
+        .annotate(spent=Sum(line_total), orders=Count('purchase', distinct=True))
+        .order_by('-spent')
+    )
+    if not all_rows:
+        return []
+
+    total = sum((r['spent'] or Decimal('0')) for r in all_rows)
+    rows = all_rows[:TOP_N]
+
+    # LAST ORDER — all-time, one query over just the shown vendors.
+    ids = [r['material__supplier'] for r in rows]
+    last = dict(
+        PurchaseItem.objects
+        .filter(purchase__business=business, purchase__is_void=False,
+                material__supplier__in=ids)
+        .values_list('material__supplier')
+        .annotate(d=Max('purchase__purchase_date'))
+    )
+    for r in rows:
+        r['label'] = r['material__supplier__name'] or 'Unknown supplier'
+        r['last_order'] = last.get(r['material__supplier'])
+        r['share'] = float(r['spent'] / total * 100) if total else 0.0
+    return rows
+
+
 @login_required(login_url='login')
 @permission_required('staff_view')          # owner-only — analytics is not a staff surface
 @feature_required('has_analytics')          # Pro-only — the same hard gate as Sales Analytics
@@ -647,11 +825,103 @@ def expense_analytics(request, business_slug):
 
         'categories': _top_categories(business, period.start, period.end, now['bills']),
         'waste_rows': _waste_by_reason(business, period.start, period.end, now['waste']),
+        'supplier_spend': _supplier_spend(business, period.start, period.end),
 
         'biggest': composition[0] if now['total'] else None,
         'has_data': now['total'] > 0,
     }
     return render(request, 'analytics/expense_analytics.html', context)
+
+
+# Recent orders shown in the supplier drill-down modal. The window is usually enough to keep
+# this small; the cap only bites on an All-time view of a heavily-used vendor, where the
+# advice is to narrow the date range rather than scroll hundreds of orders.
+SUPPLIER_MODAL_ORDER_CAP = 100
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')          # owner-only — same as the analytics page it opens from
+@feature_required('has_analytics')
+def supplier_spend_detail(request, business_slug, supplier_id):
+    """Drill-down for ONE row of the Supplier Spend panel: this vendor's orders in the
+    window, each expandable to the items bought — so the ₱ figure on the panel becomes a
+    per-order, per-item story.
+
+    Scoped to the SAME supplier the panel groups by (`material__supplier`), so the modal's
+    running total ties exactly to that row's Spend. A purchase can mix suppliers, so each
+    order here shows only THIS vendor's slice; a muted note flags when others shared the
+    order (they're one click away on their own row). Modal-only — a bare visit has no
+    chrome to live in, so it bounces to the page.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    if not request.headers.get('HX-Request'):
+        return redirect('expense-analytics', business_slug=business.slug)
+
+    # all_objects so an ARCHIVED supplier's history is still reachable from the panel.
+    supplier = get_object_or_404(Supplier.all_objects, business=business, id=supplier_id)
+    period = resolve_period(request, earliest=_earliest_spend(business))
+
+    line_total = ExpressionWrapper(
+        F('price') * F('quantity') - F('discount'),
+        output_field=DecimalField(max_digits=20, decimal_places=6),
+    )
+    lines = list(
+        PurchaseItem.objects
+        .filter(purchase__business=business, purchase__is_void=False,
+                purchase__purchase_date__gte=period.start,
+                purchase__purchase_date__lte=period.end,
+                material__supplier_id=supplier.id)
+        .annotate(line=line_total)
+        .select_related('purchase', 'material')
+        # Newest order first; purchase_id keeps one order's lines contiguous for groupby.
+        .order_by('-purchase__purchase_date', '-purchase_id', '-line')
+    )
+
+    orders = []
+    total = Decimal('0')
+    for purchase, group in groupby(lines, key=lambda ln: ln.purchase):
+        items = list(group)
+        subtotal = sum((it.line or Decimal('0')) for it in items)
+        total += subtotal
+        orders.append({
+            'id': purchase.id,
+            'date': purchase.purchase_date,
+            'reference': purchase.reference,
+            'subtotal': subtotal,
+            'items': [{
+                'name': it.name or (it.material.name if it.material else 'Item'),
+                'units': it.quantity,
+                'amount': it.line,
+            } for it in items],
+        })
+
+    order_count = len(orders)
+    truncated = order_count > SUPPLIER_MODAL_ORDER_CAP
+    orders = orders[:SUPPLIER_MODAL_ORDER_CAP]
+
+    # "+N other supplier(s) in this order" — one query over just the shown orders. Count of
+    # DISTINCT other suppliers (Count ignores the null-supplier lines), so it reads honestly.
+    pids = [o['id'] for o in orders]
+    others = dict(
+        PurchaseItem.objects
+        .filter(purchase_id__in=pids)
+        .exclude(material__supplier_id=supplier.id)
+        .values_list('purchase_id')
+        .annotate(n=Count('material__supplier', distinct=True))
+    )
+    for o in orders:
+        o['other_suppliers'] = others.get(o['id'], 0)
+
+    return render(request, 'analytics/partials/_supplier_spend_modal.html', {
+        'business': business,
+        'supplier': supplier,
+        'period': period,
+        'orders': orders,
+        'total': total,
+        'order_count': order_count,
+        'truncated': truncated,
+        'cap': SUPPLIER_MODAL_ORDER_CAP,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -860,7 +1130,7 @@ def _waterfall(pnl):
     return steps
 
 
-def _profit_by_product(sales, returns):
+def _profit_by_product(sales, returns, board='goods', *, limit=TOP_N):
     """Which products actually MAKE the money — revenue, cost, margin ₱ and margin %.
 
     The point of the whole page. Revenue rank and PROFIT rank are usually different
@@ -874,7 +1144,14 @@ def _profit_by_product(sales, returns):
     relieved of BOTH its revenue and its cost, so its margin stays honest instead of
     collapsing to a pure loss. Grouped by product_id, so renaming a product doesn't split
     it into two rows.
+
+    `board` scopes to one product TYPE using the SAME _BOARD_FILTERS the Sales page uses,
+    mirrored on the return side so the board stays net. Goods is the main table; services
+    and rentals get their own slim board below it. Services legitimately carry cost 0
+    (nothing on a shelf behind them), so their margin is revenue — that's not a gap, it's
+    why the SR board drops the Cost / Margin-% columns.
     """
+    sold_f, refund_f = _BOARD_FILTERS[board]
     rows = {
         r['product_id']: {
             'product_id':    r['product_id'],
@@ -885,14 +1162,14 @@ def _profit_by_product(sales, returns):
             'cost':          r['cost'] or Decimal('0'),
         }
         for r in SaleItem.objects
-        .filter(sale__in=sales)
+        .filter(sale__in=sales, **sold_f)
         .values('product_id', 'product__name', 'product__slug')
         .annotate(units=Sum('quantity'), revenue=Sum(NET_LINE), cost=Sum(COGS_LINE))
     }
 
     refunded = (
         SalesReturnItem.objects
-        .filter(sales_return__in=returns, original_sale_item__isnull=False)
+        .filter(sales_return__in=returns, original_sale_item__isnull=False, **refund_f)
         .values('original_sale_item__product_id',
                 'original_sale_item__product__name',
                 'original_sale_item__product__slug')
@@ -928,14 +1205,39 @@ def _profit_by_product(sales, returns):
 
     # Ranked by MARGIN (the money you kept), not revenue — that's the question this table
     # exists to answer. The Sales page already ranks by revenue.
-    return sorted(out, key=lambda r: r['margin'], reverse=True)[:TOP_N]
+    return sorted(out, key=lambda r: r['margin'], reverse=True)[:limit]
 
 
 @login_required(login_url='login')
 @permission_required('staff_view')          # owner-only — analytics is not a staff surface
 @feature_required('has_analytics')          # Pro-only — the same hard gate as the other two
 def profit_analytics(request, business_slug):
+    """Instant SHELL: header, period bar and a full skeleton — NO aggregate work. The KPI strip
+    (net / margin / revenue / costs) and the Total-Costs breakdown are part of the deferred body
+    now, so the whole page is one cohesive skeleton that fills in when profit_analytics_body lands.
+    The only query here is the earliest-activity lookup the period bar's 'All time' start needs.
+    Mirrors the Sales split."""
     business = get_business_for_user(request.user, business_slug)
+
+    period = resolve_period(request, earliest=_earliest_activity(business))
+
+    return render(request, 'analytics/profit_analytics.html', {
+        'section': 'profit-analytics',
+        'business': business,
+        'period': period,
+        'range_choices': RANGE_CHOICES,
+    })
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')          # owner-only — analytics is not a staff surface
+@feature_required('has_analytics')          # Pro-only — the same hard gate as the other two
+def profit_analytics_body(request, business_slug):
+    """The heavy half of Profit Analytics — charts + profit-by-product — lazy-loaded by the shell
+    via hx-trigger="load". Partial-only; a bare visit bounces to the full page."""
+    business = get_business_for_user(request.user, business_slug)
+    if not request.headers.get('HX-Request'):
+        return redirect('profit-analytics', business_slug=business.slug)
 
     period = resolve_period(request, earliest=_earliest_activity(business))
 
@@ -961,6 +1263,20 @@ def profit_analytics(request, business_slug):
 
     sales   = _sales_in(business, period.start, period.end)
     returns = _returns_in(business, period.start, period.end)
+
+    # Profit by TYPE. The main table is goods only; Services and Rentals get their own slim
+    # board below it — but only when the CATALOG has that type (gated on existence, same as
+    # the Sales page, so a board doesn't vanish on a quiet week). offers_services is the
+    # master switch: off = neither board. Services/rentals carry cost 0, so the board shows
+    # profit (= revenue) without the noise Cost / Margin-% columns.
+    has_services = bool(
+        business.offers_services
+        and Product.services.filter(business=business, is_session_based=False).exists())
+    has_rentals = bool(
+        business.offers_services
+        and Product.services.filter(business=business, is_session_based=True).exists())
+    profit_services = _profit_by_product(sales, returns, 'services', limit=SR_TOP_N) if has_services else None
+    profit_rentals  = _profit_by_product(sales, returns, 'rentals',  limit=SR_TOP_N) if has_rentals  else None
 
     steps = _waterfall(now)
 
@@ -1003,10 +1319,18 @@ def profit_analytics(request, business_slug):
         'wf_amounts': json.dumps([s['value'] for s in steps]),
         'steps': steps,
 
-        'by_product': _profit_by_product(sales, returns),
+        'by_product': _profit_by_product(sales, returns, 'goods'),
+
+        # Services/rentals profit boards below the goods table — dict list or None (None
+        # hides the whole card). has_* drives the conditional Services⇄Rentals toggle.
+        'profit_services': profit_services,
+        'profit_rentals':  profit_rentals,
+        'has_services':    has_services,
+        'has_rentals':     has_rentals,
+        'sr_top_n':        SR_TOP_N,
 
         # A period with no sales AND no costs is genuinely empty. A period with costs but no
         # sales is NOT — it's a loss, and it must render.
         'has_data': bool(now['revenue'] or now['costs']),
     }
-    return render(request, 'analytics/profit_analytics.html', context)
+    return render(request, 'analytics/partials/_profit_body.html', context)

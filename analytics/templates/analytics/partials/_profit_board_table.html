@@ -1,0 +1,36 @@
+{% load humanize %}
+{% comment %} One profit board for a single service TYPE (Services or Rentals). Slimmer than the
+goods "Profit by Product" table on purpose: services carry cost 0 (nothing on a shelf behind
+them), so Cost is always ₱0 and Margin-% always 100% — dead columns. So this shows Units and
+Profit only, and Profit here equals revenue. `rows` is a list of _profit_by_product() dicts;
+current_business comes from the page context. {% endcomment %}
+<div class="table-responsive">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:2.5rem;"></th>
+        <th>Item</th>
+        <th class="sl-text-end">Units</th>
+        <th class="sl-text-end">Profit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+        <td>
+          {% if p.slug %}
+          <a class="an-link" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.product_id product_slug=p.slug %}">{{ p.name }}</a>
+          {% else %}{{ p.name|default:"—" }}{% endif %}
+        </td>
+        <td class="sl-text-end an-num">{{ p.units|intcomma }}</td>
+        <td class="sl-text-end an-num an-figure--lead">
+          <span {% if p.margin < 0 %}class="an-neg"{% endif %}>₱{{ p.margin|floatformat:2|intcomma }}</span>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="top-item-empty">No sales in this period.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

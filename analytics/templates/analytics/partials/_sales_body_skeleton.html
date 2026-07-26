@@ -1,0 +1,45 @@
+{% comment %} Placeholder shown in #sa-body while sales_analytics_body loads. Mirrors the full body
+layout — KPI strip, then a tall trend, then two columns — so nothing jumps when the content swaps
+in. The KPI strip is part of the body now, so it ghosts here too (the whole page is one skeleton).
+Pure CSS shimmer (.skel), no JS. {% endcomment %}
+<div class="kpi-row kpi-row--4col">
+  {% comment %} four ghost KPI cards {% endcomment %}
+  <div class="kpi-card"><div class="kpi-body">
+    <div class="skel skel--line" style="width:52%; height:11px;"></div>
+    <div class="skel skel--line" style="width:78%; height:24px; margin-top:.55rem;"></div>
+  </div></div>
+  <div class="kpi-card"><div class="kpi-body">
+    <div class="skel skel--line" style="width:48%; height:11px;"></div>
+    <div class="skel skel--line" style="width:64%; height:24px; margin-top:.55rem;"></div>
+  </div></div>
+  <div class="kpi-card"><div class="kpi-body">
+    <div class="skel skel--line" style="width:56%; height:11px;"></div>
+    <div class="skel skel--line" style="width:70%; height:24px; margin-top:.55rem;"></div>
+  </div></div>
+  <div class="kpi-card"><div class="kpi-body">
+    <div class="skel skel--line" style="width:50%; height:11px;"></div>
+    <div class="skel skel--line" style="width:72%; height:24px; margin-top:.55rem;"></div>
+  </div></div>
+</div>
+
+<div class="card" style="margin-bottom: 0.85rem;">
+  <div class="card-body an-chart an-chart--tall"><div class="skel skel--fill"></div></div>
+</div>
+
+<div class="two-col-layout">
+  <div class="left-panel">
+    <div class="card"><div class="card-body">
+      <div class="skel skel--line" style="width:38%; height:18px;"></div>
+      <div class="skel skel--row"></div><div class="skel skel--row"></div>
+      <div class="skel skel--row"></div><div class="skel skel--row"></div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="skel skel--line" style="width:30%; height:18px;"></div>
+      <div class="skel skel--row"></div><div class="skel skel--row"></div>
+    </div></div>
+  </div>
+  <div class="right-panel">
+    <div class="card"><div class="card-body an-chart an-chart--short"><div class="skel skel--fill"></div></div></div>
+    <div class="card"><div class="card-body an-chart an-chart--short"><div class="skel skel--fill"></div></div></div>
+  </div>
+</div>

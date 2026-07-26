@@ -1,0 +1,64 @@
+{% load humanize %}
+{% comment %} The full ranking behind a "View all" link — every item on this board that sold in the
+window. The search box up top filters the rendered rows client-side (handler in sales_analytics.html,
+delegated so it survives this htmx swap), which is what makes 100 rows usable. Scoped by [data-tsm];
+each row carries a lowercased name in data-tsm-name. {% endcomment %}
+<div class="quickview__panel cm-panel cm-panel--form">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body" data-tsm>
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-trophy"></i></div>
+        <div>
+          <div class="cm-title">Top {{ board_label }}</div>
+          <div class="cm-sub">{{ period.label }} · {{ count }} {{ board_label|lower }} sold · ₱{{ subtotal|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+
+      {% if rows %}
+      <div class="tsm-search-wrap">
+        <i class="bi bi-search tsm-search-ico"></i>
+        <input type="search" class="tsm-search" data-tsm-search
+               placeholder="Search {{ board_label|lower }}…" autocomplete="off" aria-label="Search {{ board_label|lower }}">
+      </div>
+
+      <div class="tsm-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:2.5rem;"></th>
+              <th>Item</th>
+              <th class="sl-text-end">Units</th>
+              <th class="sl-text-end">Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr data-tsm-row data-tsm-name="{{ row.product__name|default:''|lower }}">
+              <td><span class="an-rank {% if forloop.first %}an-rank--top{% endif %}">{{ forloop.counter }}</span></td>
+              <td>
+                {% if row.product__slug %}
+                <a class="an-link" href="{% url 'product-detail' business_slug=business.slug product_id=row.product_id product_slug=row.product__slug %}">{{ row.product__name }}</a>
+                {% else %}{{ row.product__name|default:"(removed item)" }}{% endif %}
+              </td>
+              <td class="sl-text-end an-num">{{ row.units|intcomma }}</td>
+              <td class="sl-text-end an-num an-figure--lead">₱{{ row.revenue|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="tsm-empty" data-tsm-empty style="display:none;">No match.</div>
+      </div>
+
+      {% else %}
+      <div class="empty-state" style="padding:2rem 1rem;">
+        <div class="empty-icon"><i class="bi bi-trophy"></i></div>
+        <h3 class="empty-title">No {{ board_label|lower }} sold</h3>
+        <p class="empty-text">Nothing on this board sold in {{ period.label|lower }}.</p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
