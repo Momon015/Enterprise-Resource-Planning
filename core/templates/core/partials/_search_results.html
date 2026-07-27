@@ -23,7 +23,7 @@
         <span class="search-prod__img"><i class="bi bi-box-seam"></i></span>
         <a class="search-prod__info" href="{% url 'material-detail' business_slug=current_business.slug id=m.id slug=m.slug %}">
           <span class="search-prod__name">{{ m.name }}</span>
-          <span class="search-prod__meta">₱{{ m.price|floatformat:2|intcomma }} · cost</span>
+          <span class="search-prod__meta">{% if m.sku %}{{ m.sku|upper }} · {% endif %}₱{{ m.price|floatformat:2|intcomma }} · cost</span>
         </a>
         <!-- A material belongs to the purchase cart no matter which page you searched from,
              so it swaps the PURCHASE badge — the sale badge is a different button. -->
@@ -75,7 +75,7 @@
       <span class="search-prod__img{% if not p.image %} search-prod__img--initials{% endif %}">{% if p.image %}<img src="{{ p.image.url }}">{% else %}{{ p.name|slice:":2"|upper }}{% endif %}</span>
       <a class="search-prod__info" href="{% url 'product-detail' business_slug=current_business.slug product_id=p.id product_slug=p.slug %}">
         <span class="search-prod__name">{{ p.name }}</span>
-        <span class="search-prod__meta">₱{{ p.selling_price|floatformat:2|intcomma }} · {{ p.prepared_quantity }} in stock</span>
+        <span class="search-prod__meta">{% if p.sku %}{{ p.sku|upper }} · {% endif %}₱{{ p.selling_price|floatformat:2|intcomma }} · {{ p.prepared_quantity }} in stock</span>
       </a>
       <button hx-post="{% url 'add-to-sale' business_slug=current_business.slug product_id=p.id %}"
               hx-target="#sale-cart-badge" hx-swap="outerHTML"

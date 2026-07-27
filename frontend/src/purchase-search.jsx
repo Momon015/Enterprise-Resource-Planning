@@ -291,6 +291,10 @@ function PurchaseSearch() {
                         <div className="ps-body">
                           <div className="ps-name"><Highlight text={m.name} query={debounced} /></div>
                           <div className="ps-sub">
+                            {m.sku && <>
+                              <Highlight text={m.sku} query={debounced} />
+                              <span className="ps-dot">·</span>
+                            </>}
                             Supplier: <Highlight text={m.supplier} query={debounced} />
                             <span className="ps-dot">·</span>
                             <span className="ps-cost">₱{m.price}</span>
