@@ -221,6 +221,10 @@ function SaleSearch() {
       <div className="ps-body">
         <div className="ps-name"><Highlight text={p.name} query={debounced} /></div>
         <div className="ps-sub">
+          {p.sku && <>
+            <Highlight text={p.sku} query={debounced} />
+            <span className="ps-dot">·</span>
+          </>}
           {p.supplier && <>
             <Highlight text={p.supplier} query={debounced} />
             <span className="ps-dot">·</span>

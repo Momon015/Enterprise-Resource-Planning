@@ -112,6 +112,7 @@ def sale_search(request, business_slug):
         return {
             'id': p.id,
             'name': p.name,
+            'sku': p.sku,
             'supplier': p.material.supplier.name if p.material and p.material.supplier else '',
             'price': f'{p.selling_price:.2f}',
             'image': p.image.url if p.image else '',

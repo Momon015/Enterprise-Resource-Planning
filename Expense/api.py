@@ -126,6 +126,7 @@ def cart_search(request, business_slug):
     mats = [{
         'id': m.id,
         'name': m.name,
+        'sku': m.sku,
         'supplier': m.supplier.name if m.supplier else 'No supplier',
         'price': f'{m.price:.2f}',      # unit COST
         # `Material.quantity` is a REFERENCE quantity (how the item is defined — e.g. 24 per
