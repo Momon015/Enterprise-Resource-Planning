@@ -237,7 +237,17 @@ class BusinessProfile(models.Model):
         default=Decimal('0.00'),
         help_text="Pre-filled coins portion of cash float (only used when track_coins_separately is on)."
     )
-    
+
+    # Business hours — drives the auto clock-out of shifts staff forgot to close.
+    # NULL = open 24 hours: there's no daily close, so a forgotten shift is instead
+    # capped at 24h after clock-in (see Employee.utils.close_stale_shifts).
+    closing_time = models.TimeField(
+        null=True, blank=True,
+        help_text="Your usual closing time. Shifts a staff member forgets to clock out of are "
+                  "auto-closed at this time. Leave blank if you're open 24 hours — those shifts "
+                  "auto-close 24 hours after clock-in instead."
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

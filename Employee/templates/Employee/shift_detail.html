@@ -34,11 +34,16 @@
     <!-- LEFT -->
     <div class="left-panel">
 
-      <!-- CLOSED BY OWNER -->
-      {% if shift_emp.closed_by %}
+      {% comment %} CLOSED ON THE STAFF'S BEHALF — by an owner (closed_by) OR by the system
+      auto-close (auto_closed, closed_by NULL). Same acknowledge/dispute flow either way. {% endcomment %}
+      {% if shift_emp.closed_by or shift_emp.auto_closed %}
       <div class="card" style="border-left:3px solid {% if shift_emp.close_dispute_unresolved %}var(--danger){% else %}var(--warning){% endif %};">
         <div class="card-header">
+          {% if shift_emp.auto_closed and not shift_emp.closed_by %}
+          <span class="card-header-title"><i class="bi bi-clock-history"></i> Shift Closed - System</span>
+          {% else %}
           <span class="card-header-title"><i class="bi bi-person-lock"></i> Shift Closed - Owner</span>
+          {% endif %}
           {% if shift_emp.close_dispute_unresolved %}<span class="status-badge status-danger"><i class="bi bi-flag-fill"></i> Unresolved</span>
           {% elif shift_emp.close_disputed %}<span class="status-badge status-success">Resolved</span>
           {% elif shift_emp.close_acknowledged %}<span class="status-badge status-success">Confirmed</span>
@@ -48,8 +53,17 @@
           <div class="sd-note-box">
             <i class="bi bi-info-circle sd-note-icon" style="color:var(--warning);"></i>
             <div>
+              {% if shift_emp.auto_closed and not shift_emp.closed_by %}
+              <div class="sd-note-title">The system timed you out</div>
+              {% if show_reconciliation %}
+              <div class="sd-note-text">No time-out was recorded, so this shift was closed automatically. The drawer wasn't counted — the Expected amount below is what should be in it. Next time, please time out at the end of your shift so the cash drawer can be counted for the day.</div>
+              {% else %}
+              <div class="sd-note-text">No time-out was recorded, so this shift was closed automatically. Please remember to time out at the end of your shift.</div>
+              {% endif %}
+              {% else %}
               <div class="sd-note-title">The owner timed you out</div>
               <div class="sd-note-text">Reason: {{ shift_emp.close_reason }}</div>
+              {% endif %}
             </div>
           </div>
 
@@ -72,6 +86,14 @@
           {% endif %}
 
           {% if request.user.role == 'staff' and shift_emp.close_needs_ack %}
+          {% if shift_emp.auto_closed and not shift_emp.closed_by %}
+          {% comment %} System auto-close: the system didn't count the drawer and made no claim
+          against the staff, so there's nothing to dispute or key in — just read and dismiss. {% endcomment %}
+          <form method="post" action="{% url 'acknowledge-shift-close' business_slug=current_business.slug shift_id=shift_emp.id %}">
+            {% csrf_token %}
+            <button type="submit" name="response" value="agree" class="btn btn-primary btn-sm btn-block"><i class="bi bi-check2"></i> Confirm</button>
+          </form>
+          {% else %}
           <form method="post" action="{% url 'acknowledge-shift-close' business_slug=current_business.slug shift_id=shift_emp.id %}">
             {% csrf_token %}
             {% if show_reconciliation and shift_emp.counted_cash is None and shift_emp.counted_gcash is None and shift_emp.counted_bank is None %}
@@ -120,6 +142,7 @@
             t.addEventListener('click', function(){ b.style.display = (b.style.display === 'none') ? 'block' : 'none'; });
           })();
           </script>
+          {% endif %}
           {% elif shift_emp.close_acknowledged and not shift_emp.close_disputed %}
           <div class="sl-text-muted" style="font-size:0.8rem;"><i class="bi bi-check2-circle"></i> {% if request.user.role == 'staff' %}You acknowledged this{% else %}Staff acknowledged this{% endif %}{% if shift_emp.close_acknowledged_at %} on {{ shift_emp.close_acknowledged_at|date:"M d, g:i A" }}{% endif %}.</div>
           {% endif %}
