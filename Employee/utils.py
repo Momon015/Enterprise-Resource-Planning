@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
@@ -60,12 +61,14 @@ def pending_acks_for_staff(user, business):
         shift__clock_out__isnull=True,
     ).exclude(purpose='business_expense').select_related('shift', 'created_by')
 
-    # Owner-closed shifts the staff hasn't confirmed — PERSISTS (no expiry filter):
-    # created AT closure, so it must survive past time-out until the staff reviews it.
+    # Owner-closed OR system-auto-closed shifts the staff hasn't confirmed — PERSISTS (no
+    # expiry filter): created AT closure, so it must survive past time-out until the staff
+    # reviews it. auto_closed leaves closed_by NULL (there's no System user), so both cases
+    # are OR'd in — mirrors ShiftEmployee.close_needs_ack.
     closes = ShiftEmployee.objects.filter(
+        Q(closed_by__isnull=False) | Q(auto_closed=True),
         employee__staff_user=user,
         shift__business=business,
-        closed_by__isnull=False,
         close_acknowledged=False,
     ).select_related('shift', 'closed_by')
 
@@ -202,6 +205,122 @@ def counted_drawers(business, on_date):
         clock_in__isnull=False,
         clock_out__isnull=False,
     )
+
+
+# ──────────────────────────────────────────────────────────────
+# Auto clock-out of shifts a staff member forgot to close.
+#
+# A forgotten clock-out doesn't cost payroll (the daily rate is earned at clock-in,
+# see Shift.recompute_amount), but it leaves the shift `is_active` forever — which
+# blocks the next day's clock-in and lets expected_cash keep absorbing every later
+# sale (ShiftEmployee._shift_window_end falls back to "now" while clock_out is None).
+# The system closes such shifts at the business's closing time and flags them for the
+# same acknowledge/dispute review an owner-close gets.
+#
+# Two callers share this: the nightly `close_stale_shifts` management command (the
+# precise-midnight path once a scheduler runs it) and a lazy sweep on clock-in /
+# timecard load (works today with no scheduler). Both must agree, so the rule lives here.
+# ──────────────────────────────────────────────────────────────
+
+def shift_auto_close_cutoff(shift_emp, business):
+    """When an unclosed shift should be auto-closed — an aware datetime, or None.
+
+    - closing_time SET: the first occurrence of that wall-clock time AT OR AFTER clock-in.
+      Rolling to the next day when needed lets a store that closes after midnight (e.g.
+      a 2 AM bar) still get the correct same-session cutoff.
+    - closing_time NULL (open 24 hours): there's no daily close, so cap the shift at 24
+      hours after clock-in — nobody works more than a day straight.
+    """
+    if not shift_emp.clock_in:
+        return None
+    closing = getattr(business, 'closing_time', None) if business else None
+    if not closing:
+        return shift_emp.clock_in + timedelta(hours=24)
+    # Work in local wall-clock so "closing time" means the owner's clock, not UTC.
+    ci_local = timezone.localtime(shift_emp.clock_in)
+    cutoff_local = ci_local.replace(
+        hour=closing.hour, minute=closing.minute, second=0, microsecond=0
+    )
+    if cutoff_local <= ci_local:
+        cutoff_local += timedelta(days=1)
+    return cutoff_local
+
+
+def close_stale_shifts(business=None, now=None):
+    """Auto-close every open shift whose cutoff has passed. Idempotent — only ever
+    touches shifts with clock_in set and clock_out NULL, so re-running does nothing.
+
+    Pass a `business` to scope it (the lazy sweep); omit it to sweep all businesses
+    (the nightly command). Returns the count of shifts closed.
+    """
+    now = now or timezone.now()
+    qs = ShiftEmployee.objects.filter(
+        clock_in__isnull=False, clock_out__isnull=True,
+    ).select_related('shift', 'shift__business', 'drawer_session')
+    if business is not None:
+        qs = qs.filter(shift__business=business)
+
+    closed = 0
+    for shift_emp in qs:
+        biz = shift_emp.shift.business
+        if biz is None:
+            continue
+        cutoff = shift_auto_close_cutoff(shift_emp, biz)
+        if cutoff is None or now < cutoff:
+            continue  # still within its window — leave it open
+        _auto_close_shift(shift_emp, cutoff, now)
+        closed += 1
+    return closed
+
+
+def _auto_close_shift(shift_emp, cutoff, now):
+    """Stamp the auto clock-out and flag it for review. counted_* are left NULL on
+    purpose: nobody physically counted the drawer, so a cashier's expected_cash shows
+    as 'what should be there, unverified' until the staff/owner reconciles — we never
+    fabricate a ₱0 count that would read as a false shortage.
+
+    Two audiences (see [design notes]): the STAFF get the shift flagged for a
+    read-and-dismiss on their side (close_needs_ack, reusing the owner-close banner);
+    the OWNER gets a bell notification — but only for a CASHIER shift with an actual
+    drawer, since an attendance-only shift has nothing to reconcile."""
+    business = shift_emp.shift.business
+    with transaction.atomic():
+        shift_emp.clock_out = cutoff
+        shift_emp.auto_closed = True
+        shift_emp.auto_closed_at = now
+        shift_emp.close_reason = "Auto-closed by the system — no clock-out was recorded."
+        shift_emp.close_acknowledged = False
+        shift_emp.save()  # ShiftEmployee.save sums counts; the post-save signal recomputes payroll
+
+        # Release a shared drawer this shift was holding (mirrors the clock_out view).
+        session = shift_emp.drawer_session
+        if session and session.is_open and session.current_holder_id == shift_emp.id:
+            session.status = 'closed'
+            session.closed_at = cutoff
+            session.save(update_fields=['status', 'closed_at'])
+
+    # Notify the OWNER — cashier drawers only (nothing to reconcile on an attendance shift,
+    # and no drawer when reconciliation is off). The peso figure lives on the shift page
+    # (access-controlled), NOT in the bell text, which is shared with staff by design.
+    plan = getattr(business, 'plan', None)
+    drawer_to_check = (
+        shift_emp.is_cashier
+        and business.enable_cash_reconciliation
+        and plan is not None and plan.has_cash_reconciliation()
+    )
+    if drawer_to_check:
+        from activity.utils import log_activity   # local import avoids a circular load
+        name = shift_emp.name or (shift_emp.employee.name if shift_emp.employee else 'A staff member')
+        day = timezone.localtime(cutoff).strftime('%b %d')
+        log_activity(
+            business, actor=None, verb='shift.auto_closed', target=shift_emp,
+            description=(
+                f"System closed {name}'s shift ({day}) — no time-out was recorded, so the "
+                f"cash drawer wasn't counted. Tap to check it against the expected amount."
+            )[:255],
+            metadata={'expected_cash': f"{shift_emp.expected_cash:.2f}"},
+            important=True,
+        )
 
 
 def sealed_by_counted_drawer(business, on_date, rung_at, payments):

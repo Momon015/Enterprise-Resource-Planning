@@ -188,6 +188,15 @@ class ShiftEmployee(TimeStampModel):
     )
     close_acknowledged = models.BooleanField(default=False)
     close_acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    # ── System auto-closed this shift (staff forgot to time out, no owner action) ──
+    # Distinct from closed_by, which is a real owner. The model deliberately has NO
+    # "System" User row (see Shift.amount note), so a system close leaves closed_by NULL
+    # and sets this flag instead. clock_out is stamped at the business closing time (or
+    # 24h after clock-in for a 24-hour business). Reuses the same acknowledge/dispute
+    # flow as an owner close. See Employee.utils.close_stale_shifts.
+    auto_closed    = models.BooleanField(default=False)
+    auto_closed_at = models.DateTimeField(null=True, blank=True)
     
     # Staff's response to an owner-close: Acknowledge, or Flag for Review with a reason.
     CLOSE_DISPUTE_REASONS = [
@@ -235,8 +244,9 @@ class ShiftEmployee(TimeStampModel):
 
     @property
     def close_needs_ack(self):
-        """Owner closed this shift on the staff's behalf and the staff hasn't confirmed yet."""
-        return self.closed_by_id is not None and not self.close_acknowledged
+        """Someone other than the staff closed this shift and it's not yet confirmed —
+        either an owner (closed_by) or the system auto-close (auto_closed)."""
+        return (self.closed_by_id is not None or self.auto_closed) and not self.close_acknowledged
 
 
     @property

@@ -44,6 +44,7 @@ class ActivityEvent(models.Model):
         ('staff.added',        'Staff added'),
         ('purchase.refunded',  'Purchase refunded'),
         ('sale.refunded',      'Sale refunded'),
+        ('shift.auto_closed',  'Shift auto-closed'),
     ]
     
     business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE, related_name='activities')
@@ -91,6 +92,7 @@ class ActivityEvent(models.Model):
             'trial':    'bi-clock',
             'plan':     'bi-credit-card',
             'staff':    'bi-person-plus',
+            'shift':    'bi-clock-history',
         }.get(self.category, 'bi-bell')
 
     @property
@@ -108,7 +110,8 @@ class ActivityEvent(models.Model):
             return 'danger'
 
         if self.verb in ('stock.low','trial.ending', 'plan.expiring', 'plan.canceled',
-                         'product.archived', 'material.archived', 'supplier.archived'):
+                         'product.archived', 'material.archived', 'supplier.archived',
+                         'shift.auto_closed'):
             return 'warning'
 
         if self.verb == 'purchase.recorded':
@@ -161,6 +164,10 @@ class ActivityEvent(models.Model):
 
             if self.verb == 'staff.added':
                 return reverse('employee-list', kwargs={'business_slug': business_slug})
+
+            if self.verb == 'shift.auto_closed':
+                # target is the ShiftEmployee — land on its detail, where expected_cash shows.
+                return reverse('shift-detail', kwargs={'business_slug': business_slug, 'shift_id': self.target_id})
             
             if self.verb in ('sale.completed', 'sale.reference', 'sale.voided'):
                 return reverse('sale-detail', kwargs={'business_slug': business_slug, 'sale_id': self.target_id})

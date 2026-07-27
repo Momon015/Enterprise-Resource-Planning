@@ -23,7 +23,7 @@ from Employee.models import (Employee, Shift, ShiftEmployee,
 
 
 from Employee.forms import EmployeeForm, EmployeeFilterForm
-from Employee.utils import get_opening_cash_for_today
+from Employee.utils import get_opening_cash_for_today, close_stale_shifts
 
 from Inventory.models import Stock
 from Product.models import Product
@@ -427,6 +427,10 @@ def shift_dashboard(request, business_slug):
         messages.warning(request, 'Timecards available on Standard plan and up.')
         return redirect('product-list', business_slug=business_slug)
 
+    # Safety net: reflect reality on the timecard board — close any shift left open past its
+    # cutoff before we read the active/recent lists, so a forgotten clock-out doesn't linger.
+    close_stale_shifts(business)
+
     today = timezone.localdate()
     current = f"{today.year}-0{today.month}"
     if request.user.role == 'owner':
@@ -552,6 +556,10 @@ def clock_in(request, business_slug):
     if not employee:
         messages.error(request, 'You are not registered as an employee of this business.')
         return redirect('product-list', business_slug=business_slug)
+
+    # Safety net: close any shift left open past its cutoff (staff forgot to time out) so a
+    # stale prior-day shift can't block today's clock-in. Same rule as the nightly command.
+    close_stale_shifts(business)
 
     # Block double clock-in
     active = ShiftEmployee.objects.filter(
@@ -1011,8 +1019,9 @@ def acknowledge_shift_close(request, business_slug, shift_id):
         messages.error(request, 'Not authorized.')
         return redirect('shift-dashboard', business_slug=business_slug)
 
-    # Nothing to acknowledge unless the owner actually closed this shift
-    if not shift_emp.closed_by_id:
+    # Nothing to acknowledge unless someone closed this shift on the staff's behalf —
+    # an owner (closed_by) or the system auto-close (auto_closed, closed_by NULL).
+    if not shift_emp.closed_by_id and not shift_emp.auto_closed:
         return redirect('shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
 
     if request.method == 'POST':
@@ -1035,7 +1044,10 @@ def acknowledge_shift_close(request, business_slug, shift_id):
                 shift_emp.close_acknowledged = True
                 shift_emp.close_acknowledged_at = timezone.now()
                 shift_emp.save(update_fields=['close_acknowledged', 'close_acknowledged_at'])
-                messages.success(request, 'Thanks — you confirmed the owner closed your shift.')
+                if shift_emp.auto_closed and not shift_emp.closed_by_id:
+                    messages.success(request, 'Confirm — thanks for confirming.')
+                else:
+                    messages.success(request, 'Thanks — you confirmed the owner closed your shift.')
 
     return redirect('shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
 

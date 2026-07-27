@@ -297,6 +297,7 @@ class BusinessCashDrawerForm(ModelForm):
             'track_coins_separately',
             'default_opening_bills',
             'default_opening_coins',
+            'closing_time',
         ]
         widgets = {
             'default_opening_cash':  forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
@@ -305,6 +306,7 @@ class BusinessCashDrawerForm(ModelForm):
             'enable_cash_reconciliation': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'track_coins_separately':     forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'shared_cash_drawer':         forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'closing_time':               forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}, format='%H:%M'),
         }
 
     def __init__(self, *args, locked=False, **kwargs):
@@ -315,8 +317,13 @@ class BusinessCashDrawerForm(ModelForm):
         self.fields['default_opening_bills'].label = 'Default bills'
         self.fields['default_opening_coins'].label = 'Default coins'
         self.fields['shared_cash_drawer'].label = 'Cashiers share one drawer'
+        self.fields['closing_time'].label = 'Store closing time'
+        self.fields['closing_time'].help_text = (
+            "Shifts a staff member forgets to clock out of are auto-closed at this time. "
+            "Leave blank if you're open 24 hours."
+        )
         for f in ('enable_cash_reconciliation', 'shared_cash_drawer', 'track_coins_separately',
-                  'default_opening_bills', 'default_opening_coins'):
+                  'default_opening_bills', 'default_opening_coins', 'closing_time'):
             self.fields[f].required = False
 
 

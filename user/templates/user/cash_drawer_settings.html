@@ -86,6 +86,13 @@
           </div>
         </div>
 
+        <div style="margin-bottom:1rem;">
+          <label class="sd-info-label" for="{{ form.closing_time.id_for_label }}">Store closing time</label>
+          {{ form.closing_time }}
+          <div class="sl-text-muted" style="font-size:0.78rem;">Shifts a staff member forgets to clock out of are auto-closed at this time. Leave blank if you're open 24 hours — those shifts auto-close 24 hours after time-in.</div>
+          {% if form.closing_time.errors %}<div style="color:var(--danger); font-size:0.8rem;">{{ form.closing_time.errors.0 }}</div>{% endif %}
+        </div>
+
         <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
           <a href="{% url 'settings' business_slug=request.user.slug %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
           <button type="submit" class="btn cm-btn cm-btn--success"><i class="bi bi-check2"></i> Save Settings</button>
