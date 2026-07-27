@@ -39,8 +39,7 @@ from django.core.exceptions import ValidationError
 
 from subscription.decorators import capacity_required
 
-from activity.models import ActivityEvent
-from activity.utils import log_activity, scope_events_for_user
+from activity.utils import log_activity
 
 
 
@@ -119,15 +118,7 @@ def material_list(request, business_slug):
            
 
     suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('-name')
-    
-    recent_events = ActivityEvent.objects.filter(
-        Q(verb__startswith='material.') |
-        Q(verb__startswith='purchase.') |
-        Q(verb__startswith='stock.'),
-        business=business
-    )
-    recent_events = scope_events_for_user(recent_events, request.user)[:4]
-    
+
     archived_count = Material.all_objects.filter(business=business, status='inactive').count()
     
     context = {
@@ -138,7 +129,6 @@ def material_list(request, business_slug):
         'categories_count': categories_count,
         'top_categories': top_categories,
         'section': 'material',
-        'recent_events': recent_events,
         'archived_count': archived_count,
 
         # HTMX

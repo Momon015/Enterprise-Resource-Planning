@@ -75,15 +75,25 @@ def employee_list(request, business_slug):
         if search:
             employees = employees.filter(name__icontains=search)
             
-    avg_daily_rate = employees.average_daily_rate()
     total_daily_rate = employees.total_daily_rate()
-    
+
+    # Payroll = sum of ShiftEmployee.daily_rate (the amount that lands on each logged shift).
+    # This month is the running total since the 1st; last month is the full previous calendar
+    # month [last_month_start, month_start), shown as a comparison beside it.
     month_start = timezone.localdate().replace(day=1)
+    last_month_start = (month_start - timedelta(days=1)).replace(day=1)
+
     monthly_payroll = ShiftEmployee.objects.filter(
         shift__business=business,
         shift__date__gte=month_start,
     ).aggregate(t=Sum('daily_rate'))['t'] or 0
-    
+
+    last_month_payroll = ShiftEmployee.objects.filter(
+        shift__business=business,
+        shift__date__gte=last_month_start,
+        shift__date__lt=month_start,
+    ).aggregate(t=Sum('daily_rate'))['t'] or 0
+
     archive_count = Employee.all_objects.filter(business=business, status='inactive').count()
     pending_staff = (User.objects.filter(pending_business=business, role='staff').order_by('date_joined')
                      if request.user == business.user else [])
@@ -94,10 +104,12 @@ def employee_list(request, business_slug):
     page_obj = pagination.get_page(page)
 
     context = {
-        'page_obj': page_obj, 
+        'page_obj': page_obj,
         'total_daily_rate': total_daily_rate,
-        'avg_daily_rate': avg_daily_rate,
         'monthly_payroll': monthly_payroll,
+        'last_month_payroll': last_month_payroll,
+        'month_label': month_start.strftime('%B'),
+        'last_month_label': last_month_start.strftime('%B'),
         'archive_count': archive_count,
         'section': 'employee',
         'pending_staff': pending_staff,

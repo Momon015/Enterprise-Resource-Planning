@@ -588,7 +588,7 @@ def restore_batch_product(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     
     Product.goods.filter(business=business).update(prepared_quantity=F('default_quantity'))
-    messages.success(request, 'All products has been restored successfully.')
+    # messages.success(request, 'All products has been restored successfully.')
     return redirect('product-list', business_slug=business.slug)
 
 @login_required(login_url='login')
@@ -599,7 +599,7 @@ def restore_product_quantity(request, business_slug, product_id):
     product = get_object_or_404(Product, business=business, id=product_id)
     product.restore_product_quantity()
     product.save()
-    messages.success(request, f'{product.name} has been restored successfully.')
+    # messages.success(request, f'{product.name} has been restored successfully.')
     return redirect(f"{redirect('product-list', business_slug=business.slug)}?{request.META.get('QUERY_STRING', '')}")
     
 
