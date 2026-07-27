@@ -1,3 +1,4 @@
+{% load static %}
         <div class="mf-fields-grid">
 
           {# Name #}
@@ -10,6 +11,22 @@
             {% if form.name.help_text %}<div class="mf-help">{{ form.name.help_text }}</div>{% endif %}
             {% if form.name.errors %}<div class="mf-error">{{ form.name.errors|striptags }}</div>{% endif %}
           </div>
+
+          {% comment %} Barcode — present only for retail/pharmacy; MaterialForm pops it for
+          cafe/restaurant, and {% if form.barcode %} is falsy when the field is absent. {% endcomment %}
+          {% if form.barcode %}
+          <div class="mf-field-group">
+            <label for="{{ form.barcode.id_for_label }}" class="mf-form-label">
+              {{ form.barcode.label }}
+            </label>
+            {{ form.barcode }}
+            {% comment %} Scan-to-fill mounts here: a camera button on supporting browsers,
+            and (always) an Enter-swallow so a wedge scanner's terminator can't submit the
+            form mid-edit. See frontend/src/barcode-field.jsx. {% endcomment %}
+            <div id="barcode-scan-root" class="bc-scan-mount" data-target="{{ form.barcode.id_for_label }}"></div>
+            {% if form.barcode.errors %}<div class="mf-error">{{ form.barcode.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endif %}
 
           {# Supplier #}
           <div class="mf-field-group">
@@ -106,3 +123,7 @@ function stepDecimal(id, delta) {
 </script>
 
 {% include 'partials/_required_guard.html' with form_id='materialForm' %}
+
+{% if form.barcode %}
+<script type="module" src="{% static 'react/barcode-field.js' %}"></script>
+{% endif %}

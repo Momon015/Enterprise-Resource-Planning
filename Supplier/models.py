@@ -146,6 +146,13 @@ class Material(TimeStampModel, SlugModel):
         ('cup',    'Cup'),
     )
     name = models.CharField(max_length=100)
+    # Retail is material ≡ product 1:1, so the SKU/barcode identity lives HERE (the buy-side
+    # anchor) and mirrors onto the auto-created product — see core/utils/sku and
+    # Product.save(). `sku` is auto-generated (MAT-0001); `barcode` is the manufacturer's
+    # EAN/UPC, entered once here and synced to the linked product on purchase. Both are
+    # surfaced only for non-food verticals (cafe/restaurant menus have no barcodes).
+    sku = models.CharField(max_length=64, blank=True, db_index=True)
+    barcode = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='materials')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, related_name='materials', null=True, blank=True)
@@ -164,11 +171,31 @@ class Material(TimeStampModel, SlugModel):
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
-        
+        constraints = [
+            models.UniqueConstraint(
+                fields=['business', 'sku'],
+                condition=models.Q(sku__gt=''),
+                name='unique_material_sku_per_business',
+            ),
+            models.UniqueConstraint(
+                fields=['business', 'barcode'],
+                condition=models.Q(barcode__isnull=False) & ~models.Q(barcode=''),
+                name='unique_material_barcode_per_business',
+            ),
+        ]
+
     def __str__(self):
         return self.name
-    
+
     def save(self, *args, **kwargs):
+        # MAT- SKU from the shared Product/Material number space (see core/utils/sku).
+        # A retail material's number is what its auto-created product mirrors, so both
+        # series must draw from ONE counter or a standalone product could collide with a
+        # mirror. Generated once, on first save, only when the business is known.
+        if not self.sku and self.business:
+            from core.utils.sku import next_item_number
+            self.sku = f"MAT-{next_item_number(self.business):04d}"
+
         unit_display = self.get_unit_display().title()
         base_slug = f"{slugify(self.name)}-{unit_display}"
         slug = base_slug

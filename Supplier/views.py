@@ -101,12 +101,14 @@ def material_list(request, business_slug):
         if search:
             materials = materials.filter(
                 Q(name__icontains=search) |
+                    Q(sku__icontains=search) |
+                    Q(barcode__icontains=search) |
                     Q(price__icontains=search) |
                     Q(quantity__icontains=search) |
                     Q(unit__icontains=matched_unit or search)
                     # Q(category__name__icontains=search) |
-                    
-            )   
+
+            )
         if category:
             materials = materials.filter(category=category)
         

@@ -25,12 +25,17 @@ class MaterialFilterForm(forms.Form):
 class MaterialForm(ModelForm):
     class Meta:
         model = Material
-        fields = ['name', 'price', 'quantity', 'unit', 'supplier', 'piece_per_unit']
+        fields = ['name', 'barcode', 'price', 'quantity', 'unit', 'supplier', 'piece_per_unit']
 
         widgets = {
             'name': forms.TextInput(attrs={
                 'placeholder': 'e.g. Coke 1.5L',
                 'autocomplete': 'off',
+            }),
+            'barcode': forms.TextInput(attrs={
+                'placeholder': 'Scan or type — e.g. 4801234567890',
+                'autocomplete': 'off',
+                'inputmode': 'numeric',
             }),
             'price': forms.NumberInput(attrs={
                 'min': '0',
@@ -65,6 +70,16 @@ class MaterialForm(ModelForm):
         # Supplier dropdown scoped to this business
         self.fields['supplier'].queryset = Supplier.objects.filter(business=business)
         self.fields['supplier'].empty_label = None
+
+        # Barcode is a non-food concept: retail/pharmacy scan the packaged item, cafe/
+        # restaurant materials are loose ingredients with no code. Drop it for the food
+        # verticals (same `not in ('cafe','restaurant')` idiom as the material-category
+        # gate) — popping the field, not just hiding it, so an edit can't blank it on save.
+        if business and business.business_type in ('cafe', 'restaurant'):
+            self.fields.pop('barcode', None)
+        else:
+            self.fields['barcode'].label = 'Barcode (optional)'
+            self.fields['barcode'].required = False
 
         # Friendlier labels
         self.fields['piece_per_unit'].label = 'Pieces per Unit'

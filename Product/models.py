@@ -129,14 +129,16 @@ class Product(SlugModel, TimeStampModel):
     
     def save(self, *args, **kwargs):
         if not self.sku and self.business:
-            last = Product.all_objects.filter(business=self.business).exclude(sku='').order_by('-id').first()
-            next_num = 1
-            if last and last.sku.startswith('PRD-'):
-                try:
-                    next_num = int(last.sku.rsplit('-', 1)[-1]) + 1
-                except (ValueError, IndexError):
-                    next_num = Product.all_objects.filter(business=self.business).count() + 1
-            self.sku = f"PRD-{next_num:04d}"
+            # Mirror-on-link: a material-linked product (retail's material ≡ product 1:1)
+            # shares its material's number, so the pair reads MAT-0007 ↔ PRD-0007. A
+            # STANDALONE product (a service, or a manually-created good) instead draws the
+            # next number from the shared Product/Material space so it can never land on a
+            # number a mirror will reuse. See core/utils/sku.
+            from core.utils.sku import next_item_number
+            if self.material and self.material.sku and '-' in self.material.sku:
+                self.sku = f"PRD-{self.material.sku.rsplit('-', 1)[-1]}"
+            else:
+                self.sku = f"PRD-{next_item_number(self.business):04d}"
         
         base_slug = slugify(self.name)  # or whatever name field
         slug = base_slug

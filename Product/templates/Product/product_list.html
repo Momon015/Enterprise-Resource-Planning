@@ -483,6 +483,10 @@
               <tr>
                 {% comment %} <th>Date Added</th> {% endcomment %}
                 <th>Name</th>
+                {% comment %} Always shown: the product carries the barcode (synced from its
+                material via mirror-on-link) plus its own PRD- SKU, and a scanner-driven POS
+                needs the code visible so staff can verify/look up what scans. Only the FORM
+                hides barcode in retail (entered once on the material), never the list. {% endcomment %}
                 <th class="sl-text-center">SKU / Barcode </th>
                 <th class="sl-text-center col-mobile-hidden">Category</th>
                 <th class="sl-text-center col-mobile-hidden">Cost</th>

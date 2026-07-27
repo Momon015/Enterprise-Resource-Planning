@@ -175,6 +175,10 @@
             <thead>
               <tr>
                 <th>Name</th>
+                {% comment %} Always shown: the SKU (MAT-) is a universal find-by-code
+                reference — a cafe ingredient has no barcode, but its SKU still helps look it
+                up when the name escapes you. The pill shows the barcode only when present. {% endcomment %}
+                <th class="sl-text-center">SKU / Barcode</th>
                 {% comment %} <th class="col-mobile-hidden">Category</th> {% endcomment %}
                 <th class="sl-text-center col-mobile-hidden">Unit</th>
                 <th class="sl-text-center">Quantity</th>
@@ -206,6 +210,14 @@
                   <span class="locked-badge"><i class="bi bi-lock-fill"></i> Locked</span>
                   {% endif %}
                   </div>
+                </td>
+                <td class="sl-text-center">
+                  <span class="sku-pill{% if material.barcode %} sku-pill--stack{% endif %}">
+                    {{ material.sku|upper }}
+                    {% if material.barcode %}
+                    <span class="sku-pill__barcode">{{ material.barcode }}</span>
+                    {% endif %}
+                  </span>
                 </td>
                 {% comment %} <td class="col-mobile-hidden">
                   <span class="cell-primary">{{ material.category.name|default:"No category" }}</span>

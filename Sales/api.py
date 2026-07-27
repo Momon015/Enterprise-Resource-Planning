@@ -135,9 +135,20 @@ def sale_search(request, business_slug):
     if q:
         # Typed: goods + services when the feature is on, goods only when it's off.
         catalogue = Product.objects if services_on else Product.goods
-        products = catalogue.filter(
-            business=business, name__icontains=q,
-        ).select_related('material', 'material__supplier').order_by('name')[:10]
+        base = catalogue.filter(business=business).select_related(
+            'material', 'material__supplier')
+
+        # An EXACT barcode is a scan, not typing. Return just that product flagged
+        # `exact_match` so the island adds it straight away — a wedge scanner fires Enter
+        # before the debounce settles, so we can't rely on "Enter adds the top row".
+        scanned = base.filter(barcode=q).first()
+        if scanned:
+            return JsonResponse({'products': [row(scanned)], 'services': [],
+                                 'suggested': False, 'exact_match': True})
+
+        products = base.filter(
+            Q(name__icontains=q) | Q(barcode__icontains=q) | Q(sku__icontains=q),
+        ).order_by('name')[:10]
         return JsonResponse({'products': [row(p) for p in products],
                              'services': [], 'suggested': False})
 

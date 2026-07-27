@@ -868,9 +868,12 @@ def confirm_purchase_summary(request, business_slug):
                         'selling_price': 0.00,
                         'prepared_quantity': quantity,
                         'created_by': request.user,
+                        # Barcode is entered once on the material and mirrors onto its
+                        # product, so the same physical code works at both intake and POS.
+                        'barcode': material.barcode,
                     }
                 )
-                
+
                 if not created:
                     previous_qty = product.prepared_quantity
                     previous_price = product.cost_price
@@ -879,6 +882,10 @@ def confirm_purchase_summary(request, business_slug):
 
                     product.prepared_quantity = total_quantity
                     product.cost_price = ((previous_price * previous_qty) + line_total_cost) / total_quantity
+                    # Backfill the barcode if the material has since gained one and the
+                    # product hasn't — never clobber a code already on the product.
+                    if material.barcode and not product.barcode:
+                        product.barcode = material.barcode
                     product.save()
 
                     # The margin_low alert used to be called here by hand. It now rides

@@ -19,6 +19,7 @@ export default defineConfig({
         'purchase-cart': resolve(__dirname, 'src/purchase-cart.jsx'),
         'purchase-search': resolve(__dirname, 'src/purchase-search.jsx'),
         'product-list': resolve(__dirname, 'src/product-list.jsx'),
+        'barcode-field': resolve(__dirname, 'src/barcode-field.jsx'),
       },
       output: {
         // Stable, hash-free filenames so Django templates can reference them directly.
