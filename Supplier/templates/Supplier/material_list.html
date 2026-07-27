@@ -345,14 +345,15 @@
                   <i class="bi bi-grid-3x3-gap-fill"></i> Categories
                 </a>
                 {% endif %}
-                {% if archived_count > 0 %}
                 <a href="{% url 'archived-materials' business_slug=current_business.slug %}"
                    hx-get="{% url 'archived-materials' business_slug=current_business.slug %}"
                    hx-target="#confirmBody" hx-swap="innerHTML"
-                   class="btn btn-outline-secondary btn-sm btn-block position-relative">
-                  <i class="bi bi-archive-fill"></i> Archive
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                  <span class="archive-ic">
+                    <i class="bi bi-archive-fill"></i>
+                    {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
+                  </span> Archive
                 </a>
-                {% endif %}
               </div>
             </div>
           </div>

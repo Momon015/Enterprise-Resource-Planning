@@ -168,7 +168,9 @@ def product_list(request, business_slug):
     from core.utils.kpis import get_product_kpis
     kpis = get_product_kpis(business)
     
-    archived_count = Product.all_objects.filter(business=business, is_active=False).count()
+    # Goods only — the archive modal here lists archived products, not services, so the dot
+    # must not light up for an archived service.
+    archived_count = Product.all_objects.filter(business=business, is_active=False, is_service=False).count()
         
     context = {
         "page_obj": page_obj, # keep this as the Page object
@@ -1030,6 +1032,10 @@ def service_list(request, business_slug):
     from core.utils.kpis import get_service_kpis
     kpis = get_service_kpis(business)
 
+    # Drives the red dot on the Archive button (services are archived products).
+    archived_count = Product.all_objects.filter(
+        business=business, is_active=False, is_service=True).count()
+
     paginator = Paginator(services, 8)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -1040,7 +1046,7 @@ def service_list(request, business_slug):
         'all_services': all_services,
         'cart_count': cart_count,
         'section': 'service',
-        
+        'archived_count': archived_count,
         'kpis': kpis,
 
 

@@ -631,21 +631,9 @@ def supplier_list(request, business_slug):
     suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('is_locked', 'name')
     form = SupplierFilterForm(request.GET or None)
 
-    # Always annotate MTD spend + last order (independent of the search filter)
-    month_start = timezone.localdate().replace(day=1)
-    suppliers = suppliers.annotate(
-        last_order=Max('materials__items__purchase__purchase_date'),
-        spend_mtd=Coalesce(
-            Sum(
-                (F('materials__items__price') * F('materials__items__quantity'))
-                    - F('materials__items__discount'),
-                filter=Q(materials__items__purchase__purchase_date__gte=month_start),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
-            ),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
-        ),
-    )
+    # Per-supplier MTD spend + last order were dropped from this list (it's a directory now:
+    # Name · Contact · Email · Items · Actions). That spend history moves to Expense Analytics
+    # (bugs #6 part 1); the business-wide totals still show in the right-panel overview via KPIs.
 
     if form.is_valid():
         search = form.cleaned_data.get('search')
@@ -661,21 +649,13 @@ def supplier_list(request, business_slug):
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
-    recent_events = ActivityEvent.objects.filter(
-        Q(verb__startswith='supplier.') |
-        Q(verb__startswith='purchase.'),
-        business=business
-    )
-    recent_events = scope_events_for_user(recent_events, request.user)[:4]
-    
-    from core.utils.kpis import get_supplier_kpis
-    kpis = get_supplier_kpis(business)
+    # Drives the subtle red dot on the Archive button — same idea as the bell's pinned dot.
+    archived_count = Supplier.all_objects.filter(business=business, status='inactive').count()
 
     context = {
-        'page_obj': page_obj, 
+        'page_obj': page_obj,
         'section': 'supplier',
-        'recent_events': recent_events,
-        'kpis': kpis,
+        'archived_count': archived_count,
         }
     return render(request, 'Supplier/supplier_list.html', context)
 
