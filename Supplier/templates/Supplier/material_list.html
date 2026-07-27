@@ -43,7 +43,13 @@
     </div> {% endcomment %}
   </div>
 
-  <div class="two-col-layout">
+  {% comment %} FULL-WIDTH 2026-07-27: was <div class="two-col-layout"> — restore that class
+  and the right panel (removed below) when bringing a right column back. Materials is the
+  widest table on the app (Name · SKU/Barcode · Unit · Qty · Price · Actions), so it reads
+  better full-width, and this matches product / service / supplier. Quick links (Create /
+  Presets / Categories / Archive) moved into the table-card header; the Recent Activity feed
+  was dropped — the Activity log page (viewer-scoped) and the bell already cover it. {% endcomment %}
+  <div>
 
     <!-- LEFT: MATERIAL LIST -->
     <div class="left-panel">
@@ -166,7 +172,43 @@
             <span class="card-header-title">Supplier</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Prices, units, and quantities</span>
+          {% comment %} QUICK LINKS — moved here from the old right column when this page went
+              full-width. hx-disinherit="*" IS LOAD-BEARING, DO NOT DROP IT. "Create material"
+              and "Archive" open MODALS via their own hx-get → #confirmBody, but
+              hx-select / hx-target / hx-swap / hx-push-url are INHERITED — htmx walks UP the
+              tree to resolve them. Sitting inside the boosted #material-results region, these
+              buttons would pick up hx-select="#material-results", fail to find that id in the
+              modal response, and swap an EMPTY #confirmBody over a dimmed page (the exact bug
+              product_list hit 07-17). hx-boost="false" only turns off boosting; it does NOT
+              stop inheritance. "Presets" and "Categories" are plain <a>s that leave the page —
+              with inheritance cut they simply navigate. {% endcomment %}
+          <div class="activity-header-right" hx-boost="false" hx-disinherit="*">
+            <a href="{% url 'material-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'material-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create material
+            </a>
+            <a href="{% url 'material-preset-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-bookmark-fill"></i> Presets
+            </a>
+            {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
+            <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-grid-3x3-gap-fill"></i> Categories
+            </a>
+            {% endif %}
+            <a href="{% url 'archived-materials' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-materials' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <span class="archive-ic">
+                <i class="bi bi-archive-fill"></i>
+                {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
+              </span> Archive
+            </a>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -296,75 +338,6 @@
     </div>
 
 
-        <!-- RIGHT PANEL -->
-        <div class="right-panel">
-
-          {% comment %} <!-- FILTER BY CATEGORY -->
-          {% if categories_count > 1 %}
-          <div class="card">
-            <div class="card-header">
-              <span class="card-header-title">
-                <i class="bi bi-funnel"></i> Filter by category
-              </span>
-            </div>
-            <div class="card-body quick-ranges">
-              {% for cat in top_categories %}
-                <a href="{% url 'material-list' business_slug=current_business.slug %}?category={{ cat.id }}"
-                  class="quick-range-btn {% if request.GET.category == cat.id|stringformat:'s' %}active{% endif %}">
-                  <i class="bi bi-grid-3x3-gap-fill"></i> {{ cat.name }}
-                </a>
-              {% endfor %}
-              <a href="{% url 'material-list' business_slug=current_business.slug %}"
-                class="quick-range-btn {% if not request.GET.category and not request.GET.search %}active{% endif %}">
-                <i class="bi bi-grid"></i> All
-              </a>
-            </div>
-          </div>
-          {% endif %} {% endcomment %}
-
-          <!-- QUICK LINKS -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-header-title">
-                <i class="bi bi-lightning-charge"></i> Quick links
-              </span>
-            </div>
-            <div class="card-body">
-              <div class="btn-grid">
-                <a href="{% url 'material-create' business_slug=current_business.slug %}"
-                   hx-get="{% url 'material-create' business_slug=current_business.slug %}"
-                   hx-target="#confirmBody" hx-swap="innerHTML"
-                   class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-plus-circle"></i> Create material
-                </a>
-                <a href="{% url 'material-preset-list' business_slug=current_business.slug %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-bookmark-fill"></i> Presets
-                </a>
-                {% if current_business.business_type == 'cafe' or current_business.business_type == 'restaurant' %}
-                <a href="{% url 'category-list' business_slug=current_business.slug %}?category_type=material" class="btn btn-outline-secondary btn-sm btn-block">
-                  <i class="bi bi-grid-3x3-gap-fill"></i> Categories
-                </a>
-                {% endif %}
-                <a href="{% url 'archived-materials' business_slug=current_business.slug %}"
-                   hx-get="{% url 'archived-materials' business_slug=current_business.slug %}"
-                   hx-target="#confirmBody" hx-swap="innerHTML"
-                   class="btn btn-outline-secondary btn-sm btn-block">
-                  <span class="archive-ic">
-                    <i class="bi bi-archive-fill"></i>
-                    {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
-                  </span> Archive
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <!-- RECENT ACTIVITY -->
-          <div class="card">
-            <div class="card-body" style="padding: 0;">
-              {% include 'activity/_recent_activity_panel.html' with events=recent_events %}
-            </div>
-          </div>
-        </div>
 
       </div>
 
