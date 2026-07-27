@@ -126,7 +126,7 @@ ALLOWED_HOSTS = [
 
 # Allow CSRF requests from this Cloudflare tunnel
 CSRF_TRUSTED_ORIGINS = [
-    'https://emerald-citizen-enabled-getting.trycloudflare.com'
+    'https://after-luis-exists-medieval.trycloudflare.com'
     ]
 
 # Application definition

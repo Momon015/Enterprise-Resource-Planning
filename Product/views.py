@@ -104,12 +104,14 @@ def product_list(request, business_slug):
         if search:
 
             products = products.filter(
-                Q(name__icontains=search) | 
-                Q(category__name__icontains=search) | 
+                Q(name__icontains=search) |
+                Q(barcode__icontains=search) |
+                Q(sku__icontains=search) |
+                Q(category__name__icontains=search) |
                 Q(description__icontains=search) |
                 Q(category__category_type__icontains=search) |
                 Q(selling_price__icontains=search)
-                
+
             )
         if category:
             products = products.filter(category=category)

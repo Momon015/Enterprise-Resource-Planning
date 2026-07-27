@@ -9130,6 +9130,69 @@ label:has(+ select[name$="_year"]) {
   padding: 0.25rem; border-radius: var(--radius-sm); cursor: pointer; line-height: 1;
 }
 .ps-clear:hover { background: var(--surface-hover); color: var(--text); }
+
+/* ── barcode scanner (camera) ─────────────────────────────────────────────
+   Sits in the input-shell flex row beside the clear button. The overlay is a
+   deliberately dark, single-theme camera surface (a viewfinder is dark in any
+   theme), so it doesn't take the light/dark token treatment. */
+.ps-scan {
+  border: 0; background: transparent; color: var(--accent);
+  padding: 0.25rem 0.35rem; border-radius: var(--radius-sm);
+  cursor: pointer; line-height: 1; font-size: 1.05rem; flex-shrink: 0;
+}
+.ps-scan:hover { background: var(--surface-hover); }
+
+.scanner-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  background: rgba(4, 6, 12, 0.92);
+}
+.scanner-stage {
+  position: relative; width: min(92vw, 520px); aspect-ratio: 3 / 4;
+  max-height: 80vh; overflow: hidden;
+  border-radius: var(--radius-lg); background: #000;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Framing window: the big spread-shadow dims everything OUTSIDE the reticle. */
+.scanner-reticle {
+  position: absolute; left: 8%; right: 8%; top: 50%; transform: translateY(-50%);
+  height: 28%; border: 2px solid rgba(255, 255, 255, 0.85); border-radius: 12px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+.scanner-reticle::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  height: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent);
+}
+.scanner-close {
+  position: absolute; top: 0.6rem; right: 0.6rem; z-index: 2;
+  width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.scanner-close:hover { background: rgba(0, 0, 0, 0.8); }
+.scanner-hint {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 0.9rem 1rem; text-align: center;
+  color: #fff; font-size: 0.9rem; font-weight: 500;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+}
+.scanner-error { color: #ffd3d3; }
+
+/* Scan-to-fill button under the material form's barcode input. */
+.bc-scan-mount { display: flex; }
+.bc-scan-btn {
+  margin-top: 0.4rem;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.7rem; font-size: 0.82rem; font-weight: 600;
+  color: var(--accent); background: transparent;
+  border: 1px dashed var(--accent-border); border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.bc-scan-btn:hover { background: var(--surface-hover); border-style: solid; }
+
 .ps-kbd {
   display: none; flex-shrink: 0;
   font-size: 0.65rem; font-weight: 600; color: var(--muted);

@@ -104,10 +104,19 @@ def cart_search(request, business_slug):
     cart = request.session.get('cart', {})
 
     materials = Material.objects.filter(business=business).select_related('supplier')
+    exact_match = False
     if q:
-        materials = materials.filter(
-            Q(name__icontains=q) | Q(supplier__name__icontains=q)
-        ).order_by('name')[:10]
+        # Exact barcode = a scan on intake; return just that material flagged so the island
+        # adds it without waiting on Enter (same reason as the sale side).
+        scanned = materials.filter(barcode=q).first()
+        if scanned:
+            materials = [scanned]
+            exact_match = True
+        else:
+            materials = materials.filter(
+                Q(name__icontains=q) | Q(supplier__name__icontains=q)
+                | Q(barcode__icontains=q) | Q(sku__icontains=q)
+            ).order_by('name')[:10]
     else:
         # Rank by purchase frequency; voided purchases don't count as a real buy.
         materials = materials.annotate(
@@ -128,7 +137,7 @@ def cart_search(request, business_slug):
     } for m in materials]
 
     # `suggested` tells the island to label this a "Most purchased" shortlist, not a search.
-    return JsonResponse({'materials': mats, 'suggested': not q})
+    return JsonResponse({'materials': mats, 'suggested': not q, 'exact_match': exact_match})
 
 
 @login_required(login_url='login')

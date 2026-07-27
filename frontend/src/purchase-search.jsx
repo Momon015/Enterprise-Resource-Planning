@@ -1,6 +1,8 @@
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { CameraScanner, scannerSupported, beep, errorBeep } from './scanner.jsx'
+
 // ── helpers ───────────────────────────────────────────────
 function getCookie(name) {
   const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')
@@ -59,6 +61,21 @@ async function postAdd(url, materialId) {
   return res.json()
 }
 
+// A wedge/USB barcode scanner types the whole code in a fast burst and sends Enter, which
+// fires BEFORE the 200ms debounce — so on Enter we resolve a scanned code (digits, EAN/UPC)
+// as an EXACT barcode via the same endpoint (`exact_match` flags the hit) and add it
+// straight away. Anything else falls back to the highlighted row for a human.
+function looksLikeScan(s) {
+  return /^[0-9]{6,}$/.test(s)
+}
+async function scanLookup(url, code, key) {
+  try {
+    const res = await fetch(`${url}?q=${encodeURIComponent(code)}`).then(r => r.json())
+    if (res.exact_match && res[key] && res[key][0]) return res[key][0]
+  } catch (e) { /* ignore — caller falls back to the highlighted row */ }
+  return null
+}
+
 function PurchaseSearch() {
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -70,10 +87,12 @@ function PurchaseSearch() {
   // stays live while the dropdown is open — otherwise adding an item would leave its
   // qty badge one behind until the next keystroke.
   const [cartTick, setCartTick] = useState(0)
+  const [scanning, setScanning] = useState(false)
   const inputRef = useRef(null)
   const wrapRef = useRef(null)
   const reqId = useRef(0)
   const debounced = useDebounced(query, 200)
+  const canScan = scannerSupported()
 
   // Fetch results whenever the debounced query changes OR the cart mutates. reqId guards
   // against a slow early response landing after a later one (out-of-order races).
@@ -125,12 +144,27 @@ function PurchaseSearch() {
   }
 
   function addMaterial(m) {
-    postAdd(CFG.addUrl, m.id).then(res => {
-      if (res.warning) { showToast(res.warning); return }
-      // Tell the sibling purchase-cart island to re-read — same signal the topbar "+" fires.
-      // No success toast: the row's "in cart" badge ticks up on the same cart:changed, so it
-      // already confirms the add. Only warnings (e.g. stock caps) surface as a toast now.
-      document.dispatchEvent(new CustomEvent('cart:changed'))
+    return postAdd(CFG.addUrl, m.id).then(res => {
+      if (res.warning) { showToast(res.warning) }
+      else {
+        // Tell the sibling purchase-cart island to re-read — same signal the topbar "+" fires.
+        // No success toast: the row's "in cart" badge ticks up on the same cart:changed.
+        document.dispatchEvent(new CustomEvent('cart:changed'))
+      }
+      return res
+    })
+  }
+
+  // A camera-detected barcode resolves the same way as a wedge scan on intake — exact-match
+  // add. Sound is OUTCOME-based: bright blip on a real add, error tone when it can't (unknown
+  // code, or a stock/quantity cap surfaced as `warning`).
+  function handleScanned(code) {
+    scanLookup(CFG.searchUrl, code, 'materials').then(m => {
+      if (!m) { errorBeep(); showToast(`No material found for barcode ${code}`); return }
+      addMaterial(m).then(res => {
+        if (res && res.warning) errorBeep()
+        else beep()
+      })
     })
   }
 
@@ -144,6 +178,16 @@ function PurchaseSearch() {
       setActive(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      // Read the live DOM value, not `query` — React state can lag the scanner's final
+      // keystroke, and Enter arrives immediately after it.
+      const code = (inputRef.current?.value || '').trim()
+      if (looksLikeScan(code)) {
+        scanLookup(CFG.searchUrl, code, 'materials').then(m => {
+          if (m) { addMaterial(m); setQuery('') }      // clear for the next scan
+          else showToast(`No material found for barcode ${code}`)
+        })
+        return
+      }
       const item = materials[active]
       if (item) addMaterial(item)
     } else if (e.key === 'Escape') {
@@ -190,8 +234,21 @@ function PurchaseSearch() {
             <i className="bi bi-x-lg"></i>
           </button>
         )}
+        {/* Camera scan — only where the browser supports it; a USB/BT wedge scanner needs
+            no button (it just types into the field). */}
+        {canScan && (
+          <button className="ps-scan" aria-label="Scan barcode with camera" type="button"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => setScanning(true)}>
+            <i className="bi bi-upc-scan"></i>
+          </button>
+        )}
         {/* <kbd className="ps-kbd">⌘K</kbd> */}
       </div>
+
+      {scanning && (
+        <CameraScanner onDetect={handleScanned} onClose={() => setScanning(false)} />
+      )}
 
       {/* dropdown */}
       <div className={`ps-panel ${open ? 'is-open' : ''}`}>

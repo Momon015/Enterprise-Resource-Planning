@@ -232,12 +232,16 @@ def global_search(request, business_slug):
 
     is_owner = request.user.role == 'owner'
 
-    products = Product.goods.filter(business=business, name__icontains=q)[:6]
+    # Products + materials are also findable by barcode/SKU, so a scan (or a typed code)
+    # jumps straight to the record. Services carry no barcode, so they stay name-only.
+    products = Product.goods.filter(business=business).filter(
+        Q(name__icontains=q) | Q(barcode__icontains=q) | Q(sku__icontains=q))[:6]
     # Service Fees off → services are hidden here too, matching the in-page sale search and
     # sale_add. A disabled feature must not be reachable through any search box.
     services = (Product.services.filter(business=business, name__icontains=q)[:6]
                 if business.offers_services else Product.services.none())
-    materials = Material.objects.filter(business=business, name__icontains=q)[:5]
+    materials = Material.objects.filter(business=business).filter(
+        Q(name__icontains=q) | Q(barcode__icontains=q) | Q(sku__icontains=q))[:5]
     suppliers = Supplier.objects.filter(business=business, name__icontains=q)[:5]
     # Presets are intentionally excluded from the global search — the quick-search
     # jumps to / adds individual items; bundles belong on the preset pages.

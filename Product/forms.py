@@ -151,7 +151,16 @@ class ProductForm(ModelForm):
             f['category'].empty_label = None
             f['category'].label_from_instance = lambda obj: obj.name.title()
 
-        if 'barcode' in f:
+        # Barcode identity lives on the linked MATERIAL in retail/pharmacy (material ≡
+        # product 1:1), so drop it from the goods form there — keeping it would collect a
+        # code nothing displays, and it's auto-synced from the material on purchase anyway.
+        # Cafe/restaurant menu items are their own identity, so they keep it. Same
+        # `not in ('cafe','restaurant')` idiom as the material-category gate; pop (not
+        # template-hide) so an edit can't blank it. Services use ServiceForm, which has no
+        # barcode field at all.
+        if business and business.business_type not in ('cafe', 'restaurant'):
+            f.pop('barcode', None)
+        elif 'barcode' in f:
             f['barcode'].label = 'Barcode'
             f['barcode'].required = False
 
