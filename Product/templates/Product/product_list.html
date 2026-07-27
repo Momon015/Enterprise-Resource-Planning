@@ -414,7 +414,10 @@
                hx-get="{% url 'archived-products' business_slug=current_business.slug %}"
                hx-target="#confirmBody" hx-swap="innerHTML"
                class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-archive"></i> Archive
+              <span class="archive-ic">
+                <i class="bi bi-archive-fill"></i>
+                {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
+              </span> Archive
             </a>
             {% comment %} <span class="card-header-sub" style="margin: 0;">
               {% if request.GET.stock == 'high' %}In Stock

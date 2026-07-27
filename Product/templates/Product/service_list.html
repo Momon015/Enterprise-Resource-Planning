@@ -324,7 +324,10 @@
             </a>
             {% if request.user.role == 'owner' %}
             <a href="{% url 'archived-services' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-archive-fill"></i> Archive
+              <span class="archive-ic">
+                <i class="bi bi-archive-fill"></i>
+                {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
+              </span> Archive
             </a>
             {% endif %}
           </div>

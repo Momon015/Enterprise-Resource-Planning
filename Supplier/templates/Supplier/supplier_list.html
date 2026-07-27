@@ -35,25 +35,7 @@
             style="cursor: help; font-size: 0.85em;"></i>
       </p>
     </div>
-    {% comment %} <div class="page-header-right">
-      <div class="header-stat accent">
-        <i class="bi bi-building"></i>
-        <strong>{{ page_obj.paginator.count }}</strong> supplier{{ page_obj.paginator.count|pluralize }}
-      </div>
-      <a href="{% url 'supplier-create' business_slug=current_business.slug %}"
-         hx-get="{% url 'supplier-create' business_slug=current_business.slug %}"
-         hx-target="#confirmBody" hx-swap="innerHTML"
-         class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-circle"></i> Create supplier
-      </a>
-    </div> {% endcomment %}
-
   </div>
-
-  <div class="two-col-layout">
-
-    <!-- LEFT: TABLE -->
-    <div class="left-panel">
 
       {% comment %} ═══ LIVE FILTER REGION — no full page reload ═══════════════════════════
           Same pattern as material_list / product_list: everything a filter can change lives in
@@ -62,12 +44,10 @@
           the VIEW IS UNTOUCHED: htmx fetches this same page URL and lifts #supplier-results out
           of the full response. No partial, no JSON, no serializer.
 
-          Only filter here is `search`. No KPI strip drives the region from outside; the filter
-          form and the (boosted, inheriting) pagination links are the only drivers, both aimed at
-          this same URL. The right-panel Supplier Overview + Quick links sit OUTSIDE this region:
-          the overview's numbers are filter-independent (kpis.current.* is business-wide, and
-          TOTAL SUPPLIERS is the whole-business count on normal entry), and Create/Archive keep
-          their own #confirmBody targets, so none of it inherits this region's hx-select. {% endcomment %}
+          Only filter here is `search`; the filter form and the (boosted, inheriting) pagination
+          links are the only drivers, both aimed at this same URL. Create/Archive now live in the
+          page header (this list is full-width — no right panel) with their own #confirmBody
+          targets, and sit OUTSIDE this region, so none of it inherits this region's hx-select. {% endcomment %}
       <div id="supplier-results"
            hx-boost="true"
            hx-target="#supplier-results"
@@ -147,7 +127,27 @@
             <span class="card-header-title">Supplier List</span>
             <span class="sl-badge sl-badge-light">{{ page_obj.paginator.count }} supplier{{ page_obj.paginator.count|pluralize }}</span>
           </div>
-          <span class="card-header-sub">Alphabetical order</span>
+          {% comment %} Create/Archive live in the table-card header (same spot as product_list).
+              Inside the boosted #supplier-results region → hx-boost="false" hx-disinherit="*" or
+              they inherit hx-select and swap an empty modal over a dimmed page (product_list hit
+              exactly that bug 07-17). {% endcomment %}
+          <div class="activity-header-right" hx-boost="false" hx-disinherit="*">
+            <a href="{% url 'supplier-create' business_slug=current_business.slug %}"
+               hx-get="{% url 'supplier-create' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-plus-circle"></i> Create supplier
+            </a>
+            <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}"
+               hx-get="{% url 'archived-suppliers' business_slug=current_business.slug %}"
+               hx-target="#confirmBody" hx-swap="innerHTML"
+               class="btn btn-outline-secondary btn-sm">
+              <span class="archive-ic">
+                <i class="bi bi-archive-fill"></i>
+                {% if archived_count %}<span class="archive-dot" title="{{ archived_count }} archived"></span>{% endif %}
+              </span> Archive
+            </a>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -156,9 +156,9 @@
             <thead>
               <tr>
                 <th>Name</th>
+                <th class="col-mobile-hidden">Contact</th>
+                <th class="col-mobile-hidden">Email</th>
                 <th class="sl-text-center col-mobile-hidden">Items</th>
-                <th class="sl-text-end col-mobile-hidden">Spend (MTD)</th>
-                <th class="sl-text-center col-mobile-hidden">Last Order</th>
                 <th class="sl-text-end mobile-center">{% if request.user.role == 'owner' %}Actions{% else %}Action{% endif %}</th>
               </tr>
             </thead>
@@ -182,11 +182,6 @@
                       {% endif %}
                       <div class="name-text">
                         <strong>{{ supplier.name }}</strong>
-                        <small class="text-muted">
-                          {% if supplier.email %}<a href="mailto:{{ supplier.email }}" style="color:inherit; text-decoration:none;"><i class="bi bi-envelope"></i> {{ supplier.email }}</a>{% else %}<i class="bi bi-envelope"></i> No email{% endif %}
-                          <span style="opacity:0.5;">·</span>
-                          {% if supplier.contact_number %}<a href="tel:{{ supplier.contact_number }}" style="color:inherit; text-decoration:none;"><i class="bi bi-telephone"></i> {{ supplier.contact_number }}</a>{% else %}<i class="bi bi-telephone"></i> No contact{% endif %}
-                        </small>
                       </div>
                   </div>
                     {% if supplier.is_locked %}
@@ -194,16 +189,16 @@
                   {% endif %}
                 </td>
 
+                <td class="col-mobile-hidden">
+                  {% if supplier.contact_number %}<a href="tel:{{ supplier.contact_number }}" style="color:inherit; text-decoration:none;"><i class="bi bi-telephone"></i> {{ supplier.contact_number }}</a>{% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+
+                <td class="col-mobile-hidden">
+                  {% if supplier.email %}<a href="mailto:{{ supplier.email }}" style="color:inherit; text-decoration:none;"><i class="bi bi-envelope"></i> {{ supplier.email }}</a>{% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+
                 <td class="sl-text-center col-mobile-hidden">
                   <span class="sl-badge sl-badge-light">{{ supplier.materials.count }}</span>
-                </td>
-
-                <td class="sl-text-end col-mobile-hidden sl-fw-semibold">
-                  {% if supplier.spend_mtd %}₱{{ supplier.spend_mtd|floatformat:2|intcomma }}{% else %}<span class="text-muted">—</span>{% endif %}
-                </td>
-
-                <td class="sl-text-center col-mobile-hidden">
-                  {% if supplier.last_order %}{{ supplier.last_order|date:"M d, Y" }}{% else %}<span class="text-muted">—</span>{% endif %}
                 </td>
 
                 <td class="sl-text-end mobile-center">
@@ -257,72 +252,6 @@
 
       {% comment %} ═══ end #supplier-results ════════════════════════════════════════════ {% endcomment %}
       </div>
-    </div>
-
-    <!-- RIGHT: OVERVIEW -->
-    <div class="right-panel">
-
-      <!-- Supplier Overview (flat) -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning-fill"></i> Supplier Overview
-          </span>
-          <span class="card-header-sub">This month</span>
-        </div>
-        <div class="card-body" style="padding: 1rem;">
-
-          <div class="period-net">
-            <div class="period-net-label">TOTAL SUPPLIERS</div>
-            <div class="period-net-value">{{ page_obj.paginator.count }}</div>
-          </div>
-
-          <dl class="period-breakdown">
-            <div><dt>On hold</dt><dd>{{ kpis.current.on_hold|default:"0" }}</dd></div>
-            <div><dt>Spend this month</dt><dd>₱{{ kpis.current.total_spend_month|floatformat:2|intcomma }}</dd></div>
-            <div><dt>Purchases this month</dt><dd>{{ kpis.current.purchases_count_month|default:"0" }}</dd></div>
-          </dl>
-        </div>
-      </div>
-
-      <!-- Quick links -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-header-title">
-            <i class="bi bi-lightning-charge"></i> Quick links
-          </span>
-        </div>
-        <div class="card-body">
-          <div class="btn-grid">
-            <a href="{% url 'supplier-create' business_slug=current_business.slug %}"
-               hx-get="{% url 'supplier-create' business_slug=current_business.slug %}"
-               hx-target="#confirmBody" hx-swap="innerHTML"
-               class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-plus-circle"></i> Create supplier
-            </a>
-            <a href="{% url 'archived-suppliers' business_slug=current_business.slug %}"
-               hx-get="{% url 'archived-suppliers' business_slug=current_business.slug %}"
-               hx-target="#confirmBody" hx-swap="innerHTML"
-               class="btn btn-outline-secondary btn-sm btn-block">
-              <i class="bi bi-archive-fill"></i> Archive
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {% comment %} <!-- About -->
-      <div class="sd-note-box">
-        <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
-        <div>
-          <div class="sd-note-title">About suppliers</div>
-          <div class="sd-note-text">Suppliers are linked to materials. Each purchase is tracked per supplier so you can monitor spending per vendor.</div>
-        </div>
-      </div> {% endcomment %}
-
-    </div>
-
-
-  </div>
 </div>
 
 <script>
