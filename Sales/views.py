@@ -2361,7 +2361,10 @@ def edit_unsold_quantity(request, product_id, business_slug):
     product = get_object_or_404(Product, business=business, id=product_id)
     product_key = str(product.id)
     if sale:
-        new_unsold_quantity = int(request.POST.get(f"new_unsold_quantity"))
+        try:
+            new_unsold_quantity = int(request.POST.get("new_unsold_quantity", 0))
+        except (TypeError, ValueError):
+            new_unsold_quantity = 0
         quantity = sale[product_key]['quantity']
         
         if new_unsold_quantity <= quantity:

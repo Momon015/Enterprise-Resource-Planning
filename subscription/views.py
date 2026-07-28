@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.core.exceptions import ValidationError
+from django_ratelimit.decorators import ratelimit
 
 from subscription.models import (
     Subscription, PLAN_LIMITS, BUNDLE_COUNT, LOCKABLE_LIMIT_KEYS,
@@ -35,6 +36,7 @@ def pricing(request, business_slug):
     return render(request, template, context)
 
 @login_required(login_url='login')
+@ratelimit(key='user', rate='5/h', method='POST', block=False)
 def contact(request, business_slug):
     """In-app contact form — owner emails support."""
     business = get_business_for_user(request.user, business_slug)
@@ -57,6 +59,13 @@ def contact(request, business_slug):
                 })
             messages.error(request, msg)
             return redirect('subscription-contact', business_slug=business.slug)
+
+        # Rate limit: this view SENDS email synchronously, so an authenticated
+        # user could flood support / burn our mail-host reputation. Key by user
+        # (not IP) at a low rate. Reuse the form's friendly error path.
+        if getattr(request, 'limited', False):
+            return form_error(
+                "You've sent a few messages already. Please wait a bit before sending another.")
 
         if not subject or not message_body:
             return form_error('Subject and message are required.')

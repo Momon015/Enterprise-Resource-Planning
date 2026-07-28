@@ -1,5 +1,5 @@
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, InvalidOperation
 
 from django.db.models import Count, Q
 from django.http import JsonResponse
@@ -227,21 +227,23 @@ def cart_set_line(request, business_slug):
     get_object_or_404(Material, business=business, id=material_id)
     quantity = int(cart[material_id].get('quantity', 1) or 1)
 
-    try:
-        raw_total = request.POST.get('total_price')
-    except (TypeError, InvalidOperation):
-        pass
+    # Guard the Decimal() conversions themselves — a non-numeric total_price/discount
+    # would raise InvalidOperation and 500. On bad input, leave the line unchanged.
+    raw_total = request.POST.get('total_price')
     if raw_total not in (None, ''):
-        cart[material_id]['price'] = str(Decimal(raw_total) / quantity)
+        try:
+            cart[material_id]['price'] = str(Decimal(raw_total) / quantity)
+        except (InvalidOperation, TypeError):
+            return JsonResponse({'error': 'bad_total_price'}, status=400)
 
     # flat discount only applies when NOT in % mode
     if not business.enable_purchase_discount:
-        try:
-            raw_discount = request.POST.get('discount')
-        except (TypeError, InvalidOperation):
-            pass
+        raw_discount = request.POST.get('discount')
         if raw_discount not in (None, ''):
-            cart[material_id]['discount'] = str(Decimal(raw_discount))
+            try:
+                cart[material_id]['discount'] = str(Decimal(raw_discount))
+            except (InvalidOperation, TypeError):
+                return JsonResponse({'error': 'bad_discount'}, status=400)
 
     request.session['cart'] = cart
     request.session.modified = True
