@@ -7161,6 +7161,25 @@ html.sidebar-ready .sidebar-nav { visibility: visible; }
 }
 input[type="month"].is-empty:not(.is-typing)::-webkit-datetime-edit { opacity: 0; }
 
+/* GENERIC EMPTY DATE/TIME PLACEHOLDER — the same trick as the month filter above, but the label
+   text is per-field via data-ph and the wrapper (.field-ph) hugs JUST the input, so it also works
+   where help text or errors follow the field (e.g. the cash-drawer "Store closing time"). Wrap the
+   field: <span class="field-ph" data-ph="Select closing time">{{ form.closing_time }}</span>.
+   filter-drawer.js flags the input .is-empty / .is-typing exactly like the month fields. Padding
+   mirrors .form-control (0.4rem 0.7rem + 1px border) so the label sits on the input's own text. */
+.field-ph { position: relative; display: block; }
+.field-ph:has(> input.is-empty:not(.is-typing))::after {
+  content: attr(data-ph);
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: calc(0.4rem + 1px) calc(0.7rem + 1px);
+  font-size: 0.875rem;
+  color: var(--text-faint);
+  pointer-events: none;  /* the field + its picker button stay clickable */
+}
+.field-ph > input.is-empty:not(.is-typing)::-webkit-datetime-edit { opacity: 0; }
+
 /* 2026-07-17: input[type="date"] { text-transform: uppercase } lived here and WORKED
    (Chrome's dd/mm/yyyy mask rendered as DD/MM/YYYY — text-transform is inherited, so it
    reaches the UA shadow DOM). Reverted on the user's call: the caps read as shouting.
@@ -8407,6 +8426,53 @@ button.topbar-account__item {
 }
 .quickview__close:hover { background: var(--border); }
 /* free the top-right corner for the ✕ — hide the "at a glance" tagline inside the modal */
+
+/* ── FULL-PAGE MODAL (#fsModal) ──────────────────────────────────────────────
+   Just a BIGGER version of the confirm modal: the same dark, blurred scrim over the WHOLE page
+   (sidebar + topbar included), but full-screen instead of a small centered card. One layer BELOW
+   #confirmModal (1050) so a card's own confirm dialogs (archive / new code / contact) open in
+   #confirmBody and stack ON TOP of it. The content scrolls; the scrim + ✕ stay fixed. */
+.fsview {
+  position: fixed; inset: 0; z-index: 1040;
+  display: none; overflow-y: auto;
+}
+.fsview.is-open { display: block; }
+/* Dark blurred scrim covering everything — identical treatment to .quickview__backdrop. Fixed, so
+   it stays put (and stays blurred) while the content scrolls over it. Click it to close. */
+.fsview__backdrop {
+  position: fixed; inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  animation: qvFade .15s ease;
+}
+.fsview__body { position: relative; z-index: 1; }
+/* The content floats on the dark scrim, so the bare page header text must go light. Cards, tables
+   and note boxes carry their own surface, so only the on-scrim header needs this. */
+.fsview .page-title { color: #fff; }
+.fsview .page-subtitle { color: rgba(255, 255, 255, 0.82); }
+/* padding-top clears the fixed ✕ so content never tucks under it on open. Only the modal uses
+   .fsview__panel — the full pages keep their own spacing. */
+.fsview__panel { position: relative; min-height: 100%; padding-top: 4rem; }
+/* ✕ fixed at the top-right of the screen — a touch lower than the very edge — and it stays put
+   while the modal scrolls. */
+.fsview__close {
+  position: fixed; top: 1.5rem; right: 1.25rem; z-index: 3;
+  width: 36px; height: 36px; border: none; border-radius: 50%;
+  background: var(--surface); color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: .95rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: background .15s;
+}
+.fsview__close:hover { background: var(--surface-hover); }
+
+/* Businesses grid — shared by the full page and the full-page modal (moved out of the
+   template so the two can't carry drifting copies). */
+.biz-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:1rem; }
+.biz-card { flex:0 1 320px; max-width:100%; }
+.biz-card--active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+/* Businesses header centered over the grid (full page and the full-page modal), matching Pricing.
+   Stacks the title block and the Archived button so both stay centered. */
+.biz-list-head { flex-direction: column; align-items: center; text-align: center; gap: 0.6rem; }
 
 /* ---- generic confirm modal ---- */
 #confirmModal { align-items: center; padding: 2rem 1rem; overflow-y: auto; }

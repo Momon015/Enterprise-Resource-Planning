@@ -24,6 +24,7 @@ from django.core.paginator import Paginator
 
 from core.models import Category
 from core.utils.email import send_email
+from core.utils.htmx import redirect_after_form
 
 from user.models import User, EmailOTP, BusinessProfile
 from user.forms import RegisterForm, UpdateUserForm, StyledPasswordChangeForm, BusinessProfileForm, BusinessCashDrawerForm, BusinessFeaturesForm
@@ -529,7 +530,9 @@ def business_list(request):
     archived_count = BusinessProfile.all_objects.filter(user=user, is_active=False).count()
 
     context = {'businesses': businesses, 'archived_count': archived_count}
-    return render(request, 'user/business_list.html', context)
+    template = ('user/partials/_business_list_modal.html'
+                if request.headers.get('HX-Request') else 'user/business_list.html')
+    return render(request, template, context)
     
 @login_required(login_url='login')
 def business_profile_create(request):
@@ -955,7 +958,7 @@ def cash_drawer_settings(request, business_slug, business_id):
     plan = getattr(business, 'plan', None)
     if not plan or not plan.has_timecards():
         messages.warning(request, 'Cash drawer settings are available on Standard plan and up.')
-        return redirect('settings', business_slug=request.user.slug)
+        return redirect_after_form(request, 'settings', business_slug=request.user.slug)
 
     locked = is_opening_cash_locked(business)
 
@@ -964,12 +967,14 @@ def cash_drawer_settings(request, business_slug, business_id):
         if form.is_valid():
             form.save()
             messages.success(request, 'Cash drawer settings updated.')
-            return redirect('settings', business_slug=request.user.slug)
+            return redirect_after_form(request, 'settings', business_slug=request.user.slug)
     else:
         form = BusinessCashDrawerForm(instance=business, locked=locked)
 
     context = {'form': form, 'business': business, 'locked': locked, 'section': 'user'}
-    return render(request, 'user/cash_drawer_settings.html', context)
+    template = ('user/partials/_cash_drawer_modal.html'
+                if request.headers.get('HX-Request') else 'user/cash_drawer_settings.html')
+    return render(request, template, context)
 
 @login_required(login_url='login')
 def business_features(request, business_slug, business_id):
@@ -980,11 +985,13 @@ def business_features(request, business_slug, business_id):
         if form.is_valid():
             form.save()
             messages.success(request, "Features updated.")
-            return redirect('settings', business_slug=request.user.slug)
+            return redirect_after_form(request, 'settings', business_slug=request.user.slug)
     else:
         form = BusinessFeaturesForm(instance=business)
 
     context = {'form': form, 'business': business, 'section': 'user'}
-    return render(request, 'user/business_features.html', context)
+    template = ('user/partials/_business_features_modal.html'
+                if request.headers.get('HX-Request') else 'user/business_features.html')
+    return render(request, template, context)
 
 

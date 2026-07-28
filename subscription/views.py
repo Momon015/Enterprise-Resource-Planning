@@ -30,7 +30,9 @@ def pricing(request, business_slug):
         'current_bundle': sub.bundle if sub else 'triple',
         'is_founder': sub.is_founder if sub else False,
     }
-    return render(request, 'subscription/pricing.html', context)
+    template = ('subscription/partials/_pricing_modal.html'
+                if request.headers.get('HX-Request') else 'subscription/pricing.html')
+    return render(request, template, context)
 
 @login_required(login_url='login')
 def contact(request, business_slug):

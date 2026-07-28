@@ -28,7 +28,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=208" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=213" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -165,6 +165,15 @@
     <div id="confirmBody"></div>
   </div>
 
+  <!-- FULL-PAGE MODAL — a SECOND, LOWER layer than #confirmModal (z 1040 vs 1050) so a card's own
+       confirm dialogs (archive, regenerate code, contact) still open in #confirmBody and stack ON TOP
+       of this full-page surface instead of clobbering it. Anything hx-get'd into #fsModalBody opens it.
+       The blurred scrim covers the whole page (sidebar + topbar); click it to close. -->
+  <div class="fsview" id="fsModal">
+    <div class="fsview__backdrop" data-fsview-close></div>
+    <div class="fsview__body" id="fsModalBody"></div>
+  </div>
+
 <script>
   document.body.addEventListener('click', function (e) {
     const btn = e.target.closest('.cm-pass-toggle');
@@ -230,6 +239,32 @@ document.body.addEventListener('htmx:beforeSwap', function (evt) {
     });
     modal.addEventListener('click', (e) => { if (e.target.closest('[data-quickview-close]')) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) close(); });
+  })();
+</script>
+
+<script>
+  // ── FULL-PAGE MODAL (#fsModal) ──────────────────────────────────────────────
+  // Opens when anything is hx-get'd into #fsModalBody (e.g. the settings "View All Businesses"
+  // row). It's an opaque full-viewport surface, a layer BELOW #confirmModal, so a card's own
+  // confirm dialogs (archive / new code) open in #confirmBody and land on top — cancelling one
+  // returns here with the list intact. Its own content carries the ✕ (data-fsview-close).
+  (function () {
+    const modal = document.getElementById('fsModal');
+    if (!modal) return;
+    const body  = document.getElementById('fsModalBody');
+    const confirmModal = document.getElementById('confirmModal');
+    const open  = () => { modal.classList.add('is-open');  document.body.style.overflow = 'hidden'; };
+    const close = () => { modal.classList.remove('is-open'); document.body.style.overflow = ''; body.innerHTML = ''; };
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+      if (e.target.id === 'fsModalBody') open();
+    });
+    modal.addEventListener('click', (e) => { if (e.target.closest('[data-fsview-close]')) close(); });
+    // Escape closes the TOP layer only: if a confirm dialog is open over this, its own handler
+    // takes the key and this one stands down.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')
+          && !(confirmModal && confirmModal.classList.contains('is-open'))) close();
+    });
   })();
 </script>
 

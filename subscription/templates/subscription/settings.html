@@ -265,7 +265,9 @@
             <p>To add more businesses beyond your current bundle ({{ bundle_count }}), please contact support.</p>
           </div>
           <div class="btn-grid">
-            <a href="{% url 'subscription-pricing' business_slug=current_business.slug %}" class="btn btn-outline-secondary btn-sm btn-block">
+            <a href="{% url 'subscription-pricing' business_slug=current_business.slug %}"
+               hx-get="{% url 'subscription-pricing' business_slug=current_business.slug %}"
+               hx-target="#fsModalBody" hx-swap="innerHTML" class="btn btn-outline-secondary btn-sm btn-block">
               <i class="bi bi-eye"></i> View pricing
             </a>
 

@@ -7,18 +7,19 @@
  *  2. Open the <details class="filter-card"> drawer if search/category filter is active.
  *  3. Stop click events inside the filter form from bubbling up and closing the drawer.
  *  4. Stop the reset button (a.btn-light inside the form) from doing the same.
- *  5. Flag empty <input type="month"> fields so CSS can show "Select a month".
- *  6. Open the native month dropdown on click, not just on the calendar icon.
- *  7. Hand the native segments back the moment someone types into a month field.
+ *  5. Flag empty <input type="month"> / <input type="time"> so CSS can show a label placeholder.
+ *  6. Open the native picker on click, not just on the calendar/clock icon.
+ *  7. Hand the native segments back the moment someone types into a month/time field.
  */
 
-// ── 5. MONTH PLACEHOLDER ─────────────────────────────────────────────────────
-// A month input has no placeholder attribute; empty, Chrome paints "--------- ----".
-// style.css replaces that mask with a real label, but it needs to know when the field
-// is empty and CSS cannot work that out on its own (see the note beside the rule).
+// ── 5. DATE/TIME PLACEHOLDER ─────────────────────────────────────────────────
+// A month or time input has no placeholder attribute; empty, Chrome paints its own segment mask
+// ("--------- ----" / "--:-- --"). style.css replaces that mask with a real label (month filters,
+// and any .field-ph wrapper e.g. the cash-drawer closing time), but it needs to know when the
+// field is empty and CSS cannot work that out on its own (see the note beside the rule).
 // So: one class, kept in sync with the input's LIVE value.
-function syncMonthPlaceholders() {
-  document.querySelectorAll('input[type="month"]').forEach(input => {
+function syncDatePlaceholders() {
+  document.querySelectorAll('input[type="month"], input[type="time"]').forEach(input => {
     input.classList.toggle("is-empty", !input.value);
     // A completed value ends the typing session (see behavior 7). Without this, someone who
     // typed a month and then cleared it from the picker would get a bare mask and no label
@@ -34,12 +35,12 @@ function syncMonthPlaceholders() {
 // queueMicrotask so this lands after the handler that did the clearing, whichever
 // order the two listeners happen to be registered in.
 ["input", "change"].forEach(evt =>
-  document.addEventListener(evt, () => queueMicrotask(syncMonthPlaceholders))
+  document.addEventListener(evt, () => queueMicrotask(syncDatePlaceholders))
 );
 
-// Live filter regions are replaced wholesale on every filter/paginate, so the fresh
-// inputs arrive unclassed. Re-scan after a swap.
-document.addEventListener("htmx:afterSwap", syncMonthPlaceholders);
+// Live filter regions AND htmx modals (e.g. the cash-drawer settings form) are swapped in
+// wholesale, so the fresh inputs arrive unclassed. Re-scan after a swap.
+document.addEventListener("htmx:afterSwap", syncDatePlaceholders);
 
 // ── 6. DATE + MONTH FIELDS OPEN THEIR DROPDOWN ───────────────────────────────
 // By default only the little calendar icon opens the picker; clicking the field itself
@@ -65,7 +66,7 @@ document.addEventListener("htmx:afterSwap", syncMonthPlaceholders);
 // exactly like a picker that "didn't open" rather than like a listener that never ran.
 // Capture runs on the way DOWN to the target, before any bubble-phase stopPropagation.
 document.addEventListener("click", function (e) {
-  const input = e.target.closest && e.target.closest('input[type="month"], input[type="date"]');
+  const input = e.target.closest && e.target.closest('input[type="month"], input[type="date"], input[type="time"]');
   if (!input || input.disabled || input.readOnly) return;
   // Firefox has no month picker at all and renders that field as plain text; guard rather
   // than assume. (It does have a date picker — this just lets it say so for itself.)
@@ -88,7 +89,7 @@ document.addEventListener("click", function (e) {
 // Capture again: these fields live inside #filterForm, which stops click — and keeping
 // both listeners on the same phase means one rule to remember, not two.
 document.addEventListener("keydown", function (e) {
-  const input = e.target.closest && e.target.closest('input[type="month"]');
+  const input = e.target.closest && e.target.closest('input[type="month"], input[type="time"]');
   if (!input) return;
   // Navigation and dismissal aren't entry — don't tear the label down for them.
   if (["Tab", "Escape", "Enter", "Shift"].includes(e.key)) return;
@@ -99,12 +100,36 @@ document.addEventListener("keydown", function (e) {
 // the label, rather than staying a bare mask forever because of one stray keystroke.
 // blur doesn't bubble, so capture is the only way to delegate it.
 document.addEventListener("blur", function (e) {
-  const input = e.target.closest && e.target.closest('input[type="month"]');
+  const input = e.target.closest && e.target.closest('input[type="month"], input[type="time"]');
   if (input) input.classList.remove("is-typing");
 }, true);
 
+// ── COPY-TO-CLIPBOARD (invite codes on the Businesses cards) ─────────────────
+// Delegated on document, not bound on load: the Businesses grid also renders inside the
+// full-page modal (hx-get into #fsModalBody), where DOMContentLoaded has long since fired —
+// a load-time binding would leave the modal's copy buttons dead. One handler covers both.
+document.addEventListener("click", function (e) {
+  const btn = e.target.closest && e.target.closest(".biz-copy-btn");
+  if (!btn) return;
+  const code = btn.dataset.code || "";
+  const done = function () {
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    setTimeout(function () { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+  };
+  const fallback = function () {
+    const ta = document.createElement("textarea");
+    ta.value = code; ta.style.position = "fixed"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); done(); } catch (err) {}
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(code).then(done).catch(fallback);
+  } else { fallback(); }
+});
+
 document.addEventListener("DOMContentLoaded", function () {
-  syncMonthPlaceholders();
+  syncDatePlaceholders();
 
   // Auto-dismiss toasts
   document.querySelectorAll(".toast-message").forEach(t =>

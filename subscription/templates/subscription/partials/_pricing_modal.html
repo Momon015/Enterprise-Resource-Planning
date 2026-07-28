@@ -1,0 +1,10 @@
+{% comment %} Pricing as a FULL-PAGE modal (#fsModalBody), opened from the Settings "Pricing" row,
+the active-trial sidebar card, and the "View pricing" button. Same view as the full page
+subscription/pricing.html — the view renders this on an htmx request, the full page otherwise
+(no-JS fallback). Body is the shared _pricing_body.html so the two can't drift. The ✕
+(data-fsview-close) is handled by the #fsModal script in main.html; each card's "Contact support"
+opens in #confirmBody, which STACKS above this layer. {% endcomment %}
+<div class="fsview__panel">
+  <button type="button" class="fsview__close" data-fsview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  {% include 'subscription/partials/_pricing_body.html' %}
+</div>
