@@ -486,10 +486,12 @@ def user_deactivate(request, user_id, slug):
         user.save()
         logout(request)
         messages.success(request, 'Your account has been deactivated.')
-        return redirect('landing')
+        return redirect_after_form(request, 'landing')
 
     context = {'user': user}
-    return render(request, 'user/user_deactivate.html', context)
+    template = ('user/partials/_user_deactivate_modal.html'
+                if request.headers.get('HX-Request') else 'user/user_deactivate.html')
+    return render(request, template, context)
 
 def user_logout(request):
     # Guard for a staff member still clocked in. Two cases:
