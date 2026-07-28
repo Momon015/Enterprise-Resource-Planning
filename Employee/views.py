@@ -24,6 +24,7 @@ from Employee.models import (Employee, Shift, ShiftEmployee,
 
 from Employee.forms import EmployeeForm, EmployeeFilterForm
 from Employee.utils import get_opening_cash_for_today, close_stale_shifts
+from core.utils.htmx import redirect_after_form
 
 from Inventory.models import Stock
 from Product.models import Product
@@ -692,13 +693,13 @@ def clock_out(request, business_slug, shift_id):
 
     if not shift_emp.is_active:
         messages.error(request, 'This shift is already closed — cash taken out can only be recorded during an active shift.')
-        return redirect('shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
+        return redirect_after_form(request, 'shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
 
     # Staff: only their own shift
     if request.user.role == 'staff':
         if shift_emp.employee.staff_user_id != request.user.id:
             messages.error(request, 'Not authorized.')
-            return redirect('shift-dashboard', business_slug=business_slug)
+            return redirect_after_form(request, 'shift-dashboard', business_slug=business_slug)
         
     # Owner closing a staff's shift on their behalf (staff forgot to time out)
     owner_closing = (
@@ -718,7 +719,7 @@ def clock_out(request, business_slug, shift_id):
         close_reason = request.POST.get('close_reason', '').strip()
         if owner_closing and not close_reason:
             messages.error(request, 'Please give a reason for timing out this staff member on their behalf.')
-            return redirect('shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
+            return redirect_after_form(request, 'shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
 
         # Default: time out now. When the owner closes on behalf, they can set the
         # ACTUAL time the staff left — avoids over-counting hours if closed late.
@@ -731,15 +732,15 @@ def clock_out(request, business_slug, shift_id):
                 parsed = parse_datetime(f'{actual_date}T{actual_time}')
                 if parsed is None:
                     messages.error(request, 'Invalid actual time-out — please re-pick the date and time.')
-                    return redirect('shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
+                    return redirect_after_form(request, 'shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
                 if timezone.is_naive(parsed):
                     parsed = timezone.make_aware(parsed)
                 if parsed <= shift_emp.clock_in:
                     messages.error(request, 'Actual time-out must be after the time-in.')
-                    return redirect('shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
+                    return redirect_after_form(request, 'shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
                 if parsed > timezone.now():
                     messages.error(request, "Actual time-out can't be in the future.")
-                    return redirect('shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
+                    return redirect_after_form(request, 'shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
                 clock_out_time = parsed
 
         shift_emp.clock_out = clock_out_time
@@ -769,7 +770,7 @@ def clock_out(request, business_slug, shift_id):
                 shift_emp.counted_bank  = Decimal(request.POST.get('counted_bank')  or '0')
             except (InvalidOperation, ValueError):
                 messages.error(request, 'Invalid amount in one of the count fields.')
-                return redirect('shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
+                return redirect_after_form(request, 'shift-clock-out', business_slug=business_slug, shift_id=shift_emp.id)
 
             shift_emp.closing_note = request.POST.get('closing_note', '').strip()
 
@@ -784,6 +785,12 @@ def clock_out(request, business_slug, shift_id):
                 session.save(update_fields=['status', 'closed_at'])
 
 
+        # Came here from the logout guard ("Time out now")? Now that the drawer is counted
+        # and the shift is closed, finish the original intent and log them out. Only the
+        # staff member's own time-out carries this — never an owner closing on behalf.
+        if not owner_closing and request.POST.get('logout_after') == '1':
+            return redirect_after_form(request, 'logout')
+
         if owner_closing and needs_reconciliation and not record_count:
             messages.success(request, "Shift closed on the staff's behalf. No cash count was recorded.")
         elif needs_reconciliation and shift_emp.total_variance:
@@ -795,14 +802,21 @@ def clock_out(request, business_slug, shift_id):
         else:
             messages.success(request, 'Shift closed successfully.')
 
-        return redirect('shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
+        return redirect_after_form(request, 'shift-detail', business_slug=business_slug, shift_id=shift_emp.id)
 
 
-    return render(request, 'Employee/clock_out.html', {
+    # htmx → the Time Out modal (both the GET that opens it and any invalid POST that
+    # HX-Redirects back); a plain request gets the full page, the no-JS fallback.
+    template = ('Employee/partials/_clock_out_modal.html'
+                if request.headers.get('HX-Request') else 'Employee/clock_out.html')
+    return render(request, template, {
         'business': business,
         'shift_emp': shift_emp,
         'needs_reconciliation': needs_reconciliation,
         'owner_closing': owner_closing,
+        # Preserve the "log out after timing out" intent from the logout guard through the
+        # form, so the POST knows to finish by logging out.
+        'logout_after': request.GET.get('next') == 'logout',
         'section': 'shift',
     })
     

@@ -196,7 +196,9 @@ document.addEventListener("change", function (e) {
             <div class="sd-total-amount" style="color:var(--accent);">{{ active_shift.clock_in|date:"g:i A" }}</div>
             <div class="sd-total-sub">{{ active_shift.clock_in|timesince }} ago</div>
           </div>
-          <a href="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=active_shift.id %}" class="btn btn-primary btn-block">
+          <a href="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=active_shift.id %}"
+             hx-get="{% url 'shift-clock-out' business_slug=current_business.slug shift_id=active_shift.id %}"
+             hx-target="#confirmBody" hx-swap="innerHTML" class="btn btn-primary btn-block">
             <i class="bi bi-box-arrow-right"></i> Time Out
           </a>
           <a href="{% url 'shift-detail' business_slug=current_business.slug shift_id=active_shift.id %}" class="btn btn-outline-secondary btn-sm btn-block">

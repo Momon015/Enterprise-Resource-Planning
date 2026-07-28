@@ -1,0 +1,36 @@
+{% extends "main.html" %}
+{% comment %} Full-page fallback for the logout guard — served when the logout link is hit without
+htmx (no JS, or a direct /logout/ visit). The topbar/profile links open the modal version
+(user/partials/_logout_shift_guard_modal.html) instead; keep the copy in the two files in sync. {% endcomment %}
+{% block content %}
+<div class="page-wrapper">
+  <div style="max-width:520px; margin:3rem auto;">
+    <div class="card">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:1rem;">
+
+        <div class="cm-head">
+          <div class="cm-thumb cm-thumb--muted"><i class="bi bi-box-arrow-right"></i></div>
+          <div>
+            <div class="cm-title">Time out before you leave</div>
+            <div class="cm-sub">You're still clocked in at {{ business.business_name }}.</div>
+          </div>
+        </div>
+
+        {% if show_drawer %}
+        <p class="cm-note">Please time out first so your cash drawer can be counted for the day. If you leave without timing out, the drawer stays uncounted until the system closes your shift for you.</p>
+        {% else %}
+        <p class="cm-note">Please time out first so your shift is recorded properly. If you leave without timing out, the system will close it for you later.</p>
+        {% endif %}
+
+        <div class="cm-actions">
+          <a href="{% url 'logout' %}?force=1" class="btn btn-light">Log out anyway</a>
+          <a href="{% url 'shift-clock-out' business_slug=business.slug shift_id=open_shift.id %}?next=logout" class="btn cm-btn cm-btn--success">
+            <i class="bi bi-box-arrow-in-left"></i> Time out now
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

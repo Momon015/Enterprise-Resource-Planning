@@ -136,6 +136,63 @@ def own_shift_open(business, user):
     ).exists()
 
 
+def open_shift_for_user(user):
+    """This user's currently-open shift ANYWHERE, or None.
+
+    Unlike own_shift_open (one business, today only), this spans every business the
+    user is an employee of and ignores the date — it backs the logout guard, which has
+    no business context and must catch a shift left open from a prior day too. An owner
+    has no Employee seat, so this is always None for them (they never clock in).
+    """
+    return (
+        ShiftEmployee.objects.filter(
+            employee__staff_user=user,
+            clock_in__isnull=False,
+            clock_out__isnull=True,
+        )
+        .select_related('shift', 'shift__business', 'employee')
+        .order_by('clock_in')
+        .first()
+    )
+
+
+def shift_needs_drawer_count(shift_emp):
+    """Whether closing this shift requires counting a cash drawer.
+
+    True only for a cashier on a business with reconciliation switched on and a plan that
+    includes it — the exact condition the clock-out page uses for `needs_reconciliation`.
+    For everyone else (sales clerks, or cashiers where reconciliation is off) timing out is
+    a one-tap formality with nothing to count, so the logout guard can skip straight past it.
+    """
+    business = shift_emp.shift.business
+    plan = getattr(business, 'plan', None)
+    return bool(
+        shift_emp.is_cashier
+        and business is not None and business.enable_cash_reconciliation
+        and plan is not None and plan.has_cash_reconciliation()
+    )
+
+
+def clock_out_shift_now(shift_emp, now=None):
+    """A clean, immediate time-out with no cash count — the staff's OWN close, used when a
+    non-cashier (or a reconciliation-off shift) logs out and there's nothing to count.
+
+    Unlike `_auto_close_shift`, this leaves NO review flag behind (no auto_closed, no
+    close_reason, no ack): the staff member is closing their own shift on purpose, so
+    there's nothing for anyone to dispute. Closes any open drawer session this shift holds
+    (a non-cashier won't have one; the guard just makes it safe either way).
+    """
+    now = now or timezone.now()
+    with transaction.atomic():
+        shift_emp.clock_out = now
+        shift_emp.save()  # full save: mirrors the clock-out view's own time-out path
+        session = shift_emp.drawer_session
+        if session and session.is_open and session.current_holder_id == shift_emp.id:
+            session.status = 'closed'
+            session.closed_at = now
+            session.save(update_fields=['status', 'closed_at'])
+
+
 def open_fresh_shift(business, employee):
     """Clock `employee` in for a FRESH drawer open (no hand-over) and return the ShiftEmployee.
 

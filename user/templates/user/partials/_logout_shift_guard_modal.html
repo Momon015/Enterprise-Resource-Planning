@@ -1,0 +1,36 @@
+{% comment %} LOGOUT GUARD — shown when a staff member who is still clocked in tries to log out.
+Steers them to time out first so the cash drawer is counted. The "Time out now" link is a FULL
+navigation (not htmx) to the clock-out page; "Log out anyway" carries ?force=1 so the guard lets
+it pass. Owners never reach here (they have no Employee seat). Mirror of user/logout_shift_guard.html
+(the no-JS / direct-URL full-page fallback) — keep the copy in sync. {% endcomment %}
+<div class="quickview__panel cm-panel">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+    <div class="card-body">
+
+      <div class="cm-head">
+        <div class="cm-thumb cm-thumb--muted"><i class="bi bi-box-arrow-right"></i></div>
+        <div>
+          <div class="cm-title">Time out before you leave</div>
+          <div class="cm-sub">You're still clocked in at {{ business.business_name }}.</div>
+        </div>
+      </div>
+
+      {% if show_drawer %}
+      <p class="cm-note">Please time out first so your cash drawer can be counted for the day. If you leave without timing out, the drawer stays uncounted until the system closes your shift for you.</p>
+      {% else %}
+      <p class="cm-note">Please time out first so your shift is recorded properly. If you leave without timing out, the system will close it for you later.</p>
+      {% endif %}
+
+      <div class="cm-actions">
+        <a href="{% url 'logout' %}?force=1" class="btn btn-light">Log out anyway</a>
+        <a href="{% url 'shift-clock-out' business_slug=business.slug shift_id=open_shift.id %}?next=logout"
+           hx-get="{% url 'shift-clock-out' business_slug=business.slug shift_id=open_shift.id %}?next=logout"
+           hx-target="#confirmBody" hx-swap="innerHTML" class="btn cm-btn cm-btn--success">
+          <i class="bi bi-box-arrow-in-left"></i> Time out now
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
