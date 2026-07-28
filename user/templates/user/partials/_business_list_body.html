@@ -115,7 +115,7 @@ here whether this arrives on page load or via an htmx swap. {% endcomment %}
         </a>
         {% endif %}
         <a href="{% url 'business-profile-detail' business_id=biz.id business_slug=biz.slug %}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-eye"></i> Detail
+          Detail
         </a>
         {% if businesses|length > 1 %}
         <a href="{% url 'business-archive' business_id=biz.id business_slug=biz.slug %}?next={{ request.path }}"

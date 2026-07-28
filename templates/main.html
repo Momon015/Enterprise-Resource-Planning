@@ -28,7 +28,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=213" />
+    <link rel="stylesheet" href="{% static 'styles/style.css' %}?v=216" />
 
     {% block extra_css %}{% endblock %}
   </head>
@@ -168,7 +168,8 @@
   <!-- FULL-PAGE MODAL — a SECOND, LOWER layer than #confirmModal (z 1040 vs 1050) so a card's own
        confirm dialogs (archive, regenerate code, contact) still open in #confirmBody and stack ON TOP
        of this full-page surface instead of clobbering it. Anything hx-get'd into #fsModalBody opens it.
-       The blurred scrim covers the whole page (sidebar + topbar); click it to close. -->
+       The light frosted scrim covers the content area + topbar (NOT the sidebar — that stays sharp);
+       click it to close. -->
   <div class="fsview" id="fsModal">
     <div class="fsview__backdrop" data-fsview-close></div>
     <div class="fsview__body" id="fsModalBody"></div>

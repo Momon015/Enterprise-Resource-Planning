@@ -8428,28 +8428,31 @@ button.topbar-account__item {
 /* free the top-right corner for the ✕ — hide the "at a glance" tagline inside the modal */
 
 /* ── FULL-PAGE MODAL (#fsModal) ──────────────────────────────────────────────
-   Just a BIGGER version of the confirm modal: the same dark, blurred scrim over the WHOLE page
-   (sidebar + topbar included), but full-screen instead of a small centered card. One layer BELOW
-   #confirmModal (1050) so a card's own confirm dialogs (archive / new code / contact) open in
-   #confirmBody and stack ON TOP of it. The content scrolls; the scrim + ✕ stay fixed. */
+   A full-screen overlay that covers the content area + topbar with a light frosted scrim — but
+   NOT the sidebar: it starts at the sidebar's right edge (left: --sidebar-w) so the nav stays fully
+   visible and sharp. One layer BELOW #confirmModal (1050) so a card's own confirm dialogs (archive
+   / new code / contact) open in #confirmBody and stack ON TOP of it. Background + ✕ stay fixed. */
 .fsview {
-  position: fixed; inset: 0; z-index: 1040;
+  position: fixed; top: 0; right: 0; bottom: 0; left: var(--sidebar-w); z-index: 1040;
   display: none; overflow-y: auto;
 }
 .fsview.is-open { display: block; }
-/* Dark blurred scrim covering everything — identical treatment to .quickview__backdrop. Fixed, so
-   it stays put (and stays blurred) while the content scrolls over it. Click it to close. */
+/* Light FROSTED-GLASS scrim over the content area — a translucent tint of the page bg + blur, so
+   the page behind stays visible but blurred. Theme-aware via --bg; cards keep their --surface white
+   so they stand out. Fixed, so it stays put while the content scrolls. The solid --bg line is the
+   fallback for browsers without color-mix. Click it to close. */
 .fsview__backdrop {
-  position: fixed; inset: 0;
-  background: rgba(17, 24, 39, 0.55);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  position: fixed; top: 0; right: 0; bottom: 0; left: var(--sidebar-w);
+  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   animation: qvFade .15s ease;
 }
+/* Below 991px the sidebar goes off-canvas and the content is full-width, so cover the whole page. */
+@media (max-width: 991px) {
+  .fsview, .fsview__backdrop { left: 0; }
+}
 .fsview__body { position: relative; z-index: 1; }
-/* The content floats on the dark scrim, so the bare page header text must go light. Cards, tables
-   and note boxes carry their own surface, so only the on-scrim header needs this. */
-.fsview .page-title { color: #fff; }
-.fsview .page-subtitle { color: rgba(255, 255, 255, 0.82); }
 /* padding-top clears the fixed ✕ so content never tucks under it on open. Only the modal uses
    .fsview__panel — the full pages keep their own spacing. */
 .fsview__panel { position: relative; min-height: 100%; padding-top: 4rem; }
