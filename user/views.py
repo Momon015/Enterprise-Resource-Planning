@@ -17,6 +17,8 @@ from django.db import IntegrityError
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 
+from django_ratelimit.decorators import ratelimit
+
 from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth import update_session_auth_hash
 
@@ -60,6 +62,7 @@ def landing(request):
     #     return redirect('business-list')
     return render(request, 'landing_page.html')
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def register_form(request):
     # Feature flag: public sign-up can be disabled for a private QA build.
     from django.conf import settings as dj_settings
@@ -70,10 +73,16 @@ def register_form(request):
     page = 'register-form'
 
     if request.method == 'POST':
-        
+
         # Honeypot — silently drop bot submissions
         if request.POST.get('website'):
             return redirect('login')
+
+        # Rate limit sign-ups per IP → curbs account-spam / invite-code guessing.
+        if getattr(request, 'limited', False):
+            messages.error(request,
+                "Too many attempts. Please wait a minute and try again.")
+            return redirect('register-form')
         
         # MANAGER: CLEANING UNVERIFIED USERS
         User.cleanup.unverified_users(minutes=5).delete() # override the 1 hr 
@@ -166,7 +175,6 @@ def verify_otp(request):
         return redirect('expired-otp')
     
 
-    print('otp_obj', otp_obj)
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', None)
         
@@ -203,7 +211,7 @@ def verify_otp(request):
                 messages.error(request, "Business not found. Please register again.")
                 return redirect('register-form')
 
-            for key in ('user_id', 'otp_id', 'business_id'):
+            for key in ('user_id', 'otp_id', 'business_id', 'otp_attempts'):
                 request.session.pop(key, None)
 
             if user.role == 'staff':
@@ -214,20 +222,24 @@ def verify_otp(request):
             return redirect('business-profile-create')
         
         else:
-            messages.error(request, "Invalid OTP. Please try again.")
+            # WRONG OTP. Do NOT log the user in — this used to call login(request, user)
+            # here, which activates the session on a failed verification (login() does
+            # not check is_active), making email verification bypassable. Instead, count
+            # the attempt and stay on the page. After 5 misses, burn the OTP so a 6-digit
+            # code can't be brute-forced.
+            attempts = request.session.get('otp_attempts', 0) + 1
+            request.session['otp_attempts'] = attempts
 
-            
-            # clear sessions
-            for key in ('user_id', 'otp_id', 'business_id'):
-                request.session.pop(key, None)
-            
-            login(request, user)
-            if request.user.role == 'owner':
-                return redirect('business-profile-create')
-            else:
-                messages.success(request, f"Your account has been successfully created.")
-                return redirect('user-profile', slug=user.username, user_id=user.id)
-            
+            if attempts >= 5:
+                otp_obj.delete()
+                for key in ('otp_id', 'otp_attempts'):
+                    request.session.pop(key, None)
+                messages.error(request, "Too many incorrect codes. Please request a new one.")
+                return redirect('expired-otp')
+
+            messages.error(request, "Invalid OTP. Please try again.")
+            return render(request, 'user/verify_otp.html')
+
     return render(request, 'user/verify_otp.html')
 
 def registration_pending(request):
@@ -255,7 +267,8 @@ def resend_otp(request):
     if last_otp_sent and last_otp_sent.is_expired():
         last_otp_sent.delete()
     
-    # generate new OTP
+    # generate new OTP — reset the per-code guess counter for the fresh code
+    request.session.pop('otp_attempts', None)
     try:
         with transaction.atomic():
             otp = EmailOTP.generate_otp()
@@ -274,18 +287,33 @@ def verify_otp_expired(request):
         request.session.pop(key, None)
     return render(request, 'user/verify_otp_expired.html')
     
+@ratelimit(key='ip', rate='10/m', method='POST', block=False)
+@ratelimit(key='post:username', rate='5/m', method='POST', block=False)
 def user_login(request):
     user = None
     page = 'login'
 
     if request.method == 'POST':
-        
+
         # Honeypot — silently drop bot submissions
         if request.POST.get('website'):
             return redirect('login')   # or 'register-form'
 
-        username = request.POST.get('username').lower().strip()
+        # Rate limit: too many logins from one IP, or too many tries against one
+        # username (credential stuffing / spraying). Soft-block → friendly message,
+        # not a raw 403. Belt-and-braces with the per-account lockout below.
+        if getattr(request, 'limited', False):
+            messages.error(request,
+                "Too many login attempts. Please wait a minute and try again.")
+            return redirect('login')
+
+        # Guard against a POST with no username field → None.lower() = 500 on a
+        # public endpoint. Coerce to '' and bail cleanly instead.
+        username = (request.POST.get('username') or '').lower().strip()
         password = request.POST.get('password')
+        if not username:
+            messages.error(request, "Please enter your username.")
+            return redirect('login')
         
         # Block staff whose seat is locked by the owner's plan downgrade (over seat cap)
         if staff_seat_locked(user):

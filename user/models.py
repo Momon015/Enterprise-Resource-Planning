@@ -145,8 +145,9 @@ class EmailOTP(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"To: {self.user} - OTP Code: {self.otp} "
-    
+        # Never render the raw code — this lands in logs/admin.
+        return f"OTP for {self.user} (verified={self.is_verified})"
+
     def is_expired(self):
         expires_at = self.created_at + timedelta(minutes=5)
         if self.otp:
@@ -155,7 +156,9 @@ class EmailOTP(models.Model):
     
     @classmethod
     def generate_otp(cls):
-        return str(random.randint(0, 999999)).zfill(6)
+        # Cryptographically secure — `random` is a predictable PRNG, unsafe for a
+        # verification code. secrets.randbelow gives a uniform 000000–999999.
+        return f"{secrets.randbelow(1_000_000):06d}"
 
 
 class ActiveBusinessManager(models.Manager):
