@@ -1,0 +1,40 @@
+{% comment %} Deactivate Account as a CENTERED modal (#confirmBody), opened from the Settings danger
+row. Same view as the full page user_deactivate.html — modal on HX-Request, full page otherwise
+(no-JS fallback). Body is the shared _user_deactivate_body.html so the two can't drift. On a
+confirmed POST the account is deactivated + logged out and the view answers with HX-Redirect to
+landing (redirect_after_form), so the modal closes into a real navigation. {% endcomment %}
+<div class="quickview__panel cm-panel cm-panel--form cm-panel--scroll">
+  <button type="button" class="quickview__close" data-quickview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="card cm-card">
+
+    {# fixed header #}
+    <div class="cm-card__head">
+      <div class="cm-head" style="margin-bottom:0;">
+        <div class="cm-thumb cm-thumb--danger"><i class="bi bi-person-x-fill"></i></div>
+        <div>
+          <div class="cm-title">Deactivate Account</div>
+          <div class="cm-sub">{% if user.first_name or user.last_name %}{{ user.first_name }} {{ user.last_name }}{% else %}{{ user.username }}{% endif %} · {{ user.get_role_display }}</div>
+        </div>
+      </div>
+    </div>
+
+    <form method="POST"
+          action="{% url 'user-deactivate' user_id=user.id slug=user.slug %}"
+          hx-post="{% url 'user-deactivate' user_id=user.id slug=user.slug %}"
+          hx-target="#confirmBody" hx-swap="innerHTML">
+      {% csrf_token %}
+
+      {# scrollable body #}
+      <div class="cm-card__body">
+        {% include 'user/partials/_user_deactivate_body.html' %}
+      </div>
+
+      {# fixed footer #}
+      <div class="cm-card__foot">
+        <button type="button" class="btn btn-outline-secondary" data-quickview-close>Cancel</button>
+        <button type="submit" class="btn btn-danger"><i class="bi bi-person-slash"></i> Deactivate</button>
+      </div>
+    </form>
+
+  </div>
+</div>

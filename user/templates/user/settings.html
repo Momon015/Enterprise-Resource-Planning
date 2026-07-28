@@ -221,7 +221,9 @@
       <h2 class="settings-card__title">Danger Zone</h2>
     </div>
 
-    <a href="{% url 'user-deactivate' user_id=request.user.id slug=request.user.slug %}" class="settings-row settings-row--danger">
+    <a href="{% url 'user-deactivate' user_id=request.user.id slug=request.user.slug %}"
+       hx-get="{% url 'user-deactivate' user_id=request.user.id slug=request.user.slug %}"
+       hx-target="#confirmBody" hx-swap="innerHTML" class="settings-row settings-row--danger">
       <div class="settings-row__icon"><i class="bi bi-person-x-fill"></i></div>
       <div class="settings-row__body">
         <div class="settings-row__title">Deactivate Account</div>

@@ -1,0 +1,92 @@
+{% comment %} Deactivate Account body — the single-column content (user details + warning + impact),
+shared by the full page (user/user_deactivate.html) and the centered modal
+(user/partials/_user_deactivate_modal.html) so the two can't drift. No <form>, header, or action
+buttons here — each host supplies its own head + footer (the modal via cm-card, the page via a
+page-header + form). {% endcomment %}
+<div class="sd-summary-block">
+  <div class="sd-summary-block-label">User Details</div>
+  <div class="sd-info-row">
+    <span class="sd-info-label">Username</span>
+    <span class="sd-info-value mono">{{ user.username }}</span>
+  </div>
+  <div class="sd-info-row">
+    <span class="sd-info-label">Email</span>
+    <span class="sd-info-value">{{ user.email|default:"No email" }}</span>
+  </div>
+  <div class="sd-info-row">
+    <span class="sd-info-label">Role</span>
+    <span class="sd-info-value">{{ user.get_role_display }}</span>
+  </div>
+  <div class="sd-info-row">
+    <span class="sd-info-label">Date Joined</span>
+    <span class="sd-info-value">{{ user.date_joined|date:"M d, Y" }}</span>
+  </div>
+</div>
+
+<div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border);">
+  <i class="bi bi-exclamation-triangle-fill sd-note-icon" style="color:var(--danger);"></i>
+  <div>
+    <div class="sd-note-title" style="color:var(--danger);">This action can be reversed</div>
+    <div class="sd-note-text">Deactivating this account will remove this user's access and take them out of future sales and inventory activity. An administrator can turn the account back on later if needed.</div>
+  </div>
+</div>
+
+<hr class="sd-section-divider" style="margin:1.1rem 0;">
+<div class="sd-section-label"><i class="bi bi-shield-exclamation"></i> Deactivation Impact</div>
+
+{% if user.role == 'owner' %}
+<div class="sd-note-box" style="background:var(--danger-light); border-color:var(--danger-border); margin:0.6rem 0 0.85rem;">
+  <i class="bi bi-exclamation-octagon-fill sd-note-icon" style="color:var(--danger);"></i>
+  <div>
+    <div class="sd-note-title" style="color:var(--danger);">Owner deactivation</div>
+    <div class="sd-note-text">As the owner, deactivating affects every business and staff account tied to your profile.</div>
+  </div>
+</div>
+
+<div class="sd-summary-block">
+  <div class="sd-summary-block-label" style="color:var(--danger);">
+    <i class="bi bi-x-circle"></i> Will be revoked
+  </div>
+  <div class="sd-info-row"><span class="sd-info-label">All business profiles</span><span class="sd-info-value" style="color:var(--danger);">Locked</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Staff accounts</span><span class="sd-info-value" style="color:var(--danger);">Suspended</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">App &amp; dashboard</span><span class="sd-info-value" style="color:var(--danger);">Disabled</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Subscription</span><span class="sd-info-value" style="color:var(--danger);">Paused</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Login credentials</span><span class="sd-info-value" style="color:var(--danger);">Disabled</span></div>
+</div>
+
+<div class="sd-summary-block">
+  <div class="sd-summary-block-label" style="color:var(--success);">
+    <i class="bi bi-check-circle"></i> Will be preserved
+  </div>
+  <div class="sd-info-row"><span class="sd-info-label">All sales records</span><span class="sd-info-value" style="color:var(--success);">Kept</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Inventory history</span><span class="sd-info-value" style="color:var(--success);">Kept</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Business profiles</span><span class="sd-info-value" style="color:var(--success);">Saved (locked)</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Reports &amp; summaries</span><span class="sd-info-value" style="color:var(--success);">Kept</span></div>
+</div>
+
+<div class="sd-note-box" style="background:var(--warning-light); border-color:#fde68a;">
+  <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--warning);"></i>
+  <div>
+    <div class="sd-note-title" style="color:var(--warning);">Reactivation</div>
+    <div class="sd-note-text">Contact support to reactivate. All business profiles and data will be restored to their original state.</div>
+  </div>
+</div>
+
+{% else %}
+<div class="sd-summary-block" style="margin-top:0.6rem;">
+  <div class="sd-summary-block-label" style="color:var(--danger);">
+    <i class="bi bi-x-circle"></i> Will be removed
+  </div>
+  <div class="sd-info-row"><span class="sd-info-label">POS access</span><span class="sd-info-value" style="color:var(--danger);">Revoked</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Login credentials</span><span class="sd-info-value" style="color:var(--danger);">Disabled</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Future activity</span><span class="sd-info-value" style="color:var(--danger);">Stopped</span></div>
+</div>
+
+<div class="sd-summary-block">
+  <div class="sd-summary-block-label" style="color:var(--success);">
+    <i class="bi bi-check-circle"></i> Will be preserved
+  </div>
+  <div class="sd-info-row"><span class="sd-info-label">Past sales records</span><span class="sd-info-value" style="color:var(--success);">Kept</span></div>
+  <div class="sd-info-row"><span class="sd-info-label">Inventory history</span><span class="sd-info-value" style="color:var(--success);">Kept</span></div>
+</div>
+{% endif %}
