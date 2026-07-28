@@ -491,7 +491,36 @@ def user_deactivate(request, user_id, slug):
     return render(request, 'user/user_deactivate.html', context)
 
 def user_logout(request):
+    # Guard for a staff member still clocked in. Two cases:
+    #   • Cashier with a drawer → they must COUNT it before leaving (a walk-away leaves the
+    #     till uncounted until the nightly auto-close, which can only record the EXPECTED
+    #     amount, never the real one). Show the "time out first" guard → clock-out page.
+    #   • Everyone else (sales clerk, or cashier where reconciliation is off) → nothing to
+    #     count, so the guard + clock-out screen are pure friction. Time them out right here
+    #     and log out in one step.
+    # Owners have no Employee seat, so open_shift_for_user is always None for them.
+    from Employee.utils import (
+        open_shift_for_user, shift_needs_drawer_count, clock_out_shift_now,
+    )
+
+    is_hx = bool(request.headers.get('HX-Request'))
+    open_shift = None if request.GET.get('force') == '1' else open_shift_for_user(request.user)
+
+    if open_shift is not None:
+        if shift_needs_drawer_count(open_shift):
+            business = open_shift.shift.business
+            ctx = {'open_shift': open_shift, 'business': business, 'show_drawer': True}
+            template = ('user/partials/_logout_shift_guard_modal.html' if is_hx
+                        else 'user/logout_shift_guard.html')
+            return render(request, template, ctx)
+        # No drawer to count — time out now, then fall through to the logout below.
+        clock_out_shift_now(open_shift)
+
     logout(request)
+    if is_hx:
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = reverse('landing')
+        return resp
     return redirect('landing')
 
 def business_list(request):

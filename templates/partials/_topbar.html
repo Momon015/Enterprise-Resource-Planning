@@ -129,7 +129,11 @@
           </div>
         </div>
         <div class="topbar-account__divider"></div>
-        <a class="topbar-account__item topbar-account__item--danger" href="{% url 'logout' %}">
+        {% comment %} Logout routes through the guard view: htmx so a staff member still clocked in
+        gets the "time out first" modal (#confirmBody) instead of logging straight out; the view
+        returns 204 + HX-Redirect to log out when there's no open shift. {% endcomment %}
+        <a class="topbar-account__item topbar-account__item--danger" href="{% url 'logout' %}"
+           hx-get="{% url 'logout' %}" hx-target="#confirmBody" hx-swap="innerHTML">
           <i class="bi bi-box-arrow-right"></i> Logout
         </a>
       </div>

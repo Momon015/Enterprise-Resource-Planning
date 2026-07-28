@@ -236,7 +236,8 @@ document.addEventListener("DOMContentLoaded", function () {
                hx-get="{% url 'user-edit-password' %}" hx-target="#confirmBody" hx-swap="innerHTML">
               <i class="bi bi-lock-fill"></i> Change Password
             </a>
-            <a href="{% url 'logout' %}" class="btn btn-outline-secondary btn-sm btn-block col-mobile-only">
+            <a href="{% url 'logout' %}" class="btn btn-outline-secondary btn-sm btn-block col-mobile-only"
+               hx-get="{% url 'logout' %}" hx-target="#confirmBody" hx-swap="innerHTML">
               <i class="bi bi-box-arrow-right"></i> Logout
             </a>
             <a href="{% url 'user-deactivate' user_id=user.id slug=user.slug %}" class="btn btn-sm btn-block"
