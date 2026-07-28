@@ -54,12 +54,31 @@
             <i class="bi bi-info-circle sd-note-icon" style="color:var(--warning);"></i>
             <div>
               {% if shift_emp.auto_closed and not shift_emp.closed_by %}
+              {% if request.user.role == 'owner' %}
+              {% comment %} OWNER VIEW — describe what happened to the staff member (third person). {% endcomment %}
+              <div class="sd-note-title">The system timed out {{ shift_emp.employee.name|default:shift_emp.name|capfirst }}</div>
+              {% if show_reconciliation %}
+              <div class="sd-note-text">No time-out was recorded, so the system closed this shift automatically at the cut-off time. The drawer wasn't counted at close — the Expected amount below is what should have been in it. Check it against the actual cash on hand.</div>
+              {% else %}
+              <div class="sd-note-text">No time-out was recorded, so the system closed this shift automatically at the cut-off time.</div>
+              {% endif %}
+              {% else %}
+              {% comment %} STAFF VIEW — spoken to the staff member (second person). {% endcomment %}
               <div class="sd-note-title">The system timed you out</div>
               {% if show_reconciliation %}
               <div class="sd-note-text">No time-out was recorded, so this shift was closed automatically. The drawer wasn't counted — the Expected amount below is what should be in it. Next time, please time out at the end of your shift so the cash drawer can be counted for the day.</div>
               {% else %}
               <div class="sd-note-text">No time-out was recorded, so this shift was closed automatically. Please remember to time out at the end of your shift.</div>
               {% endif %}
+              {% endif %}
+              {% elif request.user.role == 'owner' %}
+              {% comment %} OWNER VIEW of an owner-close — third person. "You" only if this owner is the one who closed it. {% endcomment %}
+              {% if shift_emp.closed_by_id == request.user.id %}
+              <div class="sd-note-title">You timed out {{ shift_emp.employee.name|default:shift_emp.name|capfirst }}</div>
+              {% else %}
+              <div class="sd-note-title">{{ shift_emp.closed_by.get_full_name|default:shift_emp.closed_by.username }} timed out {{ shift_emp.employee.name|default:shift_emp.name|capfirst }}</div>
+              {% endif %}
+              <div class="sd-note-text">Reason: {{ shift_emp.close_reason }}</div>
               {% else %}
               <div class="sd-note-title">The owner timed you out</div>
               <div class="sd-note-text">Reason: {{ shift_emp.close_reason }}</div>
