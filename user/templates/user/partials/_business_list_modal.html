@@ -1,0 +1,11 @@
+{% comment %} Businesses as a FULL-PAGE modal (#fsModalBody, opened from the Settings "View All
+Businesses" row). Same view as the full page business_list.html — the view renders this on an htmx
+request, the full page otherwise (no-JS fallback). Body is the shared _business_list_body.html so
+the two can't drift. The ✕ (data-fsview-close) is handled by the #fsModal script in main.html; a
+card's own archive / new-code buttons open in #confirmBody, which STACKS above this layer. {% endcomment %}
+<div class="fsview__panel">
+  <button type="button" class="fsview__close" data-fsview-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  <div class="page-wrapper">
+    {% include 'user/partials/_business_list_body.html' %}
+  </div>
+</div>

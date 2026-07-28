@@ -1,0 +1,83 @@
+{% comment %} Shared inner fields for the Cash Drawer form. Included by BOTH the full page
+(user/cash_drawer_settings.html) and the modal (user/partials/_cash_drawer_modal.html) so the two
+can't drift. Presentation only — no <form>, csrf, or submit buttons here; each host supplies its
+own so the modal can carry hx-post and the page a plain action. The split-rows toggle <script> is
+kept here so it ships with the fields it drives (htmx runs it when the modal is swapped in). {% endcomment %}
+{% if locked %}
+<div class="sd-note-box" style="margin-bottom:1rem;">
+  <i class="bi bi-lock-fill sd-note-icon" style="color:var(--warning);"></i>
+  <div>
+    <div class="sd-note-title">Starting cash is locked</div>
+    <div class="sd-note-text">A staff member is timed in right now. To correct starting cash for an active shift, use <strong>Update Starting Cash</strong> on that shift's detail page (staff will acknowledge it).</div>
+  </div>
+</div>
+{% endif %}
+
+<div style="margin-bottom:1rem;" id="defaultCashRow">
+  <label class="sd-info-label" for="{{ form.default_opening_cash.id_for_label }}">Default starting cash</label>
+  {{ form.default_opening_cash }}
+  <label class="form-check-label" for="{{ form.enable_cash_reconciliation.id_for_label }}">Require cash count at time-out</label>
+  {% if form.default_opening_cash.errors %}<div style="color:var(--danger); font-size:0.8rem;">{{ form.default_opening_cash.errors.0 }}</div>{% endif %}
+</div>
+
+<div class="form-check form-switch" style="margin-bottom:0.75rem;">
+  {{ form.enable_cash_reconciliation }}
+  <label class="form-check-label" for="{{ form.enable_cash_reconciliation.id_for_label }}">Require cash count at time-out</label>
+  <div class="sl-text-muted" style="font-size:0.78rem;">When off, staff just time in/out with no money form.</div>
+</div>
+
+<div class="form-check form-switch" style="margin-bottom:0.75rem;">
+  {{ form.shared_cash_drawer }}
+  <label class="form-check-label" for="{{ form.shared_cash_drawer.id_for_label }}">Cashiers share one drawer</label>
+  <div class="sl-text-muted" style="font-size:0.78rem;">On: one drawer handed over between shifts (AM→PM), with a recount at each handover. Off: each cashier has their own till.</div>
+</div>
+
+
+<div class="form-check form-switch" style="margin-bottom:1rem;">
+  {{ form.track_coins_separately }}
+  <label class="form-check-label" for="{{ form.track_coins_separately.id_for_label }}">Track bills and coins separately</label>
+  <div class="sl-text-muted" style="font-size:0.78rem;">For shops that leave coins in the drawer overnight.</div>
+</div>
+
+<div id="splitRows" style="display:none;">
+  <div style="margin-bottom:1rem;">
+    <label class="sd-info-label" for="{{ form.default_opening_bills.id_for_label }}">Default bills</label>
+    {{ form.default_opening_bills }}
+  </div>
+  <div style="margin-bottom:1rem;">
+    <label class="sd-info-label" for="{{ form.default_opening_coins.id_for_label }}">Default coins</label>
+    {{ form.default_opening_coins }}
+  </div>
+  <div class="sd-note-box" style="margin-bottom:1rem;">
+    <i class="bi bi-info-circle-fill sd-note-icon" style="color:var(--info);"></i>
+    <div><div class="sd-note-title">Starting cash = bills + coins</div><div class="sd-note-text">With split on, the starting cash is the sum of bills and coins.</div></div>
+  </div>
+</div>
+
+<div style="margin-bottom:1rem;">
+  <label class="sd-info-label" for="{{ form.closing_time.id_for_label }}">Store closing time</label>
+  {% comment %} Empty <input type="time"> paints the browser's "--:-- --" mask, which reads as
+  broken. Same fix as the month filters: filter-drawer.js flags it .is-empty and this wrapper's
+  CSS lays "Select closing time" (data-ph) over the hidden mask. {% endcomment %}
+  <span class="field-ph" data-ph="Select closing time">{{ form.closing_time }}</span>
+  <div class="sl-text-muted" style="font-size:0.78rem;">Shifts a staff member forgets to clock out of are auto-closed at this time. Leave blank if you're open 24 hours — those shifts auto-close 24 hours after time-in.</div>
+  {% if form.closing_time.errors %}<div style="color:var(--danger); font-size:0.8rem;">{{ form.closing_time.errors.0 }}</div>{% endif %}
+</div>
+
+<script>
+(function(){
+  var split   = document.getElementById('{{ form.track_coins_separately.id_for_label }}');
+  var rows    = document.getElementById('splitRows');
+  var cashRow = document.getElementById('defaultCashRow');
+  if (!split || !rows || !cashRow) return;
+  function sync(){
+    var on = split.checked;
+    rows.style.display = on ? 'block' : 'none';
+    cashRow.style.opacity = on ? '0.55' : '1';
+    var input = cashRow.querySelector('input');
+    if (input) input.readOnly = on;   // float is derived from bills+coins when split is on
+  }
+  split.addEventListener('change', sync);
+  sync();
+})();
+</script>

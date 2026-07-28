@@ -503,7 +503,9 @@
         {% if bp.is_trial %}
           {# ── active trial: countdown → upgrade ── #}
           <a class="sidebar-trial sidebar-trial--active"
-             href="{% url 'subscription-pricing' business_slug=current_business.slug %}">
+             href="{% url 'subscription-pricing' business_slug=current_business.slug %}"
+             hx-get="{% url 'subscription-pricing' business_slug=current_business.slug %}"
+             hx-target="#fsModalBody" hx-swap="innerHTML">
             <div class="sidebar-trial__head"><i class="bi bi-gift-fill"></i> <span>Free trial</span></div>
             <div class="sidebar-trial__sub">{{ bp.trial_days_remaining }} day{{ bp.trial_days_remaining|pluralize }} left · {{ bp.get_plan_display }}</div>
             <span class="sidebar-trial__cta">Upgrade plan <i class="bi bi-arrow-right"></i></span>
