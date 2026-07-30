@@ -18,7 +18,7 @@ class SaleEmployeeInline(admin.TabularInline):
 
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'business', 'date', 'total_revenue', 'total_salary_cost',
+    list_display = ('id', 'business', 'date', 'total_revenue',
                     'line_count', 'created_by', 'created_at')
     list_filter = ('date', 'business', 'created_at')
     search_fields = ('reference', 'business__business_name', 'created_by__username')

@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Sum, F, Q, DecimalField
+from django.db.models import Sum, F, Q, Count, DecimalField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -296,26 +296,52 @@ def compute_sale_kpis(business, as_of=None):
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
-    def _revenue(filters):
-        return Sale.objects.active().filter(business=business, **filters).aggregate(
-            t=Coalesce(Sum('total_revenue'),
-                       Decimal('0'),
-                       output_field=DecimalField(max_digits=14, decimal_places=2))
-        )['t']
-
-    def _count(filters):
-        return Sale.objects.active().filter(business=business, **filters).count()
+    # ✅ AFTER: Executes ALL 8 metrics in EXACTLY 1 SQL query!
+    stats = Sale.objects.active().filter(business=business).aggregate(
+        count_today=Count('id', filter=Q(date=today)),
+        revenue_today=Coalesce(
+            Sum('total_revenue', filter=Q(date=today)), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        revenue_yesterday=Coalesce(
+            Sum('total_revenue', filter=Q(date=yesterday)), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        revenue_week=Coalesce(
+            Sum('total_revenue', filter=Q(date__gte=this_week_start)), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        revenue_last_week=Coalesce(
+            Sum('total_revenue', filter=Q(date__range=(last_week_start, last_week_end))), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        count_month=Count('id', filter=Q(date__gte=this_month_start)),
+        revenue_month=Coalesce(
+            Sum('total_revenue', filter=Q(date__gte=this_month_start)), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+        revenue_last_month=Coalesce(
+            Sum('total_revenue', filter=Q(date__range=(last_month_start, last_month_end))), 
+            Decimal('0'), 
+            output_field=DecimalField(max_digits=14, decimal_places=2)
+        ),
+    )
 
     return {
-        'count_today':         _count({'date': today}),
-        'revenue_today':       str(_revenue({'date': today})),
-        'revenue_yesterday':   str(_revenue({'date': yesterday})),
-        'revenue_week':        str(_revenue({'date__gte': this_week_start})),
-        'revenue_last_week':   str(_revenue({'date__range': (last_week_start, last_week_end)})),
-        'count_month':         _count({'date__gte': this_month_start}),
-        'revenue_month':       str(_revenue({'date__gte': this_month_start})),
-        'revenue_last_month':  str(_revenue({'date__range': (last_month_start, last_month_end)})),
-        'computed_at': timezone.now(),
+        'count_today':        stats['count_today'],
+        'revenue_today':      str(stats['revenue_today']),
+        'revenue_yesterday':  str(stats['revenue_yesterday']),
+        'revenue_week':       str(stats['revenue_week']),
+        'revenue_last_week':  str(stats['revenue_last_week']),
+        'count_month':        stats['count_month'],
+        'revenue_month':      str(stats['revenue_month']),
+        'revenue_last_month': str(stats['revenue_last_month']),
+        'computed_at':        timezone.now(),
     }
 
 
@@ -334,6 +360,12 @@ def get_sale_kpis(business):
 
 # ─── PURCHASES ─────────────────────────────────────────────────────────────────
 
+from datetime import timedelta
+from decimal import Decimal
+from django.db.models import Sum, Count, DecimalField
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+
 def compute_purchase_kpis(business, as_of=None):
     from Expense.models import Purchase
 
@@ -348,15 +380,31 @@ def compute_purchase_kpis(business, as_of=None):
     last_month_end   = this_month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
+    # Base queryset: Filter by business and ignore voided purchases (active only)
+    base_qs = Purchase.objects.filter(business=business, is_void=False)
+
     def _cost(filters):
-        return Purchase.objects.filter(business=business, **filters).aggregate(
+        return base_qs.filter(**filters).aggregate(
             t=Coalesce(Sum('total_cost'),
                        Decimal('0'),
                        output_field=DecimalField(max_digits=14, decimal_places=2))
         )['t']
 
     def _count(filters):
-        return Purchase.objects.filter(business=business, **filters).count()
+        return base_qs.filter(**filters).count()
+
+    # Optional Payables metrics: Instant direct sum on stored 'outstanding' indexed column
+    enable_payables = getattr(business, 'enable_payables', True)
+    total_payables = Decimal('0')
+    count_payables = 0
+
+    if enable_payables:
+        payables_agg = base_qs.filter(outstanding__gt=0).aggregate(
+            total=Coalesce(Sum('outstanding'), Decimal('0')),
+            count=Count('id')
+        )
+        total_payables = payables_agg['total']
+        count_payables = payables_agg['count']
 
     return {
         'count_today':      _count({'purchase_date': today}),
@@ -367,6 +415,12 @@ def compute_purchase_kpis(business, as_of=None):
         'count_month':      _count({'purchase_date__gte': this_month_start}),
         'cost_month':       str(_cost({'purchase_date__gte': this_month_start})),
         'cost_last_month':  str(_cost({'purchase_date__range': (last_month_start, last_month_end)})),
+        
+        # Payables summary (0ms overhead if gated off)
+        'total_payables':   str(total_payables),
+        'count_payables':   count_payables,
+        'enable_payables':  enable_payables,
+        
         'computed_at': timezone.now(),
     }
 

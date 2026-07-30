@@ -232,9 +232,9 @@ document.addEventListener("change", function (e) {
         <div class="card-header">
           <div class="card-header-left-group">
             <span class="card-header-title">Transactions</span>
-            <span class="sl-badge sl-badge-light">
+            {% comment %} <span class="sl-badge sl-badge-light">
               {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
-            </span>
+            </span> {% endcomment %}
 
             {% comment %} hx-boost="false": this leaves for the drafts page, which has no
                  #sale-results to lift out. Boosted, it would silently do nothing at all. {% endcomment %}
@@ -386,7 +386,7 @@ document.addEventListener("change", function (e) {
                 </td>
 
                 <td class="sl-text-end col-mobile-hidden">
-                  <span class="sl-badge sl-badge-light">{{ sale.quantity_item }}</span>
+                  <span class="sl-badge sl-badge-light">{{ sale.total_quantity }}</span>
                 </td>
 
 

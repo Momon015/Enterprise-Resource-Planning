@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os, logging
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -139,6 +140,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    'debug_toolbar',
+    
     
     # APPS
     'Product.apps.ProductConfig',
@@ -166,6 +169,7 @@ AUTH_USER_MODEL = 'user.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     
     'core.middleware.ReturnToMiddleware',
@@ -181,9 +185,16 @@ MIDDLEWARE = [
     'core.middleware.HtmxLoginRedirectMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
-    
 
 ]
+
+# Force Debug Toolbar to display regardless of IP or request details
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda request: True,
+    'INSERT_BEFORE': '</body>',  # Ensure it targets the end of the body tag
+}
+
+INTERAL_IPS = ['127.0.0.1', 'localhost']
 
 ROOT_URLCONF = 'SalesAndInventorySystem.urls'
 
@@ -223,12 +234,15 @@ WSGI_APPLICATION = 'SalesAndInventorySystem.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL') or os.getenv('LOCAL_DB'),
+        conn_max_age=600,
+        )
     }
-}
+
 
 
 # Password validation

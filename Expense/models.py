@@ -54,16 +54,19 @@ class Purchase(TimeStampModel):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
     total_cost = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
-    status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True)
+    status = models.ForeignKey(StatusModel, on_delete=models.SET_NULL, null=True, db_index=True)
     is_paid = models.BooleanField(default=False)
     line_count = models.PositiveIntegerField(default=0)
+    total_quantity = models.PositiveIntegerField(default=0)
     purchase_date = models.DateField(null=True, blank=True, db_index=True)
-    reference = models.CharField(max_length=255, null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases')
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
+    reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases', db_index=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True, db_index=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
     is_locked = models.BooleanField(default=False, db_index=True)
 
+    outstanding = models.DecimalField(max_digits=16, decimal_places=6, default=0, db_index=False)
+    
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
     void_reason = models.CharField(max_length=255, blank=True)
@@ -78,13 +81,25 @@ class Purchase(TimeStampModel):
     # save the custom queryset as_manager()
     objects = PurchaseQuerySet.as_manager()
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['business', 'status', '-reference']),
+            
+            models.Index(fields=['business', 'is_void', 'status', 'voided_at']),
+            
+            models.Index(fields=['business', 'status', 'created_by']),
+            
+            models.Index(fields=['business'], name='sale_receivable_idx',
+                     condition=models.Q(outstanding__gt=0)),   # only unpaid rows are indexed
+    ]
+    
     def __str__(self):
         return f"Purchase ID: #{self.id} - {self.formatted_date}, Total Cost: {self.total_cost}"
 
     def save(self, *args, **kwargs):
         if not self._state.adding and self.is_locked:
             allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at',
-                       'status', 'is_paid', 'is_locked'}
+                       'status', 'is_paid', 'is_locked', 'outstanding'}
             uf = kwargs.get('update_fields')
             if uf is None or not set(uf) <= allowed:
                 raise ValueError("Posted purchase is immutable — append a void/return/adjust instead.")
@@ -201,26 +216,35 @@ class Purchase(TimeStampModel):
             'returns': returns,
         }
 
-    @property
-    def outstanding(self):
-        """What's still owed to the supplier — voided owes nothing."""
+    def recompute_outstanding(self, *, commit=True):
+        """Refresh the stored `outstanding` from the live payments/returns — the mirror of
+        Sale.recompute_outstanding. `outstanding` is a denormalized cache (fast payables
+        index: WHERE outstanding > 0), so it MUST be refreshed in the same transaction as
+        anything that moves the balance: a payment, a return with credit, or a void. A
+        voided purchase owes nothing.
+        """
         if self.is_void:
-            return Decimal('0')
-        return (self.total_cost or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
-
+            value = Decimal('0')
+        else:
+            value = ((self.total_cost or Decimal('0'))
+                     - self.amount_paid - self.amount_refunded_credit)
+        self.outstanding = value
+        if commit:
+            self.save(update_fields=['outstanding'])
+        return value
 
     @property
     def is_fully_paid(self):
-        return self.outstanding <= Decimal('0')
+        return (self.outstanding or Decimal('0')) <= Decimal('0')
     
     @property
     def settlement_status(self):
         """'unpaid' (utang), 'partial', or 'paid' — drives the per-PO Method chip."""
-        paid = self.amount_paid
         total = self.total_cost or Decimal('0')
-        if paid <= 0:
+        outstanding = self.outstanding or Decimal('0')
+        if outstanding >= total:
             return 'unpaid'
-        return 'partial' if paid < total else 'paid'
+        return 'paid' if outstanding <= 0 else 'partial'
 
     @property
     def settlement_display(self):
