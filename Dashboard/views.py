@@ -339,12 +339,12 @@ def dashboard(request, business_slug):
     metrics = _get_cached_dashboard_metrics(business, today)
 
     # Live querysets — small lookups, used by template for "today's items" lists.
-    # NOT cached because they're cheap and we want freshness for "what just happened today".
-    sales           = Sale.objects.active().filter(business=business, date=today)
+    # Prefetch related fields to eliminate N+1 queries during iteration.
+    sales           = Sale.objects.active().filter(business=business, date=today).prefetch_related('payments')
     sale_items      = SaleItem.objects.filter(sale__in=sales)
     shifts          = Shift.objects.filter(business=business, date=today)
     shift_employees = ShiftEmployee.objects.filter(shift__in=shifts)
-    purchases       = Purchase.objects.active().filter(business=business, purchase_date=today)
+    purchases       = Purchase.objects.active().filter(business=business, purchase_date=today).prefetch_related('payments')
     purchase_items  = PurchaseItem.objects.filter(purchase__in=purchases)
     wastes          = Waste.objects.filter(business=business, date=today)
     waste_items     = WasteItem.objects.filter(waste__in=wastes)
@@ -370,12 +370,12 @@ def dashboard(request, business_slug):
                 return v
         return None
 
-    raw_sales              =  list(Sale.objects.active().filter(business=business).order_by('-id')[:10])
-    raw_purchases          =  list(Purchase.objects.active().filter(business=business).order_by('-id')[:10])
-    raw_wastes             =  list(Waste.objects.filter(business=business).order_by('-id')[:10])
+    raw_sales              =  list(Sale.objects.active().filter(business=business).prefetch_related('payments', 'sale_items__product').order_by('-id')[:10])
+    raw_purchases          =  list(Purchase.objects.active().filter(business=business).prefetch_related('payments', 'materials__material').order_by('-id')[:10])
+    raw_wastes             =  list(Waste.objects.filter(business=business).prefetch_related('waste_items__material').order_by('-id')[:10])
     raw_expenses           =  list(Expense.objects.filter(business=business).prefetch_related('expense_items').order_by('-id')[:10])
-    raw_sales_returns      =  list(SalesReturn.objects.filter(business=business).select_related('original_sale').order_by('-id')[:10])
-    raw_purchase_returns   =  list(PurchaseReturn.objects.filter(business=business).select_related('original_purchase').order_by('-id')[:10])
+    raw_sales_returns      =  list(SalesReturn.objects.filter(business=business).select_related('original_sale').prefetch_related('items').order_by('-id')[:10])
+    raw_purchase_returns   =  list(PurchaseReturn.objects.filter(business=business).select_related('original_purchase').prefetch_related('items').order_by('-id')[:10])
     raw_sales_payments     =  list(SalesPayment.objects.filter(business=business).select_related('sale').order_by('-id')[:10])
     raw_purchase_payments  =  list(PurchasePayment.objects.filter(business=business).select_related('purchase').order_by('-id')[:10])
     
@@ -386,7 +386,11 @@ def dashboard(request, business_slug):
             total = getattr(obj, 'total_cost', 0)
         if not total:
             return "Free"
-        first_payment = obj.payments.order_by('id').first() if hasattr(obj, 'payments') else None
+        
+        # Fast in-memory check when payments are prefetched
+        payments = list(obj.payments.all()) if hasattr(obj, 'payments') else []
+        first_payment = payments[0] if payments else None
+        
         if obj.is_fully_paid and first_payment:
             return f"via {first_payment.get_method_display()}"
         if first_payment:
@@ -672,12 +676,14 @@ def dashboard(request, business_slug):
     # annotation (1 query) instead of an N+1 loop.
     attention = attention_items(business)
 
-    due_soon_count = sum(
-        1 for p_ in Purchase.objects.active().filter(
-            business=business, due_date__isnull=False,
-            due_date__range=(today, today + timedelta(days=3)))
-        if p_.outstanding > 0
-    )
+    # Optimized to check due dates at DB level rather than iterating Python properties
+    due_soon_count = Purchase.objects.active().filter(
+        business=business,
+        due_date__isnull=False,
+        due_date__range=(today, today + timedelta(days=3))
+    ).filter(
+        Q(is_paid=False) | Q(payments__isnull=True)
+    ).distinct().count()
 
     if due_soon_count:
         attention.append({'tone': 'info', 'icon': 'bi-credit-card-2-back',
@@ -842,8 +848,3 @@ def dismiss_away_banner(request, business_slug):
     business = get_object_or_404(BusinessProfile, slug=business_slug)
     request.session.pop(f'away_banner_{business.id}', None)
     return redirect('dashboard', business_slug=business_slug)
-
-
-
-
-

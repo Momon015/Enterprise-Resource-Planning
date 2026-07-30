@@ -24,7 +24,7 @@ from Sales.models import Sale, SaleItem, SalesReturnItem
 from Expense.models import Purchase, PurchaseItem
 
 from decimal import Decimal
-from django.db.models import Q, F, Sum
+from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce
 from django.contrib.messages import get_messages
 
@@ -60,58 +60,51 @@ def product_list(request, business_slug):
 
     form = ProductFilterForm(request.GET or None, business=business)
     
-    """
-    The helper function allows to isolate the owner and the staffs for every client.
-    """
-    
-    products = get_queryset_for_user(request.user, Product.goods.all()) \
-        .filter(business=business) \
-        .select_related('category', 'material__supplier') \
+    # 1. Base QuerySet with prefetching (Avoid N+1 queries during template iteration)
+    products = (
+        get_queryset_for_user(request.user, Product.goods.all())
+        .filter(business=business)
+        .select_related('category', 'material__supplier')
+        .prefetch_related('material__unit')
         .order_by('is_locked', '-prepared_quantity')
-        
-    products = products.annotate(units_sold=Coalesce(Sum('sale_items__quantity'), 0))
+    )
 
-    # option 2
-    # if request.user.role == 'developer':
-    #     products = Product.objects.all().order_by('name')
-    # else:
-    #     products = Product.objects.filter(user=owner).order_by('name')
-
-    """
-    this allows to filter things without 
-    causing any bugs like not showing anything 
-    in template to ensure this always work
-    """
     categories = form.fields['category'].queryset
-    
     stock_filter = request.GET.get('stock')
     velocity_filter = request.GET.get('velocity')
-    
-    all_products = products.count()
-    in_stock = products.filter(prepared_quantity__gte=F('high_stock_threshold')).count()
-    # low and critical are DISJOINT bands (see Product/models.py) — a critically-low
-    # product is NOT counted in Low Stock, and ?stock=low does not list it.
+
+    # 2. OPTIMIZED: Calculate all stock summary card stats in ONE single query
+    stock_summary = products.aggregate(
+        all_products=Count('id'),
+        in_stock=Count('id', filter=Q(prepared_quantity__gte=F('high_stock_threshold'))),
+        out_of_stock=Count('id', filter=Q(prepared_quantity=NO_STOCK_THRESHOLD)),
+    )
+    all_products = stock_summary['all_products']
+    in_stock = stock_summary['in_stock']
+    out_of_stock = stock_summary['out_of_stock']
+
+    # Banded counts for low & critical
     _banded = with_stock_bands(products)
-    low_stock = _banded.filter(LOW_BAND_Q).count()
-    critical_stock = _banded.filter(CRITICAL_BAND_Q).count()
-    out_of_stock = products.filter(prepared_quantity=NO_STOCK_THRESHOLD).count()
-    
-    
+    band_summary = _banded.aggregate(
+        low_stock=Count('id', filter=LOW_BAND_Q),
+        critical_stock=Count('id', filter=CRITICAL_BAND_Q),
+    )
+    low_stock = band_summary['low_stock']
+    critical_stock = band_summary['critical_stock']
+
+    # 3. Filtering Logic
     if form.is_valid():
         search = form.cleaned_data.get('search')
         category = form.cleaned_data.get('category')
         
         if search:
-
             products = products.filter(
                 Q(name__icontains=search) |
                 Q(barcode__icontains=search) |
                 Q(sku__icontains=search) |
                 Q(category__name__icontains=search) |
                 Q(description__icontains=search) |
-                Q(category__category_type__icontains=search) |
                 Q(selling_price__icontains=search)
-
             )
         if category:
             products = products.filter(category=category)
@@ -119,62 +112,39 @@ def product_list(request, business_slug):
         if stock_filter == 'high':
             products = products.filter(prepared_quantity__gte=F('high_stock_threshold'))
         elif stock_filter == 'low':
-            # low EXCLUDES critical — the two cards are separate buckets
             products = with_stock_bands(products).filter(LOW_BAND_Q)
         elif stock_filter == 'critical':
             products = with_stock_bands(products).filter(CRITICAL_BAND_Q)
         elif stock_filter == 'none':
             products = products.filter(prepared_quantity=NO_STOCK_THRESHOLD)
-            
-            
-        if velocity_filter in ('never', 'best', 'slow'):
-            products = products.annotate(
-                units_sold=Coalesce(Sum('sale_items__quantity'), 0)
-            )
-            if velocity_filter == 'never':
-                products = products.filter(units_sold=0)
-            elif velocity_filter == 'best':
-                products = products.filter(units_sold__gt=0).order_by('-units_sold')
-            elif velocity_filter == 'slow':
-                products = products.filter(units_sold__gt=0).order_by('units_sold')
 
-    
+    # 4. CONDITIONAL ANNOTATION: Only annotate sales sum if velocity filtering is requested
+    if velocity_filter in ('never', 'best', 'slow'):
+        products = products.annotate(
+            units_sold=Coalesce(Sum('sale_items__quantity'), 0)
+        )
+        if velocity_filter == 'never':
+            products = products.filter(units_sold=0)
+        elif velocity_filter == 'best':
+            products = products.filter(units_sold__gt=0).order_by('-units_sold')
+        elif velocity_filter == 'slow':
+            products = products.filter(units_sold__gt=0).order_by('units_sold')
 
+    # 5. Paginate FIRST before template rendering
     paginator = Paginator(products, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     
     MULTI_UNIT_TYPES = ('Pack', 'Bundle', 'Tray', 'Dozen', 'Carton', 'Sachet', 'Box', 'Bag')
-    
-    # recent_events = ActivityEvent.objects.filter(
-    #     Q(verb__startswith='product.') |
-    #     Q(verb__startswith='sale.') |
-    #     Q(verb__startswith='purchase.') |
-    #     Q(verb__startswith='stock.'),
-    #     business=business,
-    # )
-    # recent_events = scope_events_for_user(recent_events, request.user)[:3]
-    
-    # recent_events = list(recent_events)
-    # for e in recent_events:
-    #     if e.target_url(business.slug):
-    #         e.computed_url = reverse('activity-click', kwargs={
-    #             'business_slug': business.slug, 'event_id': e.id,
-    #         })
-    #     else:
-    #         e.computed_url = None
-
 
     from core.utils.kpis import get_product_kpis
     kpis = get_product_kpis(business)
     
-    # Goods only — the archive modal here lists archived products, not services, so the dot
-    # must not light up for an archived service.
     archived_count = Product.all_objects.filter(business=business, is_active=False, is_service=False).count()
         
     context = {
-        "page_obj": page_obj, # keep this as the Page object
-        "products": page_obj.object_list,  # optional: if you want a plain list
+        "page_obj": page_obj,
+        "products": page_obj.object_list,
         "form": form,
         "categories": categories,
         "out_of_stock": out_of_stock,
@@ -187,7 +157,7 @@ def product_list(request, business_slug):
         'archived_count': archived_count,
         'kpis': kpis,
         
-        #htmx
+        # htmx / cart
         'cart_items': len(sale),
         'cart_count': sum(item['quantity'] for item in sale.values()),
         'clear_sessions': 'clear-sale',

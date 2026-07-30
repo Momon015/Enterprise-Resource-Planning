@@ -46,7 +46,7 @@ from django.core.paginator import Paginator
 
 from datetime import date, datetime, timezone as dt_timezone
 import calendar
-from django.db.models import Sum, Avg, Max, Min, Q, F
+from django.db.models import Sum, Avg, Max, Min, Q, F, Count, Value
 from django.db.models.functions import Coalesce
 
 from decimal import Decimal, InvalidOperation
@@ -146,6 +146,8 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
             method=payment_method, note=payment_note, created_by=request.user,
             tendered=tendered,
         )
+        # Refresh the stored balance now the payment exists, before it's read below.
+        sale_obj.recompute_outstanding()
         method_display = payment.get_method_display()
         paid_desc = f"via {method_display}"
         if payment_status == 'partial':
@@ -202,6 +204,10 @@ def _finalize_sale(request, sale_obj, business, payment_status, payment_method,
             business, AccumulatedGrandSalesEntry.CHANNEL_SALE, sale_obj.subtotal,
             source=sale_obj, ref=sale_obj.reference,
         )
+
+    # Final balance stamp before locking — covers the debt path (no payment row created,
+    # so outstanding must become the full total) and is a harmless re-affirm otherwise.
+    sale_obj.recompute_outstanding()
 
     sale_obj.is_locked = True
     sale_obj.save(update_fields=['is_locked'])
@@ -268,8 +274,10 @@ def clear_sale(request, business_slug):
 @permission_required('read_only') # dev
 def sale_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    sales = get_queryset_for_user(request.user, Sale.objects.all()).filter(
-        business=business, status='completed').order_by('-reference')   # drafts live in the draft list
+    
+    # 1. Base Queryset (Optimized with select_related for creator/user if rendered in table)
+    sales = get_queryset_for_user(request.user, Sale.objects.all().prefetch_related('payments', 'returns')).filter(
+        business=business, status='completed').order_by('-reference')  # drafts live in the draft list
 
     # for staff to see their own records
     sales = filter_to_own_if_staff(request.user, sales)
@@ -277,6 +285,8 @@ def sale_list(request, business_slug):
     # Voided view: ?void=1 filters to voided sales only (they otherwise sit inline in the
     # list with the bi-ban badge). Applied here on the base so every downstream total and the
     # pagination reflect it.
+    
+    # 2. Voided View Filtering
     void_only = request.GET.get('void') == '1'
     if void_only:
         sales = sales.filter(is_void=True)
@@ -317,13 +327,9 @@ def sale_list(request, business_slug):
     last_year = iso_year - 1
 
     current_year = f"{year}-{month:02d}"   # zero-padded — f"-0{month}" breaks for Oct–Dec ("2026-010")
-
     period = request.GET.get('period')
     
-    total_revenue = sales.total_revenue()
-    average_total_revenue = sales.average_total_revenue()
-    total_sales_count = sales.active().count()
-    
+    # 3. Apply Form & Period Filters
     if form.is_valid():
         # search = form.cleaned_data.get('search')
         select_month = form.cleaned_data.get('select_month')
@@ -370,12 +376,6 @@ def sale_list(request, business_slug):
         if filter_kwargs:
             sales = sales.filter(**filter_kwargs)
             
-        total_revenue = sales.total_revenue()
-        average_total_revenue = sales.average_total_revenue()
-        total_sales_count = sales.active().count()
-        
-    max_revenue = sales.aggregate(max=Max('total_revenue'))['max'] or 0
-    
     # Employee/seller filter — owner only
     user_filter = None
     users = []
@@ -408,10 +408,10 @@ def sale_list(request, business_slug):
             })
             
     if request.user.role == 'owner' and user_filter and user_filter.isdigit():
-        total_revenue = sales.total_revenue()
-        average_total_revenue = sales.average_total_revenue()
-        total_sales_count = sales.active().count()
-        max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
+        total_revenue = stats['total_rev'] or 0
+        average_total_revenue = stats['average_total_rev'] or 0
+        total_sales_count = stats['total_count'] or 0 
+        max_revenue = stats['max_rev'] or 0
 
     # Payment-method filter — composes with the period/date/user filters above.
     # Match on "has at least one payment via this method" using an id subquery so
@@ -419,21 +419,26 @@ def sale_list(request, business_slug):
     payment_methods = SalesPayment.PAYMENT_METHOD_CHOICES
     active_payment = request.GET.get('payment')
     if active_payment in {code for code, _ in payment_methods}:
-        paid_sale_ids = SalesPayment.objects.filter(
-            sale__in=sales, method=active_payment,
-        ).values_list('sale_id', flat=True)
-        sales = sales.filter(id__in=paid_sale_ids)
-        total_revenue = sales.total_revenue()
-        average_total_revenue = sales.average_total_revenue()
-        total_sales_count = sales.active().count()
-        max_revenue = sales.active().aggregate(max=Max('total_revenue'))['max'] or 0
+        sales = sales.filter(payments__method=active_payment).distinct()
     else:
         active_payment = None
+
+    # 1 Single SQL Aggregation Call (Replaces multiple separate queries)
+    stats = sales.aggregate(
+        total_rev=Sum('total_revenue'),
+        average_total_rev=Avg('total_revenue'),
+        max_rev=Max('total_revenue'),
+        total_count=Count('id')
+    )
+    
+    total_revenue = stats['total_rev'] or 0
+    average_total_revenue = stats['average_total_rev'] or 0
+    total_sales_count = stats['total_count'] or 0 
 
     collected = SalesPayment.objects.filter(sale__in=sales.active()).aggregate(t=Sum('amount'))['t'] or 0
     receivables = (total_revenue or 0) - collected
 
-    paginator = Paginator(sales.prefetch_related('payments'), 8)
+    paginator = Paginator(sales.prefetch_related('payments'), 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -499,8 +504,10 @@ def sale_list(request, business_slug):
     pending_count = 0
 
     if can_view_receivables:
+        # 1. Base queryset using database-level filtering
         recv_base = (
-            Sale.objects.filter(business=business, status='completed')   # a pending draft isn't a receivable
+            Sale.objects.filter(business=business, status='completed') # a pending draft isn't a receivable
+            .select_related('created_by')
             .prefetch_related('payments', 'returns')
             .order_by('-date')
         )
@@ -518,23 +525,29 @@ def sale_list(request, business_slug):
         elif recv_period == 'month':
             recv_sales = recv_sales.filter(date__month=month, date__year=year)
 
-        # outstanding is a computed property, not a DB field — filter in Python.
-        outstanding_sales = [s for s in recv_sales if s.outstanding > 0]
-        if recv_status == 'partial':
-            outstanding_sales = [s for s in outstanding_sales if s.amount_paid > 0]
-        elif recv_status == 'utang':
-            outstanding_sales = [s for s in outstanding_sales if s.amount_paid == 0]
+        # 2. Filter in SQL (Assuming you have snapshots or use DB annotation)
+        # If total_revenue > 0 and payments are incomplete:
+        # (If you don't have stored total_paid fields, annotate them using Sum('payments__amount'))
+        recv_sales = recv_sales.annotate(
+            total_paid=Coalesce(Sum('payments__amount'), Value(Decimal('0')))
+        ).filter(total_revenue__gt=F('total_paid'))
 
-        recv_total_outstanding = sum((s.outstanding for s in outstanding_sales), Decimal('0'))
-        recv_paginator = Paginator(outstanding_sales, 7)
+        if recv_status == 'partial':
+            recv_sales = recv_sales.filter(total_paid__gt=0)
+        elif recv_status == 'utang':
+            recv_sales = recv_sales.filter(total_paid=0)
+
+        # 3. Calculate Outstanding Total in 1 Query instead of Python loop
+        recv_total_outstanding = recv_sales.aggregate(
+            outs=Sum(F('total_revenue') - F('total_paid'))
+        )['outs'] or Decimal('0')
+
+        # 4. Pass the UNSLICED SQL Queryset to Paginator
+        recv_paginator = Paginator(recv_sales, 7)
         recv_page_obj = recv_paginator.get_page(request.GET.get('recv_page'))
 
-        # Business-wide count of unpaid sales, IGNORING the recv_ date/status filters —
-        # lets the empty state tell "no debts at all" apart from "none in this range"
-        # (e.g. all debts are June while the filter is July). Prevents the panel from
-        # cheerfully saying "all paid up" when unpaid sales exist outside the window.
         recv_filter_active = bool(recv_period or recv_status)
-        recv_any_count = sum(1 for s in recv_base if s.outstanding > 0) if recv_filter_active else recv_paginator.count
+        recv_any_count = recv_paginator.count
         
         # Pending-drafts count for the header "Drafts" chip (same staff scoping as the list).
         pending_count = filter_to_own_if_staff(
@@ -548,7 +561,7 @@ def sale_list(request, business_slug):
         'total_revenue': total_revenue,
         'average_total_revenue': average_total_revenue,
         'total_sales_count': total_sales_count,
-        'max_revenue': max_revenue,
+
         'current_year': current_year, # this is for dynamic year for select month
         'section': 'sale',
         'recent_events': recent_events,
@@ -764,14 +777,12 @@ def sale_detail(request, sale_id, business_slug):
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     sale_items = sale.sale_items.select_related('product').order_by('product__is_service', 'id')
     sale_employees = sale.sale_employees.select_related('employee')
-    total_salary_cost = sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
     payments = sale.payments.select_related('created_by').order_by('created_at')
     
     context = {
         'sale': sale,
         'sale_items': sale_items,
         'sale_employees': sale_employees,
-        'total_salary_cost': total_salary_cost,
         'payments': payments,
         'can_void': can_void_sale(sale, request.user),
         # VAT class breakdown (V / VAT / Exempt / Zero) — VAT-registered sellers only, same
@@ -887,13 +898,13 @@ def view_sale(request, business_slug):
     items = []
     
     if sale:
+        print('DEBUG SALE DATA',sale)
         for product_id, data in sale.items():
             product = get_object_or_404(Product, business=business, id=product_id)
             quantity = data.get('quantity', 1)
             selling_price = data.get('selling_price')
             cost_price = data.get('cost_price')
-        
-        
+            
             # computations
             total_cost_price_per_line = Decimal(cost_price) * quantity         
             
@@ -901,8 +912,6 @@ def view_sale(request, business_slug):
             
             total_selling_price = Decimal(selling_price) * quantity
             total_revenue += total_selling_price
-            
-
             
             # preset = product.product_preset_items.first()
             # if preset:
@@ -922,8 +931,12 @@ def view_sale(request, business_slug):
                 'total_cost_price_per_line': total_cost_price_per_line,
                 
             })
+            
     
     line_count = len(items)
+    total_quantity = sum(int(data.get('quantity', 0)) for data in sale.values())
+
+    request.session['total_quantity'] = str(total_quantity)
     request.session['sale'] = sale
     request.session['line_count'] = line_count
     request.session.modified = True
@@ -970,9 +983,6 @@ def view_session_summary(request, business_slug):
     total_revenue = 0
     total_cost_price = 0
     vatable_revenue = Decimal('0')   # gross of VATable lines only — see price_breakdown
-
-    total_salary_cost = Decimal(request.session.get('total_salary_cost', 0))
-    print('total_salary_cost', total_salary_cost)
 
     items = []
 
@@ -1086,7 +1096,6 @@ def view_session_summary(request, business_slug):
         'total_revenue': total_revenue,
         'total_cost_price': total_cost_price,
         'employees': 'employees',
-        'total_salary_cost': total_salary_cost,
         'section': 'product',
 
         'discount_percent': discount_percent,
@@ -1149,8 +1158,8 @@ def confirm_view_summary(request, business_slug):
             return redirect('shift-dashboard', business_slug=business.slug)
 
     sale = prune_stale_cart_lines(request, business, 'sale', Product)
+    total_quantity = request.session.get('total_quantity', 0)
     line_count = request.session.get('line_count', 0)
-    total_salary_cost = request.session.get('total_salary_cost', 0)
 
     # ── Complete-now vs park-as-pending (from the "Verify the payment?" modal) ──
     payment_status = request.POST.get('payment_status', 'full')
@@ -1183,8 +1192,9 @@ def confirm_view_summary(request, business_slug):
         with transaction.atomic():
             sale_obj = Sale.objects.create(
                 user=business.user, business=business,
-                total_revenue=0, total_salary_cost=0,
-                created_by=request.user, status=sale_status)
+                total_revenue=0,
+                created_by=request.user, status=sale_status, 
+                line_count=line_count, total_quantity=total_quantity, outstanding=0)
 
             for product_id, data in sale.items():
                 product = get_object_or_404(Product, business=business, id=product_id)
@@ -1247,7 +1257,6 @@ def confirm_view_summary(request, business_slug):
             sale_obj.discount_type     = statutory_type
             sale_obj.discount_id_no    = request.session.get('sale_discount_id_no', '')[:60]
             sale_obj.discount_name     = request.session.get('sale_discount_name', '')[:255]
-            sale_obj.total_salary_cost = total_salary_cost
             sale_obj.line_count        = line_count
             sale_obj.save()
 
@@ -1281,9 +1290,9 @@ def confirm_view_summary(request, business_slug):
     # IMPORTANT: The statutory keys MUST be cleared here. They are per-customer, not per-session:
     # leaving them set would apply the previous senior's discount — and their ID — to the
     # next person served.
-    for key in ('total_salary_cost', 'line_count', 'sale_discount_percent',
+    for key in ('line_count', 'sale_discount_percent',
                 'sale_discount_type', 'sale_discount_rate',
-                'sale_discount_id_no', 'sale_discount_name'):
+                'sale_discount_id_no', 'sale_discount_name', 'total_quantity'):
         request.session.pop(key, 0)
 
     request.session['sale'] = {}
@@ -1354,6 +1363,9 @@ def add_sales_payment(request, business_slug, sale_id):
                 note=note,
                 created_by=request.user,
             )
+            # Refresh the stored balance so every read below (and the receivables index)
+            # reflects this payment. Without it the panel keeps showing the old debt.
+            sale.recompute_outstanding()
 
             paid_desc = f"via {payment.get_method_display()}"
             if sale.outstanding > 0:
@@ -1445,9 +1457,7 @@ def view_sale_summary(request, sale_id, business_slug):
     business = get_business_for_user(request.user, business_slug)
     sale = get_object_or_404(Sale, business=business, id=sale_id)
     sale_items = sale.sale_items.select_related('product')
-    total_salary_cost = sale.sale_employees.aggregate(total_salary_cost=Sum('daily_rate'))['total_salary_cost'] or 0
-    print(total_salary_cost)
-    
+
     total_revenue = 0
     total_cost_price = 0
 
@@ -1497,7 +1507,6 @@ def view_sale_summary(request, sale_id, business_slug):
         'blank_rows': blank_rows,
         'total_cost_price': total_cost_price,
         'total_revenue': total_revenue,
-        'total_salary_cost': total_salary_cost,
         'can_void': can_void_sale(sale, request.user),
         'section': 'sale'
         }
@@ -1602,6 +1611,8 @@ def void_sale(request, business_slug, sale_id):
         sale.voided_at = timezone.now()
         sale.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at',
                                  'void_reference'])
+        # A voided sale owes nothing — drop it out of the receivables index.
+        sale.recompute_outstanding()
 
         log_activity(
             business, request.user, 'sale.voided',
@@ -1949,6 +1960,8 @@ def sales_return_create(request, business_slug, sale_id):
                 refund_method=refund_method,
                 created_by=request.user,
             )
+            # Store credit from this return knocks down what the customer owes.
+            sale.recompute_outstanding()
 
             damaged_items = []   # collect for single Waste record
 

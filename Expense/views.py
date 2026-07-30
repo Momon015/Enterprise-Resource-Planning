@@ -233,7 +233,7 @@ def _build_payables_context(request, business):
 @permission_required('read_only') # dev
 def purchase_history(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    purchases = get_queryset_for_user(request.user, Purchase.objects.all()).filter(business=business).order_by('-reference')
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all().prefetch_related('payments', 'returns')).filter(business=business).order_by('-reference')
     # show their own records if staff
     purchases = filter_to_own_if_staff(request.user, purchases)
 
@@ -377,8 +377,18 @@ def purchase_history(request, business_slug):
     else:
         active_payment = None
 
-    paid = PurchasePayment.objects.filter(purchase__in=purchases.active()).aggregate(t=Sum('amount'))['t'] or 0
-    payables = (total_cost or 0) - paid
+    # ── GATED & FAST PAYABLES CALCULATION ─────────────────────────
+    # Toggle check: skip payables logic completely if disabled for this pharmacy/business.
+    enable_payables = getattr(business, 'enable_payables', True)
+    payables = Decimal('0')
+    paid = Decimal('0')
+
+    if enable_payables:
+        # Sum direct stored 'outstanding' column for active (non-voided) purchases
+        payables = purchases.active().filter(outstanding__gt=0).aggregate(
+            t=Sum('outstanding')
+        )['t'] or Decimal('0')
+        paid = (total_cost or Decimal('0')) - payables
 
     paginator = Paginator(purchases.prefetch_related('payments'), 8)
     page_number = request.GET.get('page')
@@ -430,7 +440,7 @@ def purchase_history(request, business_slug):
     # ── Embedded Payables panel (pay_-prefixed params — see _payables_panel.html) ──
     # Owner/dev always; staff only where the owner granted can_handle_payables.
     # When not permitted we skip the work entirely and leave the panel off the page.
-    can_view_payables = can_handle_payables(request.user, business)
+    can_view_payables = enable_payables and can_handle_payables(request.user, business)
     pay_ctx = _build_payables_context(request, business) if can_view_payables else {}
 
     context = {
@@ -448,8 +458,8 @@ def purchase_history(request, business_slug):
         
         'paid': paid,
         'payables': payables,
+        'enable_payables': enable_payables,
 
-        
         'users': users,
         'active_user': user_filter,
 
@@ -970,6 +980,8 @@ def confirm_purchase_summary(request, business_slug):
                     note=payment_note,
                     created_by=request.user,
                 )
+                # Refresh the stored balance now the payment exists, before it's read below.
+                purchase.recompute_outstanding()
                 method_display = payment.get_method_display()
 
                 paid_desc = f"via {method_display}"
@@ -987,6 +999,10 @@ def confirm_purchase_summary(request, business_slug):
                         'outstanding': str(purchase.outstanding),
                     },
                 )
+
+            # Final balance stamp — covers the debt path (no payment row) and re-affirms
+            # otherwise, so is_fully_paid below reads the real balance.
+            purchase.recompute_outstanding()
 
             # Status + is_paid based on actual outstanding
             if purchase.is_fully_paid:
@@ -1319,6 +1335,8 @@ def void_purchase(request, business_slug, purchase_id):
         purchase.voided_by = request.user
         purchase.voided_at = timezone.now()
         purchase.save(update_fields=['is_void', 'void_reason', 'voided_by', 'voided_at'])
+        # A voided purchase owes nothing — drop it out of the payables index.
+        purchase.recompute_outstanding()
 
         log_activity(
             business, request.user, 'purchase.voided',
@@ -1454,6 +1472,8 @@ def purchase_return_create(request, business_slug, purchase_id):
                 refund_method=refund_method,
                 created_by=request.user,
             )
+            # A supplier credit note knocks down what we still owe them.
+            purchase.recompute_outstanding()
 
             for item in items_to_return:
                 pi = item['purchase_item']

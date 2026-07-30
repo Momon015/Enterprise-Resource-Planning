@@ -316,7 +316,7 @@ document.addEventListener("change", function (e) {
           <div class="card-header-left-group">
             <span class="card-header-title">Transactions</span>
             <span class="sl-badge sl-badge-light">
-              {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}
+              {% comment %} {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }} {% endcomment %}
             </span>
 
             {% comment %} VOIDED — in-list toggle (purchases have no drafts, so no Pending chip

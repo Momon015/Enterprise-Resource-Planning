@@ -41,7 +41,7 @@ Mirrors Sales/templates/sales/partials/_receivables_panel.html.
     <div class="card-header-left-group">
       <span class="card-header-title">Payables</span>
       <span class="sl-badge sl-badge-light">
-        {{ pay_page_obj.paginator.count }} record{{ pay_page_obj.paginator.count|pluralize }}
+        {% comment %} {{ pay_page_obj.paginator.count }} record{{ pay_page_obj.paginator.count|pluralize }} {% endcomment %}
       </span>
 
       {% comment %} QUICK RANGES — pay_-scoped. Links, not buttons: hx-boost only picks up

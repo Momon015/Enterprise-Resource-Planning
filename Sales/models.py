@@ -100,13 +100,15 @@ class Sale(TimeStampModel):
     # actually became a sale. See the reference note in save().
     date = models.DateField(db_index=True, null=True, blank=True)
     total_revenue = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
-    total_salary_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     line_count = models.PositiveIntegerField(default=0)
-    reference = models.CharField(max_length=255, null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True)
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
-    is_locked = models.BooleanField(default=False, db_index=True)
+    total_quantity = models.PositiveIntegerField(default=0)
+    reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True, db_index=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True, db_index=True)
+    is_locked = models.BooleanField(default=False)
     
+    outstanding = models.DecimalField(max_digits=16, decimal_places=6, default=0, db_index=False)
+        
     # ── Void (cancellation, not a return) ─────────────────
     is_void     = models.BooleanField(default=False, db_index=True)
     # The void's own accountable number (VD-0000000001), issued at void time from a
@@ -115,7 +117,7 @@ class Sale(TimeStampModel):
     void_reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     void_reason = models.CharField(max_length=255, blank=True)
     voided_by   = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='voided_sales', null=True, blank=True)
-    voided_at   = models.DateTimeField(null=True, blank=True)
+    voided_at   = models.DateTimeField(null=True, blank=True, db_index=True)
     
     # ── Draft status + Cancel (a draft whose payment never landed — NOT a void) ──
     # "Draft" = any status that isn't 'completed'; drafts stay OUT of the sales record.
@@ -234,6 +236,25 @@ class Sale(TimeStampModel):
 
     objects = SaleQuerySet.as_manager()
     
+    class Meta:
+        indexes = [
+            # 1. Fast main list view filtering (Business + Status + Date)
+            models.Index(fields=['business', 'status', '-reference']),
+            
+            # 2. Fast Voided sales filtering (Business + Status + Is Void + Voided At)
+            models.Index(fields=['business', 'is_void', 'status', 'voided_at']),
+            
+            # 3. Fast staff/owner filtering (Business + Status + Created By)
+            models.Index(fields=['business', 'status', 'created_by']),
+            
+            # Partial index: only rows that still owe money are indexed, so the
+            # receivables list (filter outstanding__gt=0) never scans paid sales.
+            # MUST be gt, not gte — a fully-paid sale is outstanding=0, and gte=0
+            # would index every row, defeating the whole point.
+            models.Index(fields=['business'], name='sale_receivables_idx',
+                         condition=models.Q(outstanding__gt=0)),
+        ]
+    
     def __str__(self):
         return f"Date: {self.date} - {self.total_revenue}"
     
@@ -259,7 +280,7 @@ class Sale(TimeStampModel):
             # is immutable, but VOIDING it is an append, and the void carries its own
             # document number. Omit it and stamping the number raises on every void.
             allowed = {'is_void', 'void_reason', 'voided_by', 'voided_at', 'is_locked',
-                       'void_reference'}
+                       'void_reference', 'outstanding'}
             uf = kwargs.get('update_fields')
             if uf is None or not set(uf) <= allowed:
                 raise ValueError("Posted sale is immutable — append a void/return/adjust instead.")
@@ -540,17 +561,20 @@ class Sale(TimeStampModel):
 
     @property
     def amount_paid(self):
-        return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+        # Sum over .all(), NOT .aggregate(): a prefetched `payments` list is reused, so a
+        # list view that prefetch_related('payments') pays zero per-row queries here.
+        # .aggregate() would ignore the prefetch and re-hit the DB once per sale (N+1).
+        return (self.outstanding or Decimal('0')) <= Decimal('0')
     
     @property
     def settlement_status(self):
         """'unpaid' (utang), 'partial', or 'paid' — drives the per-receipt Method chip."""
-        paid = self.amount_paid
-        total = self.total_revenue or Decimal('0')
-        if paid <= 0:
+        paid = self.total_revenue or Decimal('0')
+        outstanding = self.outstanding or Decimal('0')
+        if outstanding >= paid:
             return 'unpaid'
-        return 'partial' if paid < total else 'paid'
-
+        return 'partial' if outstanding <= 0 else 'paid'
+    
     @property
     def cash_tendered(self):
         """Cash the customer handed over, or None when none was recorded.
@@ -613,10 +637,12 @@ class Sale(TimeStampModel):
         return {'label': 'Debt', 'icon': 'bi-clock-history', 'level': 'danger', 'amount': None}
 
 
+    # NOTE: all three sum over .all(), NOT .aggregate() — see amount_paid. A list that
+    # prefetch_related('returns') reuses the loaded rows; .aggregate() would re-query per sale.
     @property
     def amount_refunded(self):
         """Total of all refunds — for net_revenue calc."""
-        return self.returns.aggregate(t=models.Sum('refund_total'))['t'] or Decimal('0')
+        return sum((r.refund_total or Decimal('0') for r in self.returns.all()), Decimal('0'))
 
     @property
     def amount_refunded_cash(self):
@@ -627,12 +653,12 @@ class Sale(TimeStampModel):
         be part credit and part cash, and filtering by the method string would silently
         count the whole of a mixed refund as one or the other.
         """
-        return self.returns.aggregate(t=models.Sum('refund_cash'))['t'] or Decimal('0')
+        return sum((r.refund_cash or Decimal('0') for r in self.returns.all()), Decimal('0'))
 
     @property
     def amount_refunded_credit(self):
         """Knocked off what the customer owes — no money moved."""
-        return self.returns.aggregate(t=models.Sum('refund_credit'))['t'] or Decimal('0')
+        return sum((r.refund_credit or Decimal('0') for r in self.returns.all()), Decimal('0'))
 
     @property
     def net_revenue(self):
@@ -655,6 +681,7 @@ class Sale(TimeStampModel):
             return False
         return any(i.returnable_quantity > 0 for i in self.sale_items.all())
 
+
     @property
     def return_summary(self):
         """Return activity on this sale — None when nothing came back.
@@ -673,7 +700,8 @@ class Sale(TimeStampModel):
         if self.is_void or self.status != 'completed':
             return None
 
-        returns = list(self.returns.all())
+        # Safely read from prefetched cache without hitting DB
+        returns = list(self.returns.all()) if hasattr(self, '_prefetched_objects_cache') and 'returns' in self._prefetched_objects_cache else list(self.returns.all())
         if not returns:
             return None
 
@@ -696,18 +724,32 @@ class Sale(TimeStampModel):
             'returns': returns,
         }
 
-    @property
-    def outstanding(self):
-        """What customer still owes — voided or draft (pending/canceled) owes
-        nothing (a draft was never a real, posted sale)."""
-        if self.is_void or self.status != 'completed':
-            return Decimal('0')
-        return (self.total_revenue or Decimal('0')) - self.amount_paid - self.amount_refunded_credit
+    def recompute_outstanding(self, *, commit=True):
+        """Refresh the stored `outstanding` from the live payments/returns.
 
+        `outstanding` is a DENORMALIZED cache of what used to be a computed property —
+        it exists so receivables can be a fast indexed filter (WHERE outstanding > 0)
+        instead of a per-row aggregate over millions of sales. Because it's stored, it
+        MUST be refreshed in the same transaction as anything that moves the balance:
+        a payment, a return with store credit, a void, or a draft becoming completed.
+        A voided or non-completed (draft) sale owes nothing, by definition.
+
+        Returns the new value. `commit=False` sets the attribute without a write, for
+        callers that will save the row themselves.
+        """
+        if self.is_void or self.status != self.STATUS_COMPLETED:
+            value = Decimal('0')
+        else:
+            value = ((self.total_revenue or Decimal('0'))
+                     - self.amount_paid - self.amount_refunded_credit)
+        self.outstanding = value
+        if commit:
+            self.save(update_fields=['outstanding'])
+        return value
 
     @property
     def is_fully_paid(self):
-        return self.outstanding <= Decimal('0')
+        return (self.outstanding or Decimal('0')) <= Decimal('0')
 
 class SaleItem(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
