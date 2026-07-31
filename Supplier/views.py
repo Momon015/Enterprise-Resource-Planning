@@ -116,7 +116,7 @@ def material_list(request, business_slug):
             materials = materials.filter(category=category)
         
     # pagination
-    paginator = Paginator(materials, 6)
+    paginator = Paginator(materials, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
            
@@ -647,7 +647,7 @@ def supplier_list(request, business_slug):
             )
 
         
-    pagination = Paginator(suppliers, 6)
+    pagination = Paginator(suppliers, 10)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     

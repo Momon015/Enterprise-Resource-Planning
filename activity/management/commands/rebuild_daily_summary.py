@@ -26,7 +26,7 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from django.utils import timezone
 
 from user.models import BusinessProfile
@@ -104,10 +104,29 @@ class Command(BaseCommand):
         sret_cash = by(sret_qs, 'date', 'refund_cash')
         pret_cash = by(pret_qs, 'date', 'refund_cash')
 
-        # Every past day touched by ANY stream (returns can make a day appear on their own).
+        # ── SALES RECORDS list rollup — GROSS revenue + count over completed (incl void) ──
+        # The exact set the Sales Records page paginates; immutable once the day passes.
+        completed_all  = Sale.objects.filter(business=business, status='completed')
+        completed_rev  = by(completed_all, 'date', 'total_revenue')
+        completed_cnt  = {r['date']: r['n'] for r in
+                          completed_all.values('date').annotate(n=Count('id'))}
+
+        # ── PURCHASE RECORDS list rollup — active gross cost + active count, plus the void-
+        # inclusive count the page's paginator needs (voids paginate inline). `material` above
+        # is already Σ active total_cost by purchase_date (gross of returns) — reuse it. ──
+        purchase_cnt     = {r['purchase_date']: r['n'] for r in
+                            purchases.values('purchase_date').annotate(n=Count('id'))}
+        purchase_all     = Purchase.objects.filter(business=business)
+        purchase_cnt_all = {r['purchase_date']: r['n'] for r in
+                            purchase_all.values('purchase_date').annotate(n=Count('id'))}
+
+        # Every past day touched by ANY stream (returns can make a day appear on their own;
+        # a day whose only sales were all voided still needs its completed rollup sealed).
         days = (set(revenue) | set(material) | set(waste) | set(expense) | set(salary)
                 | set(sret) | set(pret) | set(cogs) | set(ret_cogs)
-                | set(collected) | set(paid) | set(sret_cash) | set(pret_cash))
+                | set(collected) | set(paid) | set(sret_cash) | set(pret_cash)
+                | set(completed_rev) | set(completed_cnt)
+                | set(purchase_cnt) | set(purchase_cnt_all))
 
         rows = []
         for d in days:
@@ -131,6 +150,13 @@ class Command(BaseCommand):
                 paid=paid.get(d, ZERO) - pret_cash.get(d, ZERO),
                 cash_expense=expense.get(d, ZERO),
                 cash_payroll=salary.get(d, ZERO),
+                # sales-list rollup (gross completed incl void)
+                completed_revenue=completed_rev.get(d, ZERO),
+                completed_count=completed_cnt.get(d, 0),
+                # purchase-list rollup (active gross cost + active count + void-inclusive count)
+                purchase_cost=material.get(d, ZERO),
+                purchase_count=purchase_cnt.get(d, 0),
+                purchase_count_all=purchase_cnt_all.get(d, 0),
             ))
 
         if rows:

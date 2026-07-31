@@ -58,6 +58,12 @@ CONVERTED_LISTS = [
 # gated to Standard+ (has_timecards) and 404/redirects on the free-plan stocked_business, and it
 # needs a real ShiftEmployee row to render its table. It gets its own test below instead —
 # test_shift_dashboard_region_has_no_leaks — so this list stays "one free-plan GET per entry".
+#
+# view-summary (Daily Summary: Cash Flow + Accrual) is ALSO converted, but it can't ride
+# CONVERTED_LISTS either: ONE url renders TWO templates by ?basis=, and a bare GET would only
+# exercise the default (cash). It also owns the sharpest version of the leak this file guards —
+# the lazy method-breakdown ▼ buttons carry their own hx-get inside the region, so hx-disinherit
+# is load-bearing. Both bases get checked in test_daily_summary_regions_have_no_leaks below.
 
 VOID_TAGS = {"img", "br", "hr", "input", "meta", "link", "source", "area", "base",
              "col", "embed", "wbr", "track", "param"}
@@ -303,3 +309,33 @@ def test_shift_dashboard_region_has_no_leaks(client, owner):
     assert 'id="shift-results"' in html, "region wrapper missing — conversion not present"
     assert emp.name in html, "no shift row rendered — the empty state is being tested, not the table"
     assert walk(html).leaks == []
+
+
+@pytest.mark.parametrize("basis", ["cash", "accrual"])
+def test_daily_summary_regions_have_no_leaks(client, owner, stocked_business, basis):
+    """Daily Summary (Cash Flow + Accrual) — the one url that renders two templates.
+
+    ?basis= picks view_summary_cash.html (default) or view_summary_accrual.html, so both are
+    checked here rather than through CONVERTED_LISTS' bare GET (which would only see cash).
+
+    This is the sharpest case the leak walker exists for: the KPI cards sit INSIDE the region
+    (their period totals are derived from the date window, so they can't be left out), and their
+    lazy method-breakdown ▼ buttons carry their OWN hx-get -> #methods-collected(-acc). Without
+    hx-disinherit="*" on .kpi-row those buttons inherit hx-select="#summary-results" from the
+    wrapper and open an empty popover. The walker asserts they don't.
+    """
+    client.force_login(owner)
+    url = reverse("view-summary", kwargs={"business_slug": stocked_business.slug})
+    response = client.get(url, {"basis": basis})
+    assert response.status_code == 200, f"view-summary?basis={basis} -> {response.status_code}"
+
+    html = response.content.decode()
+    assert 'id="summary-results"' in html, f"region wrapper missing on basis={basis}"
+    result = walk(html)
+    # The method-breakdown ▼ button always renders (Revenue card), so there is genuinely
+    # something with hx-get inside the region to check — guard against a silent no-op pass.
+    assert result.hx_seen >= 1, f"walker saw no hx-get controls on basis={basis}"
+    assert not result.leaks, (
+        f"view-summary?basis={basis}: {len(result.leaks)} control(s) would swap empty.\n  "
+        + "\n  ".join(result.leaks)
+    )

@@ -37,7 +37,7 @@ def _make(business, status):
     """One sale in `status`, built the way checkout builds it."""
     sale = Sale.objects.create(
         user=business.user, business=business, created_by=business.user,
-        status=status, total_revenue=0, total_salary_cost=0, line_count=1,
+        status=status, total_revenue=0, line_count=1,
     )
     return sale
 

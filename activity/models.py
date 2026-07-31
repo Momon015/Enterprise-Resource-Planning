@@ -483,6 +483,25 @@ class DailyClose(models.Model):
     cash_expense = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # expenses paid this day
     cash_payroll = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # wages paid this day
 
+    # ── SALES RECORDS list rollup (GROSS, status='completed' INCL. voided) ────────────
+    # Distinct on purpose from total_revenue (which is net-of-returns, active-only): the Sales
+    # Records page sums total_revenue over completed sales and paginates them WITH voided rows
+    # shown inline, so its all-time total + count must match THAT set. A completed sale stays
+    # completed even when voided (a void only flips is_void), so these are immutable once the
+    # day passes — the list reads Σ(sealed) + today instead of scanning every sale.
+    completed_revenue = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    completed_count   = models.PositiveIntegerField(default=0)
+
+    # ── PURCHASE RECORDS list rollup (Purchase Records page — twin of completed_* above) ──
+    # purchase_history sums Purchase.total_cost and counts over ACTIVE purchases (its total
+    # cost / count / average), but PAGINATES active + voided rows inline — so the cost and the
+    # active count are one set while the paginator needs the void-inclusive count. GROSS of
+    # purchase returns (a return is its own record dated its own day; it never rewrites the
+    # purchase's total_cost), which is why this can't reuse total_material_cost (net-of-returns).
+    purchase_cost      = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # active, gross
+    purchase_count     = models.PositiveIntegerField(default=0)   # active only (total_count + average)
+    purchase_count_all = models.PositiveIntegerField(default=0)   # active + voided (seeds paginator.count)
+
     closed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

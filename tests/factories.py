@@ -291,7 +291,6 @@ def make_sale(business, items, *, discount_percent=0, status='completed', date=N
         date=date or timezone.localdate(),
         status=status,
         total_revenue=Decimal('0'),
-        total_salary_cost=Decimal('0'),
         line_count=len(items),
     )
 

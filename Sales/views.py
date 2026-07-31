@@ -407,11 +407,11 @@ def sale_list(request, business_slug):
                 'is_owner': False,
             })
             
-    if request.user.role == 'owner' and user_filter and user_filter.isdigit():
-        total_revenue = stats['total_rev'] or 0
-        average_total_revenue = stats['average_total_rev'] or 0
-        total_sales_count = stats['total_count'] or 0 
-        max_revenue = stats['max_rev'] or 0
+    # if request.user.role == 'owner' and user_filter and user_filter.isdigit():
+    #     total_revenue = stats['total_rev'] or 0
+    #     average_total_revenue = stats['average_total_rev'] or 0
+    #     total_sales_count = stats['total_count'] or 0 
+    #     max_revenue = stats['max_rev'] or 0
 
     # Payment-method filter — composes with the period/date/user filters above.
     # Match on "has at least one payment via this method" using an id subquery so
@@ -423,24 +423,54 @@ def sale_list(request, business_slug):
     else:
         active_payment = None
 
-    # 1 Single SQL Aggregation Call (Replaces multiple separate queries)
-    stats = sales.aggregate(
-        total_rev=Sum('total_revenue'),
-        average_total_rev=Avg('total_revenue'),
-        max_rev=Max('total_revenue'),
-        total_count=Count('id')
+    # ── All-time revenue + count: from the SEALED rollup when unfiltered, else live ──────
+    # The default "All" view sums + counts every completed sale — two O(rows) scans, ~seconds
+    # at millions of rows. When nothing narrows the set (owner, no period/date/user/payment/
+    # void), the answer is Σ(sealed completed days in DailyClose) + today's tail — O(days), and
+    # immutable (a completed sale stays completed even when voided, so the rollup matches the
+    # rows this page paginates, voided-inline included). ANY filter → live aggregate (bounded,
+    # so cheap). Receivables always comes off the partial `outstanding` index either way.
+    is_unfiltered = (
+        request.user.role != 'staff'
+        and not void_only
+        and not (form.is_valid() and (form.cleaned_data.get('start_date') or
+                 form.cleaned_data.get('select_month')))
+        and not period
+        and not (request.GET.get('user') or '').isdigit()
+        and active_payment is None
     )
-    
-    total_revenue = stats['total_rev'] or 0
-    average_total_revenue = stats['average_total_rev'] or 0
-    total_sales_count = stats['total_count'] or 0 
 
-    collected = SalesPayment.objects.filter(sale__in=sales.active()).aggregate(t=Sum('amount'))['t'] or 0
-    receivables = (total_revenue or 0) - collected
+    rollup_count = None
+    if is_unfiltered:
+        from activity.models import DailyClose
+        last_frozen = DailyClose.objects.filter(business=business).aggregate(m=Max('date'))['m']
+        sealed = DailyClose.objects.filter(business=business).aggregate(
+            rev=Sum('completed_revenue'), cnt=Sum('completed_count'))
+        tail = Sale.objects.filter(business=business, status='completed')
+        if last_frozen:
+            tail = tail.filter(date__gt=last_frozen)   # only the still-open tail (≈ today)
+        tail_stats = tail.aggregate(rev=Sum('total_revenue'), cnt=Count('id'))
+        total_revenue = (sealed['rev'] or Decimal('0')) + (tail_stats['rev'] or Decimal('0'))
+        rollup_count = (sealed['cnt'] or 0) + (tail_stats['cnt'] or 0)
+    else:
+        total_revenue = sales.aggregate(t=Sum('total_revenue'))['t'] or 0
+
+    # Receivables straight off the stored, partial-indexed `outstanding` column (WHERE
+    # outstanding > 0 → unpaid rows only) — scans the handful of open debts, not every sale.
+    # `collected` is DERIVED so the three figures reconcile (total = collected + receivables).
+    receivables = sales.active().filter(outstanding__gt=0).aggregate(t=Sum('outstanding'))['t'] or Decimal('0')
+    collected = (total_revenue or 0) - receivables
 
     paginator = Paginator(sales.prefetch_related('payments'), 20)
+    if rollup_count is not None:
+        # Seed the count so the paginator skips its own O(rows) COUNT(*). count is a
+        # cached_property (non-data descriptor), so this instance attr shadows it.
+        paginator.count = rollup_count
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    total_sales_count = paginator.count   # rollup count on the fast path; exact COUNT otherwise
+    # Average = Σrevenue / count (identical to Avg('total_revenue'), one fewer aggregate).
+    average_total_revenue = (total_revenue / total_sales_count) if total_sales_count else 0
 
     recent_events = ActivityEvent.objects.filter(
         verb__startswith='sale.', business=business,
