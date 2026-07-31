@@ -34,11 +34,15 @@ class Category(SlugModel):
         help_text="Default profit margin % for products in this category (Product categories only). Blank = global default.",
     )
     
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_categories', db_index=True)
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='categories', null=True, blank=True)
     
     class Meta:
         unique_together = ('user', 'slug', 'business')
+        
+        indexes = [
+            models.Index(fields=['business', 'created_by']),
+        ]
         
     def __str__(self):
         return f"Category: {self.category_type} - {self.name}"
@@ -114,14 +118,15 @@ class AbstractDocumentSequence(models.Model):
     non-volatile = stays 1. One row per business.
     """
     business = models.OneToOneField(
-        'user.BusinessProfile', on_delete=models.CASCADE, related_name='%(class)s',
+        'user.BusinessProfile', on_delete=models.CASCADE, related_name='%(class)s'
     )
     next_number   = models.PositiveBigIntegerField(default=1)
     reset_counter = models.PositiveIntegerField(default=1)
 
     class Meta:
         abstract = True
-
+        # No explicit index on `business`: it's a OneToOneField, so it already carries a
+        # unique index. A plain Index(fields=['business']) here would just duplicate it.
     @classmethod
     def issue(cls, business, prefix, width=10):
         """Atomically claim the next serial for `business`.

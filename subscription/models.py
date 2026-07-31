@@ -538,7 +538,7 @@ class BusinessPlan(models.Model):
     is_trial = models.BooleanField(default=False, db_index=True)
     pending_cancellation = models.BooleanField(default=False)
 
-
+    # No Meta.indexes: `business` is a OneToOneField and already has a unique index.
     def __str__(self):
         return f"{self.business.business_name} — {self.get_plan_display()}"
 
@@ -1013,7 +1013,8 @@ class CancellationInvoice(models.Model):
     updated_at    = models.DateTimeField(auto_now=True)
     reminder_day_15_sent = models.BooleanField(default=False)
     reminder_day_30_sent = models.BooleanField(default=False)
-
+    
+    # No Meta.indexes: `business` is a OneToOneField and already has a unique index.
     def __str__(self):
         return f"{self.business.business_name} — refund ₱{self.refund_amount} ({self.get_status_display()})"
 

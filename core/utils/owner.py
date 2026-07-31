@@ -71,9 +71,18 @@ def user_account(func):
 
 
 def get_business_for_user(user, business_slug):
-    owner = get_owner(user)
-    business = get_object_or_404(BusinessProfile, user=owner, slug=business_slug)
-    return business 
+    # Memoized per request: the same business is resolved by the feature/permission
+    # decorators AND the view body on every business-scoped page. `user` is request.user
+    # (rebuilt each request), so this cache lives exactly one request — decorator + view
+    # now share ONE query, and reverse-OneToOne `business.plan` caches on the shared instance.
+    cache = getattr(user, '_business_cache', None)
+    if cache is None:
+        cache = user._business_cache = {}
+    if business_slug not in cache:
+        cache[business_slug] = get_object_or_404(
+            BusinessProfile, user=get_owner(user), slug=business_slug,
+        )
+    return cache[business_slug]
 
 
 def filter_to_own_if_staff(user, queryset, owned_by_field='created_by'):

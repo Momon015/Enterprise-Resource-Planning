@@ -73,7 +73,9 @@ class Employee(TimeStampModel, SlugModel):
     
     class Meta:
         unique_together = ('user', 'business', 'slug')
-    
+        # `business` is a ForeignKey (already db_indexed) — a lone Index(fields=['business'])
+        # would just duplicate that auto-index.
+
     def __str__(self):
         return f"{self.staff_user} "
     
@@ -106,6 +108,11 @@ class Shift(TimeStampModel):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_shift_logs')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['business', 'date'])
+        ]
+    
     def __str__(self):
         return f"{self.id} - {self.amount} — {self.date}"
 
@@ -320,8 +327,6 @@ class ShiftEmployee(TimeStampModel):
             - self._payouts_total()                   # owner personal/petty withdrawals
         )
 
-
-
     @property
     def expected_gcash(self):
         return self._payments_total('gcash') - self._refunds_total('gcash')
@@ -395,6 +400,10 @@ class DrawerSession(TimeStampModel):
 
     class Meta:
         ordering = ['-date', '-opened_at']
+        
+        indexes = [
+            models.Index(fields=['business', 'date'])
+        ]
 
     def __str__(self):
         return f"Drawer {self.business_id} · {self.date} · {self.status}"
@@ -458,6 +467,10 @@ class OpeningCashOverride(TimeStampModel):
     class Meta:
         unique_together = ('business', 'date')
         ordering = ['-date']
+        
+        indexes = [
+            models.Index(fields=['business', 'date'])
+        ]
 
     def __str__(self):
         return f"{self.business.business_name} {self.date} → ₱{self.amount}"
@@ -571,4 +584,3 @@ class CashPayout(TimeStampModel):
     def needs_ack(self):
         # Business expenses are booked to the books, not pocketed → no staff ack
         return self.purpose != 'business_expense'
-

@@ -17,12 +17,19 @@ def notification_badge(request):
     # events, no error. get_owner() maps both 'owner' and 'developer' to self.
     from user.models import BusinessProfile
     from core.utils.owner import get_owner
-    try:
-        business = BusinessProfile.objects.get(
-            user=get_owner(request.user), slug=business_slug
-        )
-    except (BusinessProfile.DoesNotExist, AttributeError):
-        return {}
+    # Reuse the instance the view/decorator already resolved this request (memoized on
+    # request.user) instead of firing a second identical slug lookup for the bell. Fall
+    # back to a graceful get on pages where nothing resolved it yet — a context processor
+    # must return {} on a miss, never raise 404.
+    memo = getattr(request.user, '_business_cache', None)
+    business = (memo or {}).get(business_slug)
+    if business is None:
+        try:
+            business = BusinessProfile.objects.get(
+                user=get_owner(request.user), slug=business_slug
+            )
+        except (BusinessProfile.DoesNotExist, AttributeError):
+            return {}
 
     # PRODUCT stock events are dropped from the bell — the pinned block above already
     # says "N Products • Out of Stock", live, so belling them too says it twice (and the

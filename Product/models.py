@@ -123,6 +123,10 @@ class Product(SlugModel, TimeStampModel):
             ),
         ]
 
+        indexes = [
+                models.Index(fields=['business', 'created_by'])
+            ]
+
         
     def __str__(self):
         return self.name
@@ -255,6 +259,10 @@ class ProductPreset(TimeStampModel, SlugModel):
     class Meta:
         unique_together = ('business', 'name')
         
+        indexes = [
+                models.Index(fields=['business', 'created_by'])
+            ]
+        
     def save(self, *args, **kwargs):
         base_slug = slugify(self.name)  # or whatever name field
         slug = base_slug
@@ -278,7 +286,6 @@ class ProductPresetItem(models.Model):
     cost_price = models.DecimalField(max_digits=16, decimal_places=6)
     quantity = models.PositiveIntegerField(default=0)
     supplier_name = models.CharField(max_length=150, null=True, blank=True) # snapshot
-    
     
     class Meta:
         unique_together = ('preset', 'product')

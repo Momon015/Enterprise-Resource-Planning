@@ -27,6 +27,18 @@ def attention_items(business):
     from Sales.models import Sale
     from Product.models import Product, CRITICAL_BAND_Q, LOW_BAND_Q, with_stock_bands
 
+    # Per-REQUEST memo (not the cross-request cache the docstring warns against): the
+    # dashboard renders this twice on one page — the "Needs Attention" panel (Dashboard
+    # view) and the bell's pinned block (activity.notification_badge) — against the SAME
+    # request-memoized business instance. Stash the result on that instance so the 2 queries
+    # run once, not twice. The instance dies with the request, so state can't go stale here.
+    # Return a COPY: the Dashboard view appends its own local rows (due-soon, drawer-open)
+    # to what it gets back, and that must not bleed into the bell's pinned block, which
+    # renders from the same memo after the view runs.
+    cached = getattr(business, '_attention_cache', None)
+    if cached is not None:
+        return list(cached)
+
     slug = business.slug
     items = []
 
@@ -116,7 +128,8 @@ def attention_items(business):
     #    lands, material stock.out events must STAY in the event feed or cafes
     #    lose the alert entirely.
 
-    return items
+    business._attention_cache = items
+    return list(items)
 
 
 def scope_events_for_user(qs, user):

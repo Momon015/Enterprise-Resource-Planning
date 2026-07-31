@@ -49,6 +49,10 @@ class Supplier(TimeStampModel, SlugModel):
                 name='unique_email_per_business',
             ),
         ]
+
+        indexes = [
+                models.Index(fields=['business', 'created_by'])
+            ]
         
     def __str__(self):
         return self.name
@@ -184,6 +188,10 @@ class Material(TimeStampModel, SlugModel):
             ),
         ]
 
+        indexes = [
+                models.Index(fields=['business', 'unit', 'created_by'])
+            ]
+
     def __str__(self):
         return self.name
 
@@ -227,6 +235,10 @@ class MaterialPreset(TimeStampModel, SlugModel):
     
     class Meta:
         unique_together = ('business', 'name')
+        
+        indexes = [
+                models.Index(fields=['business', 'created_by'])
+            ]
         
     def save(self, *args, **kwargs):
         base_slug = slugify(self.name)  # or whatever name field

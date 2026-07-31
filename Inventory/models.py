@@ -31,7 +31,10 @@ class Stock(TimeStampModel):
     class Meta:
         unique_together = ('user', 'business', 'material')
         
-    
+        indexes = [
+                models.Index(fields=['business', 'unit', 'created_by'])
+            ]
+        
     def __str__(self):
         if self.name:
             return self.name
