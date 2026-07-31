@@ -46,7 +46,7 @@ from django.core.paginator import Paginator
 
 from datetime import date, datetime, timezone as dt_timezone
 import calendar
-from django.db.models import Sum, Avg, Max, Min, Q, F, Count, Value
+from django.db.models import Sum, Avg, Max, Min, Q, F, Count, Value, Exists, OuterRef
 from django.db.models.functions import Coalesce
 
 from decimal import Decimal, InvalidOperation
@@ -525,21 +525,27 @@ def sale_list(request, business_slug):
         elif recv_period == 'month':
             recv_sales = recv_sales.filter(date__month=month, date__year=year)
 
-        # 2. Filter in SQL (Assuming you have snapshots or use DB annotation)
-        # If total_revenue > 0 and payments are incomplete:
-        # (If you don't have stored total_paid fields, annotate them using Sum('payments__amount'))
-        recv_sales = recv_sales.annotate(
-            total_paid=Coalesce(Sum('payments__amount'), Value(Decimal('0')))
-        ).filter(total_revenue__gt=F('total_paid'))
+        # 2. A receivable = a sale that still owes money. Read the STORED, indexed
+        # `outstanding` column (partial index WHERE outstanding > 0) instead of
+        # re-joining payments and filtering with HAVING total_revenue > SUM(amount).
+        # Same denormalization the standalone Receivables page uses — and at scale it
+        # scans only the unpaid rows, not every completed sale.
+        recv_sales = recv_sales.filter(outstanding__gt=0)
 
+        # partial vs utang splits on whether ANY payment landed. The stored balance
+        # can't say that on its own (a credit-only refund lowers outstanding without a
+        # payment), so gate on an EXISTS against payments — which, unlike a joined Sum,
+        # doesn't multiply rows and so keeps the Sum('outstanding') total below exact.
         if recv_status == 'partial':
-            recv_sales = recv_sales.filter(total_paid__gt=0)
+            recv_sales = recv_sales.filter(
+                Exists(SalesPayment.objects.filter(sale=OuterRef('pk'))))
         elif recv_status == 'utang':
-            recv_sales = recv_sales.filter(total_paid=0)
+            recv_sales = recv_sales.filter(
+                ~Exists(SalesPayment.objects.filter(sale=OuterRef('pk'))))
 
-        # 3. Calculate Outstanding Total in 1 Query instead of Python loop
+        # 3. Outstanding total straight off the stored column — one indexed aggregate.
         recv_total_outstanding = recv_sales.aggregate(
-            outs=Sum(F('total_revenue') - F('total_paid'))
+            outs=Sum('outstanding')
         )['outs'] or Decimal('0')
 
         # 4. Pass the UNSLICED SQL Queryset to Paginator
@@ -2184,7 +2190,9 @@ def sales_return_list(request, business_slug):
         'section': 'sale-return',
         'total_refunded': totals['total_refunded'] or 0,
         'avg_refund': totals['avg_refund'] or 0,
-        'total_count': returns.count(),
+        # reuse the paginator's COUNT (same filtered queryset) — a separate
+        # returns.count() fired an identical SELECT COUNT(*) (dup on the toolbar).
+        'total_count': paginator.count,
         'current_year': f"{today.year}-0{today.month}",
         'reason_choices': reason_choices,
     })

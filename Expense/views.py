@@ -50,7 +50,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F, Value, CharField
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg, Max, Count, OuterRef, Subquery
+from django.db.models import Sum, Avg, Max, Count, OuterRef, Subquery, Exists
 
 from user.models import User
 
@@ -197,15 +197,28 @@ def _build_payables_context(request, business):
         except ValueError:
             pass
 
-    # outstanding is a computed property, not a DB field — filter in Python.
-    outstanding_purchases = [p for p in purchases if p.outstanding > 0]
-    if pay_status == 'partial':
-        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid > 0]
-    elif pay_status == 'utang':
-        outstanding_purchases = [p for p in outstanding_purchases if p.amount_paid == 0]
+    # A payable = a purchase that still owes the supplier. Read the STORED, indexed
+    # `outstanding` column (partial index WHERE outstanding > 0) instead of pulling every
+    # purchase into Python and scanning — the comment here used to say outstanding was a
+    # computed property; it's a DB field now (see project_outstanding_denormalization).
+    outstanding_purchases = purchases.filter(outstanding__gt=0)
 
-    pay_total_outstanding = sum((p.outstanding for p in outstanding_purchases), Decimal('0'))
-    pay_overdue_count = sum(1 for p in outstanding_purchases if p.due_date and p.due_date < today)
+    # partial vs utang splits on whether ANY payment landed, which the stored balance
+    # can't express alone (a credit-only refund lowers outstanding without a payment).
+    # EXISTS (not a joined Sum) keeps the Sum('outstanding') total exact by never
+    # multiplying rows.
+    if pay_status == 'partial':
+        outstanding_purchases = outstanding_purchases.filter(
+            Exists(PurchasePayment.objects.filter(purchase=OuterRef('pk'))))
+    elif pay_status == 'utang':
+        outstanding_purchases = outstanding_purchases.filter(
+            ~Exists(PurchasePayment.objects.filter(purchase=OuterRef('pk'))))
+
+    pay_total_outstanding = outstanding_purchases.aggregate(
+        t=Sum('outstanding'))['t'] or Decimal('0')
+    # due_date IS NULL is never < today, so nulls drop out just like the old
+    # `p.due_date and p.due_date < today`.
+    pay_overdue_count = outstanding_purchases.filter(due_date__lt=today).count()
 
     paginator = Paginator(outstanding_purchases, 7)
     pay_page_obj = paginator.get_page(request.GET.get('pay_page'))
@@ -214,7 +227,8 @@ def _build_payables_context(request, business):
     # empty state tell "no bills at all" apart from "none in this range" (e.g. every
     # bill is June while the filter is July). Same honest-empty-state fix as recv_.
     pay_filter_active = bool(pay_period or pay_status or pay_select_month or (pay_start_date and pay_end_date))
-    pay_any_count = sum(1 for p in base if p.outstanding > 0) if pay_filter_active else paginator.count
+    pay_any_count = (base.filter(outstanding__gt=0).count()
+                     if pay_filter_active else paginator.count)
 
     return {
         'pay_page_obj': pay_page_obj,
@@ -234,6 +248,7 @@ def _build_payables_context(request, business):
 def purchase_history(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     purchases = get_queryset_for_user(request.user, Purchase.objects.all().prefetch_related('payments', 'returns')).filter(business=business).order_by('-reference')
+    purchases = get_queryset_for_user(request.user, Purchase.objects.all().prefetch_related('payments', 'returns')).filter(business=business).order_by('-reference')
     # show their own records if staff
     purchases = filter_to_own_if_staff(request.user, purchases)
 
@@ -248,11 +263,9 @@ def purchase_history(request, business_slug):
     # forms
     form = PurchaseFilterForm(request.GET or None)
     
-    # count, sum and purchased total cost.
-    total_count = purchases.active().count()
-    total_cost = purchases.purchase_total_cost()
-    average_cost = purchases.average_total_cost()
-    
+    # Totals (count / sum / average) are computed ONCE below, after every filter
+    # (date, user, payment) has narrowed `purchases` — see "compute totals". Doing it
+    # here too meant a plain load ran each aggregate twice (form.is_valid re-ran them).
     today = timezone.localdate()
     iso_year, iso_week, iso_weekday = today.isocalendar()
     
@@ -320,12 +333,8 @@ def purchase_history(request, business_slug):
             filter_kwargs = period_map.get(period)
             if filter_kwargs:
                 purchases = purchases.filter(**filter_kwargs)
-            
-        total_count = purchases.active().count()
-        total_cost = purchases.purchase_total_cost()
-        average_cost = purchases.average_total_cost()
-        
-    # Owner-only user/seller filter 
+
+    # Owner-only user/seller filter
     user_filter = None
     users = []
 
@@ -356,11 +365,6 @@ def purchase_history(request, business_slug):
                 'is_owner': False,
             })
 
-    # Recompute totals after filter
-    if user_filter and user_filter.isdigit():
-        total_cost = purchases.purchase_total_cost()
-        average_cost = purchases.average_total_cost()
-
     # Payment-method filter — composes with the period/date/user filters above.
     # Match on "has at least one payment via this method" using an id subquery so
     # a multi-payment purchase never duplicates rows (which would skew totals).
@@ -371,11 +375,14 @@ def purchase_history(request, business_slug):
             purchase__in=purchases, method=active_payment,
         ).values_list('purchase_id', flat=True)
         purchases = purchases.filter(id__in=paid_purchase_ids)
-        total_count = purchases.active().count()
-        total_cost = purchases.purchase_total_cost()
-        average_cost = purchases.average_total_cost()
     else:
         active_payment = None
+
+    # ── Compute totals ONCE, now that every filter has been applied ──────────────
+    active_purchases = purchases.active()
+    total_count = active_purchases.count()
+    total_cost = purchases.purchase_total_cost()
+    average_cost = purchases.average_total_cost()
 
     # ── GATED & FAST PAYABLES CALCULATION ─────────────────────────
     # Toggle check: skip payables logic completely if disabled for this pharmacy/business.
@@ -390,7 +397,9 @@ def purchase_history(request, business_slug):
         )['t'] or Decimal('0')
         paid = (total_cost or Decimal('0')) - payables
 
-    paginator = Paginator(purchases.prefetch_related('payments'), 8)
+    # 'materials' joins the prefetch so the list's per-row line items don't fire a
+    # query each (payments/returns already prefetched on `purchases` above).
+    paginator = Paginator(purchases.prefetch_related('materials'), 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -1647,7 +1656,9 @@ def purchase_return_list(request, business_slug):
         'section': 'purchase-return',
         'total_refunded': totals['total_refunded'] or 0,
         'avg_refund': totals['avg_refund'] or 0,
-        'total_count': returns.count(),
+        # reuse the paginator's COUNT (same filtered queryset) — a separate
+        # returns.count() fired an identical SELECT COUNT(*) (dup on the toolbar).
+        'total_count': paginator.count,
         'current_year': f"{today.year}-{today.month:02d}",
         'reason_choices': reason_choices,
     })
@@ -2111,11 +2122,9 @@ def expense_list(request, business_slug):
     
     expense_by_dates = expenses.values('date').annotate(total_amount=Sum('total_amount')).order_by('-date')
     shift_by_dates = shifts.values('date').annotate(total_shift=Sum('amount')).order_by('-date')
-    
-    # Calculate average
-    average_expense = expenses.values('date').aggregate(total_expenses=Avg('total_amount'))['total_expenses'] or 0
-    average_salary = shifts.values('date').aggregate(total_shift=Avg('amount'))['total_shift'] or 0
-    
+
+    # average is computed once AFTER filters (below) — a pre-filter pass here fired
+    # the identical SELECT AVG(total_amount) a second time (dup on the toolbar).
     if expenses and shifts:
         average_amount_cost = (expenses.aggregate(expense=Sum('total_amount'))['expense'] + shifts.aggregate(shift=Sum('amount'))['shift']) / 2
     

@@ -330,3 +330,42 @@ def close_day(business, day, metrics):
             'net_profit':          metrics.get('net_profit', 0) or 0,
         },
     )
+
+
+def close_days(business, rows):
+    """Batch freeze for a whole page of past days — the N-day twin of close_day.
+    `rows` = summary_list rows (dicts with 'date' + metric keys), ALL strictly before
+    today (the caller filters). Returns {date: DailyClose}.
+
+    The Daily Summary lists ~a year of days, so calling close_day per row fired one
+    SELECT per day (get_or_create's read). Instead: ONE SELECT for every existing
+    snapshot, then bulk_create only the genuinely-new days. First close still wins
+    forever — existing days are never rewritten, and ignore_conflicts absorbs a race
+    where a concurrent request closed the same day between our SELECT and INSERT.
+    """
+    from .models import DailyClose
+    dates = [r['date'] for r in rows]
+    frozen = {c.date: c
+              for c in DailyClose.objects.filter(business=business, date__in=dates)}
+
+    to_create = [
+        DailyClose(
+            business=business, date=r['date'],
+            total_revenue=r.get('total_revenue', 0) or 0,
+            total_cogs=r.get('total_cogs', 0) or 0,
+            total_material_cost=r.get('total_material_cost', 0) or 0,
+            total_salary_cost=r.get('total_salary_cost', 0) or 0,
+            total_waste_cost=r.get('total_waste_cost', 0) or 0,
+            total_expense_cost=r.get('total_expense_cost', 0) or 0,
+            net_profit=r.get('net_profit', 0) or 0,
+        )
+        for r in rows if r['date'] not in frozen
+    ]
+    if to_create:
+        DailyClose.objects.bulk_create(to_create, ignore_conflicts=True)
+        # Re-read the days we just created (bulk_create doesn't populate PKs with
+        # ignore_conflicts, and a raced insert means our object may not be the winner).
+        new_dates = [obj.date for obj in to_create]
+        for c in DailyClose.objects.filter(business=business, date__in=new_dates):
+            frozen[c.date] = c
+    return frozen

@@ -150,8 +150,10 @@ class Purchase(TimeStampModel):
     
     @property
     def amount_paid(self):
-        """Sum of all payments made against this purchase."""
-        return self.payments.aggregate(t=models.Sum('amount'))['t'] or Decimal('0')
+        # Sum over .all(), NOT .aggregate(): a prefetched `payments` list is reused, so a
+        # list view that prefetch_related('payments') pays zero per-row queries here.
+        # .aggregate() ignores the prefetch and re-hits the DB once per purchase (N+1).
+        return sum((p.amount or Decimal('0') for p in self.payments.all()), Decimal('0'))
 
     @property
     def amount_refunded_credit(self):

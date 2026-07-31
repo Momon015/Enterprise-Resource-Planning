@@ -62,6 +62,31 @@ class VoidSequence(AbstractDocumentSequence):
     Separate from the SI run on purpose. Voiding does not consume a sales invoice
     number; it issues a different kind of document about one.
     """
+    """SI- series — one continuous run per business. BIR-accountable; advances ONLY in
+    official mode (is_bir_active=True), so it can begin at 1 the day a business is accredited."""
+    pass
+
+class OrderSequence(AbstractDocumentSequence):
+    """ORD- series — INTERNAL-mode order numbers (is_bir_active=False).
+
+    NOT a BIR accountable document — an ordinary order/billing reference for the unofficial
+    slip. Kept SEPARATE from SaleSequence on purpose: while a business runs in internal mode
+    its sales draw ORD- numbers and the SI- accountable run never advances, so SI- can start
+    fresh at 1 the day the business is accredited and flips to official mode."""
+    pass
+
+class VoidSequence(AbstractDocumentSequence):
+    """VD- series — voids are numbered documents, not just a flag.
+
+    RMO 24-2023 Annex D-2 prints "Beg. VOID #" and "End. VOID #" on every Z reading
+    alongside the SI and RETURN runs, so a void has to carry its own accountable
+    number. p.4(k) says the same thing from the other direction: void, cancellation
+    and refund papers are SUPPLEMENTARY INVOICES — which is also why they must print
+    "THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX".
+
+    Separate from the SI run on purpose. Voiding does not consume a sales invoice
+    number; it issues a different kind of document about one.
+    """
     pass
  
 class Sale(TimeStampModel):
@@ -564,7 +589,7 @@ class Sale(TimeStampModel):
         # Sum over .all(), NOT .aggregate(): a prefetched `payments` list is reused, so a
         # list view that prefetch_related('payments') pays zero per-row queries here.
         # .aggregate() would ignore the prefetch and re-hit the DB once per sale (N+1).
-        return (self.outstanding or Decimal('0')) <= Decimal('0')
+        return sum((p.amount or Decimal('0') for p in self.payments.all()), Decimal('0'))
     
     @property
     def settlement_status(self):
@@ -573,7 +598,7 @@ class Sale(TimeStampModel):
         outstanding = self.outstanding or Decimal('0')
         if outstanding >= paid:
             return 'unpaid'
-        return 'partial' if outstanding <= 0 else 'paid'
+        return 'partial' if paid < outstanding else 'paid'
     
     @property
     def cash_tendered(self):

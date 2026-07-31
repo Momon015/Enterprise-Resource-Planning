@@ -79,8 +79,12 @@ def get_business_for_user(user, business_slug):
     if cache is None:
         cache = user._business_cache = {}
     if business_slug not in cache:
+        # select_related('user') so `business.user` (the owner) is joined in, not a second
+        # round-trip. Every business page reads it — the owner/seller filter, templates,
+        # context processors — so without this it fired a duplicate user_user lookup.
         cache[business_slug] = get_object_or_404(
-            BusinessProfile, user=get_owner(user), slug=business_slug,
+            BusinessProfile.objects.select_related('user'),
+            user=get_owner(user), slug=business_slug,
         )
     return cache[business_slug]
 

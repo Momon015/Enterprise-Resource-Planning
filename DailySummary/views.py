@@ -287,10 +287,13 @@ def view_summary(request, business_slug):
     #   The rows handed to close_day are now NET of returns and carry the one true salary
     #   figure, so a frozen day is finally deterministic. It used to depend on which filter
     #   the first reader happened to have applied.
-    from activity.utils import close_day
+    from activity.utils import close_days
+    # Freeze every past day in ONE SELECT + one bulk insert of the new ones, instead
+    # of a get_or_create per day (this list spans ~a year).
+    frozen = close_days(business, [r for r in sorted_list if r['date'] < today])
     for row in sorted_list:
         if row['date'] < today:
-            snap, _ = close_day(business, row['date'], row)
+            snap = frozen[row['date']]
             # Serve the FROZEN figures, never the live recompute (pen, not pencil) —
             # a later void/edit must not rewrite a closed day.
             row['total_revenue']       = snap.total_revenue
