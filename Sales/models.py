@@ -564,16 +564,16 @@ class Sale(TimeStampModel):
         # Sum over .all(), NOT .aggregate(): a prefetched `payments` list is reused, so a
         # list view that prefetch_related('payments') pays zero per-row queries here.
         # .aggregate() would ignore the prefetch and re-hit the DB once per sale (N+1).
-        return (self.outstanding or Decimal('0')) <= Decimal('0')
+        return sum((p.amount or Decimal('0') for p in self.payments.all()), Decimal('0'))
     
     @property
     def settlement_status(self):
         """'unpaid' (utang), 'partial', or 'paid' — drives the per-receipt Method chip."""
-        paid = self.total_revenue or Decimal('0')
-        outstanding = self.outstanding or Decimal('0')
-        if outstanding >= paid:
+        paid = self.amount_paid
+        total = self.total_revenue or Decimal('0')
+        if paid <= 0:
             return 'unpaid'
-        return 'partial' if outstanding <= 0 else 'paid'
+        return 'partial' if paid < total else 'paid'
     
     @property
     def cash_tendered(self):
