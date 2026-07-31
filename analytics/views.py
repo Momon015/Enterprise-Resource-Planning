@@ -587,16 +587,22 @@ def _spend(business, start, end):
     return out
 
 
-def _stock_settlement(business, start, end):
+def _stock_settlement(business, start, end, billed=None):
     """Billed → paid → still owed, for the Stock purchases dropdown. Mirror of
-    _settlement on the sales side, same no-payment-methods rule."""
+    _settlement on the sales side, same no-payment-methods rule.
+
+    `billed` is Σ total_cost of the window's purchases — the SAME figure _spend()
+    already computes as `gross_stock`. The view passes it in so we don't run that
+    identical aggregate twice; it self-computes when called standalone.
+    """
     purchases = Purchase.objects.active().filter(
         business=business, purchase_date__gte=start, purchase_date__lte=end)
     paid   = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(
         t=Sum('amount'))['t'] or Decimal('0')
     credit = _purchase_returns_in(business, start, end).aggregate(
         t=Sum('refund_credit'))['t'] or Decimal('0')
-    billed = purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal('0')
+    if billed is None:
+        billed = purchases.aggregate(t=Sum('total_cost'))['t'] or Decimal('0')
     return {
         'paid':     paid,
         'payables': billed - paid - credit,
@@ -821,7 +827,9 @@ def expense_analytics(request, business_slug):
         'trend_datasets': json.dumps(trend_datasets),
 
         # Stock purchases dropdown: billed → paid → payables, plus the refund line.
-        'settle': _stock_settlement(business, period.start, period.end),
+        # `gross_stock` is Σ total_cost, already computed by _spend above — reuse it so the
+        # settlement dropdown doesn't re-run the identical aggregate.
+        'settle': _stock_settlement(business, period.start, period.end, billed=now['gross_stock']),
 
         'categories': _top_categories(business, period.start, period.end, now['bills']),
         'waste_rows': _waste_by_reason(business, period.start, period.end, now['waste']),

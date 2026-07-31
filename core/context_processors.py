@@ -14,17 +14,31 @@ def business_context(request):
     pending_acks = None
 
     if request.user.is_authenticated:
+        # select_related('plan') so the sidebar/switcher reads each business's plan
+        # without an extra query per row. For owners the SubscriptionExpiryMiddleware
+        # already materialised this exact list this request — reuse it rather than
+        # re-query. (Staff never hit that middleware, so they keep the direct query.)
         if request.user.role == 'staff':
-            user_businesses = BusinessProfile.objects.filter(employees__staff_user=request.user)
+            user_businesses = BusinessProfile.objects.filter(
+                employees__staff_user=request.user).select_related('plan')
         else:
-            user_businesses = request.user.business_profiles.all()
+            user_businesses = getattr(request.user, '_owner_businesses', None)
+            if user_businesses is None:
+                user_businesses = request.user.business_profiles.select_related('plan')
 
+        # All lookups below scan in Python, not `.filter()`/`.first()`, so they work whether
+        # user_businesses is the middleware's list or a queryset — and reuse the single
+        # evaluation the navbar switcher needs anyway, instead of firing extra slug queries.
         # 1. A business-scoped page → use its slug AND remember it
         slug = None
         if request.resolver_match:
             slug = request.resolver_match.kwargs.get('business_slug')
         if slug:
-            business = user_businesses.filter(slug=slug).first()
+            # Reuse the instance the view/decorator already resolved this request (its
+            # `plan` is cached on it) before scanning the switcher list.
+            memo = getattr(request.user, '_business_cache', None)
+            business = (memo or {}).get(slug) \
+                or next((b for b in user_businesses if b.slug == slug), None)
             if business:
                 request.session['active_business_slug'] = business.slug
 
@@ -32,11 +46,11 @@ def business_context(request):
         if not business:
             remembered = request.session.get('active_business_slug')
             if remembered:
-                business = user_businesses.filter(slug=remembered).first()
+                business = next((b for b in user_businesses if b.slug == remembered), None)
 
         # 3. Last resort → first business
         if not business:
-            business = user_businesses.first()
+            business = next(iter(user_businesses), None)
 
         # Staff acknowledgement alerts (mid-shift cash payouts + opening-cash changes)
         if business and request.user.role == 'staff':

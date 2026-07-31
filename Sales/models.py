@@ -104,7 +104,7 @@ class Sale(TimeStampModel):
     total_quantity = models.PositiveIntegerField(default=0)
     reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='created_sales', null=True, blank=True, db_index=True)
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True, db_index=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
     is_locked = models.BooleanField(default=False)
     
     outstanding = models.DecimalField(max_digits=16, decimal_places=6, default=0, db_index=False)
@@ -890,6 +890,10 @@ class SalesPayment(TimeStampModel):
     class Meta:
         ordering = ['date', 'created_at']
         
+        indexes = [
+                models.Index(fields=['business', 'date', 'created_by'])
+            ]
+        
     def __str__(self):
         return f"₱{self.amount} payment for sale {self.sale.reference}"
 
@@ -992,6 +996,10 @@ class SalesReturn(TimeStampModel):
         
     class Meta:
         ordering = ['-date', '-created_at']
+        
+        indexes = [
+                models.Index(fields=['business', 'date', 'created_by'])
+            ]
 
     def __str__(self):
         return f"{self.reference or '(unsaved)'} — ₱{self.refund_total}"
@@ -1126,7 +1134,13 @@ class ZReading(TimeStampModel):
             models.UniqueConstraint(fields=['business', 'date'],
                                     name='uniq_zreading_business_date'),
         ]
-        indexes = [models.Index(fields=['business', '-date'])]
+        
+        indexes = [
+            models.Index(fields=['business', '-date', ]),
+        ]
+
+
+            
 
     def __str__(self):
         return f"Z-{self.z_counter} {self.business} {self.date} — net {self.net_amount}"

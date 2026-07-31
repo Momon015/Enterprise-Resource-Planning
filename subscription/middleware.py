@@ -47,7 +47,13 @@ class SubscriptionExpiryMiddleware:
             # Per-business: auto-downgrade expired plans, and warn ones expiring soon.
             # select_related('plan') — this runs on every request, and `plan` is a reverse
             # OneToOne, so without it each business costs its own query.
-            for biz in request.user.business_profiles.select_related('plan'):
+            #
+            # Materialised once and stashed on request.user so the navbar switcher
+            # (core.context_processors.business_context) reuses this exact list instead of
+            # firing a second identical all-businesses+plan query later in the same request.
+            businesses = list(request.user.business_profiles.select_related('plan'))
+            request.user._owner_businesses = businesses
+            for biz in businesses:
                 bp = getattr(biz, 'plan', None)
                 if not bp:
                     continue

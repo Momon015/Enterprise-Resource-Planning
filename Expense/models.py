@@ -61,7 +61,7 @@ class Purchase(TimeStampModel):
     purchase_date = models.DateField(null=True, blank=True, db_index=True)
     reference = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_purchases', db_index=True)
-    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True, db_index=True)
+    business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='purchases', null=True, blank=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
     is_locked = models.BooleanField(default=False, db_index=True)
 
@@ -400,6 +400,10 @@ class PurchasePayment(TimeStampModel):
     class Meta:
         ordering = ['date', 'created_at']
         
+        indexes = [
+            models.Index(fields=['business', 'date', 'created_by'])
+        ]
+        
     def __str__(self):
         return f"₱{self.amount} payment for {self.purchase.reference}"
     
@@ -468,6 +472,10 @@ class PurchaseReturn(TimeStampModel):
     class Meta:
         ordering = ['-date', '-created_at']
         
+        indexes = [
+            models.Index(fields=['business', 'date', 'created_by'])
+        ]
+        
     def __str__(self):
         return f"{self.reference or '(unsaved)'} — ₱{self.refund_total}"
     
@@ -524,6 +532,11 @@ class Waste(TimeStampModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='wastes', null=True, blank=True)
     
     objects = WasteQuerySet.as_manager()
+    
+    class Meta:
+        indexes = [
+                models.Index(fields=['business', 'date', 'created_by'])
+            ]
     
     def __str__(self):
         if self.date:
@@ -598,6 +611,10 @@ class MiscExpense(TimeStampModel):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     
+    class Meta:
+        indexes = [
+                models.Index(fields=['business', 'created_by'])
+            ]
 class ExpenseQuerySet(models.QuerySet):
     def total_amount_cost(self):
         return self.aggregate(total_amount_cost=Sum('total_amount'))['total_amount_cost'] or 0
@@ -624,6 +641,11 @@ class Expense(TimeStampModel):
     business = models.ForeignKey(BusinessProfile, on_delete=models.SET_NULL, related_name='expenses', null=True, blank=True)
     
     objects = ExpenseQuerySet.as_manager()
+    
+    class Meta:
+        indexes = [
+                models.Index(fields=['business', 'date', 'created_by'])
+            ]
     
     def __str__(self):
         return f"{self.id} - {self.created_by}" 
