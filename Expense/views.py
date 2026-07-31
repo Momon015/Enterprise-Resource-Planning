@@ -2121,11 +2121,9 @@ def expense_list(request, business_slug):
     
     expense_by_dates = expenses.values('date').annotate(total_amount=Sum('total_amount')).order_by('-date')
     shift_by_dates = shifts.values('date').annotate(total_shift=Sum('amount')).order_by('-date')
-    
-    # Calculate average
-    average_expense = expenses.values('date').aggregate(total_expenses=Avg('total_amount'))['total_expenses'] or 0
-    average_salary = shifts.values('date').aggregate(total_shift=Avg('amount'))['total_shift'] or 0
-    
+
+    # average is computed once AFTER filters (below) — a pre-filter pass here fired
+    # the identical SELECT AVG(total_amount) a second time (dup on the toolbar).
     if expenses and shifts:
         average_amount_cost = (expenses.aggregate(expense=Sum('total_amount'))['expense'] + shifts.aggregate(shift=Sum('amount'))['shift']) / 2
     

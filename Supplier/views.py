@@ -73,7 +73,11 @@ def material_list(request, business_slug):
             
     form = MaterialFilterForm(request.GET or None, business=business)
     
-    materials = get_queryset_for_user(request.user, Material.objects.all()).filter(business=business).order_by('is_locked', 'name')
+    # select_related the two FKs each row dereferences — supplier.name and
+    # business.slug — else the list fires one query per row for each (N+1).
+    materials = get_queryset_for_user(request.user, Material.objects.all()) \
+        .select_related('supplier', 'business') \
+        .filter(business=business).order_by('is_locked', 'name')
 
     
     """
@@ -618,7 +622,15 @@ def remove_preset_item(request, business_slug, id, item_id):
 
 def supplier_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
-    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()).filter(business=business).order_by('is_locked', 'name')
+    suppliers = get_queryset_for_user(request.user, Supplier.objects.all()) \
+        .filter(business=business) \
+        .annotate(
+            # active-material count per row (Items column) — one DB-side count instead
+            # of supplier.materials.count() firing a COUNT per supplier row (N+1).
+            # Mirror the reverse manager, which hides status='inactive' materials.
+            material_count=Count('materials', filter=~Q(materials__status='inactive')),
+        ) \
+        .order_by('is_locked', 'name')
     form = SupplierFilterForm(request.GET or None)
 
     # Per-supplier MTD spend + last order were dropped from this list (it's a directory now:

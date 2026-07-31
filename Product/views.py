@@ -989,15 +989,14 @@ def service_list(request, business_slug):
 
     services = get_queryset_for_user(request.user, Product.services.all()) \
         .filter(business=business) \
-        .order_by('is_locked', 'name')
+        .order_by('is_locked', 'name') \
+        .prefetch_related('sessions')   # session tiers per row — one query, not one-per-service (N+1)
 
     search = request.GET.get('search', '').strip()
     if search:
         services = services.filter(
             Q(name__icontains=search) | Q(selling_price__icontains=search)
         )
-
-    all_services = services.count()
 
     from core.utils.kpis import get_service_kpis
     kpis = get_service_kpis(business)
@@ -1008,6 +1007,10 @@ def service_list(request, business_slug):
 
     paginator = Paginator(services, 8)
     page_obj = paginator.get_page(request.GET.get('page'))
+
+    # reuse the paginator's COUNT (same filtered queryset) — a separate
+    # services.count() fired an identical SELECT COUNT(*) (dup on the toolbar).
+    all_services = paginator.count
 
     context = {
         'page_obj': page_obj,
