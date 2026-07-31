@@ -1139,9 +1139,6 @@ class ZReading(TimeStampModel):
             models.Index(fields=['business', '-date', ]),
         ]
 
-
-            
-
     def __str__(self):
         return f"Z-{self.z_counter} {self.business} {self.date} — net {self.net_amount}"
 
@@ -1236,3 +1233,6 @@ class ZReading(TimeStampModel):
             # Lost the race — the other seal's numbers are authoritative; our counter
             # burn was rolled back with the failed create, so no gap in the Z run.
             return cls.for_day(business, day), False
+        
+        
+        
