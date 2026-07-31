@@ -110,7 +110,9 @@ document.addEventListener("DOMContentLoaded", function () {
         carries the arithmetic. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">₱{{ grand_collected|floatformat:2|intcomma }} collected</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Revenue">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Revenue"
+              hx-get="{% url 'summary-method-breakdown' business_slug=current_business.slug %}?side=collected&lens=accrual&{{ querystring }}"
+              hx-target="#methods-collected-acc" hx-swap="innerHTML" hx-trigger="click once">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
@@ -121,9 +123,10 @@ document.addEventListener("DOMContentLoaded", function () {
         {% if grand_sales_returns > 0 %}
         <div class="kpi-popover__row"><span>Returned</span><span class="num">− ₱{{ grand_sales_returns|floatformat:2|intcomma }}</span></div>
         {% endif %}
-        {% for m in collected_by_method_acc %}
-        <div class="kpi-popover__row kpi-popover__row--faint"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
-        {% endfor %}
+        {% comment %} Method rows lazy-load on first ▼ open (htmx → summary_method_breakdown). {% endcomment %}
+        <div id="methods-collected-acc">
+          <div class="kpi-popover__row kpi-popover__row--faint"><span>Loading…</span><span class="num"></span></div>
+        </div>
         <div class="kpi-popover__row"><span>Collected</span><span class="num">₱{{ grand_collected|floatformat:2|intcomma }}</span></div>
         <div class="kpi-popover__row kpi-popover__row--total"><span>Receivables (unpaid)</span><span class="num">₱{{ grand_receivables|floatformat:2|intcomma }}</span></div>
       </div>
