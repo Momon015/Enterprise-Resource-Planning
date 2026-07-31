@@ -1655,7 +1655,9 @@ def purchase_return_list(request, business_slug):
         'section': 'purchase-return',
         'total_refunded': totals['total_refunded'] or 0,
         'avg_refund': totals['avg_refund'] or 0,
-        'total_count': returns.count(),
+        # reuse the paginator's COUNT (same filtered queryset) — a separate
+        # returns.count() fired an identical SELECT COUNT(*) (dup on the toolbar).
+        'total_count': paginator.count,
         'current_year': f"{today.year}-{today.month:02d}",
         'reason_choices': reason_choices,
     })
