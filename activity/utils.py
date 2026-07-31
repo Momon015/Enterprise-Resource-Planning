@@ -334,6 +334,13 @@ def close_day(business, day, metrics):
             'paid':                metrics.get('paid', 0) or 0,
             'cash_expense':        metrics.get('cash_expense', 0) or 0,
             'cash_payroll':        metrics.get('cash_payroll', 0) or 0,
+            # Sales Records list rollup (gross completed incl. void). Absent → 0.
+            'completed_revenue':   metrics.get('completed_revenue', 0) or 0,
+            'completed_count':     metrics.get('completed_count', 0) or 0,
+            # Purchase Records list rollup (active gross cost + counts). Absent → 0.
+            'purchase_cost':       metrics.get('purchase_cost', 0) or 0,
+            'purchase_count':      metrics.get('purchase_count', 0) or 0,
+            'purchase_count_all':  metrics.get('purchase_count_all', 0) or 0,
         },
     )
 
@@ -369,6 +376,11 @@ def close_days(business, rows):
             paid=r.get('paid', 0) or 0,
             cash_expense=r.get('cash_expense', 0) or 0,
             cash_payroll=r.get('cash_payroll', 0) or 0,
+            completed_revenue=r.get('completed_revenue', 0) or 0,
+            completed_count=r.get('completed_count', 0) or 0,
+            purchase_cost=r.get('purchase_cost', 0) or 0,
+            purchase_count=r.get('purchase_count', 0) or 0,
+            purchase_count_all=r.get('purchase_count_all', 0) or 0,
         )
         for r in rows if r['date'] not in frozen
     ]

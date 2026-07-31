@@ -53,7 +53,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg, Max
+from django.db.models import Sum, Avg, Max, Count
 
 from DailySummary.forms import SummaryFilterForm
 
@@ -279,9 +279,59 @@ def view_summary(request, business_slug):
     from Sales.models import SalesPayment
     from Expense.models import PurchasePayment
 
+    # ── Compute EVERY lens's per-day figure for the unfrozen tail BEFORE sealing ──────
+    # close_days creates each DailyClose row exactly once ("first close wins"), so every
+    # column the row will ever hold must be ready NOW — accrual (already on the live_list
+    # rows), CASH (by payment date), and the Sales Records list rollup (gross completed incl
+    # void). ★ Computing cash AFTER the freeze is why a lazily-sealed day used to store cash=0
+    # forever (the nightly rebuild's fill-gaps mode won't overwrite a sealed row). All tail.
+    live_collected = {r['date']: r['t'] for r in
+        _unfrozen(SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date')
+        .exclude(method='credit').values('date').annotate(t=Sum('amount'))}
+    live_paid = {r['date']: r['t'] for r in
+        _unfrozen(PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
+        .values('date').annotate(t=Sum('amount'))}
+    live_cash_exp = {r['date']: r['t'] for r in
+        _unfrozen(all_expenses, 'date').values('date').annotate(t=Sum('total_amount'))}
+    live_cash_pay = {r['date']: (r['v'] or Decimal('0')) for r in shifts_live_by_date}
+    live_sret_cash = {r['date']: r['t'] for r in
+        _unfrozen(SalesReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
+    live_pret_cash = {r['date']: r['t'] for r in
+        _unfrozen(PurchaseReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
+
+    # Sales Records list rollup — GROSS revenue + count over completed (incl void).
+    _completed_tail = _unfrozen(Sale.objects.filter(business=business, status='completed'), 'date')
+    live_completed_rev = {r['date']: (r['t'] or Decimal('0'))
+                          for r in _completed_tail.values('date').annotate(t=Sum('total_revenue'))}
+    live_completed_cnt = {r['date']: r['n']
+                          for r in _completed_tail.values('date').annotate(n=Count('id'))}
+
+    # Purchase Records list rollup — business-wide (NOT viewer-scoped, like completed_* above),
+    # keyed on purchase_date. cost + active count feed the page's total/average; the void-
+    # inclusive count seeds its paginator (voids paginate inline). GROSS of purchase returns.
+    _purch_active_tail = _unfrozen(Purchase.objects.filter(business=business, is_void=False), 'purchase_date')
+    _purch_all_tail    = _unfrozen(Purchase.objects.filter(business=business), 'purchase_date')
+    live_purchase_cost = {r['purchase_date']: (r['t'] or Decimal('0'))
+                          for r in _purch_active_tail.values('purchase_date').annotate(t=Sum('total_cost'))}
+    live_purchase_cnt  = {r['purchase_date']: r['n']
+                          for r in _purch_active_tail.values('purchase_date').annotate(n=Count('id'))}
+    live_purchase_cnt_all = {r['purchase_date']: r['n']
+                             for r in _purch_all_tail.values('purchase_date').annotate(n=Count('id'))}
+
+    for r in live_list:
+        d = r['date']
+        r['collected']          = (live_collected.get(d) or Decimal('0')) - (live_sret_cash.get(d) or Decimal('0'))
+        r['paid']               = (live_paid.get(d) or Decimal('0'))      - (live_pret_cash.get(d) or Decimal('0'))
+        r['cash_expense']       = live_cash_exp.get(d) or Decimal('0')
+        r['cash_payroll']       = live_cash_pay.get(d) or Decimal('0')
+        r['completed_revenue']  = live_completed_rev.get(d) or Decimal('0')
+        r['completed_count']    = live_completed_cnt.get(d, 0)
+        r['purchase_cost']      = live_purchase_cost.get(d) or Decimal('0')
+        r['purchase_count']     = live_purchase_cnt.get(d, 0)
+        r['purchase_count_all'] = live_purchase_cnt_all.get(d, 0)
+
     # ── Freeze the unfrozen PAST days (today stays live & editable). "First close wins"
-    #    (pen-not-pencil); the rows are already net of returns. Cash columns freeze as 0
-    #    for now — the Cash Flow lens is wired into the freeze in a later step. ──
+    #    (pen-not-pencil) — a later void/edit posts forward, never rewrites a sealed day. ──
     from activity.utils import close_days
     close_days(business, [r for r in live_list if r['date'] < today])
 
@@ -378,7 +428,7 @@ def view_summary(request, business_slug):
     # it's exact (template |add truncates Decimals to int) and reconciles with Net Profit.
     grand_expense_cost = grand_total_salary_cost + grand_total_expense_cost + grand_total_waste_cost
 
-    pagination = Paginator(sorted_list, 6)
+    pagination = Paginator(sorted_list, 20)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -452,22 +502,9 @@ def view_summary(request, business_slug):
             'date').aggregate(t=Sum('amount'))['t'] or 0
 
     # ── Cash table = sealed days from the snapshot + today live (the only open day) ──
-    # Today's cash is aggregated only over the unfrozen tail (mirrors the accrual _unfrozen),
-    # each stream net of its cash refunds — exactly the old per-day arithmetic.
-    live_collected = {r['date']: r['t'] for r in
-        _unfrozen(SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date')
-        .exclude(method='credit').values('date').annotate(t=Sum('amount'))}
-    live_paid = {r['date']: r['t'] for r in
-        _unfrozen(PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
-        .values('date').annotate(t=Sum('amount'))}
-    live_cash_exp = {r['date']: r['t'] for r in
-        _unfrozen(all_expenses, 'date').values('date').annotate(t=Sum('total_amount'))}
-    live_cash_pay = {r['date']: (r['v'] or Decimal('0')) for r in shifts_live_by_date}
-    live_sret_cash = {r['date']: r['t'] for r in
-        _unfrozen(SalesReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
-    live_pret_cash = {r['date']: r['t'] for r in
-        _unfrozen(PurchaseReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
-
+    # The unfrozen-tail maps (live_collected / live_paid / live_cash_exp / live_cash_pay /
+    # live_sret_cash / live_pret_cash) were computed ABOVE, before the freeze, so a sealed
+    # day stores real cash. Reuse them here for the display of the still-open day(s).
     cash_summary_list = []
     for c in frozen_window.values():          # sealed days — read straight from the snapshot
         spent = c.paid + c.cash_expense + c.cash_payroll
@@ -506,7 +543,7 @@ def view_summary(request, business_slug):
 
     # Cash basis paginates too — override the accrual page_obj built above.
     if basis == 'cash':
-        pagination = Paginator(cash_summary_list, 6)
+        pagination = Paginator(cash_summary_list, 20)
         page_obj = pagination.get_page(request.GET.get('page'))
 
     # One querystring for every page link — carries all active filters (basis +

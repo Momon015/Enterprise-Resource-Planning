@@ -220,7 +220,7 @@ def _build_payables_context(request, business):
     # `p.due_date and p.due_date < today`.
     pay_overdue_count = outstanding_purchases.filter(due_date__lt=today).count()
 
-    paginator = Paginator(outstanding_purchases, 7)
+    paginator = Paginator(outstanding_purchases, 10)
     pay_page_obj = paginator.get_page(request.GET.get('pay_page'))
 
     # Business-wide count of unpaid purchases, IGNORING the pay_ filters — lets the
@@ -378,11 +378,44 @@ def purchase_history(request, business_slug):
     else:
         active_payment = None
 
-    # ── Compute totals ONCE, now that every filter has been applied ──────────────
+    # ── All-time cost + counts: from the SEALED rollup when unfiltered, else live ────────
+    # The default "All" view SUMs + COUNTs every purchase (active for cost/count, all for the
+    # paginator) — O(rows) scans that grow to seconds at millions of rows. When nothing narrows
+    # the set (owner, no void/period/date/user/payment), read Σ(sealed DailyClose purchase cols)
+    # + today's open tail — O(days on record), immutable, and byte-for-byte the same numbers
+    # (purchase_cost is gross-of-returns, matching this page's total_cost). ANY filter → live
+    # aggregate (bounded, cheap). Payables always comes off the partial `outstanding` index.
+    # average = cost ÷ active count (Tier 1: one fewer aggregate than AVG, identical over active).
     active_purchases = purchases.active()
-    total_count = active_purchases.count()
-    total_cost = purchases.purchase_total_cost()
-    average_cost = purchases.average_total_cost()
+    is_unfiltered = (
+        request.user.role != 'staff'
+        and not void_only
+        and not (form.is_valid() and (form.cleaned_data.get('start_date') or
+                 form.cleaned_data.get('select_month')))
+        and not request.GET.get('period')
+        and not (request.GET.get('user') or '').isdigit()
+        and active_payment is None
+    )
+
+    rollup_all_count = None
+    if is_unfiltered:
+        from activity.models import DailyClose
+        last_frozen = DailyClose.objects.filter(business=business).aggregate(m=Max('date'))['m']
+        sealed = DailyClose.objects.filter(business=business).aggregate(
+            cost=Sum('purchase_cost'), cnt=Sum('purchase_count'), cnt_all=Sum('purchase_count_all'))
+        active_tail = Purchase.objects.filter(business=business, is_void=False)
+        all_tail    = Purchase.objects.filter(business=business)
+        if last_frozen:
+            active_tail = active_tail.filter(purchase_date__gt=last_frozen)   # only the open tail (≈ today)
+            all_tail    = all_tail.filter(purchase_date__gt=last_frozen)
+        at = active_tail.aggregate(cost=Sum('total_cost'), cnt=Count('id'))
+        total_cost  = (sealed['cost'] or Decimal('0')) + (at['cost'] or Decimal('0'))
+        total_count = (sealed['cnt'] or 0) + (at['cnt'] or 0)
+        rollup_all_count = (sealed['cnt_all'] or 0) + (all_tail.aggregate(n=Count('id'))['n'] or 0)
+    else:
+        total_count = active_purchases.count()
+        total_cost = purchases.purchase_total_cost()
+    average_cost = (total_cost / total_count) if total_count else Decimal('0')
 
     # ── GATED & FAST PAYABLES CALCULATION ─────────────────────────
     # Toggle check: skip payables logic completely if disabled for this pharmacy/business.
@@ -399,15 +432,19 @@ def purchase_history(request, business_slug):
 
     # 'materials' joins the prefetch so the list's per-row line items don't fire a
     # query each (payments/returns already prefetched on `purchases` above).
-    paginator = Paginator(purchases.prefetch_related('materials'), 8)
+    paginator = Paginator(purchases.prefetch_related('materials'), 20)
+    if rollup_all_count is not None:
+        # Seed the count so the paginator skips its own O(rows) COUNT(*). count is a
+        # cached_property (non-data descriptor), so this instance attr shadows it.
+        paginator.count = rollup_all_count
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ytd_start = timezone.localdate().replace(month=1, day=1)
-    ytd_spend = (
-        Purchase.objects.active().filter(business=business, purchase_date__gte=ytd_start)
-        .aggregate(total_cost=Sum('total_cost'))['total_cost'] or 0
-    )
+    # ytd_start = timezone.localdate().replace(month=1, day=1)
+    # ytd_spend = (
+    #     Purchase.objects.active().filter(business=business, purchase_date__gte=ytd_start)
+    #     .aggregate(total_cost=Sum('total_cost'))['total_cost'] or 0
+    # )
 
     
     recent_events = ActivityEvent.objects.filter(
@@ -457,7 +494,7 @@ def purchase_history(request, business_slug):
         'total_count': total_count, 
         'total_cost': total_cost, 
         'average_cost': average_cost, 
-        'ytd_spend': ytd_spend,
+        # 'ytd_spend': ytd_spend,
         'current_year': current_year,
         'section': 'purchase',
         'recent_events': recent_events,
@@ -648,7 +685,7 @@ def view_cart(request, business_slug):
             'item_discount': item_discount,
         })
         
-    paginator = Paginator(cart_items, 4)
+    paginator = Paginator(cart_items, 5)
     page = request.GET.get('page')
     page_obj =  paginator.get_page(page)
     
@@ -2244,7 +2281,7 @@ def expense_list(request, business_slug):
     
     
     # Pagination
-    pagination = Paginator(sorted_list, 8)
+    pagination = Paginator(sorted_list, 20)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     
@@ -2395,7 +2432,7 @@ def misc_expense_list(request, business_slug):
     business = get_business_for_user(request.user, business_slug)
     misc_expenses = get_queryset_for_user(request.user, MiscExpense.objects.all()).filter(business=business).order_by('-created_at')
     
-    pagination = Paginator(misc_expenses, 8)
+    pagination = Paginator(misc_expenses, 10)
     page = request.GET.get('page')
     page_obj = pagination.get_page(page)
     

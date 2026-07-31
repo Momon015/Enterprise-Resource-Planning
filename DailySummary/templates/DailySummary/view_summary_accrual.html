@@ -30,24 +30,26 @@
 {% endif %}
 </div>
 
+{% comment %} Mutually-exclusive date filters clear each other. DELEGATED on document, not bound
+    per input: #summary-results is swapped wholesale on every filter/quick-range/paginate, so a
+    listener bound straight to these inputs would be thrown away with the first swap and the rule
+    would quietly stop applying (same lesson as sale_list's filter script). A payment/user select
+    would fall through the else and leave the date window alone — there are none here yet. {% endcomment %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const monthInput = document.querySelector('input[name="select_month"]');
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+document.addEventListener("change", function (e) {
+  const form = document.getElementById("filterForm");
+  if (!form || !form.contains(e.target)) return;
 
-  if (monthInput) {
-    monthInput.addEventListener("change", function () {
-      if (startDateInput) startDateInput.value = "";
-      if (endDateInput) endDateInput.value = "";
-    });
+  const month = form.querySelector('input[name="select_month"]');
+  const start = form.querySelector('input[name="start_date"]');
+  const end   = form.querySelector('input[name="end_date"]');
+
+  if (e.target === month) {
+    if (start) start.value = "";
+    if (end) end.value = "";
+  } else if (e.target === start || e.target === end) {
+    if (month) month.value = "";
   }
-  [startDateInput, endDateInput].forEach(el => {
-    if (!el) return;
-    el.addEventListener("change", function () {
-      if (monthInput) monthInput.value = "";
-    });
-  });
 });
 </script>
 
@@ -61,8 +63,28 @@ document.addEventListener("DOMContentLoaded", function () {
     </div>
   </div>
 
+  {% comment %} ═══ LIVE FILTER REGION — no full page reload (mirrors sale_list) ═══════════════
+      htmx swaps this whole block on every filter / quick-range / paginate, so the KPI PERIOD
+      totals, the filter panel, the day-count badge and the table can never desync — every one of
+      them is derived from request.GET server-side. hx-boost catches the quick-range <a>s, the
+      filter <form> and the pagination; hx-select lifts this same #summary-results out of the
+      normally-rendered page (no partial view, no JSON). Links that LEAVE the page (the table rows
+      → detail) opt out with hx-boost="false" below.
+
+      WHY the KPI cards are INSIDE: unlike product_list's filter strip, these totals ARE derived
+      from the date window, so they'd go stale if left out. That pulls the lazy method-breakdown
+      ▼ button (which owns its own hx-get) into the region → it'd INHERIT hx-select/hx-push-url
+      and open empty / push the fragment URL. hx-disinherit="*" on .kpi-row cuts that walk (the
+      button's own hx-get/hx-target/hx-swap are still found first). {% endcomment %}
+  <div id="summary-results"
+       hx-boost="true"
+       hx-target="#summary-results"
+       hx-select="#summary-results"
+       hx-swap="outerHTML"
+       hx-push-url="true">
+
   <!-- KPI STATS ROW — period totals, dashboard-style cards -->
-  <div class="kpi-row kpi-row--4col">
+  <div class="kpi-row kpi-row--4col" hx-disinherit="*">
 
     <!-- NET PROFIT — green when positive, red when negative (matches the dashboard) -->
     <div class="kpi-card kpi-card--featured has-popover{% if grand_net_profit > 0 %} kpi-card--hue-success{% elif grand_net_profit < 0 %} kpi-card--hue-danger{% endif %}">
@@ -202,7 +224,11 @@ document.addEventListener("DOMContentLoaded", function () {
       {% endif %}
     </summary>
     <div class="filter-body">
-      <form method="get" id="filterForm" class="filter-form filter-form--inline" autocomplete="off">
+      {% comment %} action= IS LOAD-BEARING: vendored htmx 2.0.3 crashes on a boosted GET form
+          with no action (o.includes() on null), which silently kills htmx for everything after it.
+          Keep it until htmx is upgraded to 2.0.4+. {% endcomment %}
+      <form method="get" id="filterForm" action="{% url 'view-summary' business_slug=current_business.slug %}"
+            class="filter-form filter-form--inline" autocomplete="off">
         <input type="hidden" name='basis' value="accrual">
         <div class="form-field">
           <label class="form-label"><i class="bi bi-calendar3"></i> Month</label>
@@ -284,7 +310,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <th class="sl-text-end mobile-center">Net Profit</th>
           </tr>
         </thead>
-        <tbody>
+        {% comment %} hx-boost="false": every row navigates to a day-detail page, which has no
+            #summary-results. Boosted, clicking a day would target-error and drop silently. The
+            row's onclick isn't an <a> so boost never saw it, but the View link inside is one —
+            opt the whole tbody out and neither can rot. {% endcomment %}
+        <tbody hx-boost="false">
           {% for summary in page_obj %}
           <tr class="row-link" onclick="window.location='{% url 'view-summary-detail' date=summary.date business_slug=current_business.slug %}?basis=accrual'">
             <td>
@@ -324,6 +354,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   </div>
   </div>
+  </div>{% comment %} /#summary-results — live filter region {% endcomment %}
 </div>
 
 {# KPI ▼ popovers: ONE global handler in static/js/kpi-cards.js. No page-level copy. #}

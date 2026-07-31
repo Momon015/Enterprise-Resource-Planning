@@ -36,7 +36,7 @@ def test_where_a_parked_draft_lands_when_confirmed_later(client, owner, capsys):
     draft = Sale.objects.create(
         user=biz.user, business=biz, created_by=biz.user,
         status='pending',
-        total_revenue=100, total_salary_cost=0, line_count=1,
+        total_revenue=100, line_count=1,
     )
     assert draft.date is None, "a parked draft must not carry a books date"
     assert draft.reference is None, "a parked draft must not hold an SI number"

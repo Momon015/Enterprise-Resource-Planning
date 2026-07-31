@@ -1005,7 +1005,7 @@ def service_list(request, business_slug):
     archived_count = Product.all_objects.filter(
         business=business, is_active=False, is_service=True).count()
 
-    paginator = Paginator(services, 8)
+    paginator = Paginator(services, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     # reuse the paginator's COUNT (same filtered queryset) — a separate
