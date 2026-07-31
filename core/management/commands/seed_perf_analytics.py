@@ -45,7 +45,7 @@ class Command(BaseCommand):
     help = 'Stress-seed a business with 100 sales/day and 10 purchases/day and time the analytics pages.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--days', type=int, default=100, help='Spread the history over the last N days (default 730 = ~2yr).')
+        parser.add_argument('--days', type=int, default=1000, help='Spread the history over the last N days (default 730 = ~2yr).')
         # Defaults dynamically calculated based on 100/day and 10/day
         parser.add_argument('--sales', type=int, default=None, help='Total sales to create (default: days * 100).')
         parser.add_argument('--purchases', type=int, default=None, help='Total purchases to create (default: days * 10).')

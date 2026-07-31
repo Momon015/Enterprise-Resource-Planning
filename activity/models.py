@@ -440,28 +440,48 @@ class AccumulatedGrandSalesEntry(models.Model):
 
 
 class DailyClose(models.Model):
-    """BIR-style frozen accrual snapshot of one business-day's books.
+    """BIR-style frozen snapshot of one business-day's books — BOTH lenses.
     Created lazily the first time a PAST day is read (day-rollover freeze,
     NEVER shift clock-out). Append-only: once a day closes its figures can
     never change — corrections post to the current day as Adjustments.
-    Cash Flow is NOT frozen here (it stays live by payment date)."""
+
+    Holds the ACCRUAL side (dated by sale/purchase/work date) and the CASH
+    side (dated by PAYMENT date) on the same (business, date) row: a Jul-1
+    sale paid Jul-5 books revenue on Jul-1's row and `collected` on Jul-5's.
+    Both freeze together when the day rolls over — a payment's date is the day
+    money actually moved (normally today), so a past cash day never re-rolls.
+
+    Each row is ONE day, never a running total — period figures (month, all-time)
+    are SUM()'d from these rows at read time, never stored. So the 16-digit money
+    columns only ever have to hold a single day's volume (~₱99T ceiling)."""
 
     business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE,
                                  related_name='daily_closes')
     date     = models.DateField(db_index=True)
 
-    total_revenue       = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # ── ACCRUAL side (dated by the record's own accrual date) ───────────────
+    total_revenue       = models.DecimalField(max_digits=16, decimal_places=2, default=0)
 
     # COST OF GOODS SOLD (2026-07-13) — what net_profit subtracts. Frozen alongside the
     # rest so a closed day can be re-read exactly as it was booked, even if a product's
     # cost is edited later. `total_material_cost` (what we PAID suppliers that day) is KEPT
     # — it's still real, the Cash Flow lens uses it — it just no longer drives profit.
-    total_cogs          = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_material_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_salary_cost   = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_waste_cost    = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_expense_cost  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    net_profit          = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_cogs          = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    total_material_cost = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    total_salary_cost   = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    total_waste_cost    = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    total_expense_cost  = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    net_profit          = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+
+    # ── CASH side (NEW — dated by PAYMENT date, net of cash refunds) ─────────
+    # Mirrors the Cash Flow lens in view_summary. `collected` EXCLUDES store credit
+    # (not real cash) and is net of cash sales-refunds; `paid` is net of cash
+    # purchase-refunds. net_cash is DERIVED (collected − paid − cash_expense −
+    # cash_payroll) at read time, so it is NOT stored — one less thing that can drift.
+    collected    = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # money in
+    paid         = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # supplier payments out
+    cash_expense = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # expenses paid this day
+    cash_payroll = models.DecimalField(max_digits=16, decimal_places=2, default=0)  # wages paid this day
 
     closed_at = models.DateTimeField(auto_now_add=True)
 

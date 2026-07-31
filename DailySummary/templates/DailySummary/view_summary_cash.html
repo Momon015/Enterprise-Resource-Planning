@@ -100,14 +100,18 @@ document.addEventListener("DOMContentLoaded", function () {
         only the CASH half lands here). The working is in the dropdown. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">Collected this period</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money in">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Money in"
+              hx-get="{% url 'summary-method-breakdown' business_slug=current_business.slug %}?side=collected&lens=cash&{{ querystring }}"
+              hx-target="#methods-collected" hx-swap="innerHTML" hx-trigger="click once">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
         <div class="kpi-popover__title">Money in</div>
-        {% for m in collected_by_method %}
-        <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
-        {% endfor %}
+        {% comment %} Method rows lazy-load on first ▼ open (htmx → summary_method_breakdown).
+            The Collected total below is snapshot-backed, so the card shows instantly. {% endcomment %}
+        <div id="methods-collected">
+          <div class="kpi-popover__row kpi-popover__row--faint"><span>Loading…</span><span class="num"></span></div>
+        </div>
         {% comment %} The method rows above are GROSS receipts; the refund line is what makes them
         add up to the card's net figure. {% endcomment %}
         {% if cash_sales_refunds > 0 %}
@@ -156,14 +160,17 @@ document.addEventListener("DOMContentLoaded", function () {
         show up in Payables instead). The working is in the dropdown. {% endcomment %}
         <div class="kpi-delta kpi-delta--muted">Paid to suppliers</div>
       </div>
-      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases">
+      <button type="button" class="kpi-peek" data-kpi-popover aria-label="Show breakdown" title="Stock Purchases"
+              hx-get="{% url 'summary-method-breakdown' business_slug=current_business.slug %}?side=paid&lens=cash&{{ querystring }}"
+              hx-target="#methods-paid" hx-swap="innerHTML" hx-trigger="click once">
         <i class="bi bi-chevron-down"></i>
       </button>
       <div class="kpi-popover">
         <div class="kpi-popover__title">Stock Purchases</div>
-        {% for m in paid_by_method %}
-        <div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
-        {% endfor %}
+        {% comment %} Method rows lazy-load on first ▼ open (htmx → summary_method_breakdown). {% endcomment %}
+        <div id="methods-paid">
+          <div class="kpi-popover__row kpi-popover__row--faint"><span>Loading…</span><span class="num"></span></div>
+        </div>
         {% if cash_purch_refunds > 0 %}
         <div class="kpi-popover__row"><span>Refunded back</span><span class="num">− ₱{{ cash_purch_refunds|floatformat:2|intcomma }}</span></div>
         {% endif %}

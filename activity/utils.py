@@ -328,6 +328,12 @@ def close_day(business, day, metrics):
             'total_waste_cost':    metrics.get('total_waste_cost', 0) or 0,
             'total_expense_cost':  metrics.get('total_expense_cost', 0) or 0,
             'net_profit':          metrics.get('net_profit', 0) or 0,
+            # CASH lens (by payment date). Absent from `metrics` → 0, so a caller that
+            # hasn't wired cash in yet freezes exactly as before. net_cash is derived.
+            'collected':           metrics.get('collected', 0) or 0,
+            'paid':                metrics.get('paid', 0) or 0,
+            'cash_expense':        metrics.get('cash_expense', 0) or 0,
+            'cash_payroll':        metrics.get('cash_payroll', 0) or 0,
         },
     )
 
@@ -358,6 +364,11 @@ def close_days(business, rows):
             total_waste_cost=r.get('total_waste_cost', 0) or 0,
             total_expense_cost=r.get('total_expense_cost', 0) or 0,
             net_profit=r.get('net_profit', 0) or 0,
+            # CASH lens (by payment date) — absent → 0, freezing as before until wired.
+            collected=r.get('collected', 0) or 0,
+            paid=r.get('paid', 0) or 0,
+            cash_expense=r.get('cash_expense', 0) or 0,
+            cash_payroll=r.get('cash_payroll', 0) or 0,
         )
         for r in rows if r['date'] not in frozen
     ]

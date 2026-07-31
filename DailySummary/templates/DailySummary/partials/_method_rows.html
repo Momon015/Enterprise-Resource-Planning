@@ -1,0 +1,9 @@
+{% load humanize %}
+{% comment %} Lazy popover fragment — the Cash/GCash/Bank method rows for one KPI card,
+    fetched by htmx on first ▼ open (summary_method_breakdown). Rows only; the popover's
+    total / refund / store-credit lines stay in the parent template (snapshot-backed). {% endcomment %}
+{% for m in methods %}
+<div class="kpi-popover__row"><span>{{ m.label }}</span><span class="num">₱{{ m.amount|floatformat:2|intcomma }}</span></div>
+{% empty %}
+<div class="kpi-popover__row kpi-popover__row--faint"><span>No payments in this period</span><span class="num">—</span></div>
+{% endfor %}

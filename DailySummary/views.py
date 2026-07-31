@@ -53,7 +53,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F
 from datetime import date, datetime
 import calendar
-from django.db.models import Sum, Avg
+from django.db.models import Sum, Avg, Max
 
 from DailySummary.forms import SummaryFilterForm
 
@@ -192,44 +192,57 @@ def view_summary(request, business_slug):
     purchase_returns_qs = in_period(
         PurchaseReturn.objects.filter(business=business), 'date')
 
-    # ONE definition of each per-day figure. Salary is Shift.amount, the same column the
-    # Dashboard and Expense Analytics use (kept in step with Σ daily_rate by the signal).
-    sales_by_date     = sales.values('date').annotate(v=Sum('total_revenue'))
-    purchase_by_date  = purchases.values('purchase_date').annotate(v=Sum('total_cost'))
-    wastes_by_date    = wastes.values('date').annotate(v=Sum('total_cost'))
-    expenses_by_date  = expenses.values('date').annotate(v=Sum('total_amount'))
-    shifts_by_date    = shifts.values('date').annotate(v=Sum('amount'))
-    sales_ret_by_date = sales_returns_qs.values('date').annotate(v=Sum('refund_total'))
-    purch_ret_by_date = purchase_returns_qs.values('date').annotate(v=Sum('refund_total'))
+    # ══ Accrual table = READ closed days from DailyClose, live-aggregate only TODAY ══
+    # A closed day is immutable (pen-not-pencil), so re-summing its millions of raw rows
+    # every load was pure waste — the frozen snapshot already IS the correct number. We
+    # now read that snapshot (~8ms for a year of days) and live-aggregate only the
+    # unfrozen tail: days AFTER the newest sealed day, which is normally just today. That
+    # is the whole speed win — cost is O(days on screen), not O(every sale ever booked).
+    #
+    #   last_frozen = None on a brand-new business (nothing sealed yet) → the whole history
+    #   is "unfrozen" and gets aggregated live, which is correct (there's little of it) and
+    #   establishes the first snapshots.
+    last_frozen = DailyClose.objects.filter(business=business).aggregate(m=Max('date'))['m']
 
-    # COST OF GOODS SOLD (2026-07-13) — what profit actually subtracts now. Grouped by the
-    # parent SALE's date (a line item has no date of its own), and relieved by the cost of
-    # anything customers brought back that day. See core/utils/profit.py.
-    cogs_by_date      = (SaleItem.objects.filter(sale__in=sales)
+    def _unfrozen(qs, field):
+        """Restrict a stream to days not yet sealed. Freezes are contiguous from the past
+        forward (backfill + daily close), so `date > last_frozen` is exactly the open tail."""
+        return qs if last_frozen is None else qs.filter(**{f'{field}__gt': last_frozen})
+
+    # Accrual streams, restricted to the unfrozen tail. Salary is Shift.amount, the same
+    # column the Dashboard and Expense Analytics use (kept = Σ daily_rate by the signal).
+    a_sales = _unfrozen(all_sales, 'date')
+    a_sret  = _unfrozen(SalesReturn.objects.filter(business=business), 'date')
+    sales_by_date       = a_sales.values('date').annotate(v=Sum('total_revenue'))
+    purchase_by_date    = _unfrozen(all_purchases, 'purchase_date').values('purchase_date').annotate(v=Sum('total_cost'))
+    wastes_by_date      = _unfrozen(all_wastes, 'date').values('date').annotate(v=Sum('total_cost'))
+    expenses_by_date    = _unfrozen(all_expenses, 'date').values('date').annotate(v=Sum('total_amount'))
+    shifts_live_by_date = _unfrozen(all_shifts, 'date').values('date').annotate(v=Sum('amount'))
+    sales_ret_by_date   = a_sret.values('date').annotate(v=Sum('refund_total'))
+    purch_ret_by_date   = _unfrozen(PurchaseReturn.objects.filter(business=business), 'date').values('date').annotate(v=Sum('refund_total'))
+
+    # COST OF GOODS SOLD — what profit subtracts. Grouped by the parent SALE's date (a line
+    # item has no date of its own), relieved by the cost of anything brought back. Same
+    # unfrozen tail via the sale/return querysets. See core/utils/profit.py.
+    cogs_by_date      = (SaleItem.objects.filter(sale__in=a_sales)
                          .values('sale__date').annotate(v=Sum(COGS_LINE)))
     ret_cogs_by_date  = (SalesReturnItem.objects
-                         .filter(sales_return__in=sales_returns_qs,
-                                 original_sale_item__isnull=False)
+                         .filter(sales_return__in=a_sret, original_sale_item__isnull=False)
                          .values('sales_return__date').annotate(v=Sum(RETURNED_COGS_LINE)))
 
-    # ── Fold the seven streams into one row per day ──────────────────────────────
-    # This was five near-identical if/else blocks, each of which had to list every OTHER
-    # field as 0 in its `else`. Adding a field meant editing all five — so adding the two
-    # return streams that way was a drift trap waiting to happen. A zero-filled default
-    # makes a missing day cost nothing to express, and a new stream is one line.
-    #
-    #   A day can now appear on the strength of a RETURN alone (a refund on a day with no
-    #   sales is still a real day in the books). The old shape would have dropped it.
+    # ── Fold the nine streams into one row per (unfrozen) day ─────────────────────
+    # Identical shape and arithmetic to before — only the day SET is smaller (the open
+    # tail), because closed days are served from the snapshot instead of recomputed.
     STREAMS = (
-        (sales_by_date,     'date',                'total_revenue'),
-        (purchase_by_date,  'purchase_date',       'total_material_cost'),
-        (wastes_by_date,    'date',                'total_waste_cost'),
-        (expenses_by_date,  'date',                'total_expense_cost'),
-        (shifts_by_date,    'date',                'total_salary_cost'),
-        (sales_ret_by_date, 'date',                'sales_returns'),
-        (purch_ret_by_date, 'date',                'purchase_returns'),
-        (cogs_by_date,      'sale__date',          'total_cogs'),
-        (ret_cogs_by_date,  'sales_return__date',  'returned_cogs'),
+        (sales_by_date,       'date',                'total_revenue'),
+        (purchase_by_date,    'purchase_date',       'total_material_cost'),
+        (wastes_by_date,      'date',                'total_waste_cost'),
+        (expenses_by_date,    'date',                'total_expense_cost'),
+        (shifts_live_by_date, 'date',                'total_salary_cost'),
+        (sales_ret_by_date,   'date',                'sales_returns'),
+        (purch_ret_by_date,   'date',                'purchase_returns'),
+        (cogs_by_date,        'sale__date',          'total_cogs'),
+        (ret_cogs_by_date,    'sales_return__date',  'returned_cogs'),
     )
     FIELDS = tuple(field for _rows, _date_key, field in STREAMS)
 
@@ -238,78 +251,88 @@ def view_summary(request, business_slug):
         for row in rows:
             summary[row[date_key]][field] = row['v'] or Decimal('0')
 
-    summary_list = []
+    # One dict per unfrozen day, NET of returns — the arithmetic is byte-for-byte the old
+    # per-day computation, just applied to the tail instead of all-time.
+    live_list = []
     for day, v in summary.items():
-        # Every figure is shown NET of returns, so each row's own arithmetic
-        # (revenue − costs = net profit) adds up on screen. The returns are NOT broken out
-        # per day — most days have none, and two mostly-empty columns would be noise. The
-        # window totals appear on the KPI cards above the table instead.
         net_revenue  = v['total_revenue']       - v['sales_returns']
         net_material = v['total_material_cost'] - v['purchase_returns']
         net_cogs     = v['total_cogs']          - v['returned_cogs']
-
-        # COGS, not material cost. This is the ACCRUAL table — it answers "did we trade
-        # profitably", so the cost of the goods that left the shelf is what belongs beside
-        # the revenue that they earned. What we PAID suppliers that day is a cash question
-        # and lives on the Cash Flow page (and Expense Analytics). Mixing them is what made
-        # a delivery day look like a disaster.
         day_net = net_profit(
             v['total_revenue'], net_cogs, v['total_salary_cost'],
             v['total_waste_cost'], v['total_expense_cost'],
             v['sales_returns'],
         )
-
-        summary_list.append({
+        live_list.append({
             'date': day,
             'total_revenue':       net_revenue,
             'total_cogs':          net_cogs,
-            # Still carried (the freeze stores it, and the Cash Flow lens wants it) — it is
-            # simply no longer a column on the accrual table, nor part of `total_cost`.
             'total_material_cost': net_material,
             'total_salary_cost':   v['total_salary_cost'],
             'total_waste_cost':    v['total_waste_cost'],
             'total_expense_cost':  v['total_expense_cost'],
-            # All non-revenue costs, summed in Python (template |add truncates Decimals to int).
             'total_cost': (net_cogs + v['total_salary_cost']
                            + v['total_waste_cost'] + v['total_expense_cost']),
             'net_profit': day_net,
         })
-            
+
     from Sales.models import SalesPayment
     from Expense.models import PurchasePayment
 
-    sorted_list = sorted(summary_list, key=lambda x: x['date'], reverse=True)
-
-    # ── Freeze past days: lazy day-rollover accrual close (BIR "pen, not pencil") ──
-    # Any day strictly before today is complete (no record can backdate) → safe to
-    # snapshot. get_or_create = first close wins; today stays live & editable.
-    #
-    #   The rows handed to close_day are now NET of returns and carry the one true salary
-    #   figure, so a frozen day is finally deterministic. It used to depend on which filter
-    #   the first reader happened to have applied.
+    # ── Freeze the unfrozen PAST days (today stays live & editable). "First close wins"
+    #    (pen-not-pencil); the rows are already net of returns. Cash columns freeze as 0
+    #    for now — the Cash Flow lens is wired into the freeze in a later step. ──
     from activity.utils import close_days
-    # Freeze every past day in ONE SELECT + one bulk insert of the new ones, instead
-    # of a get_or_create per day (this list spans ~a year).
-    frozen = close_days(business, [r for r in sorted_list if r['date'] < today])
-    for row in sorted_list:
-        if row['date'] < today:
-            snap = frozen[row['date']]
-            # Serve the FROZEN figures, never the live recompute (pen, not pencil) —
-            # a later void/edit must not rewrite a closed day.
-            row['total_revenue']       = snap.total_revenue
-            row['total_cogs']          = snap.total_cogs
-            row['total_material_cost'] = snap.total_material_cost
-            row['total_salary_cost']   = snap.total_salary_cost
-            row['total_waste_cost']    = snap.total_waste_cost
-            row['total_expense_cost']  = snap.total_expense_cost
-            row['net_profit']          = snap.net_profit
-            row['total_cost'] = (snap.total_cogs + snap.total_salary_cost
-                                 + snap.total_waste_cost + snap.total_expense_cost)
-            row['is_closed'] = True
-            row['closed_at'] = snap.closed_at
-        else:
-            row['is_closed'] = False
-            row['closed_at'] = None
+    close_days(business, [r for r in live_list if r['date'] < today])
+
+    # ── Assemble the DISPLAY list = frozen days (from the snapshot, windowed) + today.
+    #    Reading AFTER the freeze means any day we just sealed is already in the snapshot,
+    #    so the only rows still sourced from live_list are today (and any open gap-day the
+    #    window happens to include). _in_window mirrors in_period() for the python side. ──
+    def _in_window(d):
+        for suffix, value in date_filters:
+            if suffix == '':
+                if d != value: return False
+            elif suffix == 'range':
+                start, end = value
+                if not (start <= d <= end): return False
+            elif suffix == 'month':
+                if d.month != value: return False
+            elif suffix == 'year':
+                if d.year != value: return False
+            elif suffix == 'week':
+                if d.isocalendar()[1] != value: return False
+        return True
+
+    def _row_from_close(c):
+        # Serve the FROZEN figures verbatim (pen-not-pencil) — identical to the old
+        # overwrite, just sourced without first recomputing the day.
+        return {
+            'date': c.date,
+            'total_revenue':       c.total_revenue,
+            'total_cogs':          c.total_cogs,
+            'total_material_cost': c.total_material_cost,
+            'total_salary_cost':   c.total_salary_cost,
+            'total_waste_cost':    c.total_waste_cost,
+            'total_expense_cost':  c.total_expense_cost,
+            'total_cost': (c.total_cogs + c.total_salary_cost
+                           + c.total_waste_cost + c.total_expense_cost),
+            'net_profit': c.net_profit,
+            'is_closed': True,
+            'closed_at': c.closed_at,
+        }
+
+    frozen_window = {c.date: c for c in
+                     in_period(DailyClose.objects.filter(business=business), 'date')}
+    sorted_list = [_row_from_close(c) for c in frozen_window.values()]
+    for r in live_list:
+        if r['date'] in frozen_window:        # sealed a moment ago — already added above
+            continue
+        if _in_window(r['date']):             # today (or a still-open gap day) in this window
+            r['is_closed'] = False
+            r['closed_at'] = None
+            sorted_list.append(r)
+    sorted_list.sort(key=lambda x: x['date'], reverse=True)
 
     # ── Grand totals = the SUM OF THE ROWS ON SCREEN ─────────────────────────────
     # These used to be accumulated from the LIVE figures before the freeze ran, so once a
@@ -333,15 +356,22 @@ def view_summary(request, business_slug):
     grand_gross_revenue  = grand_total_revenue + grand_sales_returns
     grand_gross_material = grand_material_total_cost + grand_purchase_returns
 
-    grand_collected   = SalesPayment.objects.filter(sale__in=sales).aggregate(t=Sum('amount'))['t'] or Decimal('0')
-    grand_paid        = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or Decimal('0')
-
-    # What's still owed. A CREDIT refund reduces the balance (the customer/supplier simply
-    # owes less); a CASH refund doesn't (that money already changed hands). So this nets
-    # off only the credit half — which is exactly what Sale.outstanding does per record.
+    # ── Receivables (sales) from the denormalized `outstanding` column, NOT a payment scan.
+    # outstanding = total_revenue − amount_paid − credit per sale (kept correct on every write
+    # by recompute_outstanding(), partial-indexed on > 0). So Σ outstanding over the window IS
+    # receivables, and grand_collected is DERIVED from it (gross − outstanding − credit) — the
+    # same number the old SalesPayment scan produced, without touching the payments table. ──
     grand_sales_credit    = sales_returns_qs.aggregate(t=Sum('refund_credit'))['t'] or Decimal('0')
+    # `outstanding__gt=0` hits the PARTIAL index (unpaid sales only) — so this touches the
+    # handful of open receivables, not every sale in the window. Paid sales sit at 0 and add
+    # nothing; overpayments (negative) aren't receivables. This is what the `gt` index is for.
+    grand_receivables = sales.filter(outstanding__gt=0).aggregate(t=Sum('outstanding'))['t'] or Decimal('0')
+    grand_collected   = grand_gross_revenue - grand_receivables - grand_sales_credit
+
+    # Payables side keeps the direct payment sum (cheap — few supplier payments) so it stays
+    # correct even where Purchase.outstanding hasn't been backfilled (e.g. bulk-seeded rows).
+    grand_paid            = PurchasePayment.objects.filter(purchase__in=purchases).aggregate(t=Sum('amount'))['t'] or Decimal('0')
     grand_purchase_credit = purchase_returns_qs.aggregate(t=Sum('refund_credit'))['t'] or Decimal('0')
-    grand_receivables = grand_gross_revenue  - grand_collected - grand_sales_credit
     grand_payables    = grand_gross_material - grand_paid      - grand_purchase_credit
 
     # Accrual Expense Cost card = payroll + other expenses + waste. Summed in Python so
@@ -353,51 +383,27 @@ def view_summary(request, business_slug):
     page_obj = pagination.get_page(page)
     
     
-    # so the user's filters above don't skew the "best month" result.
-    # salary here read Sum('amount') too — the same empty column that zeroed payroll in
-    #   the table. A month's "profit" was therefore computed with NO wages in it.
-    year = {'date__year': today.year}
-    year_sales = all_sales.filter(**year)
-    rev_by_month     = {s['date__month']:          s['total'] for s in year_sales.values('date__month').annotate(total=Sum('total_revenue'))}
-    waste_by_month   = {w['date__month']:          w['total'] for w in all_wastes.filter(**year).values('date__month').annotate(total=Sum('total_cost'))}
-    expense_by_month = {e['date__month']:          e['total'] for e in all_expenses.filter(**year).values('date__month').annotate(total=Sum('total_amount'))}
-    salary_by_month  = {s['date__month']:          s['total'] for s in all_shifts.filter(**year).values('date__month').annotate(total=Sum('amount'))}
-
-    # COGS by month, not purchases — "best month" has to use the SAME formula as every row
-    # in the table above it, or the badge could crown a month the table says lost money.
-    cogs_by_month = {c['sale__date__month']: c['total'] for c in SaleItem.objects.filter(
-        sale__in=year_sales).values('sale__date__month').annotate(total=Sum(COGS_LINE))}
-    ret_cogs_by_month = {c['sales_return__date__month']: c['total'] for c in
-        SalesReturnItem.objects.filter(
-            sales_return__business=business, sales_return__date__year=today.year,
-            original_sale_item__isnull=False,
-        ).values('sales_return__date__month').annotate(total=Sum(RETURNED_COGS_LINE))}
-
-    # Sales returns belong in "best month" too — a month that refunded half its takings was
-    # not a good month, and without these it would still look like one. (Purchase returns no
-    # longer enter profit at all — they're inventory movement. See core/utils/profit.py.)
-    sret_by_month = {r['date__month']: r['total'] for r in SalesReturn.objects.filter(
-        business=business, **year).values('date__month').annotate(total=Sum('refund_total'))}
-
-    all_months = (set(rev_by_month) | set(cogs_by_month) | set(waste_by_month)
-                  | set(expense_by_month) | set(salary_by_month)
-                  | set(sret_by_month))
+    # "Best month" this YEAR (independent of the page's date filter). It used to recompute
+    # six live year-wide aggregates (revenue/COGS/waste/expense/salary/returns by month) over
+    # every sale in the year — the #4/#6 hot queries. But net_profit is LINEAR in its args
+    # (see core/utils/profit.py), so a month's profit is exactly the SUM of its days' profits
+    # — and each day's profit is already sealed in DailyClose. So we sum the frozen daily
+    # net_profit per month (~ a year of tiny rows) and add the still-open tail (today) from
+    # live_list. Same number the old formula produced, without touching the transaction tables.
+    month_net = defaultdict(lambda: Decimal('0'))
+    year_frozen_dates = set()
+    for c in DailyClose.objects.filter(business=business, date__year=today.year):
+        month_net[c.date.month] += c.net_profit
+        year_frozen_dates.add(c.date)
+    for r in live_list:
+        if r['date'].year == today.year and r['date'] not in year_frozen_dates:
+            month_net[r['date'].month] += r['net_profit']
 
     best_month_name = 'N/A'
     best_month_profit = 0   # months with negative profit won't beat 0 — kept N/A
-    for m in all_months:
-        month_cogs = ((cogs_by_month.get(m) or Decimal('0'))
-                      - (ret_cogs_by_month.get(m) or Decimal('0')))
-        profit = net_profit(
-            rev_by_month.get(m)     or Decimal('0'),
-            month_cogs,
-            salary_by_month.get(m)  or Decimal('0'),
-            waste_by_month.get(m)   or Decimal('0'),
-            expense_by_month.get(m) or Decimal('0'),
-            sret_by_month.get(m)    or Decimal('0'),
-        )
-        if profit > best_month_profit:
-            best_month_profit = profit
+    for m, net in month_net.items():
+        if net > best_month_profit:
+            best_month_profit = net
             best_month_name = calendar.month_name[m]
             
     days_recorded = len(sorted_list)
@@ -418,124 +424,85 @@ def view_summary(request, business_slug):
         best_day = max(sorted_list, key=lambda d: d['net_profit'])
         worst_day = min(sorted_list, key=lambda d: d['net_profit'])
         
-    # ── CASH FLOW data (by PAYMENT date) ──
-    # Scope to ACTIVE sales/purchases only — a voided sale is a cancelled transaction
-    # (money refunded), so its payment must not count as cash collected/paid. (This is a
-    # management cash view, not a BIR X/Z grand-total ledger.) all_sales/all_purchases are
-    # the active, business-scoped bases; payment-date filters below still apply.
-    # Payments carry their own date, so they use the SAME resolved window as everything
-    # else — this was a third hand-rolled copy of the filter branches.
-    sales_pmts = in_period(
-        SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date')
-    purch_pmts = in_period(
-        PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
+    # ══ CASH FLOW (by PAYMENT date) — read CLOSED days from the snapshot, live today ══
+    # Same design as the accrual table: a sealed day's cash figures already live in
+    # DailyClose (collected / paid / cash_expense / cash_payroll, net of cash refunds), so we
+    # READ them instead of re-summing every payment. Only the unfrozen tail (today) is live.
+    # Scope is active sales/purchases only (a voided sale's payment isn't cash collected) —
+    # the snapshot was sealed from those same actives, so the scope is preserved.
 
-    # ── Cash refunds are CASH MOVEMENTS, and this lens was ignoring them ─────────────
-    # Fixed 2026-07-13 (user caught the discrepancy). A ₱47 cash refund to a customer is
-    # ₱47 that LEFT the drawer; a ₱180 cash refund from a supplier is ₱180 that CAME BACK.
-    # Neither was counted, so Net Cash was overstated and the two lenses refused to
-    # reconcile. Only the CASH half of a refund belongs here — a credit note moves no money,
-    # it just reduces what's owed (which is why it shows up in receivables/payables instead).
-    #
-    # They net off the side they came from, mirroring the accrual page: a customer refund
-    # reduces what we collected, a supplier refund reduces what we paid.
-    sales_refund_by_date = {r['date']: r['t'] for r in
-        sales_returns_qs.values('date').annotate(t=Sum('refund_cash'))}
-    purch_refund_by_date = {r['date']: r['t'] for r in
-        purchase_returns_qs.values('date').annotate(t=Sum('refund_cash'))}
-
+    # Window refund totals — the returns table is tiny, so always live. They drive the
+    # "gross − returned" working on the cash Revenue / Material cards.
     cash_sales_refunds = sales_returns_qs.aggregate(t=Sum('refund_cash'))['t'] or Decimal('0')
     cash_purch_refunds = purchase_returns_qs.aggregate(t=Sum('refund_cash'))['t'] or Decimal('0')
 
-    # Cash lens = money that actually MOVED (by payment date). Store credit isn't
-    # real cash, so it's excluded here (keeps this consistent with the method rows below).
-    collected_by_date = {r['date']: r['t'] for r in sales_pmts.exclude(method='credit').values('date').annotate(t=Sum('amount'))}
-    paid_by_date      = {r['date']: r['t'] for r in purch_pmts.values('date').annotate(t=Sum('amount'))}
-    expense_by_date   = {r['date']: r['t'] for r in expenses.values('date').annotate(t=Sum('total_amount'))}
+    # Method breakdowns (Cash/GCash/Bank split) are now LAZY — the ▼ popover fetches them via
+    # htmx on first open (summary_method_breakdown view), so the GROUP-BY-over-all-payments
+    # scan — the LAST O(payments) query on this page — leaves the hot path entirely. The card
+    # TOTALS already come from the snapshot, so the card shows instantly and only the dropdown
+    # detail is fetched on click. These keys stay defined (empty) for the context/templates.
+    collected_by_method = paid_by_method = []
+    collected_by_method_acc = paid_by_method_acc = []
+    # Store-credit footnote (cash Money-in popover only) — small, cash-lens; kept inline so the
+    # popover's total reconciles without a second fetch.
+    cash_store_credit = 0
+    if basis == 'cash':
+        cash_store_credit = in_period(
+            SalesPayment.objects.filter(business=business, sale__in=all_sales, method='credit'),
+            'date').aggregate(t=Sum('amount'))['t'] or 0
 
-    # Collected-by-method for the Revenue popover (Cash / GCash / …), period-scoped
-    # like the dashboard. Store credit isn't real cash, so it's excluded.
-    method_names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
-    collected_by_method = [
-        {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
-        for r in sales_pmts.exclude(method='credit')
-                 .values('method').annotate(t=Sum('amount')).order_by('-t')
-    ]
-
-    # Same idea for the Material Cost popover — how supplier payments were made.
-    purch_method_names = dict(PurchasePayment.PAYMENT_METHOD_CHOICES)
-    paid_by_method = [
-        {'label': purch_method_names.get(r['method'], r['method']), 'amount': r['t']}
-        for r in purch_pmts.values('method').annotate(t=Sum('amount')).order_by('-t')
-    ]
-
-    # Cash-lens totals (by PAYMENT date) = exactly the method-row sums above, so the
-    # Cash Flow cards reconcile with their breakdowns. These differ from grand_collected/
-    # grand_paid, which are transaction-scoped (payments on THIS period's sales/purchases)
-    # and stay the basis for the Accrual page's billed → collected → receivables chain.
-    # Both NET of cash refunds — the money genuinely moved back.
-    cash_gross_collected = sum((m['amount'] or Decimal('0')) for m in collected_by_method)
-    cash_gross_paid      = sum((m['amount'] or Decimal('0')) for m in paid_by_method)
-    cash_collected = cash_gross_collected - cash_sales_refunds
-    cash_paid      = cash_gross_paid      - cash_purch_refunds
-
-    # Store credit settled on this period's payments but excluded from cash_collected
-    # (it isn't real cash). Shown as a footnote on the Money-in popover so the cash
-    # figure visibly reconciles to the accrual "Collected" (which keeps store credit).
-    cash_store_credit = sales_pmts.filter(method='credit').aggregate(t=Sum('amount'))['t'] or 0
-
-    # Accrual-lens method breakdown — payments on THIS period's sales/purchases (by
-    # transaction), so these sum to grand_collected / grand_paid and reconcile on the
-    # Accrual page's billed → collected → receivables chain. (Credit kept: on the accrual
-    # lens store credit is a valid way a receivable was settled.)
-    collected_by_method_acc = [
-        {'label': method_names.get(r['method'], r['method']), 'amount': r['t']}
-        for r in SalesPayment.objects.filter(sale__in=sales)
-                 .values('method').annotate(t=Sum('amount')).order_by('-t')
-    ]
-    paid_by_method_acc = [
-        {'label': purch_method_names.get(r['method'], r['method']), 'amount': r['t']}
-        for r in PurchasePayment.objects.filter(purchase__in=purchases)
-                 .values('method').annotate(t=Sum('amount')).order_by('-t')
-    ]
-
-    # Payroll is cash out too, so the cash lens counts it (by work date) alongside
-    # supplier payments + expenses — mirrors the dashboard's cash Expense Cost =
-    # payroll + expenses. Waste stays OUT (it's never a cash event).
-    salary_by_date = {s['date']: (s['v'] or 0) for s in shifts_by_date}
+    # ── Cash table = sealed days from the snapshot + today live (the only open day) ──
+    # Today's cash is aggregated only over the unfrozen tail (mirrors the accrual _unfrozen),
+    # each stream net of its cash refunds — exactly the old per-day arithmetic.
+    live_collected = {r['date']: r['t'] for r in
+        _unfrozen(SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date')
+        .exclude(method='credit').values('date').annotate(t=Sum('amount'))}
+    live_paid = {r['date']: r['t'] for r in
+        _unfrozen(PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
+        .values('date').annotate(t=Sum('amount'))}
+    live_cash_exp = {r['date']: r['t'] for r in
+        _unfrozen(all_expenses, 'date').values('date').annotate(t=Sum('total_amount'))}
+    live_cash_pay = {r['date']: (r['v'] or Decimal('0')) for r in shifts_live_by_date}
+    live_sret_cash = {r['date']: r['t'] for r in
+        _unfrozen(SalesReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
+    live_pret_cash = {r['date']: r['t'] for r in
+        _unfrozen(PurchaseReturn.objects.filter(business=business), 'date').values('date').annotate(t=Sum('refund_cash'))}
 
     cash_summary_list = []
-    grand_spent = Decimal('0')
-
-    # A refund-only day is still a day cash moved, so the return maps join the key set —
-    # otherwise a day whose only event was a ₱180 supplier refund would vanish.
-    all_cash_days = (set(collected_by_date) | set(paid_by_date) | set(expense_by_date)
-                     | set(salary_by_date) | set(sales_refund_by_date) | set(purch_refund_by_date))
-
-    for d in all_cash_days:
-        collected = (collected_by_date.get(d) or Decimal('0')) - (sales_refund_by_date.get(d) or Decimal('0'))
-        paid      = (paid_by_date.get(d) or Decimal('0'))      - (purch_refund_by_date.get(d) or Decimal('0'))
-        expense   = expense_by_date.get(d) or Decimal('0')
-        salary    = salary_by_date.get(d) or Decimal('0')
+    for c in frozen_window.values():          # sealed days — read straight from the snapshot
+        spent = c.paid + c.cash_expense + c.cash_payroll
+        cash_summary_list.append({
+            'date': c.date, 'collected': c.collected, 'paid': c.paid,
+            'expense': c.cash_expense, 'salary': c.cash_payroll,
+            'spent': spent, 'net_cash': c.collected - spent,
+        })
+    live_cash_days = (set(live_collected) | set(live_paid) | set(live_cash_exp)
+                      | set(live_cash_pay) | set(live_sret_cash) | set(live_pret_cash))
+    for d in live_cash_days:
+        if d in frozen_window or not _in_window(d):   # sealed already, or outside the window
+            continue
+        collected = (live_collected.get(d) or Decimal('0')) - (live_sret_cash.get(d) or Decimal('0'))
+        paid      = (live_paid.get(d) or Decimal('0'))      - (live_pret_cash.get(d) or Decimal('0'))
+        expense   = live_cash_exp.get(d) or Decimal('0')
+        salary    = live_cash_pay.get(d) or Decimal('0')
         spent     = paid + expense + salary
         cash_summary_list.append({
-            'date': d,
-            'collected': collected,
-            'paid': paid,
-            'expense': expense,
-            'salary': salary,
-            'spent': spent,
-            'net_cash': collected - spent,
+            'date': d, 'collected': collected, 'paid': paid, 'expense': expense,
+            'salary': salary, 'spent': spent, 'net_cash': collected - spent,
         })
-        grand_spent += spent
-
     cash_summary_list.sort(key=lambda x: x['date'], reverse=True)
 
-    # Cash Expense Cost card = operating expenses = payroll + other expenses (no waste).
-    # Summed from the same per-day maps so it reconciles with the table + its dropdown.
-    cash_salary  = sum((v or 0) for v in salary_by_date.values())
-    cash_expense = sum((v or 0) for v in expense_by_date.values())
-    cash_opex    = cash_salary + cash_expense
+    # Cash totals = SUM of the rows on screen (same principle as the accrual grand totals),
+    # so every card reconciles with the table exactly. All already net of cash refunds.
+    cash_collected = sum((r['collected'] for r in cash_summary_list), Decimal('0'))
+    cash_paid      = sum((r['paid']      for r in cash_summary_list), Decimal('0'))
+    cash_salary    = sum((r['salary']    for r in cash_summary_list), Decimal('0'))
+    cash_expense   = sum((r['expense']   for r in cash_summary_list), Decimal('0'))
+    grand_spent    = sum((r['spent']     for r in cash_summary_list), Decimal('0'))
+    cash_opex      = cash_salary + cash_expense
+    # Gross = net + the refunds that were netted out — the cards show "gross − returned".
+    cash_gross_collected = cash_collected + cash_sales_refunds
+    cash_gross_paid      = cash_paid + cash_purch_refunds
 
     # Cash basis paginates too — override the accrual page_obj built above.
     if basis == 'cash':
@@ -627,6 +594,89 @@ def view_summary(request, business_slug):
     template = ('DailySummary/view_summary_cash.html' if basis == 'cash'
                 else 'DailySummary/view_summary_accrual.html')
     return render(request, template, context)
+
+
+@login_required(login_url='login')
+@permission_required('staff_view')
+@permission_required('read_only') # dev
+def summary_method_breakdown(request, business_slug):
+    """LAZY popover fragment — the Cash/GCash/Bank split for one KPI card, fetched by htmx
+    only when the ▼ dropdown is first opened. This is the ONE remaining O(payments) scan
+    (a GROUP BY method over every payment in the window); keeping it off the page load is
+    what takes the Daily Summary from ~190ms to well under 100ms. The card TOTAL is already
+    served from the snapshot, so the card is instant and only this detail is fetched on click.
+
+        ?side=collected|paid   ?lens=cash|accrual
+          cash    → by PAYMENT date within the window; store credit excluded from collected
+          accrual → by TRANSACTION (payments on the window's sales/purchases); credit kept
+
+    ⚠️ The date-window resolution below mirrors view_summary — it reads the SAME GET params
+    (period / select_month / start_date+end_date). Keep the two in step.
+    """
+    business = get_business_for_user(request.user, business_slug)
+    side = request.GET.get('side', 'collected')
+    lens = request.GET.get('lens', 'cash')
+
+    # ── window, resolved from the same GET params as the page (mirror of view_summary) ──
+    date_filters = []
+    period = request.GET.get('period', '')
+    period = {'this_week': 'week', 'this_month': 'month'}.get(period, period)
+    if period in ('week', 'last_week') and not getattr(business.plan, 'has_weekly_summary', lambda: False)():
+        period = ''
+    today = timezone.localdate()
+    iso_year, iso_week, _ = today.isocalendar()
+    form = SummaryFilterForm(request.GET or None)
+    if form.is_valid():
+        start_date = form.cleaned_data.get('start_date', '')
+        end_date = form.cleaned_data.get('end_date', '')
+        select_month = form.cleaned_data.get('select_month', '')
+        if start_date and end_date:
+            date_filters = [('range', (start_date, end_date))]
+        if select_month:
+            py, pm = map(int, select_month.split('-'))
+            date_filters = [('month', pm), ('year', py)]
+        if period == 'last_week':
+            if iso_week == 1:
+                ly = iso_year - 1
+                date_filters = [('week', date(ly, 12, 28).isocalendar()[1]), ('year', ly)]
+            else:
+                date_filters = [('week', iso_week - 1), ('year', iso_year)]
+        if period == 'week':
+            date_filters = [('week', iso_week), ('year', iso_year)]
+        if period == 'today':
+            date_filters = [('', today)]
+        if period == 'month':
+            date_filters = [('month', today.month), ('year', today.year)]
+
+    def in_period(qs, field):
+        if not date_filters:
+            return qs
+        return qs.filter(**{(f'{field}__{suffix}' if suffix else field): value
+                            for suffix, value in date_filters})
+
+    all_sales = get_queryset_for_user(request.user, Sale.objects.active()).filter(business=business)
+    all_purchases = get_queryset_for_user(request.user, Purchase.objects.active()).filter(business=business)
+
+    if side == 'paid':
+        names = dict(PurchasePayment.PAYMENT_METHOD_CHOICES)
+        if lens == 'cash':
+            qs = in_period(PurchasePayment.objects.filter(business=business, purchase__in=all_purchases), 'date')
+        else:
+            qs = PurchasePayment.objects.filter(purchase__in=in_period(all_purchases, 'purchase_date'))
+    else:  # collected
+        names = dict(SalesPayment.PAYMENT_METHOD_CHOICES)
+        if lens == 'cash':
+            # cash lens excludes store credit (it isn't real cash); accrual keeps it.
+            qs = in_period(SalesPayment.objects.filter(business=business, sale__in=all_sales), 'date').exclude(method='credit')
+        else:
+            qs = SalesPayment.objects.filter(sale__in=in_period(all_sales, 'date'))
+
+    methods = [
+        {'label': names.get(r['method'], r['method']), 'amount': r['t']}
+        for r in qs.values('method').annotate(t=Sum('amount')).order_by('-t')
+    ]
+    return render(request, 'DailySummary/partials/_method_rows.html', {'methods': methods})
+
 
 @login_required(login_url='login')
 @permission_required('staff_view')
